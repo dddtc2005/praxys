@@ -2,6 +2,7 @@
 
 export type TrainingBase = 'power' | 'hr' | 'pace';
 export type PlatformName = 'garmin' | 'stryd' | 'oura' | 'coros';
+export type PlanSourceName = PlatformName | 'ai';
 export type DataCategory = 'activities' | 'recovery' | 'fitness' | 'plan';
 
 export interface DisplayConfig {
@@ -17,7 +18,7 @@ export interface DisplayConfig {
 
 export interface SettingsConfig {
   connections: PlatformName[];
-  preferences: Partial<Record<DataCategory, PlatformName>>;
+  preferences: Partial<Record<DataCategory, PlatformName | PlanSourceName>>;
   training_base: TrainingBase;
   thresholds: Record<string, number | string | null>;
   zones: Record<string, number[]>;

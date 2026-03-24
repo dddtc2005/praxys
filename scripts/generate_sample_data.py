@@ -191,6 +191,29 @@ def generate(output_dir: str) -> None:
     _write_csv(os.path.join(output_dir, "oura", "readiness.csv"), readiness_data)
 
 
+    # --- AI training plan (sample 28-day plan) ---
+    ai_workout_types = ["easy", "threshold", "recovery", "tempo", "easy", "long_run", "rest"]
+    ai_plan_data = []
+    for i in range(28):
+        d = base_date + timedelta(days=i)
+        wt = ai_workout_types[i % len(ai_workout_types)]
+        row: dict[str, str] = {
+            "date": d.isoformat(),
+            "workout_type": wt,
+        }
+        if wt != "rest":
+            row["planned_duration_min"] = str(40 + i % 6 * 10)
+            row["planned_distance_km"] = str(round(7 + (i % 5) * 2, 1))
+            if wt not in ("recovery",):
+                row["target_power_min"] = str(148 + (ai_workout_types.index(wt) * 30))
+                row["target_power_max"] = str(201 + (ai_workout_types.index(wt) * 30))
+            row["workout_description"] = f"Sample AI-generated {wt} session"
+        else:
+            row["workout_description"] = "Full rest day."
+        ai_plan_data.append(row)
+    _write_csv(os.path.join(output_dir, "ai", "training_plan.csv"), ai_plan_data)
+
+
 if __name__ == "__main__":
     base = os.path.join(os.path.dirname(__file__), "..", "data", "sample")
     generate(base)

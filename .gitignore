@@ -2,6 +2,7 @@
 data/garmin/
 data/stryd/
 data/oura/
+data/ai/
 
 # Generated outputs
 analysis/dashboard.html
@@ -20,7 +21,9 @@ web/node_modules/
 web/dist/
 
 # IDE / tool caches
-.claude/
+.claude/*
+!.claude/commands/
+!.claude/commands/**
 .playwright-mcp/
 
 # Git worktrees

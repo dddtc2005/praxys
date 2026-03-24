@@ -7,6 +7,7 @@ from typing_extensions import TypedDict
 
 TrainingBase = Literal["power", "hr", "pace"]
 PlatformName = Literal["garmin", "stryd", "oura", "coros"]
+PlanSource = Literal["garmin", "stryd", "oura", "coros", "ai"]
 DataCategory = Literal["activities", "recovery", "fitness", "plan"]
 
 # Default zone boundaries as fractions of threshold value.
@@ -79,10 +80,13 @@ class UserConfig:
 
     def __post_init__(self) -> None:
         """Validate cross-field constraints."""
-        # Validate preferences reference connected platforms with matching capabilities
+        # Validate preferences reference connected platforms with matching capabilities.
+        # "ai" is a special plan source — not a platform, so skip platform checks for it.
         for category, platform in self.preferences.items():
             if not platform:
                 continue
+            if category == "plan" and platform == "ai":
+                continue  # AI is a valid plan source, not a platform
             if platform not in self.connections:
                 continue  # Tolerate — platform may be disconnected temporarily
             caps = PLATFORM_CAPABILITIES.get(platform)
