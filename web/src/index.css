@@ -28,6 +28,21 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Dark-theme form elements — override browser defaults */
+select,
+input[type="date"],
+input[type="number"],
+input[type="text"] {
+  color-scheme: dark;
+  background-color: var(--color-panel-light);
+  color: var(--color-text-primary);
+}
+
+select option {
+  background-color: var(--color-panel);
+  color: var(--color-text-primary);
+}
+
 /* Data numbers use mono font */
 .font-data {
   font-family: var(--font-mono);

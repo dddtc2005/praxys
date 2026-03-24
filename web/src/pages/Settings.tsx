@@ -284,7 +284,7 @@ export default function Settings() {
                 <button onClick={() => setBackfillDate('')} className="text-xs text-text-muted hover:text-text-primary">
                   Clear
                 </button>
-                <span className="text-[10px] text-accent-amber">Historical sync may take several minutes</span>
+                <span className="text-xs text-accent-amber">Historical sync may take several minutes</span>
               </>
             )}
           </div>
@@ -314,10 +314,10 @@ export default function Settings() {
                       {meta.icon}
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-text-primary">{meta.label}</p>
+                      <p className="text-base font-semibold text-text-primary">{meta.label}</p>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <span className="h-1.5 w-1.5 rounded-full bg-accent-green" />
-                        <span className="text-[10px] text-text-muted">Connected</span>
+                        <span className="text-xs text-text-muted">Connected</span>
                       </div>
                     </div>
                   </div>
@@ -331,9 +331,9 @@ export default function Settings() {
                         <span className="h-3 w-3 animate-spin rounded-full border border-accent-green border-t-transparent" />
                       </span>
                     ) : status?.status === 'done' ? (
-                      <span className="text-accent-green text-[10px]">Synced</span>
+                      <span className="text-accent-green text-xs">Synced</span>
                     ) : status?.status === 'error' ? (
-                      <span className="text-accent-red text-[10px]" title={status.error || ''}>Error</span>
+                      <span className="text-accent-red text-xs" title={status.error || ''}>Error</span>
                     ) : (
                       'Sync'
                     )}
@@ -347,7 +347,7 @@ export default function Settings() {
                     .map(([cap]) => (
                       <span
                         key={cap}
-                        className="rounded-md px-1.5 py-0.5 text-[10px] font-medium bg-panel-light text-text-muted"
+                        className="rounded-md px-1.5 py-0.5 text-xs font-medium bg-panel-light text-text-muted"
                       >
                         {CAPABILITY_LABELS[cap] || cap}
                       </span>
@@ -360,7 +360,7 @@ export default function Settings() {
                     {prefs.map((cat) => (
                       <span
                         key={cat}
-                        className="rounded-md px-1.5 py-0.5 text-[10px] font-semibold bg-accent-green/10 text-accent-green"
+                        className="rounded-md px-1.5 py-0.5 text-xs font-semibold bg-accent-green/10 text-accent-green"
                       >
                         Primary for {cat}
                       </span>
@@ -370,7 +370,7 @@ export default function Settings() {
 
                 {/* Last synced */}
                 {status?.last_sync && (
-                  <p className="text-[10px] text-text-muted">
+                  <p className="text-xs text-text-muted">
                     Last synced {new Date(status.last_sync).toLocaleString()}
                   </p>
                 )}
@@ -378,12 +378,12 @@ export default function Settings() {
                 {/* Garmin region (only for Garmin) */}
                 {platform === 'garmin' && (
                   <div className="flex items-center justify-between pt-2 border-t border-border">
-                    <span className="text-[10px] text-text-muted">Region</span>
+                    <span className="text-xs text-text-muted">Region</span>
                     <select
                       value={config.source_options?.garmin_region || 'international'}
                       onChange={(e) => handleRegionChange(e.target.value)}
                       disabled={saving}
-                      className="rounded-md bg-panel-light border border-border px-2 py-1 text-[10px] text-text-primary focus:outline-none focus:border-accent-green"
+                      className="rounded-md bg-panel-light border border-border px-2 py-1 text-xs text-text-primary focus:outline-none focus:border-accent-green"
                     >
                       <option value="international">International</option>
                       <option value="cn">China</option>
@@ -408,19 +408,19 @@ export default function Settings() {
                 key={base}
                 onClick={() => handleBaseChange(base)}
                 disabled={saving}
-                className={`rounded-xl p-4 text-left transition-all border-l-4 ${
+                className={`rounded-xl p-4 text-left transition-all border ${
                   isActive
-                    ? 'border-l-accent-green bg-accent-green/5'
-                    : 'border-l-transparent bg-panel-light hover:bg-panel-light/80'
+                    ? 'border-accent-green/40 bg-accent-green/10 shadow-[0_0_12px_rgba(0,255,135,0.08)]'
+                    : 'border-transparent bg-panel-light hover:bg-panel-light/80'
                 }`}
               >
                 <div className="flex items-center gap-2 mb-1">
                   <span className={isActive ? 'text-accent-green' : 'text-text-muted'}>{info.icon}</span>
-                  <p className={`font-semibold text-sm ${isActive ? 'text-accent-green' : 'text-text-primary'}`}>
+                  <p className={`font-semibold text-base ${isActive ? 'text-text-primary' : 'text-text-primary'}`}>
                     {info.label}
                   </p>
                 </div>
-                <p className="text-xs text-text-muted">{info.desc}</p>
+                <p className={`text-xs ${isActive ? 'text-text-secondary' : 'text-text-muted'}`}>{info.desc}</p>
               </button>
             );
           })}
@@ -430,7 +430,7 @@ export default function Settings() {
       {/* ===== SECTION 3: Data Preferences ===== */}
       <div className="rounded-2xl bg-panel p-5 sm:p-6 mb-6">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-1">Data Preferences</h2>
-        <p className="text-xs text-text-muted mb-4">Choose which platform to use for each data type</p>
+        <p className="text-sm text-text-muted mb-4">Choose which platform to use for each data type</p>
 
         <div className="space-y-3">
           {PREFERENCE_CATEGORIES.map(({ key, label, desc }) => {
@@ -441,7 +441,7 @@ export default function Settings() {
               <div key={key} className="flex items-center justify-between gap-4">
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-text-primary">{label}</p>
-                  <p className="text-[10px] text-text-muted">{desc}</p>
+                  <p className="text-xs text-text-muted">{desc}</p>
                 </div>
                 <div className="flex rounded-lg border border-border overflow-hidden shrink-0">
                   {providers.map((p) => {
@@ -471,7 +471,7 @@ export default function Settings() {
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
               <p className="text-sm font-medium text-text-primary">Fitness</p>
-              <p className="text-[10px] text-text-muted">VO2max, CP, LTHR, training status</p>
+              <p className="text-xs text-text-muted">VO2max, CP, LTHR, training status</p>
             </div>
             <span className="rounded-lg bg-panel-light border border-border px-3 py-1.5 text-xs text-text-muted">
               Auto-merged
@@ -509,7 +509,7 @@ export default function Settings() {
                 key={key}
                 className="rounded-xl bg-panel-light p-3 flex flex-col"
               >
-                <p className="text-[10px] text-text-muted mb-2">{label}</p>
+                <p className="text-xs text-text-muted mb-2">{label}</p>
 
                 {isEditing ? (
                   <div className="flex flex-col gap-1.5">
@@ -527,13 +527,13 @@ export default function Settings() {
                     <div className="flex gap-1">
                       <button
                         onClick={() => handleThresholdSave(key)}
-                        className="flex-1 rounded-md bg-accent-green/20 py-1 text-[10px] font-semibold text-accent-green"
+                        className="flex-1 rounded-md bg-accent-green/20 py-1 text-xs font-semibold text-accent-green"
                       >
                         Save
                       </button>
                       <button
                         onClick={() => setEditingThreshold(null)}
-                        className="flex-1 rounded-md bg-panel py-1 text-[10px] text-text-muted"
+                        className="flex-1 rounded-md bg-panel py-1 text-xs text-text-muted"
                       >
                         Cancel
                       </button>
@@ -551,7 +551,7 @@ export default function Settings() {
                       {value != null ? value : '—'}
                       <span className="text-xs font-normal text-text-muted ml-1">{value != null ? unit : ''}</span>
                     </p>
-                    <span className={`mt-auto rounded-md px-1.5 py-0.5 text-[10px] font-medium self-start ${badgeClass}`}>
+                    <span className={`mt-auto rounded-md px-1.5 py-0.5 text-xs font-medium self-start ${badgeClass}`}>
                       {badgeText}
                     </span>
                   </button>
