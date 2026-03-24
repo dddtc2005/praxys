@@ -811,6 +811,11 @@ def get_dashboard_data() -> dict:
     if current_tsb < -25:
         warnings.append(f"High fatigue (TSB = {current_tsb:.0f})")
 
+    # AI plan staleness check
+    if config.preferences.get("plan") == "ai":
+        from api.ai import check_plan_staleness
+        warnings.extend(check_plan_staleness(data_dir, latest_cp))
+
     splits = data["splits"]
 
     # Get threshold value for the active training base

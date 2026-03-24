@@ -1,0 +1,29 @@
+date,workout_type,planned_duration_min,planned_distance_km,target_power_min,target_power_max,workout_description
+2026-03-15,easy,50,9.0,148,201,Easy aerobic run. Zone 1-2. Focus on relaxed form.
+2026-03-16,threshold,60,11.0,241,282,2x20min threshold intervals at 90-105% CP with 5min recovery jog.
+2026-03-17,recovery,35,6.0,,,Recovery jog or rest. Keep effort very easy.
+2026-03-18,tempo,55,10.5,201,241,Steady tempo at 75-90% CP. Build aerobic endurance.
+2026-03-19,easy,50,9.0,148,201,Easy aerobic run. Zone 1-2.
+2026-03-20,long_run,90,17.0,148,214,Long run with last 30min at marathon-specific power (80% CP).
+2026-03-21,rest,,,,,Full rest day.
+2026-03-22,easy,45,8.0,148,201,Easy aerobic run. Recovery from long run.
+2026-03-23,interval,55,10.0,282,322,5x4min VO2max intervals at 105-120% CP. 3min jog recovery.
+2026-03-24,recovery,35,6.0,,,Recovery jog. Very easy effort.
+2026-03-25,tempo,60,11.0,201,241,Progressive tempo: first 30min Zone 2 then 30min Zone 3.
+2026-03-26,easy,50,9.0,148,201,Easy aerobic run. Zone 1-2.
+2026-03-27,long_run,100,19.0,148,214,Long run building distance. Last 40min at marathon power.
+2026-03-28,rest,,,,,Full rest day.
+2026-03-29,easy,50,9.5,148,201,Easy aerobic run. Start of build week 3.
+2026-03-30,threshold,65,12.0,241,282,3x15min threshold at 90-105% CP. Building threshold volume.
+2026-03-31,recovery,35,6.0,,,Recovery jog.
+2026-04-01,tempo,60,11.0,201,241,Steady tempo run at 75-90% CP.
+2026-04-02,easy,50,9.0,148,201,Easy aerobic run.
+2026-04-03,long_run,110,21.0,148,214,Peak long run. Marathon-specific last 45min.
+2026-04-04,rest,,,,,Full rest day.
+2026-04-05,easy,40,7.0,148,201,Recovery week. Easy aerobic run.
+2026-04-06,tempo,45,8.5,201,241,Shorter tempo at 75-90% CP. Reduced volume.
+2026-04-07,recovery,30,5.0,,,Easy recovery. Absorb training.
+2026-04-08,easy,40,7.5,148,201,Easy aerobic. Recovery week.
+2026-04-09,threshold,45,8.5,241,282,1x20min threshold. Maintain sharpness at reduced volume.
+2026-04-10,easy,40,7.0,148,201,Easy aerobic run.
+2026-04-11,rest,,,,,Full rest day. End of recovery week.

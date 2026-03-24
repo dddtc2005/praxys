@@ -35,6 +35,16 @@ const PLATFORM_META: Record<string, { label: string; color: string; icon: JSX.El
       </svg>
     ),
   },
+  ai: {
+    label: 'AI',
+    color: '#f59e0b',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-6 h-6">
+        <path d="M12 2a4 4 0 0 1 4 4c0 1.1-.9 2-2 2h-4c-1.1 0-2-.9-2-2a4 4 0 0 1 4-4z" />
+        <path d="M9 8v4M15 8v4M7 12h10M9 16v3M15 16v3M12 12v4" strokeLinecap="round" />
+      </svg>
+    ),
+  },
 };
 
 const CAPABILITY_LABELS: Record<string, string> = {
@@ -434,7 +444,9 @@ export default function Settings() {
 
         <div className="space-y-3">
           {PREFERENCE_CATEGORIES.map(({ key, label, desc }) => {
-            const providers = (availableProviders[key] || []).filter((p) => connections.includes(p));
+            const providers = (availableProviders[key] || []).filter(
+              (p) => connections.includes(p) || (key === 'plan' && p === 'ai')
+            );
             const current = config.preferences[key] || providers[0];
 
             return (

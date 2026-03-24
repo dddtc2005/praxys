@@ -72,3 +72,4 @@ def _ensure_registered() -> None:
     import analysis.providers.garmin  # noqa: F401
     import analysis.providers.stryd  # noqa: F401
     import analysis.providers.oura  # noqa: F401
+    import analysis.providers.ai  # noqa: F401
