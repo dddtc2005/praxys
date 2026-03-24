@@ -104,16 +104,33 @@ def fetch_activities_api(
         distance_km = round(distance_m / 1000, 2)
         moving_time = act.get("moving_time") or act.get("elapsed_time")
 
+        # Convert seconds_in_zones list to JSON string for CSV storage
+        zones_list = act.get("seconds_in_zones")
+        zones_str = str(zones_list) if zones_list else ""
+
         row = {
             "date": start_local.strftime("%Y-%m-%d"),
             "start_time": start_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "name": act.get("name", ""),
+            "stryd_type": act.get("type", ""),
+            "surface_type": act.get("surface_type", ""),
             "avg_power": _round_or_empty(act.get("average_power")),
             "max_power": _round_or_empty(act.get("max_power")),
-            "form_power": "",
+            "avg_hr": _round_or_empty(act.get("average_heart_rate")),
+            "max_hr": _round_or_empty(act.get("max_heart_rate")),
+            "avg_cadence": _round_or_empty(act.get("average_cadence")),
+            "avg_stride_length": _round_or_empty(act.get("average_stride_length"), 3),
+            "avg_oscillation": _round_or_empty(act.get("average_oscillation")),
             "leg_spring_stiffness": _round_or_empty(act.get("average_leg_spring")),
             "ground_time_ms": _round_or_empty(act.get("average_ground_time")),
+            "elevation_gain_m": _round_or_empty(act.get("total_elevation_gain")),
+            "avg_speed_ms": _round_or_empty(act.get("average_speed"), 3),
             "rss": _round_or_empty(act.get("stress")),
+            "lower_body_stress": _round_or_empty(act.get("lower_body_stress")),
             "cp_estimate": _round_or_empty(act.get("ftp")),
+            "seconds_in_zones": zones_str,
+            "temperature_c": _round_or_empty(act.get("temperature")),
+            "humidity": _round_or_empty(act.get("humidity"), 3),
             "distance_km": str(distance_km),
             "duration_sec": str(moving_time) if moving_time is not None else "",
         }
@@ -241,11 +258,11 @@ def fetch_training_plan_api(
     return rows
 
 
-def _round_or_empty(val) -> str:
-    """Round a numeric value to 1 decimal, or return empty string if None."""
+def _round_or_empty(val, decimals: int = 1) -> str:
+    """Round a numeric value to N decimals, or return empty string if None."""
     if val is None:
         return ""
-    return str(round(float(val), 1))
+    return str(round(float(val), decimals))
 
 
 # --- Sync entry point ---

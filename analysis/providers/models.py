@@ -53,7 +53,7 @@ FITNESS_REQUIRED = ["date"]
 FITNESS_OPTIONAL = [
     "vo2max", "training_status", "training_readiness",
     "cp_estimate", "lthr_bpm", "lt_pace_sec_km",
-    "form_power_trend",
+    "leg_spring_stiffness", "avg_oscillation", "avg_stride_length",
 ]
 
 PLAN_REQUIRED = ["date", "workout_type"]

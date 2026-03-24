@@ -124,7 +124,7 @@ All providers map platform-specific columns to these canonical names. Data stays
 
 **Fitness columns:**
 - Required: `date`
-- Optional: `vo2max`, `training_status`, `training_readiness`, `cp_estimate`, `lthr_bpm`, `lt_pace_sec_km`, `form_power_trend`
+- Optional: `vo2max`, `training_status`, `training_readiness`, `cp_estimate`, `lthr_bpm`, `lt_pace_sec_km`, `leg_spring_stiffness`, `avg_oscillation`, `avg_stride_length`
 
 **Planned workout columns:**
 - Required: `date`, `workout_type`

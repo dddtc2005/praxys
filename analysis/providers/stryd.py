@@ -42,7 +42,7 @@ class StrydFitnessProvider(FitnessProvider):
         if df.empty:
             return df
         # Extract fitness-relevant columns from Stryd power data
-        fitness_cols = ["date", "cp_estimate", "form_power", "leg_spring_stiffness"]
+        fitness_cols = ["date", "cp_estimate", "leg_spring_stiffness", "avg_oscillation", "avg_stride_length"]
         available = [c for c in fitness_cols if c in df.columns]
         df = df[available].copy()
         if since and "date" in df.columns:

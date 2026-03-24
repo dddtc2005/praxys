@@ -91,7 +91,7 @@ def match_activities(garmin: pd.DataFrame, stryd: pd.DataFrame, window_minutes: 
                 best_j = candidates[0][0]
 
         used_stryd.add(best_j)
-        # Fill new columns (Stryd-only data like rss, cp_estimate, form_power)
+        # Fill new columns (Stryd-only data like rss, cp_estimate, oscillation)
         for col in new_cols:
             garmin.at[i, col] = stryd.at[best_j, col]
         # For shared columns, prefer Stryd value if present (e.g., more accurate power)
