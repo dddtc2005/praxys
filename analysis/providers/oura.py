@@ -1,20 +1,20 @@
-"""Oura provider — sleep and readiness health data."""
+"""Oura provider — sleep and readiness recovery data."""
 import os
 from datetime import date
 
 import pandas as pd
 
 from analysis.data_loader import _read_csv_safe
-from analysis.providers.base import HealthProvider
-from analysis.providers import register_health
+from analysis.providers.base import RecoveryProvider
+from analysis.providers import register_recovery
 
 
-class OuraHealthProvider(HealthProvider):
-    """Load Oura sleep and readiness data, merged into a single health DataFrame."""
+class OuraRecoveryProvider(RecoveryProvider):
+    """Load Oura sleep and readiness data, merged into a single recovery DataFrame."""
 
     name = "oura"
 
-    def load_health(
+    def load_recovery(
         self, data_dir: str, since: date | None = None
     ) -> pd.DataFrame:
         sleep = _read_csv_safe(os.path.join(data_dir, "oura", "sleep.csv"))
@@ -40,4 +40,4 @@ class OuraHealthProvider(HealthProvider):
 
 
 # Register provider
-register_health("oura", OuraHealthProvider)
+register_recovery("oura", OuraRecoveryProvider)

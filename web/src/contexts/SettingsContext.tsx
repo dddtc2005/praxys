@@ -5,7 +5,8 @@ import type { DisplayConfig, SettingsConfig, SettingsResponse, TrainingBase, Thr
 interface SettingsContextValue {
   config: SettingsConfig | null;
   display: DisplayConfig | null;
-  availableSources: Record<string, string[]>;
+  platformCapabilities: Record<string, Record<string, boolean>>;
+  availableProviders: Record<string, string[]>;
   availableBases: TrainingBase[];
   effectiveThresholds: Record<string, ThresholdValue>;
   loading: boolean;
@@ -28,7 +29,8 @@ const DEFAULT_DISPLAY: DisplayConfig = {
 const SettingsContext = createContext<SettingsContextValue>({
   config: null,
   display: DEFAULT_DISPLAY,
-  availableSources: {},
+  platformCapabilities: {},
+  availableProviders: {},
   availableBases: ['power', 'hr', 'pace'],
   effectiveThresholds: {},
   loading: true,
@@ -40,7 +42,8 @@ const SettingsContext = createContext<SettingsContextValue>({
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<SettingsConfig | null>(null);
   const [display, setDisplay] = useState<DisplayConfig>(DEFAULT_DISPLAY);
-  const [availableSources, setAvailableSources] = useState<Record<string, string[]>>({});
+  const [platformCapabilities, setPlatformCapabilities] = useState<Record<string, Record<string, boolean>>>({});
+  const [availableProviders, setAvailableProviders] = useState<Record<string, string[]>>({});
   const [availableBases, setAvailableBases] = useState<TrainingBase[]>(['power', 'hr', 'pace']);
   const [effectiveThresholds, setEffectiveThresholds] = useState<Record<string, ThresholdValue>>({});
   const [loading, setLoading] = useState(true);
@@ -59,7 +62,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
         setConfig(data.config);
         setDisplay(data.display);
-        setAvailableSources(data.available_sources);
+        setPlatformCapabilities(data.platform_capabilities ?? {});
+        setAvailableProviders(data.available_providers ?? {});
         setAvailableBases(data.available_bases);
         setEffectiveThresholds(data.effective_thresholds ?? {});
         setLoading(false);
@@ -88,7 +92,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   return (
     <SettingsContext.Provider
-      value={{ config, display, availableSources, availableBases, effectiveThresholds, loading, error, updateSettings, refetch }}
+      value={{ config, display, platformCapabilities, availableProviders, availableBases, effectiveThresholds, loading, error, updateSettings, refetch }}
     >
       {children}
     </SettingsContext.Provider>

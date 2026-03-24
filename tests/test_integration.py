@@ -58,7 +58,6 @@ def sample_data_dir():
                 "start_time": f"{d.isoformat()}T07:01:00Z",
                 "avg_power": str(round(235 + i * 2, 1)),
                 "max_power": str(round(300 + i * 3, 1)),
-                "form_power": str(round(60 + i * 0.5, 1)),
                 "leg_spring_stiffness": str(round(10.0 + i * 0.1, 1)),
                 "ground_time_ms": str(210 + i),
                 "rss": str(round(70 + i * 3, 1)),

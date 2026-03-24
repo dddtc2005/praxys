@@ -6,8 +6,8 @@ from typing import Any
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from analysis.config import load_config, save_config, TrainingBase
-from analysis.providers import available_providers, get_threshold_provider
+from analysis.config import load_config, save_config, TrainingBase, PLATFORM_CAPABILITIES
+from analysis.providers import available_providers, get_fitness_provider
 from analysis.providers.models import ThresholdEstimate
 from analysis.training_base import get_display_config
 from api.deps import invalidate_cache
@@ -17,38 +17,44 @@ router = APIRouter()
 
 class SettingsUpdate(BaseModel):
     """Partial update for user settings."""
+    connections: list[str] | None = None
+    preferences: dict[str, str] | None = None
     training_base: TrainingBase | None = None
-    sources: dict[str, str] | None = None
     thresholds: dict[str, Any] | None = None
     zones: dict[str, list[float]] | None = None
     goal: dict[str, Any] | None = None
     source_options: dict[str, Any] | None = None
 
 
-def _detect_thresholds() -> dict:
-    """Auto-detect thresholds from all registered threshold providers."""
+def _detect_thresholds(connections: list[str]) -> dict:
+    """Auto-detect thresholds from connected fitness providers."""
     base_dir = os.path.join(os.path.dirname(__file__), "..", "..")
     data_dir = os.path.join(base_dir, "data")
 
     result: dict[str, Any] = {}
-    providers = available_providers().get("threshold", [])
 
-    for name in providers:
+    for conn in connections:
+        caps = PLATFORM_CAPABILITIES.get(conn, {})
+        if not caps.get("fitness"):
+            continue
         try:
-            provider = get_threshold_provider(name)
+            provider = get_fitness_provider(conn)
             detected = provider.detect_thresholds(data_dir)
             # Collect non-None values with their source
             if detected.cp_watts and "cp_watts" not in result:
-                result["cp_watts"] = {"value": detected.cp_watts, "source": name}
+                result["cp_watts"] = {"value": detected.cp_watts, "source": conn}
             if detected.lthr_bpm and "lthr_bpm" not in result:
-                result["lthr_bpm"] = {"value": detected.lthr_bpm, "source": name}
+                result["lthr_bpm"] = {"value": detected.lthr_bpm, "source": conn}
             if detected.threshold_pace_sec_km and "threshold_pace_sec_km" not in result:
-                result["threshold_pace_sec_km"] = {"value": detected.threshold_pace_sec_km, "source": name}
+                result["threshold_pace_sec_km"] = {"value": detected.threshold_pace_sec_km, "source": conn}
             if detected.max_hr_bpm and "max_hr_bpm" not in result:
-                result["max_hr_bpm"] = {"value": detected.max_hr_bpm, "source": name}
+                result["max_hr_bpm"] = {"value": detected.max_hr_bpm, "source": conn}
             if detected.rest_hr_bpm and "rest_hr_bpm" not in result:
-                result["rest_hr_bpm"] = {"value": detected.rest_hr_bpm, "source": name}
-        except (KeyError, Exception):
+                result["rest_hr_bpm"] = {"value": detected.rest_hr_bpm, "source": conn}
+        except KeyError:
+            continue  # Provider not registered for this connection
+        except Exception as e:
+            print(f"  Warning: threshold detection failed for {conn}: {e}")
             continue
 
     return result
@@ -81,17 +87,19 @@ def resolve_thresholds(config_thresholds: dict, detected: dict) -> dict:
 
 @router.get("/settings")
 def get_settings() -> dict:
-    """Return current user config, available providers, detected thresholds, and display config."""
+    """Return current user config, platform capabilities, detected thresholds, and display config."""
     config = load_config()
     avail = available_providers()
-    detected = _detect_thresholds()
+    detected = _detect_thresholds(config.connections)
     effective = resolve_thresholds(config.thresholds, detected)
 
     return {
         "config": asdict(config),
-        "available_sources": {
+        "platform_capabilities": PLATFORM_CAPABILITIES,
+        "available_providers": {
             "activities": avail.get("activities", []),
-            "health": avail.get("health", []),
+            "recovery": avail.get("recovery", []),
+            "fitness": avail.get("fitness", []),
             "plan": avail.get("plan", []),
         },
         "available_bases": ["power", "hr", "pace"],
@@ -108,8 +116,10 @@ def update_settings(body: SettingsUpdate) -> dict:
 
     if body.training_base is not None:
         config.training_base = body.training_base
-    if body.sources is not None:
-        config.sources.update(body.sources)
+    if body.connections is not None:
+        config.connections = body.connections
+    if body.preferences is not None:
+        config.preferences.update(body.preferences)
     if body.thresholds is not None:
         config.thresholds.update(body.thresholds)
     if body.zones is not None:

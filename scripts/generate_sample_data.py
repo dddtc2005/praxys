@@ -87,23 +87,63 @@ def generate(output_dir: str) -> None:
     _write_csv(os.path.join(output_dir, "garmin", "daily_metrics.csv"), daily_metrics)
 
     # --- Stryd power data ---
+    stryd_types = ["easy", "recovery", "tempo", "threshold", "easy"]
+    surfaces = ["road", "road", "trail", "road", "trail"]
     power_data = []
     for i in range(14):
         d = base_date + timedelta(days=i)
         power_data.append({
             "date": d.isoformat(),
             "start_time": f"{d.isoformat()}T07:01:00Z",
+            "name": f"Sample Run Day {i + 1}",
+            "stryd_type": stryd_types[i % len(stryd_types)],
+            "surface_type": surfaces[i % len(surfaces)],
             "avg_power": str(round(220 + i * 2, 1)),
             "max_power": str(round(300 + i * 3, 1)),
-            "form_power": str(round(58 + i * 0.5, 1)),
+            "avg_hr": str(140 + i % 10),
+            "max_hr": str(165 + i % 10),
+            "avg_cadence": str(170 + i % 5),
+            "avg_stride_length": str(round(0.95 + i * 0.01, 3)),
+            "avg_oscillation": str(round(6.5 + i * 0.1, 1)),
             "leg_spring_stiffness": str(round(9.5 + i * 0.1, 1)),
             "ground_time_ms": str(215 + i),
+            "elevation_gain_m": str(round(20 + i * 3, 1)),
+            "avg_speed_ms": str(round(2.7 + i * 0.05, 3)),
             "rss": str(round(65 + i * 3, 1)),
+            "lower_body_stress": str(round(60 + i * 2, 1)),
             "cp_estimate": str(round(268 + i * 0.3, 1)),
+            "seconds_in_zones": str([2000 + i * 50, 300 + i * 10, 100 + i * 5, 50 + i * 3, 30 + i * 2]),
+            "temperature_c": str(round(12 + i * 0.5, 1)),
+            "humidity": str(round(0.5 + i * 0.02, 3)),
             "distance_km": str(round(8 + (i % 5) * 2, 1)),
             "duration_sec": str(3000 + i * 120),
         })
     _write_csv(os.path.join(output_dir, "stryd", "power_data.csv"), power_data)
+
+    # --- Stryd activity splits ---
+    stryd_splits = []
+    for i in range(14):
+        act_id = str(4550097443913728 + i)  # Synthetic Stryd activity IDs
+        n_splits = 3 + i % 4
+        for s in range(n_splits):
+            is_work = s > 0 and s < n_splits - 1
+            base_power = 240 + i * 2 if is_work else 190 + i
+            stryd_splits.append({
+                "activity_id": act_id,
+                "split_num": str(s + 1),
+                "distance_km": str(round(1.0 + s * 0.3, 3)),
+                "duration_sec": str(300 + s * 60),
+                "avg_power": str(round(base_power + s * 5, 1)),
+                "avg_hr": str(135 + s * 7),
+                "avg_cadence": str(168 + s * 2),
+                "avg_pace_sec_km": str(round(300 + s * 10, 1)),
+                "avg_speed_ms": str(round(2.8 + s * 0.15, 3)),
+                "avg_ground_time_ms": str(round(260 - s * 8, 1)),
+                "avg_oscillation": str(round(6.5 + s * 0.2, 1)),
+                "avg_leg_spring": str(round(9.5 + s * 0.3, 1)),
+                "elevation_change_m": str(round(-1 + s * 2, 1)),
+            })
+    _write_csv(os.path.join(output_dir, "stryd", "activity_splits.csv"), stryd_splits)
 
     # --- Stryd training plan ---
     workout_types = ["steady aerobic", "recovery", "tempo", "threshold", "easy"]

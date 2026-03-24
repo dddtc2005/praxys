@@ -1,17 +1,37 @@
-"""User configuration: training base, data sources, thresholds, zones, goals."""
+"""User configuration: connections, preferences, training base, thresholds, zones, goals."""
 import json
 import os
 from dataclasses import dataclass, field, asdict
 from typing import Literal
+from typing_extensions import TypedDict
 
 TrainingBase = Literal["power", "hr", "pace"]
+PlatformName = Literal["garmin", "stryd", "oura", "coros"]
+DataCategory = Literal["activities", "recovery", "fitness", "plan"]
 
 # Default zone boundaries as fractions of threshold value.
 # 4 boundaries define 5 zones (Z1..Z5).
 DEFAULT_ZONES: dict[str, list[float]] = {
     "power": [0.55, 0.75, 0.90, 1.05],   # Coggan-style
     "hr": [0.72, 0.82, 0.89, 0.96],       # Friel-style
-    "pace": [1.29, 1.14, 1.06, 1.00],     # Inverted (slower → faster)
+    "pace": [1.29, 1.14, 1.06, 1.00],     # Inverted (slower -> faster)
+}
+
+
+class PlatformCaps(TypedDict):
+    """Capability flags for a single platform."""
+    activities: bool
+    recovery: bool
+    fitness: bool
+    plan: bool
+
+
+# What each platform can provide.
+PLATFORM_CAPABILITIES: dict[str, PlatformCaps] = {
+    "garmin": {"activities": True, "recovery": True, "fitness": True, "plan": False},
+    "stryd":  {"activities": True, "recovery": False, "fitness": True, "plan": True},
+    "oura":   {"activities": False, "recovery": True, "fitness": False, "plan": False},
+    "coros":  {"activities": True, "recovery": False, "fitness": True, "plan": False},
 }
 
 
@@ -19,13 +39,20 @@ DEFAULT_ZONES: dict[str, list[float]] = {
 class UserConfig:
     """Top-level user configuration stored as JSON."""
 
-    training_base: TrainingBase = "power"
+    # Which platforms the user has connected
+    connections: list[str] = field(default_factory=lambda: [
+        "garmin", "stryd", "oura",
+    ])
 
-    sources: dict[str, str] = field(default_factory=lambda: {
+    # Which source to trust per data category (where choice is needed).
+    # Fitness has no preference — auto-merged from all connected sources.
+    preferences: dict[str, str] = field(default_factory=lambda: {
         "activities": "garmin",
-        "health": "oura",
+        "recovery": "oura",
         "plan": "stryd",
     })
+
+    training_base: TrainingBase = "power"
 
     thresholds: dict = field(default_factory=lambda: {
         "cp_watts": None,
@@ -50,6 +77,21 @@ class UserConfig:
         "garmin_region": "international",  # "international" or "cn"
     })
 
+    def __post_init__(self) -> None:
+        """Validate cross-field constraints."""
+        # Validate preferences reference connected platforms with matching capabilities
+        for category, platform in self.preferences.items():
+            if not platform:
+                continue
+            if platform not in self.connections:
+                continue  # Tolerate — platform may be disconnected temporarily
+            caps = PLATFORM_CAPABILITIES.get(platform)
+            if caps and category in caps and not caps[category]:
+                print(f"  Warning: {platform} does not support {category}, "
+                      f"but is set as preference")
+        # Filter empty strings from connections (from migration edge cases)
+        self.connections = [c for c in self.connections if c]
+
 
 # ---------------------------------------------------------------------------
 # Persistence
@@ -60,6 +102,26 @@ _DEFAULT_CONFIG_PATH = os.path.join(
 )
 
 
+def _migrate_config(data: dict) -> dict:
+    """Migrate old config format (sources) to new format (connections + preferences).
+
+    Old format:  {"sources": {"activities": "garmin", "health": "oura", "plan": "stryd"}}
+    New format:  {"connections": ["garmin", "stryd", "oura"],
+                  "preferences": {"activities": "garmin", "recovery": "oura", "plan": "stryd"}}
+    """
+    if "sources" in data and "connections" not in data:
+        sources = data.pop("sources")
+        # Derive connections from unique source values, filtering empty strings
+        data["connections"] = [v for v in dict.fromkeys(sources.values()) if v]
+        # Map old "health" key to new "recovery" key
+        data["preferences"] = {
+            "activities": sources.get("activities", "garmin"),
+            "recovery": sources.get("health", "oura"),
+            "plan": sources.get("plan", "stryd"),
+        }
+    return data
+
+
 def load_config(config_path: str | None = None) -> UserConfig:
     """Load user config from JSON file. Returns defaults if file missing."""
     path = config_path or _DEFAULT_CONFIG_PATH
@@ -67,6 +129,7 @@ def load_config(config_path: str | None = None) -> UserConfig:
         return UserConfig()
     with open(path, encoding="utf-8") as f:
         data = json.load(f)
+    data = _migrate_config(data)
     return UserConfig(**data)
 
 

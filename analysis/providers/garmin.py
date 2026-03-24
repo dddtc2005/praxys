@@ -1,13 +1,13 @@
-"""Garmin provider — activities, splits, partial health, thresholds."""
+"""Garmin provider — activities, splits, recovery, fitness (with thresholds)."""
 import os
 from datetime import date
 
 import pandas as pd
 
 from analysis.data_loader import _read_csv_safe
-from analysis.providers.base import ActivityProvider, HealthProvider, ThresholdProvider
+from analysis.providers.base import ActivityProvider, RecoveryProvider, FitnessProvider
 from analysis.providers.models import ThresholdEstimate
-from analysis.providers import register_activity, register_health, register_threshold
+from analysis.providers import register_activity, register_recovery, register_fitness
 
 
 class GarminActivityProvider(ActivityProvider):
@@ -34,12 +34,12 @@ class GarminActivityProvider(ActivityProvider):
         return df
 
 
-class GarminHealthProvider(HealthProvider):
-    """Load Garmin daily metrics (resting HR, training readiness) as health data."""
+class GarminRecoveryProvider(RecoveryProvider):
+    """Load Garmin daily metrics (resting HR, training readiness) as recovery data."""
 
     name = "garmin"
 
-    def load_health(
+    def load_recovery(
         self, data_dir: str, since: date | None = None
     ) -> pd.DataFrame:
         df = _read_csv_safe(
@@ -47,7 +47,7 @@ class GarminHealthProvider(HealthProvider):
         )
         if df.empty:
             return df
-        # Map Garmin columns to canonical health columns
+        # Map Garmin columns to canonical recovery columns
         rename = {"resting_hr": "resting_hr"}
         if "training_readiness" in df.columns:
             rename["training_readiness"] = "readiness_score"
@@ -57,10 +57,27 @@ class GarminHealthProvider(HealthProvider):
         return df
 
 
-class GarminThresholdProvider(ThresholdProvider):
-    """Detect thresholds from Garmin daily metrics (VO2max-derived estimates)."""
+class GarminFitnessProvider(FitnessProvider):
+    """Load Garmin fitness metrics (VO2max, training status, LT) and detect thresholds."""
 
     name = "garmin"
+
+    def load_fitness(
+        self, data_dir: str, since: date | None = None
+    ) -> pd.DataFrame:
+        df = _read_csv_safe(
+            os.path.join(data_dir, "garmin", "daily_metrics.csv")
+        )
+        if df.empty:
+            return df
+        # Keep fitness-relevant columns
+        fitness_cols = ["date", "vo2max", "training_status", "training_readiness",
+                        "lthr_bpm", "lt_pace_sec_km", "lt_power_watts", "resting_hr"]
+        available = [c for c in fitness_cols if c in df.columns]
+        df = df[available].copy()
+        if since and "date" in df.columns:
+            df = df[df["date"] >= since]
+        return df
 
     def detect_thresholds(self, data_dir: str) -> ThresholdEstimate:
         result = ThresholdEstimate(source="auto")
@@ -110,5 +127,5 @@ class GarminThresholdProvider(ThresholdProvider):
 
 # Register providers
 register_activity("garmin", GarminActivityProvider)
-register_health("garmin", GarminHealthProvider)
-register_threshold("garmin", GarminThresholdProvider)
+register_recovery("garmin", GarminRecoveryProvider)
+register_fitness("garmin", GarminFitnessProvider)

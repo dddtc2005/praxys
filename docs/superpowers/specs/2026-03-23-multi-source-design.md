@@ -1,6 +1,7 @@
 # Multi-Source Data Architecture & Training Base System
 
 **Date:** 2026-03-23
+**Updated:** 2026-03-24 (connections-first model, 4 data categories)
 **Status:** Approved
 **Scope:** Sub-project 1 of 3 (core backend + settings API)
 
@@ -11,20 +12,73 @@ The dashboard is hardcoded to Garmin + Stryd + Oura with power as the only train
 - Switching data sources without rewriting code
 - HR-based or pace-based training approaches
 
-## Solution: Provider Pattern
+## Solution: Connections-First Provider Pattern
 
-Abstract provider interfaces per data category. Each platform implements what it supports. Providers output canonical data models. User selects training base (power/HR/pace) which cascades through zones, load calculation, diagnosis, and display.
+Users connect platforms (Garmin, Stryd, Oura, etc.), and the system fetches all available data from each. Users then set preferences for which source to trust per data category where multiple sources overlap.
+
+```
+Layer 1: Connections — which platforms are linked (garmin, stryd, oura, coros, polar...)
+Layer 2: Sync — fetch ALL available data from each connected platform
+Layer 3: Preferences — user chooses which source to trust per data type (where needed)
+```
+
+Providers output canonical data models. User selects training base (power/HR/pace) which cascades through zones, load calculation, diagnosis, and display.
 
 ## Data Categories
 
-| Category | Interface | Canonical output | Initial providers |
-|----------|-----------|------------------|-------------------|
-| Activities | `ActivityProvider` | distance, duration, HR, power, pace, cadence, elevation, splits | Garmin (primary), Stryd (power overlay) |
-| Health | `HealthProvider` | sleep, HRV, readiness, resting HR, body temp | Oura |
-| Plan | `PlanProvider` | planned workouts, targets | Stryd |
-| Thresholds | `ThresholdProvider` | CP, LTHR, threshold pace | Stryd (CP), Garmin (LTHR) |
+| Category | What | Example sources | User preference? |
+|----------|------|-----------------|-----------------|
+| **Activities** | Workouts + splits (all sport types) | Garmin, Stryd, Coros, Polar | Yes — pick primary, others auto-enrich |
+| **Recovery** | Sleep, HRV, readiness | Oura, Garmin, Whoop | Yes — pick one source |
+| **Fitness** | VO2max, training status, CP, LTHR, LT pace | Garmin, Stryd | No — auto-merge all connected sources |
+| **Plan** | Training plan / planned workouts | Stryd, TrainingPeaks | Yes — pick one source |
 
-Stryd acts as a secondary activity provider that enriches Garmin data via existing `match_activities()` merge.
+### Why 4 categories instead of 3
+
+- Recovery (sleep/HRV) and Fitness (VO2max/CP/training status) come from different device types
+- Oura is great for recovery but has zero fitness data
+- Garmin/Stryd provide fitness metrics but their recovery data is secondary
+- Combining them into "Health" would force users to pick one source and lose the other's unique data
+
+### Why Fitness has no preference
+
+- Garmin provides VO2max, LTHR, training status, training readiness
+- Stryd provides CP estimate, form power trends
+- These are complementary, not competing — just merge everything
+- `training_base` (power/HR/pace) already determines which threshold drives zones/load/diagnosis
+
+### Activity handling
+
+**Auto-merge with primary wins conflicts:**
+- Primary source (e.g., Garmin) provides the base record (HR, GPS, elevation, cadence)
+- Secondary sources (e.g., Stryd) add missing fields (power, form metrics, RSS, CP)
+- For conflicting fields (distance, duration), primary source wins
+- Uses existing `match_activities()` merge logic (date + timestamp proximity)
+
+**Fetch all sport types, analyze running:**
+- Garmin sync fetches all activity types (running, swimming, strength, cycling, etc.)
+- Non-running activities are stored with `activity_type` field
+- Non-running activities contribute to total training load via HR-based TRIMP
+- All detailed analysis (power zones, splits, CP, pace) remains running-only
+- Dashboard can show activity calendar with all types, load charts include all types
+
+### Platform Capability Matrix
+
+Each platform declares what data types it can provide:
+
+```python
+PLATFORM_CAPABILITIES = {
+    "garmin":  {"activities": True, "recovery": True, "fitness": True, "plan": False},
+    "stryd":   {"activities": True, "recovery": False, "fitness": True, "plan": True},
+    "oura":    {"activities": False, "recovery": True, "fitness": False, "plan": False},
+    "coros":   {"activities": True, "recovery": False, "fitness": True, "plan": False},
+}
+```
+
+The Settings UI uses this to:
+- Show only valid options in preference dropdowns (e.g., can't pick Stryd for recovery)
+- Auto-suggest preferences based on connected platforms
+- Show what data each connection provides
 
 ## Provider Interfaces
 
@@ -34,18 +88,20 @@ class ActivityProvider(ABC):
     def load_activities(self, data_dir: str, since: date | None = None) -> pd.DataFrame: ...
     def load_splits(self, data_dir: str, activity_ids: list[str] | None = None) -> pd.DataFrame: ...
 
-class HealthProvider(ABC):
+class RecoveryProvider(ABC):
     name: str
-    def load_health(self, data_dir: str, since: date | None = None) -> pd.DataFrame: ...
+    def load_recovery(self, data_dir: str, since: date | None = None) -> pd.DataFrame: ...
+
+class FitnessProvider(ABC):
+    name: str
+    def load_fitness(self, data_dir: str, since: date | None = None) -> pd.DataFrame: ...
 
 class PlanProvider(ABC):
     name: str
     def load_plan(self, data_dir: str, since: date | None = None) -> pd.DataFrame: ...
-
-class ThresholdProvider(ABC):
-    name: str
-    def detect_thresholds(self, data_dir: str) -> ThresholdEstimate: ...
 ```
+
+Threshold auto-detection folds into FitnessProvider — each fitness provider can contribute threshold estimates, and the system merges them (Stryd -> CP, Garmin -> LTHR).
 
 Registry: simple dict lookup in `analysis/providers/__init__.py`. No plugin framework.
 
@@ -54,23 +110,28 @@ Registry: simple dict lookup in `analysis/providers/__init__.py`. No plugin fram
 All providers map platform-specific columns to these canonical names. Data stays as DataFrames.
 
 **Activity columns:**
-- Required: `activity_id`, `date`, `distance_km`, `duration_sec`
-- Optional: `start_time`, `activity_type`, `avg_power`, `max_power`, `avg_hr`, `max_hr`, `avg_pace_sec_km`, `elevation_gain_m`, `avg_cadence`, `rss`, `trimp`, `rtss`, `cp_estimate`, `load_score`
+- Required: `activity_id`, `date`, `distance_km`, `duration_sec`, `activity_type`
+- Optional: `start_time`, `avg_power`, `max_power`, `avg_hr`, `max_hr`, `avg_pace_sec_km`, `elevation_gain_m`, `avg_cadence`, `rss`, `trimp`, `rtss`, `cp_estimate`, `load_score`
+- activity_type values: `running`, `trail_running`, `cycling`, `swimming`, `strength`, `walking`, `hiking`, `other`
 
 **Split columns:**
 - Required: `activity_id`, `split_num`, `duration_sec`
 - Optional: `distance_km`, `avg_power`, `avg_hr`, `max_hr`, `avg_pace_sec_km`, `avg_cadence`, `elevation_change_m`
 
-**Health day columns:**
+**Recovery columns:**
 - Required: `date`
 - Optional: `sleep_score`, `readiness_score`, `hrv_avg`, `resting_hr`, `total_sleep_sec`, `deep_sleep_sec`, `rem_sleep_sec`, `body_temp_delta`
+
+**Fitness columns:**
+- Required: `date`
+- Optional: `vo2max`, `training_status`, `training_readiness`, `cp_estimate`, `lthr_bpm`, `lt_pace_sec_km`, `leg_spring_stiffness`, `avg_oscillation`, `avg_stride_length`
 
 **Planned workout columns:**
 - Required: `date`, `workout_type`
 - Optional: `planned_duration_min`, `planned_distance_km`, `target_power_min/max`, `target_hr_min/max`, `target_pace_min/max`, `workout_description`
 
 **ThresholdEstimate:**
-- `cp_watts`, `lthr_bpm`, `threshold_pace_sec_km`, `max_hr_bpm`, `source` ("auto"|"manual"), `detected_date`
+- `cp_watts`, `lthr_bpm`, `threshold_pace_sec_km`, `max_hr_bpm`, `rest_hr_bpm`, `source` ("auto"|"manual"), `detected_date`
 
 ## Training Base System
 
@@ -78,11 +139,13 @@ User's foundational choice: `power | hr | pace`
 
 ### Load Formulas (computed internally)
 
-- **Power → RSS:** `(duration/3600) * (power/CP)^2 * 100`
-- **HR → TRIMP:** `duration_min * delta_ratio * 0.64 * exp(k * delta_ratio)` where k=1.92 male, delta_ratio = (avg_hr - rest_hr) / (max_hr - rest_hr)
-- **Pace → rTSS:** `(duration/3600) * (threshold_pace/actual_pace)^2 * 100`
+- **Power -> RSS:** `(duration/3600) * (power/CP)^2 * 100`
+- **HR -> TRIMP:** `duration_min * delta_ratio * 0.64 * exp(k * delta_ratio)` where k=1.92 male, delta_ratio = (avg_hr - rest_hr) / (max_hr - rest_hr)
+- **Pace -> rTSS:** `(duration/3600) * (threshold_pace/actual_pace)^2 * 100`
 
 All three computed when data available. Training base selects which drives CTL/ATL/TSB.
+
+TRIMP is also computed for non-running activities (if HR data available) to include cross-training load in CTL/ATL/TSB.
 
 ### Configurable Zone Boundaries
 
@@ -92,7 +155,7 @@ All three computed when data available. Training base selects which drives CTL/A
 |------|-------|-------|-------|-------|------|
 | Power | 0.55 | 0.75 | 0.90 | 1.05 | Coggan-style |
 | HR | 0.72 | 0.82 | 0.89 | 0.96 | Friel-style |
-| Pace | 1.29 | 1.14 | 1.06 | 1.00 | Inverted (slower→faster) |
+| Pace | 1.29 | 1.14 | 1.06 | 1.00 | Inverted (slower->faster) |
 
 ### Display Config
 
@@ -128,11 +191,20 @@ Stored as `data/config.json`. Database deferred to Sub-project 2.
 
 ```json
 {
+  "connections": ["garmin", "stryd", "oura"],
+  "preferences": {
+    "activities": "garmin",
+    "recovery": "oura",
+    "plan": "stryd"
+  },
   "training_base": "power",
-  "sources": {"activities": "garmin", "health": "oura", "plan": "stryd"},
   "thresholds": {
-    "cp_watts": 280, "lthr_bpm": null, "threshold_pace_sec_km": null,
-    "max_hr_bpm": 190, "rest_hr_bpm": 55, "source": "manual"
+    "cp_watts": null,
+    "lthr_bpm": null,
+    "threshold_pace_sec_km": null,
+    "max_hr_bpm": 190,
+    "rest_hr_bpm": 55,
+    "source": "auto"
   },
   "zones": {
     "power": [0.55, 0.75, 0.90, 1.05],
@@ -143,14 +215,16 @@ Stored as `data/config.json`. Database deferred to Sub-project 2.
 }
 ```
 
+No `fitness` preference needed — auto-merged from all connections that provide fitness data.
+
 ### Settings API
 
-- `GET /api/settings` — config + available providers + auto-detected thresholds + display config
+- `GET /api/settings` — config + platform capabilities + auto-detected thresholds + display config
 - `PUT /api/settings` — partial update, invalidates dashboard cache
 
 ### Threshold Resolution
 
-1. Auto-detect from all configured ThresholdProviders (Stryd → CP, Garmin → LTHR)
+1. Auto-detect from all connected FitnessProviders (Stryd -> CP, Garmin -> LTHR)
 2. Manual overrides win
 3. Settings UI shows both auto-detected and manual values
 
@@ -162,12 +236,12 @@ analysis/
     zones.py                     # Zone calculation for all 3 bases
     training_base.py             # Display config per training base
     providers/
-        __init__.py              # Registry
-        base.py                  # ABCs
+        __init__.py              # Registry + platform capabilities
+        base.py                  # ABCs (Activity, Recovery, Fitness, Plan)
         models.py                # Canonical column defs + ThresholdEstimate
-        garmin.py                # Garmin adapters
-        stryd.py                 # Stryd adapters
-        oura.py                  # Oura adapter
+        garmin.py                # Garmin adapters (Activity, Recovery, Fitness)
+        stryd.py                 # Stryd adapters (Activity, Plan, Fitness)
+        oura.py                  # Oura adapter (Recovery)
 api/routes/
     settings.py                  # GET/PUT /api/settings
 data/
@@ -180,11 +254,11 @@ web/src/
 
 ## Migration Phases
 
-1. **Config layer** — Add config module + settings endpoint. No behavior change.
-2. **Provider interfaces** — Abstract providers wrapping existing CSV reading. Same data, new path.
+1. **Config layer** — Add config module + settings endpoint. Migrate `sources` -> `connections` + `preferences`.
+2. **Provider interfaces** — Abstract providers wrapping existing CSV reading. `HealthProvider` -> `RecoveryProvider` + `FitnessProvider`.
 3. **Training base system** — Add TRIMP/rTSS, parameterize diagnosis, configurable zones.
 4. **Frontend adaptation** — Settings page, dynamic labels, SettingsContext.
-5. **Threshold auto-detect** — ThresholdProviders, resolution logic, override UI.
+5. **Threshold auto-detect** — FitnessProviders contribute thresholds, resolution logic, override UI.
 
 Each phase independently deployable. System works at every intermediate state.
 

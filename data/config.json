@@ -1,10 +1,15 @@
 {
-  "training_base": "hr",
-  "sources": {
+  "connections": [
+    "garmin",
+    "stryd",
+    "oura"
+  ],
+  "preferences": {
     "activities": "garmin",
-    "health": "oura",
+    "recovery": "oura",
     "plan": "stryd"
   },
+  "training_base": "power",
   "thresholds": {
     "cp_watts": null,
     "lthr_bpm": null,

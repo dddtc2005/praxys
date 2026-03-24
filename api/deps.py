@@ -62,15 +62,19 @@ def invalidate_cache():
 
 
 def _resolve_thresholds(config, data_dir: str) -> ThresholdEstimate:
-    """Build ThresholdEstimate from config + auto-detect from providers."""
-    from analysis.providers import get_threshold_provider, available_providers
+    """Build ThresholdEstimate from config + auto-detect from fitness providers."""
+    from analysis.config import PLATFORM_CAPABILITIES
+    from analysis.providers import get_fitness_provider
 
     result = ThresholdEstimate()
 
-    # Auto-detect from registered threshold providers
-    for name in available_providers().get("threshold", []):
+    # Auto-detect from connected fitness providers
+    for conn in config.connections:
+        caps = PLATFORM_CAPABILITIES.get(conn, {})
+        if not caps.get("fitness"):
+            continue
         try:
-            provider = get_threshold_provider(name)
+            provider = get_fitness_provider(conn)
             detected = provider.detect_thresholds(data_dir)
             if result.cp_watts is None and detected.cp_watts:
                 result.cp_watts = detected.cp_watts
@@ -722,15 +726,15 @@ def get_dashboard_data() -> dict:
         threshold_pace=threshold_pace,
     )
 
-    # Training signal — health data is now unified in a single DataFrame
-    health = data["health"]
-    latest_readiness, latest_hrv = _get_latest_readiness(health)
+    # Recovery data (sleep, HRV, readiness)
+    recovery = data["recovery"]
+    latest_readiness, latest_hrv = _get_latest_readiness(recovery)
     latest_sleep = (
-        float(health.sort_values("date").iloc[-1]["sleep_score"])
-        if not health.empty and "sleep_score" in health.columns
+        float(recovery.sort_values("date").iloc[-1]["sleep_score"])
+        if not recovery.empty and "sleep_score" in recovery.columns
         else None
     )
-    hrv_trend = _get_hrv_trend(health)
+    hrv_trend = _get_hrv_trend(recovery)
     current_tsb = float(tsb.iloc[-1]) if not tsb.empty else 0.0
 
     plan = data["plan"]
@@ -798,8 +802,8 @@ def get_dashboard_data() -> dict:
                     }
 
     weekly_review = _build_compliance(merged, plan, config.training_base, daily_load)
-    workout_flags = _build_workout_flags(merged, health, config.training_base)
-    sleep_perf = _build_sleep_perf(merged, health)
+    workout_flags = _build_workout_flags(merged, recovery, config.training_base)
+    sleep_perf = _build_sleep_perf(merged, recovery)
 
     warnings: list[str] = []
     if hrv_trend < -10:

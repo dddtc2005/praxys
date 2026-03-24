@@ -1,31 +1,31 @@
 """Provider registry — maps provider names to implementations."""
 from analysis.providers.base import (
     ActivityProvider,
-    HealthProvider,
+    RecoveryProvider,
+    FitnessProvider,
     PlanProvider,
-    ThresholdProvider,
 )
 
 _ACTIVITY_PROVIDERS: dict[str, type[ActivityProvider]] = {}
-_HEALTH_PROVIDERS: dict[str, type[HealthProvider]] = {}
+_RECOVERY_PROVIDERS: dict[str, type[RecoveryProvider]] = {}
+_FITNESS_PROVIDERS: dict[str, type[FitnessProvider]] = {}
 _PLAN_PROVIDERS: dict[str, type[PlanProvider]] = {}
-_THRESHOLD_PROVIDERS: dict[str, type[ThresholdProvider]] = {}
 
 
 def register_activity(name: str, cls: type[ActivityProvider]) -> None:
     _ACTIVITY_PROVIDERS[name] = cls
 
 
-def register_health(name: str, cls: type[HealthProvider]) -> None:
-    _HEALTH_PROVIDERS[name] = cls
+def register_recovery(name: str, cls: type[RecoveryProvider]) -> None:
+    _RECOVERY_PROVIDERS[name] = cls
+
+
+def register_fitness(name: str, cls: type[FitnessProvider]) -> None:
+    _FITNESS_PROVIDERS[name] = cls
 
 
 def register_plan(name: str, cls: type[PlanProvider]) -> None:
     _PLAN_PROVIDERS[name] = cls
-
-
-def register_threshold(name: str, cls: type[ThresholdProvider]) -> None:
-    _THRESHOLD_PROVIDERS[name] = cls
 
 
 def get_activity_provider(name: str) -> ActivityProvider:
@@ -33,9 +33,14 @@ def get_activity_provider(name: str) -> ActivityProvider:
     return _ACTIVITY_PROVIDERS[name]()
 
 
-def get_health_provider(name: str) -> HealthProvider:
+def get_recovery_provider(name: str) -> RecoveryProvider:
     _ensure_registered()
-    return _HEALTH_PROVIDERS[name]()
+    return _RECOVERY_PROVIDERS[name]()
+
+
+def get_fitness_provider(name: str) -> FitnessProvider:
+    _ensure_registered()
+    return _FITNESS_PROVIDERS[name]()
 
 
 def get_plan_provider(name: str) -> PlanProvider:
@@ -43,19 +48,14 @@ def get_plan_provider(name: str) -> PlanProvider:
     return _PLAN_PROVIDERS[name]()
 
 
-def get_threshold_provider(name: str) -> ThresholdProvider:
-    _ensure_registered()
-    return _THRESHOLD_PROVIDERS[name]()
-
-
 def available_providers() -> dict[str, list[str]]:
-    """Return dict of category → list of registered provider names."""
+    """Return dict of category -> list of registered provider names."""
     _ensure_registered()
     return {
         "activities": list(_ACTIVITY_PROVIDERS.keys()),
-        "health": list(_HEALTH_PROVIDERS.keys()),
+        "recovery": list(_RECOVERY_PROVIDERS.keys()),
+        "fitness": list(_FITNESS_PROVIDERS.keys()),
         "plan": list(_PLAN_PROVIDERS.keys()),
-        "threshold": list(_THRESHOLD_PROVIDERS.keys()),
     }
 
 

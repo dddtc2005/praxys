@@ -1,6 +1,8 @@
 // API response types
 
 export type TrainingBase = 'power' | 'hr' | 'pace';
+export type PlatformName = 'garmin' | 'stryd' | 'oura' | 'coros';
+export type DataCategory = 'activities' | 'recovery' | 'fitness' | 'plan';
 
 export interface DisplayConfig {
   threshold_label: string;
@@ -14,8 +16,9 @@ export interface DisplayConfig {
 }
 
 export interface SettingsConfig {
+  connections: PlatformName[];
+  preferences: Partial<Record<DataCategory, PlatformName>>;
   training_base: TrainingBase;
-  sources: Record<string, string>;
   thresholds: Record<string, number | string | null>;
   zones: Record<string, number[]>;
   goal: Record<string, string | number>;
@@ -34,7 +37,8 @@ export interface DetectedThreshold {
 
 export interface SettingsResponse {
   config: SettingsConfig;
-  available_sources: Record<string, string[]>;
+  platform_capabilities: Record<PlatformName, Record<DataCategory, boolean>>;
+  available_providers: Record<DataCategory, PlatformName[]>;
   available_bases: TrainingBase[];
   display: DisplayConfig;
   detected_thresholds: Record<string, DetectedThreshold>;
