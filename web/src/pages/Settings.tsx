@@ -29,6 +29,7 @@ export default function Settings() {
   const [editingThreshold, setEditingThreshold] = useState<string | null>(null);
   const [thresholdInput, setThresholdInput] = useState('');
   const [syncStatus, setSyncStatus] = useState<SyncStatusResponse>({});
+  const [backfillDate, setBackfillDate] = useState('');
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Poll sync status when any source is syncing
@@ -128,8 +129,13 @@ export default function Settings() {
 
   const handleSync = async (source?: string) => {
     const url = source ? `/api/sync/${source}` : '/api/sync';
+    const body = backfillDate ? JSON.stringify({ from_date: backfillDate }) : undefined;
     try {
-      await fetch(url, { method: 'POST' });
+      await fetch(url, {
+        method: 'POST',
+        headers: body ? { 'Content-Type': 'application/json' } : undefined,
+        body,
+      });
       // Immediately poll status
       const res = await fetch('/api/sync/status');
       const data: SyncStatusResponse = await res.json();
@@ -183,14 +189,39 @@ export default function Settings() {
       <div className="rounded-2xl bg-panel p-5 sm:p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted">Data Sources</h2>
-          <button
-            onClick={() => handleSync()}
-            disabled={Object.values(syncStatus).some((s) => s.status === 'syncing')}
-            className="rounded-lg bg-accent-green/10 px-3 py-1.5 text-xs font-semibold text-accent-green hover:bg-accent-green/20 transition-colors disabled:opacity-50"
-          >
-            Sync All
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-text-muted whitespace-nowrap">Backfill from</label>
+              <input
+                type="date"
+                value={backfillDate}
+                onChange={(e) => setBackfillDate(e.target.value)}
+                className="rounded-lg bg-panel-light border border-border px-2 py-1 text-xs text-text-primary focus:outline-none focus:border-accent-green"
+              />
+              {backfillDate && (
+                <button
+                  onClick={() => setBackfillDate('')}
+                  className="text-xs text-text-muted hover:text-text-primary"
+                  title="Clear backfill date"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => handleSync()}
+              disabled={Object.values(syncStatus).some((s) => s.status === 'syncing')}
+              className="rounded-lg bg-accent-green/10 px-3 py-1.5 text-xs font-semibold text-accent-green hover:bg-accent-green/20 transition-colors disabled:opacity-50"
+            >
+              {backfillDate ? 'Backfill All' : 'Sync All'}
+            </button>
+          </div>
         </div>
+        {backfillDate && (
+          <p className="text-xs text-accent-yellow mb-4">
+            Backfill mode: syncing from {backfillDate} to today. This may take longer than usual.
+          </p>
+        )}
         <div className="space-y-4">
           {Object.entries(availableProviders)
             .filter(([category]) => category !== 'fitness') // Fitness is auto-merged, no preference needed
