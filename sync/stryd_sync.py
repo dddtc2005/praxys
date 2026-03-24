@@ -53,7 +53,7 @@ def fetch_activities_api(
     token: str,
     from_date: str,
     to_date: str | None = None,
-) -> list[dict]:
+) -> tuple[list[dict], list[dict]]:
     """Fetch completed activities from the Stryd calendar API.
 
     Args:
@@ -63,7 +63,7 @@ def fetch_activities_api(
         to_date: End date (YYYY-MM-DD), defaults to today.
 
     Returns:
-        List of dicts matching power_data.csv schema.
+        Tuple of (parsed CSV rows, raw API activity objects).
     """
     start_dt = datetime.strptime(from_date, "%Y-%m-%d")
     end_dt = datetime.strptime(to_date, "%Y-%m-%d") if to_date else datetime.now()
@@ -264,11 +264,11 @@ def fetch_training_plan_api(
 def fetch_activity_detail_api(
     activity_id: int,
     token: str,
-) -> dict | None:
+) -> dict:
     """Fetch per-second time-series data for a single Stryd activity.
 
-    Returns the full activity object with populated *_list fields,
-    or None on error.
+    Returns the full activity object with populated *_list fields.
+    Raises requests.HTTPError on API failure.
     """
     url = STRYD_ACTIVITY_API.format(activity_id=activity_id)
     resp = requests.get(
@@ -321,7 +321,8 @@ def compute_lap_splits(activity: dict, activity_id: str) -> list[dict]:
         return ts_to_idx[closest]
 
     # Build lap segments from boundaries: [start, lap1, lap2, ..., end]
-    boundaries = sorted(set([start_ts] + lap_timestamps))
+    end_ts = timestamps[-1]
+    boundaries = sorted(set([start_ts] + lap_timestamps + [end_ts]))
     # Filter out boundaries that are too close together (< 10 seconds = noise)
     filtered = [boundaries[0]]
     for b in boundaries[1:]:
@@ -330,11 +331,11 @@ def compute_lap_splits(activity: dict, activity_id: str) -> list[dict]:
     boundaries = filtered
 
     def _safe_avg(data: list, start_idx: int, end_idx: int) -> float | None:
-        """Average of a slice, skipping zeros/None. Returns None if no data."""
+        """Average of a slice, skipping None values. Returns None if no valid data."""
         if not data or start_idx >= len(data):
             return None
         segment = data[start_idx:min(end_idx, len(data))]
-        valid = [v for v in segment if v is not None and v > 0]
+        valid = [v for v in segment if v is not None]
         return sum(valid) / len(valid) if valid else None
 
     rows: list[dict] = []
@@ -414,20 +415,7 @@ def _fetch_stryd_splits(
 
     existing_ids = _get_existing_split_activity_ids(data_dir)
 
-    # Extract activity IDs from the calendar API rows (using the Stryd activity ID)
-    # The calendar API response includes 'id' but we stored 'start_time' as key.
-    # We need to re-fetch the calendar data to get IDs, or parse from rows.
-    # For now, we pass activity_rows which came from calendar API and may not have 'id'.
-    # We'll need to store activity IDs in power_data.csv or fetch from calendar again.
-
-    # Actually, the calendar API activities have an 'id' field that we didn't store.
-    # We'll use start_time as a proxy ID since it's unique per activity.
-    # But the detail API needs the numeric activity ID.
-    # This means we need to pass the raw calendar activities, not the parsed rows.
-
-    # This function expects activity_rows to contain dicts with 'id' and 'start_time' keys
-    # from the raw calendar API response.
-
+    # activity_rows are raw calendar API objects with 'id' field for detail API
     all_splits: list[dict] = []
     new_activities = [a for a in activity_rows if str(a.get("id", "")) not in existing_ids]
 
@@ -494,14 +482,20 @@ def _fetch_stryd_splits(
                     print(f"      HTTP {status} for activity {act_id}, skipping")
                     break
 
+            except requests.RequestException as e:
+                print(f"      Network error for activity {act_id}: {e}, skipping")
+                break
+
             except Exception as e:
-                print(f"      Error fetching activity {act_id}: {e}, skipping")
+                import traceback as tb
+                print(f"      Error processing activity {act_id}: {e}")
+                tb.print_exc()
                 break
 
     return all_splits
 
 
-def _round_or_empty(val, decimals: int = 1) -> str:
+def _round_or_empty(val: float | int | None, decimals: int = 1) -> str:
     """Round a numeric value to N decimals, or return empty string if None."""
     if val is None:
         return ""

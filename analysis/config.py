@@ -3,8 +3,11 @@ import json
 import os
 from dataclasses import dataclass, field, asdict
 from typing import Literal
+from typing_extensions import TypedDict
 
 TrainingBase = Literal["power", "hr", "pace"]
+PlatformName = Literal["garmin", "stryd", "oura", "coros"]
+DataCategory = Literal["activities", "recovery", "fitness", "plan"]
 
 # Default zone boundaries as fractions of threshold value.
 # 4 boundaries define 5 zones (Z1..Z5).
@@ -14,8 +17,17 @@ DEFAULT_ZONES: dict[str, list[float]] = {
     "pace": [1.29, 1.14, 1.06, 1.00],     # Inverted (slower -> faster)
 }
 
+
+class PlatformCaps(TypedDict):
+    """Capability flags for a single platform."""
+    activities: bool
+    recovery: bool
+    fitness: bool
+    plan: bool
+
+
 # What each platform can provide.
-PLATFORM_CAPABILITIES: dict[str, dict[str, bool]] = {
+PLATFORM_CAPABILITIES: dict[str, PlatformCaps] = {
     "garmin": {"activities": True, "recovery": True, "fitness": True, "plan": False},
     "stryd":  {"activities": True, "recovery": False, "fitness": True, "plan": True},
     "oura":   {"activities": False, "recovery": True, "fitness": False, "plan": False},
@@ -65,6 +77,21 @@ class UserConfig:
         "garmin_region": "international",  # "international" or "cn"
     })
 
+    def __post_init__(self) -> None:
+        """Validate cross-field constraints."""
+        # Validate preferences reference connected platforms with matching capabilities
+        for category, platform in self.preferences.items():
+            if not platform:
+                continue
+            if platform not in self.connections:
+                continue  # Tolerate — platform may be disconnected temporarily
+            caps = PLATFORM_CAPABILITIES.get(platform)
+            if caps and category in caps and not caps[category]:
+                print(f"  Warning: {platform} does not support {category}, "
+                      f"but is set as preference")
+        # Filter empty strings from connections (from migration edge cases)
+        self.connections = [c for c in self.connections if c]
+
 
 # ---------------------------------------------------------------------------
 # Persistence
@@ -84,8 +111,8 @@ def _migrate_config(data: dict) -> dict:
     """
     if "sources" in data and "connections" not in data:
         sources = data.pop("sources")
-        # Derive connections from unique source values
-        data["connections"] = list(dict.fromkeys(sources.values()))
+        # Derive connections from unique source values, filtering empty strings
+        data["connections"] = [v for v in dict.fromkeys(sources.values()) if v]
         # Map old "health" key to new "recovery" key
         data["preferences"] = {
             "activities": sources.get("activities", "garmin"),

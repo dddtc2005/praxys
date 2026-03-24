@@ -56,10 +56,13 @@ class FitnessProvider(ABC):
         """Return DataFrame with canonical Fitness columns."""
         ...
 
-    @abstractmethod
     def detect_thresholds(self, data_dir: str) -> ThresholdEstimate:
-        """Return latest auto-detected thresholds."""
-        ...
+        """Return latest auto-detected thresholds.
+
+        Default returns empty estimate. Override in subclasses that can
+        detect thresholds (e.g., Stryd -> CP, Garmin -> LTHR).
+        """
+        return ThresholdEstimate()
 
 
 class PlanProvider(ABC):

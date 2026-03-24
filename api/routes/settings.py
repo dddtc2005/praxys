@@ -51,7 +51,10 @@ def _detect_thresholds(connections: list[str]) -> dict:
                 result["max_hr_bpm"] = {"value": detected.max_hr_bpm, "source": conn}
             if detected.rest_hr_bpm and "rest_hr_bpm" not in result:
                 result["rest_hr_bpm"] = {"value": detected.rest_hr_bpm, "source": conn}
-        except (KeyError, Exception):
+        except KeyError:
+            continue  # Provider not registered for this connection
+        except Exception as e:
+            print(f"  Warning: threshold detection failed for {conn}: {e}")
             continue
 
     return result

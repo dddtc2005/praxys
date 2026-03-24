@@ -143,11 +143,14 @@ def load_data(config: UserConfig, data_dir: str) -> dict[str, pd.DataFrame]:
             continue
         try:
             secondary = get_activity_provider(conn)
+        except KeyError:
+            continue  # Provider not registered
+        try:
             secondary_data = secondary.load_activities(data_dir)
             if not secondary_data.empty and not activities.empty:
                 activities = match_activities(activities, secondary_data)
-        except KeyError:
-            pass
+        except Exception as e:
+            print(f"  Warning: activity enrichment from {conn} failed: {e}")
 
     # --- Recovery: single preferred source ---
     try:
@@ -164,11 +167,14 @@ def load_data(config: UserConfig, data_dir: str) -> dict[str, pd.DataFrame]:
             continue
         try:
             fp = get_fitness_provider(conn)
+        except KeyError:
+            continue  # Provider not registered
+        try:
             f_data = fp.load_fitness(data_dir)
             if not f_data.empty:
                 fitness_frames.append(f_data)
-        except KeyError:
-            pass
+        except Exception as e:
+            print(f"  Warning: fitness data from {conn} failed: {e}")
 
     if fitness_frames:
         # Merge all fitness DataFrames on date (outer join, first non-null wins)

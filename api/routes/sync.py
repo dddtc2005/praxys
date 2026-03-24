@@ -1,11 +1,12 @@
 """Data sync endpoints — trigger sync per source with background task."""
 import os
+import traceback
 import threading
 from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, BackgroundTasks
 from dotenv import load_dotenv
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from analysis.config import load_config
 from api.deps import invalidate_cache
@@ -16,6 +17,17 @@ router = APIRouter()
 class SyncRequest(BaseModel):
     """Optional request body for sync endpoints."""
     from_date: str | None = None
+
+    @field_validator("from_date")
+    @classmethod
+    def validate_date_format(cls, v: str | None) -> str | None:
+        if v is not None:
+            from datetime import datetime as dt
+            try:
+                dt.strptime(v, "%Y-%m-%d")
+            except ValueError:
+                raise ValueError("from_date must be in YYYY-MM-DD format")
+        return v
 
 
 # Module-level sync status store
@@ -90,6 +102,7 @@ def _run_sync(source: str, from_date: str | None = None) -> None:
         invalidate_cache()
 
     except Exception as e:
+        traceback.print_exc()
         with _sync_lock:
             _sync_status[source] = {
                 "status": "error",
@@ -118,11 +131,10 @@ def trigger_sync(
     with _sync_lock:
         if _sync_status[source]["status"] == "syncing":
             return {"status": "already_syncing", "source": source}
+        _sync_status[source] = {"status": "syncing", "last_sync": None, "error": None}
 
     from_date = body.from_date if body else None
     background_tasks.add_task(_run_sync, source, from_date)
-    with _sync_lock:
-        _sync_status[source] = {"status": "syncing", "last_sync": None, "error": None}
     return {"status": "started", "source": source}
 
 
@@ -138,8 +150,7 @@ def trigger_sync_all(
         with _sync_lock:
             if _sync_status[source]["status"] == "syncing":
                 continue
-        background_tasks.add_task(_run_sync, source, from_date)
-        with _sync_lock:
             _sync_status[source] = {"status": "syncing", "last_sync": None, "error": None}
+        background_tasks.add_task(_run_sync, source, from_date)
         started.append(source)
     return {"status": "started", "sources": started}

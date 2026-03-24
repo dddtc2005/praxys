@@ -1,6 +1,7 @@
 """Canonical data models for the provider layer."""
 from dataclasses import dataclass
 from datetime import date
+from typing import Literal
 
 
 @dataclass
@@ -12,7 +13,7 @@ class ThresholdEstimate:
     threshold_pace_sec_km: float | None = None
     max_hr_bpm: float | None = None
     rest_hr_bpm: float | None = None
-    source: str = "auto"  # "auto" | "manual"
+    source: Literal["auto", "manual"] = "auto"
     detected_date: date | None = None
 
 
