@@ -155,15 +155,44 @@ class TestAiPlanProvider:
             ai_dir = os.path.join(tmpdir, "ai")
             os.makedirs(ai_dir)
             csv_path = os.path.join(ai_dir, "training_plan.csv")
+            cols = ["date", "workout_type", "planned_duration_min",
+                    "planned_distance_km", "target_power_min",
+                    "target_power_max", "workout_description"]
             with open(csv_path, "w", newline="", encoding="utf-8") as f:
-                writer = csv.DictWriter(f, fieldnames=["date", "workout_type", "planned_duration_min"])
+                writer = csv.DictWriter(f, fieldnames=cols)
                 writer.writeheader()
-                writer.writerow({"date": "2026-04-01", "workout_type": "easy", "planned_duration_min": "50"})
-                writer.writerow({"date": "2026-04-02", "workout_type": "rest", "planned_duration_min": ""})
+                writer.writerow({"date": "2026-04-01", "workout_type": "easy",
+                                 "planned_duration_min": "50", "planned_distance_km": "9",
+                                 "target_power_min": "150", "target_power_max": "200",
+                                 "workout_description": "Easy run"})
+                writer.writerow({"date": "2026-04-02", "workout_type": "rest",
+                                 "planned_duration_min": "", "planned_distance_km": "",
+                                 "target_power_min": "", "target_power_max": "",
+                                 "workout_description": "Full rest day"})
 
             df = provider.load_plan(tmpdir)
             assert len(df) == 2
             assert df.iloc[0]["workout_type"] == "easy"
+
+    def test_load_plan_handles_unquoted_commas(self):
+        """Descriptions with commas should be preserved even without quoting."""
+        from analysis.providers.ai import AiPlanProvider
+        provider = AiPlanProvider()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            ai_dir = os.path.join(tmpdir, "ai")
+            os.makedirs(ai_dir)
+            csv_path = os.path.join(ai_dir, "training_plan.csv")
+            # Write a line where the description has unquoted commas
+            with open(csv_path, "w", encoding="utf-8") as f:
+                f.write("date,workout_type,planned_duration_min,planned_distance_km,"
+                        "target_power_min,target_power_max,workout_description\n")
+                f.write("2026-04-01,easy,50,9,150,200,Easy run, relaxed form, conversational pace.\n")
+
+            df = provider.load_plan(tmpdir)
+            assert len(df) == 1
+            assert df.iloc[0]["workout_type"] == "easy"
+            assert "relaxed form" in df.iloc[0]["workout_description"]
 
     def test_load_plan_missing_file(self):
         from analysis.providers.ai import AiPlanProvider
