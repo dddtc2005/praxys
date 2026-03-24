@@ -27,6 +27,7 @@ def _workout_type_from_name(name: str) -> str:
 
 STRYD_LOGIN_URL = "https://www.stryd.com/b/email/signin"
 STRYD_CALENDAR_API = "https://api.stryd.com/b/api/v1/users/{user_id}/calendar"
+STRYD_ACTIVITY_API = "https://api.stryd.com/b/api/v1/activities/{activity_id}"
 
 
 def _login_api(email: str, password: str) -> tuple[str, str]:
@@ -86,6 +87,7 @@ def fetch_activities_api(
     print(f"  API returned {len(activities)} activities")
 
     rows = []
+    raw_activities = []  # Keep raw API objects for detail fetching
     for act in activities:
         # Convert unix timestamp to local datetime using the activity's timezone
         tz_name = act.get("time_zone", "UTC")
@@ -136,8 +138,9 @@ def fetch_activities_api(
         }
         print(f"    {row['date']} — {row['avg_power']}W, {row['distance_km']}km, RSS={row['rss']}")
         rows.append(row)
+        raw_activities.append(act)  # Keep raw for detail fetch
 
-    return rows
+    return rows, raw_activities
 
 
 def fetch_training_plan_api(
@@ -258,6 +261,246 @@ def fetch_training_plan_api(
     return rows
 
 
+def fetch_activity_detail_api(
+    activity_id: int,
+    token: str,
+) -> dict | None:
+    """Fetch per-second time-series data for a single Stryd activity.
+
+    Returns the full activity object with populated *_list fields,
+    or None on error.
+    """
+    url = STRYD_ACTIVITY_API.format(activity_id=activity_id)
+    resp = requests.get(
+        url,
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def compute_lap_splits(activity: dict, activity_id: str) -> list[dict]:
+    """Compute per-lap averages from time-series data + lap timestamps.
+
+    Uses lap_timestamp_list to define lap boundaries, then slices per-second
+    arrays to compute averages for each lap.
+
+    Returns list of dicts matching the activity_splits.csv schema.
+    """
+    timestamps = activity.get("timestamp_list") or []
+    lap_timestamps = activity.get("lap_timestamp_list") or []
+    power_data = activity.get("total_power_list") or []
+    hr_data = activity.get("heart_rate_list") or []
+    cadence_data = activity.get("cadence_list") or []
+    speed_data = activity.get("speed_list") or []
+    distance_data = activity.get("distance_list") or []
+    elevation_data = activity.get("elevation_list") or []
+    ground_time_data = activity.get("ground_time_list") or []
+    oscillation_data = activity.get("oscillation_list") or []
+    leg_spring_data = activity.get("leg_spring_list") or []
+
+    if not timestamps or not lap_timestamps:
+        return []
+
+    # Build lap boundaries: start_time -> [lap1_end, lap2_end, ...]
+    # Laps come in pairs for auto-laps or as single events
+    start_ts = timestamps[0]
+
+    # Build index lookup: timestamp -> array index
+    ts_to_idx: dict[int, int] = {}
+    for i, ts in enumerate(timestamps):
+        ts_to_idx[ts] = i
+
+    def _find_idx(ts: int) -> int:
+        """Find closest index for a timestamp."""
+        if ts in ts_to_idx:
+            return ts_to_idx[ts]
+        # Find nearest
+        closest = min(timestamps, key=lambda t: abs(t - ts))
+        return ts_to_idx[closest]
+
+    # Build lap segments from boundaries: [start, lap1, lap2, ..., end]
+    boundaries = sorted(set([start_ts] + lap_timestamps))
+    # Filter out boundaries that are too close together (< 10 seconds = noise)
+    filtered = [boundaries[0]]
+    for b in boundaries[1:]:
+        if b - filtered[-1] >= 10:
+            filtered.append(b)
+    boundaries = filtered
+
+    def _safe_avg(data: list, start_idx: int, end_idx: int) -> float | None:
+        """Average of a slice, skipping zeros/None. Returns None if no data."""
+        if not data or start_idx >= len(data):
+            return None
+        segment = data[start_idx:min(end_idx, len(data))]
+        valid = [v for v in segment if v is not None and v > 0]
+        return sum(valid) / len(valid) if valid else None
+
+    rows: list[dict] = []
+    for i in range(len(boundaries) - 1):
+        lap_start = boundaries[i]
+        lap_end = boundaries[i + 1]
+
+        start_idx = _find_idx(lap_start)
+        end_idx = _find_idx(lap_end)
+        if end_idx <= start_idx:
+            continue
+
+        duration_sec = lap_end - lap_start
+
+        # Distance from cumulative distance_list
+        dist_start = distance_data[start_idx] if start_idx < len(distance_data) else 0
+        dist_end = distance_data[min(end_idx, len(distance_data) - 1)] if distance_data else 0
+        distance_m = (dist_end or 0) - (dist_start or 0)
+        distance_km = round(distance_m / 1000, 3) if distance_m > 0 else 0
+
+        # Elevation change
+        elev_start = elevation_data[start_idx] if start_idx < len(elevation_data) else 0
+        elev_end = elevation_data[min(end_idx, len(elevation_data) - 1)] if elevation_data else 0
+        elev_change = round((elev_end or 0) - (elev_start or 0), 1)
+
+        avg_power = _safe_avg(power_data, start_idx, end_idx)
+        avg_hr = _safe_avg(hr_data, start_idx, end_idx)
+        avg_cadence = _safe_avg(cadence_data, start_idx, end_idx)
+        avg_speed = _safe_avg(speed_data, start_idx, end_idx)
+        avg_gt = _safe_avg(ground_time_data, start_idx, end_idx)
+        avg_osc = _safe_avg(oscillation_data, start_idx, end_idx)
+        avg_ls = _safe_avg(leg_spring_data, start_idx, end_idx)
+
+        # Derive pace from speed (sec/km)
+        avg_pace = round(1000 / avg_speed, 1) if avg_speed and avg_speed > 0 else None
+
+        rows.append({
+            "activity_id": activity_id,
+            "split_num": str(i + 1),
+            "distance_km": str(distance_km),
+            "duration_sec": str(duration_sec),
+            "avg_power": _round_or_empty(avg_power),
+            "avg_hr": _round_or_empty(avg_hr),
+            "avg_cadence": _round_or_empty(avg_cadence),
+            "avg_pace_sec_km": _round_or_empty(avg_pace),
+            "avg_speed_ms": _round_or_empty(avg_speed, 3),
+            "avg_ground_time_ms": _round_or_empty(avg_gt),
+            "avg_oscillation": _round_or_empty(avg_osc),
+            "avg_leg_spring": _round_or_empty(avg_ls),
+            "elevation_change_m": str(elev_change),
+        })
+
+    return rows
+
+
+def _get_existing_split_activity_ids(data_dir: str) -> set[str]:
+    """Get set of activity IDs already in Stryd activity_splits.csv."""
+    from sync.csv_utils import read_csv
+    splits_path = os.path.join(data_dir, "stryd", "activity_splits.csv")
+    existing = read_csv(splits_path)
+    return {row["activity_id"] for row in existing if row.get("activity_id")}
+
+
+def _fetch_stryd_splits(
+    activity_rows: list[dict],
+    token: str,
+    email: str,
+    password: str,
+    data_dir: str,
+) -> list[dict]:
+    """Fetch per-lap splits for activities not already in splits CSV.
+
+    Rate limits at 1 second between API calls. Handles 429 with exponential
+    backoff and 401 with re-login.
+    """
+    import time
+
+    existing_ids = _get_existing_split_activity_ids(data_dir)
+
+    # Extract activity IDs from the calendar API rows (using the Stryd activity ID)
+    # The calendar API response includes 'id' but we stored 'start_time' as key.
+    # We need to re-fetch the calendar data to get IDs, or parse from rows.
+    # For now, we pass activity_rows which came from calendar API and may not have 'id'.
+    # We'll need to store activity IDs in power_data.csv or fetch from calendar again.
+
+    # Actually, the calendar API activities have an 'id' field that we didn't store.
+    # We'll use start_time as a proxy ID since it's unique per activity.
+    # But the detail API needs the numeric activity ID.
+    # This means we need to pass the raw calendar activities, not the parsed rows.
+
+    # This function expects activity_rows to contain dicts with 'id' and 'start_time' keys
+    # from the raw calendar API response.
+
+    all_splits: list[dict] = []
+    new_activities = [a for a in activity_rows if str(a.get("id", "")) not in existing_ids]
+
+    if not new_activities:
+        return []
+
+    print(f"  Fetching per-lap detail for {len(new_activities)} new activities...")
+    current_token = token
+
+    for i, act in enumerate(new_activities):
+        act_id = act.get("id")
+        if not act_id:
+            continue
+
+        act_id_str = str(act_id)
+        if act_id_str in existing_ids:
+            continue
+
+        # Rate limit: 1 second between calls
+        if i > 0:
+            time.sleep(1)
+
+        print(f"    [{i + 1}/{len(new_activities)}] Fetching detail for activity {act_id}...")
+
+        retries = 0
+        max_retries = 3
+        backoff = 2
+
+        while retries <= max_retries:
+            try:
+                detail = fetch_activity_detail_api(act_id, current_token)
+                if detail:
+                    splits = compute_lap_splits(detail, act_id_str)
+                    if splits:
+                        all_splits.extend(splits)
+                        print(f"      {len(splits)} laps extracted")
+                    else:
+                        print(f"      No lap data available")
+                break  # Success or no data — move to next activity
+
+            except requests.HTTPError as e:
+                status = e.response.status_code
+                if status == 401:
+                    # Re-login and retry
+                    print(f"      Token expired, re-logging in...")
+                    try:
+                        _, current_token = _login_api(email, password)
+                        retries += 1
+                        continue
+                    except Exception as e2:
+                        print(f"      Re-login failed ({e2}), skipping remaining")
+                        return all_splits
+                elif status == 429:
+                    # Rate limited — exponential backoff
+                    wait = backoff ** (retries + 1)
+                    print(f"      Rate limited (429), waiting {wait}s...")
+                    time.sleep(wait)
+                    retries += 1
+                    if retries > max_retries:
+                        print(f"      Max retries reached, saving {len(all_splits)} splits so far")
+                        return all_splits
+                    continue
+                else:
+                    print(f"      HTTP {status} for activity {act_id}, skipping")
+                    break
+
+            except Exception as e:
+                print(f"      Error fetching activity {act_id}: {e}, skipping")
+                break
+
+    return all_splits
+
+
 def _round_or_empty(val, decimals: int = 1) -> str:
     """Round a numeric value to N decimals, or return empty string if None."""
     if val is None:
@@ -296,8 +539,9 @@ def sync(
 
     # Fetch activities
     activity_rows = []
+    raw_activities = []
     try:
-        activity_rows = fetch_activities_api(user_id, token, from_date=start)
+        activity_rows, raw_activities = fetch_activities_api(user_id, token, from_date=start)
     except requests.HTTPError as e:
         status = e.response.status_code
         print(f"  Stryd API failed (HTTP {status})")
@@ -306,7 +550,7 @@ def sync(
             try:
                 print("  Re-acquiring token...")
                 user_id, token = _login_api(email, password)
-                activity_rows = fetch_activities_api(user_id, token, from_date=start)
+                activity_rows, raw_activities = fetch_activities_api(user_id, token, from_date=start)
             except Exception as e2:
                 print(f"  Re-login failed ({e2})")
     except Exception as e:
@@ -346,6 +590,16 @@ def sync(
         plan_path = os.path.join(data_dir, "stryd", "training_plan.csv")
         append_rows(plan_path, plan_rows, key_column="date")
         print(f"  Saved {len(plan_rows)} planned workouts to training_plan.csv")
+
+    # Fetch per-lap splits for new activities via activity detail API
+    if raw_activities:
+        split_rows = _fetch_stryd_splits(
+            raw_activities, token, email, password, data_dir,
+        )
+        if split_rows:
+            splits_path = os.path.join(data_dir, "stryd", "activity_splits.csv")
+            append_rows(splits_path, split_rows, key_column=["activity_id", "split_num"])
+            print(f"  Saved {len(split_rows)} splits to activity_splits.csv")
 
 
 if __name__ == "__main__":

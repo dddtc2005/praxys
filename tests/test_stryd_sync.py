@@ -46,9 +46,10 @@ def _mock_401_response():
 
 # --- sync() derives user_id from login API ---
 
+@patch("sync.stryd_sync._fetch_stryd_splits", return_value=[])
 @patch("sync.stryd_sync.append_rows")
 @patch("sync.stryd_sync.requests")
-def test_sync_derives_user_id_from_login(mock_requests, mock_append):
+def test_sync_derives_user_id_from_login(mock_requests, mock_append, mock_splits):
     """sync() should use the user_id returned by _login_api(), not require it as a param."""
     activity = {
         "start_time": 1700000000,
@@ -72,9 +73,10 @@ def test_sync_derives_user_id_from_login(mock_requests, mock_append):
 
 # --- sync() retries activities on 401 ---
 
+@patch("sync.stryd_sync._fetch_stryd_splits", return_value=[])
 @patch("sync.stryd_sync.append_rows")
 @patch("sync.stryd_sync.requests")
-def test_sync_retries_activities_on_401(mock_requests, mock_append):
+def test_sync_retries_activities_on_401(mock_requests, mock_append, mock_splits):
     """Activity fetch should re-login and retry once on 401."""
     activity = {
         "start_time": 1700000000,
@@ -115,9 +117,10 @@ def test_sync_retries_activities_on_401(mock_requests, mock_append):
 
 # --- sync() retries training plan on 401 ---
 
+@patch("sync.stryd_sync._fetch_stryd_splits", return_value=[])
 @patch("sync.stryd_sync.append_rows")
 @patch("sync.stryd_sync.requests")
-def test_sync_retries_training_plan_on_401(mock_requests, mock_append):
+def test_sync_retries_training_plan_on_401(mock_requests, mock_append, mock_splits):
     """Training plan fetch should re-login and retry once on 401."""
     mock_requests.post.return_value = _mock_login_response()
     mock_requests.HTTPError = requests.HTTPError

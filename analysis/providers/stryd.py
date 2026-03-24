@@ -26,8 +26,12 @@ class StrydActivityProvider(ActivityProvider):
     def load_splits(
         self, data_dir: str, activity_ids: list[str] | None = None
     ) -> pd.DataFrame:
-        # Stryd doesn't provide its own split data — Garmin CIQ does
-        return pd.DataFrame()
+        df = _read_csv_safe(
+            os.path.join(data_dir, "stryd", "activity_splits.csv")
+        )
+        if activity_ids and not df.empty and "activity_id" in df.columns:
+            df = df[df["activity_id"].astype(str).isin(activity_ids)]
+        return df
 
 
 class StrydFitnessProvider(FitnessProvider):
