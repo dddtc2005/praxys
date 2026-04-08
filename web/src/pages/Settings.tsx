@@ -1,6 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { useSettings } from '../contexts/SettingsContext';
-import type { TrainingBase, SyncStatusResponse } from '../types/api';
+import { useSettings } from '@/contexts/SettingsContext';
+import type { TrainingBase, SyncStatusResponse } from '@/types/api';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Separator } from '@/components/ui/separator';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 // --- Constants ---
 
@@ -97,6 +103,7 @@ const THRESHOLD_FIELDS = [
   { key: 'max_hr_bpm', label: 'Max HR', unit: 'bpm' },
   { key: 'rest_hr_bpm', label: 'Resting HR', unit: 'bpm' },
 ];
+
 // --- Component ---
 
 export default function Settings() {
@@ -114,7 +121,6 @@ export default function Settings() {
   const [showBackfill, setShowBackfill] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Poll sync status
   useEffect(() => {
     const anySyncing = Object.values(syncStatus).some((s) => s.status === 'syncing');
     if (anySyncing && !pollRef.current) {
@@ -148,21 +154,21 @@ export default function Settings() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent-green border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     );
   }
 
   if (error || !config) {
     return (
-      <div className="rounded-2xl bg-panel p-6 text-center">
-        <p className="text-accent-red font-semibold mb-2">Failed to load settings</p>
-        <p className="text-sm text-text-muted">{error}</p>
-      </div>
+      <Card className="text-center">
+        <CardContent className="pt-6">
+          <p className="text-destructive font-semibold mb-2">Failed to load settings</p>
+          <p className="text-sm text-muted-foreground">{error}</p>
+        </CardContent>
+      </Card>
     );
   }
-
-  // --- Handlers ---
 
   const flash = (msg: string) => {
     setSaveMsg(msg);
@@ -223,28 +229,23 @@ export default function Settings() {
     setSaving(false);
   };
 
-  // --- Derived ---
-
   const connections = config.connections || [];
   const anySyncing = Object.values(syncStatus).some((s) => s.status === 'syncing');
 
-  // What categories is each platform preferred for?
   const preferredFor = (platform: string): string[] => {
     return Object.entries(config.preferences)
       .filter(([, src]) => src === platform)
       .map(([cat]) => cat);
   };
 
-  // --- Render ---
-
   return (
     <div>
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-text-primary">Settings</h1>
-        <p className="text-sm text-text-secondary mt-1">Configure your training system</p>
+        <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+        <p className="text-sm text-muted-foreground mt-1">Configure your training system</p>
         {saveMsg && (
-          <p className={`text-xs mt-2 font-medium ${saveMsg === 'Saved' ? 'text-accent-green' : 'text-accent-red'}`}>
+          <p className={`text-xs mt-2 font-medium ${saveMsg === 'Saved' ? 'text-primary' : 'text-destructive'}`}>
             {saveMsg}
           </p>
         )}
@@ -253,53 +254,42 @@ export default function Settings() {
       {/* ===== SECTION 1: Connected Platforms ===== */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted">Connected Platforms</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Connected Platforms</h2>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowBackfill(!showBackfill)}
-              className="text-xs text-text-muted hover:text-text-secondary transition-colors"
-            >
+            <Button variant="ghost" size="sm" onClick={() => setShowBackfill(!showBackfill)}>
               {showBackfill ? 'Hide backfill' : 'Backfill...'}
-            </button>
-            <button
-              onClick={() => handleSync()}
-              disabled={anySyncing}
-              className="rounded-lg bg-accent-green/10 px-3 py-1.5 text-xs font-semibold text-accent-green hover:bg-accent-green/20 transition-colors disabled:opacity-50"
-            >
+            </Button>
+            <Button size="sm" onClick={() => handleSync()} disabled={anySyncing}>
               Sync All
-            </button>
+            </Button>
           </div>
         </div>
 
-        {/* Backfill controls (collapsible) */}
         {showBackfill && (
-          <div className="rounded-xl bg-panel border border-border p-3 mb-4 flex items-center gap-3 flex-wrap">
-            <label className="text-xs text-text-muted">Sync from:</label>
-            <input
-              type="date"
-              value={backfillDate}
-              onChange={(e) => setBackfillDate(e.target.value)}
-              className="rounded-lg bg-panel-light border border-border px-2.5 py-1.5 text-xs text-text-primary focus:outline-none focus:border-accent-green"
-            />
-            {backfillDate && (
-              <>
-                <button
-                  onClick={() => handleSync()}
-                  disabled={anySyncing}
-                  className="rounded-lg bg-accent-amber/15 px-3 py-1.5 text-xs font-semibold text-accent-amber hover:bg-accent-amber/25 transition-colors disabled:opacity-50"
-                >
-                  Backfill All
-                </button>
-                <button onClick={() => setBackfillDate('')} className="text-xs text-text-muted hover:text-text-primary">
-                  Clear
-                </button>
-                <span className="text-xs text-accent-amber">Historical sync may take several minutes</span>
-              </>
-            )}
-          </div>
+          <Card className="mb-4">
+            <CardContent className="pt-4 flex items-center gap-3 flex-wrap">
+              <label className="text-xs text-muted-foreground">Sync from:</label>
+              <Input
+                type="date"
+                value={backfillDate}
+                onChange={(e) => setBackfillDate(e.target.value)}
+                className="w-auto text-xs"
+              />
+              {backfillDate && (
+                <>
+                  <Button variant="secondary" size="sm" onClick={() => handleSync()} disabled={anySyncing}>
+                    Backfill All
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setBackfillDate('')}>
+                    Clear
+                  </Button>
+                  <span className="text-xs text-accent-amber">Historical sync may take several minutes</span>
+                </>
+              )}
+            </CardContent>
+          </Card>
         )}
 
-        {/* Platform cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {connections.map((platform) => {
             const meta = PLATFORM_META[platform] || { label: platform, color: '#64748b', icon: null };
@@ -309,139 +299,132 @@ export default function Settings() {
             const isSyncing = status?.status === 'syncing';
 
             return (
-              <div
-                key={platform}
-                className="rounded-xl bg-panel border border-border p-4 flex flex-col gap-3"
-              >
-                {/* Platform header */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div
-                      className="rounded-lg p-1.5"
-                      style={{ color: meta.color, backgroundColor: `${meta.color}15` }}
-                    >
-                      {meta.icon}
-                    </div>
-                    <div>
-                      <p className="text-base font-semibold text-text-primary">{meta.label}</p>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="h-1.5 w-1.5 rounded-full bg-accent-green" />
-                        <span className="text-xs text-text-muted">Connected</span>
+              <Card key={platform}>
+                <CardContent className="pt-4 flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className="rounded-lg p-1.5"
+                        style={{ color: meta.color, backgroundColor: `${meta.color}15` }}
+                      >
+                        {meta.icon}
+                      </div>
+                      <div>
+                        <p className="text-base font-semibold text-foreground">{meta.label}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                          <span className="text-xs text-muted-foreground">Connected</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <button
-                    onClick={() => handleSync(platform)}
-                    disabled={isSyncing}
-                    className="rounded-lg border border-border px-2.5 py-1.5 text-xs text-text-secondary hover:text-text-primary hover:border-text-muted transition-colors disabled:opacity-50"
-                  >
-                    {isSyncing ? (
-                      <span className="flex items-center gap-1.5">
-                        <span className="h-3 w-3 animate-spin rounded-full border border-accent-green border-t-transparent" />
-                      </span>
-                    ) : status?.status === 'done' ? (
-                      <span className="text-accent-green text-xs">Synced</span>
-                    ) : status?.status === 'error' ? (
-                      <span className="text-accent-red text-xs" title={status.error || ''}>Error</span>
-                    ) : (
-                      'Sync'
-                    )}
-                  </button>
-                </div>
-
-                {/* Capability tags */}
-                <div className="flex flex-wrap gap-1.5">
-                  {Object.entries(caps)
-                    .filter(([, supported]) => supported)
-                    .map(([cap]) => (
-                      <span
-                        key={cap}
-                        className="rounded-md px-1.5 py-0.5 text-xs font-medium bg-panel-light text-text-muted"
-                      >
-                        {CAPABILITY_LABELS[cap] || cap}
-                      </span>
-                    ))}
-                </div>
-
-                {/* Preferred for badges */}
-                {prefs.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {prefs.map((cat) => (
-                      <span
-                        key={cat}
-                        className="rounded-md px-1.5 py-0.5 text-xs font-semibold bg-accent-green/10 text-accent-green"
-                      >
-                        Primary for {cat}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Last synced */}
-                {status?.last_sync && (
-                  <p className="text-xs text-text-muted">
-                    Last synced {new Date(status.last_sync).toLocaleString()}
-                  </p>
-                )}
-
-                {/* Garmin region (only for Garmin) */}
-                {platform === 'garmin' && (
-                  <div className="flex items-center justify-between pt-2 border-t border-border">
-                    <span className="text-xs text-text-muted">Region</span>
-                    <select
-                      value={config.source_options?.garmin_region || 'international'}
-                      onChange={(e) => handleRegionChange(e.target.value)}
-                      disabled={saving}
-                      className="rounded-md bg-panel-light border border-border px-2 py-1 text-xs text-text-primary focus:outline-none focus:border-accent-green"
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleSync(platform)}
+                      disabled={isSyncing}
                     >
-                      <option value="international">International</option>
-                      <option value="cn">China</option>
-                    </select>
+                      {isSyncing ? (
+                        <span className="h-3 w-3 animate-spin rounded-full border border-primary border-t-transparent" />
+                      ) : status?.status === 'done' ? (
+                        <span className="text-primary">Synced</span>
+                      ) : status?.status === 'error' ? (
+                        <span className="text-destructive" title={status.error || ''}>Error</span>
+                      ) : (
+                        'Sync'
+                      )}
+                    </Button>
                   </div>
-                )}
-              </div>
+
+                  <div className="flex flex-wrap gap-1.5">
+                    {Object.entries(caps)
+                      .filter(([, supported]) => supported)
+                      .map(([cap]) => (
+                        <Badge key={cap} variant="secondary" className="text-xs font-normal">
+                          {CAPABILITY_LABELS[cap] || cap}
+                        </Badge>
+                      ))}
+                  </div>
+
+                  {prefs.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {prefs.map((cat) => (
+                        <Badge key={cat} className="text-xs">
+                          Primary for {cat}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+
+                  {status?.last_sync && (
+                    <p className="text-xs text-muted-foreground">
+                      Last synced {new Date(status.last_sync).toLocaleString()}
+                    </p>
+                  )}
+
+                  {platform === 'garmin' && (
+                    <>
+                      <Separator />
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Region</span>
+                        <select
+                          value={config.source_options?.garmin_region || 'international'}
+                          onChange={(e) => handleRegionChange(e.target.value)}
+                          disabled={saving}
+                          className="rounded-md bg-muted border border-border px-2 py-1 text-xs text-foreground focus:outline-none focus:border-ring"
+                        >
+                          <option value="international">International</option>
+                          <option value="cn">China</option>
+                        </select>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
             );
           })}
         </div>
       </div>
 
       {/* ===== SECTION 2: Training Base ===== */}
-      <div className="rounded-2xl bg-panel p-5 sm:p-6 mb-6">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-4">Training Base</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {availableBases.map((base) => {
-            const info = BASE_CONFIG[base];
-            const isActive = config.training_base === base;
-            return (
-              <button
-                key={base}
-                onClick={() => handleBaseChange(base)}
-                disabled={saving}
-                className={`rounded-xl p-4 text-left transition-all border ${
-                  isActive
-                    ? 'border-accent-green/40 bg-accent-green/10 shadow-[0_0_12px_rgba(0,255,135,0.08)]'
-                    : 'border-transparent bg-panel-light hover:bg-panel-light/80'
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <span className={isActive ? 'text-accent-green' : 'text-text-muted'}>{info.icon}</span>
-                  <p className={`font-semibold text-base ${isActive ? 'text-text-primary' : 'text-text-primary'}`}>
-                    {info.label}
-                  </p>
-                </div>
-                <p className={`text-xs ${isActive ? 'text-text-secondary' : 'text-text-muted'}`}>{info.desc}</p>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Training Base</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {availableBases.map((base) => {
+              const info = BASE_CONFIG[base];
+              const isActive = config.training_base === base;
+              return (
+                <button
+                  key={base}
+                  onClick={() => handleBaseChange(base)}
+                  disabled={saving}
+                  className={`rounded-xl p-4 text-left transition-all border ${
+                    isActive
+                      ? 'border-primary/40 bg-primary/10'
+                      : 'border-transparent bg-muted hover:bg-muted/80'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={isActive ? 'text-primary' : 'text-muted-foreground'}>{info.icon}</span>
+                    <p className="font-semibold text-base text-foreground">{info.label}</p>
+                  </div>
+                  <p className={`text-xs ${isActive ? 'text-foreground/70' : 'text-muted-foreground'}`}>{info.desc}</p>
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* ===== SECTION 3: Data Preferences ===== */}
-      <div className="rounded-2xl bg-panel p-5 sm:p-6 mb-6">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-1">Data Preferences</h2>
-        <p className="text-sm text-text-muted mb-4">Choose which platform to use for each data type</p>
-
-        <div className="space-y-3">
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Data Preferences</CardTitle>
+          <CardDescription>Choose which platform to use for each data type</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
           {PREFERENCE_CATEGORIES.map(({ key, label, desc }) => {
             const providers = (availableProviders[key] || []).filter(
               (p) => connections.includes(p) || (key === 'plan' && p === 'ai')
@@ -451,127 +434,111 @@ export default function Settings() {
             return (
               <div key={key} className="flex items-center justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-text-primary">{label}</p>
-                  <p className="text-xs text-text-muted">{desc}</p>
+                  <p className="text-sm font-medium text-foreground">{label}</p>
+                  <p className="text-xs text-muted-foreground">{desc}</p>
                 </div>
-                <div className="flex rounded-lg border border-border overflow-hidden shrink-0">
+                <ToggleGroup
+                  type="single"
+                  value={current}
+                  onValueChange={(v) => { if (v) handlePreferenceChange(key, v); }}
+                >
                   {providers.map((p) => {
-                    const isSelected = current === p;
                     const meta = PLATFORM_META[p];
                     return (
-                      <button
-                        key={p}
-                        onClick={() => handlePreferenceChange(key, p)}
-                        disabled={saving}
-                        className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                          isSelected
-                            ? 'bg-accent-green/15 text-accent-green'
-                            : 'bg-panel-light text-text-muted hover:text-text-secondary'
-                        }`}
-                      >
+                      <ToggleGroupItem key={p} value={p} size="sm" disabled={saving}>
                         {meta?.label || p}
-                      </button>
+                      </ToggleGroupItem>
                     );
                   })}
-                </div>
+                </ToggleGroup>
               </div>
             );
           })}
 
-          {/* Fitness — auto-merged, info only */}
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-sm font-medium text-text-primary">Fitness</p>
-              <p className="text-xs text-text-muted">VO2max, CP, LTHR, training status</p>
+              <p className="text-sm font-medium text-foreground">Fitness</p>
+              <p className="text-xs text-muted-foreground">VO2max, CP, LTHR, training status</p>
             </div>
-            <span className="rounded-lg bg-panel-light border border-border px-3 py-1.5 text-xs text-text-muted">
-              Auto-merged
-            </span>
+            <Badge variant="secondary">Auto-merged</Badge>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* ===== SECTION 4: Thresholds ===== */}
-      <div className="rounded-2xl bg-panel p-5 sm:p-6">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-1">Thresholds</h2>
-        <p className="text-xs text-text-muted mb-5">Drive your zone calculations and training load. Click to override.</p>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Thresholds</CardTitle>
+          <CardDescription>Drive your zone calculations and training load. Click to override.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {THRESHOLD_FIELDS.map(({ key, label, unit }) => {
+              const effective = effectiveThresholds[key];
+              const value = effective?.value;
+              const origin = effective?.origin ?? 'none';
+              const isEditing = editingThreshold === key;
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {THRESHOLD_FIELDS.map(({ key, label, unit }) => {
-            const effective = effectiveThresholds[key];
-            const value = effective?.value;
-            const origin = effective?.origin ?? 'none';
-            const isEditing = editingThreshold === key;
+              let badgeVariant: 'default' | 'secondary' | 'outline' = 'secondary';
+              let badgeText = 'Not set';
+              if (origin.startsWith('auto')) {
+                badgeVariant = 'default';
+                badgeText = origin.replace('auto (', '').replace(')', '');
+                badgeText = `Auto · ${badgeText.charAt(0).toUpperCase() + badgeText.slice(1)}`;
+              } else if (origin === 'manual') {
+                badgeVariant = 'outline';
+                badgeText = 'Manual';
+              }
 
-            // Origin badge styling
-            let badgeClass = 'bg-panel-light text-text-muted';
-            let badgeText = 'Not set';
-            if (origin.startsWith('auto')) {
-              badgeClass = 'bg-accent-green/10 text-accent-green';
-              badgeText = origin.replace('auto (', '').replace(')', '');
-              badgeText = `Auto · ${badgeText.charAt(0).toUpperCase() + badgeText.slice(1)}`;
-            } else if (origin === 'manual') {
-              badgeClass = 'bg-accent-blue/10 text-accent-blue';
-              badgeText = 'Manual';
-            }
+              return (
+                <div key={key} className="rounded-xl bg-muted p-3 flex flex-col">
+                  <p className="text-xs text-muted-foreground mb-2">{label}</p>
 
-            return (
-              <div
-                key={key}
-                className="rounded-xl bg-panel-light p-3 flex flex-col"
-              >
-                <p className="text-xs text-text-muted mb-2">{label}</p>
-
-                {isEditing ? (
-                  <div className="flex flex-col gap-1.5">
-                    <input
-                      type="number"
-                      value={thresholdInput}
-                      onChange={(e) => setThresholdInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleThresholdSave(key);
-                        if (e.key === 'Escape') setEditingThreshold(null);
-                      }}
-                      autoFocus
-                      className="w-full rounded-lg bg-panel border border-accent-green px-2 py-1 text-xl font-bold font-data text-text-primary focus:outline-none"
-                    />
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => handleThresholdSave(key)}
-                        className="flex-1 rounded-md bg-accent-green/20 py-1 text-xs font-semibold text-accent-green"
-                      >
-                        Save
-                      </button>
-                      <button
-                        onClick={() => setEditingThreshold(null)}
-                        className="flex-1 rounded-md bg-panel py-1 text-xs text-text-muted"
-                      >
-                        Cancel
-                      </button>
+                  {isEditing ? (
+                    <div className="flex flex-col gap-1.5">
+                      <Input
+                        type="number"
+                        value={thresholdInput}
+                        onChange={(e) => setThresholdInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleThresholdSave(key);
+                          if (e.key === 'Escape') setEditingThreshold(null);
+                        }}
+                        autoFocus
+                        className="text-xl font-bold font-data"
+                      />
+                      <div className="flex gap-1">
+                        <Button size="sm" className="flex-1" onClick={() => handleThresholdSave(key)}>
+                          Save
+                        </Button>
+                        <Button variant="ghost" size="sm" className="flex-1" onClick={() => setEditingThreshold(null)}>
+                          Cancel
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => {
-                      setEditingThreshold(key);
-                      setThresholdInput(value != null ? String(value) : '');
-                    }}
-                    className="text-left group flex-1 flex flex-col"
-                  >
-                    <p className="text-2xl font-bold font-data text-text-primary group-hover:text-accent-green transition-colors">
-                      {value != null ? value : '—'}
-                      <span className="text-xs font-normal text-text-muted ml-1">{value != null ? unit : ''}</span>
-                    </p>
-                    <span className={`mt-auto rounded-md px-1.5 py-0.5 text-xs font-medium self-start ${badgeClass}`}>
-                      {badgeText}
-                    </span>
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setEditingThreshold(key);
+                        setThresholdInput(value != null ? String(value) : '');
+                      }}
+                      className="text-left group flex-1 flex flex-col"
+                    >
+                      <p className="text-2xl font-bold font-data text-foreground group-hover:text-primary transition-colors">
+                        {value != null ? value : '—'}
+                        <span className="text-xs font-normal text-muted-foreground ml-1">{value != null ? unit : ''}</span>
+                      </p>
+                      <Badge variant={badgeVariant} className="mt-auto self-start text-[10px]">
+                        {badgeText}
+                      </Badge>
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
