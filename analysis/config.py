@@ -74,6 +74,17 @@ class UserConfig:
         "target_time_sec": 0,
     })
 
+    # Science framework: one theory per pillar
+    science: dict[str, str] = field(default_factory=lambda: {
+        "load": "banister_pmc",
+        "recovery": "composite",
+        "prediction": "critical_power",
+        "zones": "coggan_5zone",
+    })
+
+    # Display preference for zone labels (cosmetic, does not affect math)
+    zone_labels: str = "standard"
+
     source_options: dict = field(default_factory=lambda: {
         "garmin_region": "international",  # "international" or "cn"
     })

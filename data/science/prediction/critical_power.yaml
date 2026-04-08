@@ -1,0 +1,29 @@
+id: critical_power
+pillar: prediction
+name: "Critical Power Model"
+author: system
+description: >
+  Uses Critical Power as the primary predictor, with power-duration fractions per
+  race distance from Stryd's model. Best when power data and CP estimates are available.
+
+citations:
+  - key: monod1965
+    title: "The work capacity of a synergic muscular group"
+    year: 1965
+    journal: "Ergonomics"
+  - key: stryd_race_calculator
+    title: "Race Power Calculator"
+    url: "https://help.stryd.com/en/articles/6879547-race-power-calculator"
+
+params:
+  distance_power_fractions:
+    5k: 1.038
+    10k: 1.00
+    half: 0.946
+    marathon: 0.899
+    50k: 0.88
+    50mi: 0.85
+    100k: 0.82
+    100mi: 0.78
+  riegel_exponent: 1.06
+  threshold_reference_km: 10.0

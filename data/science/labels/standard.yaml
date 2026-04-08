@@ -1,0 +1,10 @@
+id: standard
+name: "Standard"
+author: system
+
+tsb_zone_labels:
+  - {label: "Detraining", color: "#64748b"}
+  - {label: "Performance", color: "#00ff87"}
+  - {label: "Optimal", color: "#3b82f6"}
+  - {label: "Productive", color: "#22c55e"}
+  - {label: "Overreaching", color: "#ef4444"}

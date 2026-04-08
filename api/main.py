@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routes import today, training, goal, history, plan, settings, sync
+from api.routes import today, training, goal, history, plan, settings, sync, science
 
 app = FastAPI(title="Trail Running Dashboard API", version="1.0.0")
 
@@ -20,6 +20,7 @@ app.include_router(history.router, prefix="/api")
 app.include_router(plan.router, prefix="/api")
 app.include_router(settings.router, prefix="/api")
 app.include_router(sync.router, prefix="/api")
+app.include_router(science.router, prefix="/api")
 
 
 @app.get("/api/health")

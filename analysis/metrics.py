@@ -101,17 +101,21 @@ def compute_trimp(
     rest_hr: float,
     max_hr: float,
     sex: str = "male",
+    *,
+    k_male: float = 1.92,
+    k_female: float = 1.67,
 ) -> float:
     """Banister TRIMP (HR-based load).
 
     Uses exponential weighting of HR intensity.
+    k values can be overridden from a science theory.
     """
     if duration_sec <= 0 or max_hr <= rest_hr:
         return 0.0
     duration_min = duration_sec / 60
     delta_ratio = (avg_hr - rest_hr) / (max_hr - rest_hr)
     delta_ratio = max(0.0, min(1.0, delta_ratio))
-    k = 1.92 if sex == "male" else 1.67
+    k = k_male if sex == "male" else k_female
     return duration_min * delta_ratio * 0.64 * math.exp(k * delta_ratio)
 
 
@@ -192,6 +196,7 @@ def daily_training_signal(
     planned_detail: dict | None = None,
     sleep_score: float | None = None,
     hrv_value: float | None = None,
+    signal_thresholds: dict | None = None,
 ) -> dict:
     """Generate today's training recommendation from recovery + plan data.
 
@@ -203,7 +208,14 @@ def daily_training_signal(
         planned_detail: full plan row dict with duration, distance, power targets
         sleep_score: last night's Oura sleep score
         hrv_value: today's HRV in ms
+        signal_thresholds: overrides from science theory (readiness_rest, readiness_modify,
+            tsb_high_fatigue, hrv_decline_pct)
     """
+    st = signal_thresholds or {}
+    rest_thresh = st.get("readiness_rest", 60)
+    modify_thresh = st.get("readiness_modify", 70)
+    fatigue_thresh = st.get("tsb_high_fatigue", -20)
+    hrv_thresh = st.get("hrv_decline_pct", -15)
     # Classify workout difficulty
     hard_types = {"threshold", "tempo", "interval", "race", "long"}
     is_hard = planned_workout.lower() in hard_types if planned_workout else False
@@ -237,14 +249,14 @@ def daily_training_signal(
             plan["description"] = planned_detail["workout_description"]
 
     # Decision logic
-    if readiness_score is not None and readiness_score < 60:
+    if readiness_score is not None and readiness_score < rest_thresh:
         rec = "rest"
         reason = f"Readiness is low ({readiness_score:.0f}). Prioritize recovery."
         alternatives = []
         if is_hard and planned_workout:
             alternatives.append(f"Shift {planned_workout} to tomorrow if possible")
             alternatives.append("If you must move, walk 30min only")
-    elif readiness_score is not None and readiness_score < 70 and is_hard:
+    elif readiness_score is not None and readiness_score < modify_thresh and is_hard:
         rec = "modify"
         reason = f"Readiness moderate ({readiness_score:.0f}) but planned workout is hard ({planned_workout})."
         alternatives = [
@@ -252,11 +264,11 @@ def daily_training_signal(
             f"Push {planned_workout} to tomorrow if tomorrow is rest/easy",
             "Run as planned but cap at low end of power range, bail if HR drifts high",
         ]
-    elif readiness_score is not None and readiness_score < 70 and tsb < -20:
+    elif readiness_score is not None and readiness_score < modify_thresh and tsb < fatigue_thresh:
         rec = "easy"
         reason = f"Readiness moderate ({readiness_score:.0f}) with high fatigue (TSB={tsb:.0f}). Go easy."
         alternatives = []
-    elif hrv_trend_pct < -15:
+    elif hrv_trend_pct < hrv_thresh:
         rec = "reduce_intensity"
         reason = f"HRV has declined {hrv_trend_pct:.0f}% over 3 days. Reduce intensity to prevent overtraining."
         alternatives = []

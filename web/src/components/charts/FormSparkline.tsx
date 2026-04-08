@@ -9,25 +9,18 @@ import {
   XAxis,
 } from 'recharts';
 import type { TsbSparkline } from '../../types/api';
+import { useScience, tsbZoneFromConfig } from '../../contexts/ScienceContext';
 
 interface Props {
   data: TsbSparkline;
 }
 
-function tsbZone(v: number): { label: string; color: string } {
-  if (v >= 25) return { label: 'Detraining', color: '#64748b' };
-  if (v >= 5) return { label: 'Performance', color: '#00ff87' };
-  if (v >= -10) return { label: 'Optimal', color: '#3b82f6' };
-  if (v >= -25) return { label: 'Productive', color: '#22c55e' };
-  return { label: 'Overreaching', color: '#ef4444' };
-}
-
-function SparkTooltip({ active, payload, label }: any) {
+function SparkTooltip({ active, payload, label, tsbZones }: any) {
   if (!active || !payload?.length) return null;
   const entry = payload[0]?.payload;
   const val = entry?.tsb ?? entry?.proj ?? 0;
   const isProj = entry?._projected;
-  const zone = tsbZone(val);
+  const zone = tsbZoneFromConfig(val, tsbZones ?? []);
   return (
     <div className="rounded-md border border-border bg-panel px-2.5 py-1.5 shadow-lg shadow-black/30">
       <div className="flex items-center gap-2">
@@ -51,6 +44,7 @@ function SparkTooltip({ active, payload, label }: any) {
 }
 
 export default function FormSparkline({ data }: Props) {
+  const { tsbZones } = useScience();
   const { chartData, yMin, yMax, hasProjection, latestTsb } = useMemo(() => {
     const hasProjData = !!(data.projected_dates?.length && data.projected_values?.length);
 
@@ -93,7 +87,7 @@ export default function FormSparkline({ data }: Props) {
     };
   }, [data]);
 
-  const zone = tsbZone(latestTsb);
+  const zone = tsbZoneFromConfig(latestTsb, tsbZones);
 
   return (
     <div className="rounded-2xl bg-panel p-5 sm:p-6">
@@ -139,35 +133,17 @@ export default function FormSparkline({ data }: Props) {
               </linearGradient>
             </defs>
 
-            {/* Zone bands (subtle) — aligned with Stryd RSB */}
-            <ReferenceArea
-              y1={Math.max(5, yMin)}
-              y2={Math.min(yMax, 100)}
-              fill="#00ff87"
-              fillOpacity={0.03}
-              ifOverflow="hidden"
-            />
-            <ReferenceArea
-              y1={Math.max(-10, yMin)}
-              y2={Math.min(5, yMax)}
-              fill="#3b82f6"
-              fillOpacity={0.03}
-              ifOverflow="hidden"
-            />
-            <ReferenceArea
-              y1={Math.max(-25, yMin)}
-              y2={Math.min(-10, yMax)}
-              fill="#22c55e"
-              fillOpacity={0.03}
-              ifOverflow="hidden"
-            />
-            <ReferenceArea
-              y1={Math.max(yMin, -100)}
-              y2={Math.min(-25, yMax)}
-              fill="#ef4444"
-              fillOpacity={0.03}
-              ifOverflow="hidden"
-            />
+            {/* Zone bands (from science context) */}
+            {tsbZones.map((zone) => (
+              <ReferenceArea
+                key={zone.label}
+                y1={Math.max(zone.min ?? -100, yMin)}
+                y2={Math.min(zone.max ?? 100, yMax)}
+                fill={zone.color}
+                fillOpacity={0.03}
+                ifOverflow="hidden"
+              />
+            ))}
 
             <XAxis
               dataKey="date"
@@ -179,13 +155,22 @@ export default function FormSparkline({ data }: Props) {
                 return `${d.getMonth() + 1}/${d.getDate()}`;
               }}
             />
-            <Tooltip content={<SparkTooltip />} />
+            <Tooltip content={<SparkTooltip tsbZones={tsbZones} />} />
 
             {/* Zone boundary lines */}
             <ReferenceLine y={0} stroke="#475569" strokeWidth={1} strokeDasharray="4 3" />
-            <ReferenceLine y={5} stroke="#00ff87" strokeWidth={0.5} strokeOpacity={0.2} strokeDasharray="2 4" />
-            <ReferenceLine y={-10} stroke="#3b82f6" strokeWidth={0.5} strokeOpacity={0.2} strokeDasharray="2 4" />
-            <ReferenceLine y={-25} stroke="#ef4444" strokeWidth={0.5} strokeOpacity={0.2} strokeDasharray="2 4" />
+            {tsbZones.map((zone) =>
+              zone.min != null && zone.min !== 0 ? (
+                <ReferenceLine
+                  key={`line-${zone.min}`}
+                  y={zone.min}
+                  stroke={zone.color}
+                  strokeWidth={0.5}
+                  strokeOpacity={0.2}
+                  strokeDasharray="2 4"
+                />
+              ) : null
+            )}
 
             {/* Historical TSB area — positive */}
             <Area

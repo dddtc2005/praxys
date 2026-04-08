@@ -10,6 +10,7 @@ from analysis.config import load_config
 from analysis.data_loader import load_data
 from analysis.providers.models import ThresholdEstimate
 from analysis.training_base import get_display_config
+from analysis.science import load_active_science
 from analysis.metrics import (
     compute_ewma_load,
     compute_tsb,
@@ -49,6 +50,11 @@ def _ensure_env():
 _cache: dict = {}
 _cache_time: float = 0
 CACHE_TTL = 300  # 5 minutes
+
+
+def _clear_cache():
+    """Force data reload on next request (alias for invalidate_cache)."""
+    invalidate_cache()
 
 
 def invalidate_cache():
@@ -684,10 +690,16 @@ def get_dashboard_data() -> dict:
     merged = data["activities"]  # Already merged by load_data()
     thresholds = _resolve_thresholds(config, data_dir)
 
+    # Load science framework (theories for each pillar)
+    science = load_active_science(config.science, config.zone_labels)
+    load_theory = science.get("load")
+    load_params = load_theory.params if load_theory else {}
+    ctl_tc = int(load_params.get("ctl_time_constant", 42))
+    atl_tc = int(load_params.get("atl_time_constant", 7))
+
     today = date.today()
 
     # Use ALL historical data for EWMA so CTL/ATL stabilize correctly.
-    # The 42-day CTL time constant needs months of history to be accurate.
     earliest = today - timedelta(days=365)  # default if no data
     if not merged.empty and "date" in merged.columns:
         first_date = pd.to_datetime(merged["date"]).min()
@@ -695,8 +707,8 @@ def get_dashboard_data() -> dict:
             earliest = first_date.date()
     full_range = pd.date_range(earliest, today)
     daily_load = _compute_daily_load(merged, full_range, config, thresholds)
-    ctl = compute_ewma_load(daily_load, time_constant=42)
-    atl = compute_ewma_load(daily_load, time_constant=7)
+    ctl = compute_ewma_load(daily_load, time_constant=ctl_tc)
+    atl = compute_ewma_load(daily_load, time_constant=atl_tc)
     tsb = compute_tsb(ctl, atl)
 
     # Project TSB forward using the training plan (up to 14 days)
@@ -709,6 +721,7 @@ def get_dashboard_data() -> dict:
     current_atl = float(atl.iloc[-1]) if not atl.empty else 0.0
     proj_ctl, proj_atl, proj_tsb = project_tsb(
         current_ctl, current_atl, future_loads,
+        ctl_tc=ctl_tc, atl_tc=atl_tc,
     )
     proj_dates = [
         (today + timedelta(days=i + 1)).strftime("%Y-%m-%d")
@@ -814,6 +827,7 @@ def get_dashboard_data() -> dict:
         planned_detail=planned_detail,
         sleep_score=latest_sleep,
         hrv_value=latest_hrv,
+        signal_thresholds=load_theory.signal if load_theory else None,
     )
 
     # Chart data — fitness/fatigue (last 60 days from display window)
@@ -925,6 +939,12 @@ def get_dashboard_data() -> dict:
         "training_base": config.training_base,
         "display": get_display_config(config.training_base),
         "plan": plan,
+        # Science framework: active theories + TSB zones for frontend
+        "science": science,
+        "tsb_zones": [
+            {"min": z.min, "max": z.max, "label": z.label, "color": z.color}
+            for z in (load_theory.tsb_zones_labeled if load_theory else [])
+        ],
     }
 
     _cache = result

@@ -1,0 +1,43 @@
+id: banister_pmc
+pillar: load
+name: "Banister PMC"
+author: system
+description: >
+  Industry-standard Performance Management Chart. Fitness builds over ~6 weeks (CTL),
+  fatigue clears in ~1 week (ATL). TSB = CTL - ATL. Best for 5K-marathon runners
+  training 4-6 days/week.
+
+citations:
+  - key: banister1975
+    title: "A systems model of training for athletic performance"
+    year: 1975
+    journal: "Australian Journal of Sports Medicine"
+  - key: trainingpeaks_pmc
+    title: "The Science of the Performance Manager"
+    url: "https://www.trainingpeaks.com/learn/articles/the-science-of-the-performance-manager/"
+
+tsb_zones:
+  - {min: 25}
+  - {min: 5, max: 25}
+  - {min: -10, max: 5}
+  - {min: -25, max: -10}
+  - {max: -25}
+
+params:
+  ctl_time_constant: 42
+  atl_time_constant: 7
+  rss_exponent: 2.0
+  trimp_k_male: 1.92
+  trimp_k_female: 1.67
+
+signal:
+  readiness_rest: 60
+  readiness_modify: 70
+  tsb_high_fatigue: -20
+  hrv_decline_pct: -15
+
+diagnosis:
+  work_split_min_sec: 120
+  work_split_max_sec: 1800
+  volume_strong_km: 60
+  volume_moderate_km: 40

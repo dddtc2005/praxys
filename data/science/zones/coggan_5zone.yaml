@@ -1,0 +1,28 @@
+id: coggan_5zone
+pillar: zones
+name: "Coggan 5-Zone"
+author: system
+description: >
+  Classic 5-zone model derived from Coggan's power training levels. Zones are defined
+  as fractions of threshold (CP, LTHR, or threshold pace). Industry standard for
+  structured training.
+
+citations:
+  - key: coggan2012
+    title: "Training and Racing with a Power Meter"
+    year: 2012
+    type: book
+  - key: friel_hr
+    title: "The Cyclist's Training Bible"
+    type: book
+
+params:
+  zone_count: 5
+  boundaries:
+    power: [0.55, 0.75, 0.90, 1.05]
+    hr: [0.72, 0.82, 0.89, 0.96]
+    pace: [1.29, 1.14, 1.06, 1.00]
+  zone_names:
+    power: ["Easy", "Tempo", "Threshold", "Supra-CP", "VO2max"]
+    hr: ["Recovery", "Aerobic", "Tempo", "Threshold", "VO2max"]
+    pace: ["Recovery", "Easy", "Tempo", "Threshold", "Interval"]

@@ -1,0 +1,25 @@
+id: composite
+pillar: recovery
+name: "Composite Readiness"
+author: system
+description: >
+  Balanced readiness model combining heart rate variability, sleep quality, and
+  resting heart rate. Works well even with incomplete data - gracefully degrades
+  when one signal is missing.
+
+citations:
+  - key: walsh2021
+    title: "Sleep and the athlete"
+    year: 2021
+    journal: "British Journal of Sports Medicine"
+  - key: plews2013
+    title: "Heart rate variability in elite triathletes"
+    year: 2013
+    journal: "Journal of Science and Medicine in Sport"
+
+params:
+  hrv_weight: 0.4
+  sleep_weight: 0.35
+  rhr_weight: 0.25
+  readiness_fresh: 80
+  readiness_moderate: 60

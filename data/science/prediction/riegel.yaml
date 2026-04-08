@@ -1,0 +1,21 @@
+id: riegel
+pillar: prediction
+name: "Riegel Formula"
+author: system
+description: >
+  Empirical pace-scaling formula: T2 = T1 x (D2/D1)^1.06. Works from a known race
+  time at any distance. Best for pace/HR-based athletes without power data.
+
+citations:
+  - key: riegel1977
+    title: "Athletic Records and Human Endurance"
+    year: 1977
+    journal: "American Scientist"
+  - key: vickers2016
+    title: "An Empirical Study of Race Times in Recreational Running"
+    year: 2016
+    journal: "BMC Sports Science"
+
+params:
+  riegel_exponent: 1.06
+  threshold_reference_km: 10.0

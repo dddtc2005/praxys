@@ -1,0 +1,44 @@
+id: banister_ultra
+pillar: load
+name: "Banister Ultra"
+author: system
+description: >
+  Adapted for ultra-distance athletes (50K+). Longer time constants (50/10 days)
+  reflect extended recovery arcs from high-volume mountain training. Wider productive
+  zone accommodates deeper fatigue loads normal in ultra blocks.
+
+citations:
+  - key: banister1975
+    title: "A systems model of training for athletic performance"
+    year: 1975
+    journal: "Australian Journal of Sports Medicine"
+  - key: koop2016
+    title: "Training Essentials for Ultrarunning"
+    year: 2016
+    type: book
+
+tsb_zones:
+  - {min: 25}
+  - {min: 5, max: 25}
+  - {min: -10, max: 5}
+  - {min: -35, max: -10}
+  - {max: -35}
+
+params:
+  ctl_time_constant: 50
+  atl_time_constant: 10
+  rss_exponent: 2.0
+  trimp_k_male: 1.92
+  trimp_k_female: 1.67
+
+signal:
+  readiness_rest: 55
+  readiness_modify: 65
+  tsb_high_fatigue: -25
+  hrv_decline_pct: -15
+
+diagnosis:
+  work_split_min_sec: 120
+  work_split_max_sec: 3600
+  volume_strong_km: 80
+  volume_moderate_km: 60

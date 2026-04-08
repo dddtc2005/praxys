@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { SettingsProvider } from './contexts/SettingsContext';
+import { ScienceProvider } from './contexts/ScienceContext';
 import Layout from './components/Layout';
 import Today from './pages/Today';
 import Training from './pages/Training';
@@ -10,6 +11,7 @@ import Settings from './pages/Settings';
 export default function App() {
   return (
     <SettingsProvider>
+      <ScienceProvider>
       <BrowserRouter>
         <Routes>
           <Route element={<Layout />}>
@@ -21,6 +23,7 @@ export default function App() {
           </Route>
         </Routes>
       </BrowserRouter>
+      </ScienceProvider>
     </SettingsProvider>
   );
 }

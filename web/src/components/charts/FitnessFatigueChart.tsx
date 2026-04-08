@@ -11,39 +11,25 @@ import {
   ReferenceArea,
   ReferenceLine,
 } from 'recharts';
-import type { TimeSeriesData } from '../../types/api';
+import type { TimeSeriesData, TsbZoneConfig } from '../../types/api';
 import ScienceNote from '../ScienceNote';
+import { useScience, tsbZoneFromConfig } from '../../contexts/ScienceContext';
 
 interface Props {
   data: TimeSeriesData;
 }
 
-/* ── TSB zone boundaries (aligned with Stryd RSB zones) ───────────────── */
-const TSB_ZONES = [
-  { min: 25, max: 100, label: 'Detraining', color: '#64748b', opacity: 0.04 },
-  { min: 5, max: 25, label: 'Performance', color: '#00ff87', opacity: 0.07 },
-  { min: -10, max: 5, label: 'Optimal', color: '#3b82f6', opacity: 0.06 },
-  { min: -25, max: -10, label: 'Productive', color: '#00ff87', opacity: 0.04 },
-  { min: -100, max: -25, label: 'Overreaching', color: '#ef4444', opacity: 0.05 },
-] as const;
+/* Zone opacity by index (visual styling, not science) */
+const ZONE_OPACITIES = [0.04, 0.07, 0.06, 0.04, 0.05];
 
-/* ── Custom tooltip ───────────────────────────────────────────────────── */
-function tsbZoneLabel(tsb: number): { label: string; color: string } {
-  if (tsb >= 25) return { label: 'Detraining', color: '#64748b' };
-  if (tsb >= 5) return { label: 'Performance', color: '#00ff87' };
-  if (tsb >= -10) return { label: 'Optimal', color: '#3b82f6' };
-  if (tsb >= -25) return { label: 'Productive', color: '#22c55e' };
-  return { label: 'Overreaching', color: '#ef4444' };
-}
-
-function CustomTooltip({ active, payload, label }: any) {
+function CustomTooltip({ active, payload, label, tsbZones }: any) {
   if (!active || !payload?.length) return null;
   const isProjected = payload[0]?.payload?._projected;
   const ctl = payload.find((p: any) => p.dataKey === 'ctl' || p.dataKey === 'proj_ctl');
   const atl = payload.find((p: any) => p.dataKey === 'atl' || p.dataKey === 'proj_atl');
   const tsb = payload.find((p: any) => p.dataKey === 'tsb' || p.dataKey === 'proj_tsb');
   const tsbVal = tsb?.value ?? 0;
-  const zone = tsbZoneLabel(tsbVal);
+  const zone = tsbZoneFromConfig(tsbVal, tsbZones ?? []);
 
   return (
     <div className="rounded-lg border border-border bg-panel px-3 py-2.5 shadow-xl shadow-black/40">
@@ -90,13 +76,15 @@ function CustomTooltip({ active, payload, label }: any) {
 }
 
 /* ── Zone legend ──────────────────────────────────────────────────────── */
-function ZoneLegend() {
-  const zones = [
-    { label: 'Performance', color: '#00ff87', range: '5–25' },
-    { label: 'Optimal', color: '#3b82f6', range: '-10–5' },
-    { label: 'Productive', color: '#22c55e', range: '-25–-10' },
-    { label: 'Overreaching', color: '#ef4444', range: '<-25' },
-  ];
+function ZoneLegend({ zones: tsbZones }: { zones: TsbZoneConfig[] }) {
+  const zones = tsbZones
+    .filter((z) => z.label !== 'Detraining') // Skip detraining in legend (rarely relevant)
+    .map((z) => {
+      const lo = z.min != null ? String(z.min) : '';
+      const hi = z.max != null ? String(z.max) : '';
+      const range = lo && hi ? `${lo}–${hi}` : lo ? `${lo}+` : `<${hi}`;
+      return { label: z.label, color: z.color, range };
+    });
   return (
     <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3">
       {zones.map((z) => (
@@ -116,6 +104,7 @@ function ZoneLegend() {
 
 /* ── Main chart ───────────────────────────────────────────────────────── */
 export default function FitnessFatigueChart({ data }: Props) {
+  const { tsbZones } = useScience();
   const { chartData, yMin, yMax, hasProjection } = useMemo(() => {
     const hasProjData = !!(data.projected_dates?.length && data.projected_ctl?.length);
 
@@ -239,13 +228,13 @@ export default function FitnessFatigueChart({ data }: Props) {
           />
 
           {/* TSB zone bands */}
-          {TSB_ZONES.map((zone) => (
+          {tsbZones.map((zone, i) => (
             <ReferenceArea
               key={zone.label}
-              y1={Math.max(zone.min, yMin)}
-              y2={Math.min(zone.max, yMax)}
+              y1={Math.max(zone.min ?? -100, yMin)}
+              y2={Math.min(zone.max ?? 100, yMax)}
               fill={zone.color}
-              fillOpacity={zone.opacity}
+              fillOpacity={ZONE_OPACITIES[i] ?? 0.05}
               ifOverflow="hidden"
             />
           ))}
@@ -291,7 +280,7 @@ export default function FitnessFatigueChart({ data }: Props) {
             axisLine={false}
             domain={[yMin, yMax]}
           />
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip content={<CustomTooltip tsbZones={tsbZones} />} />
 
           {/* Historical TSB area fill */}
           <Area
@@ -383,7 +372,7 @@ export default function FitnessFatigueChart({ data }: Props) {
         </ComposedChart>
       </ResponsiveContainer>
 
-      <ZoneLegend />
+      <ZoneLegend zones={tsbZones} />
 
       <ScienceNote
         text="Fitness (CTL) is an exponentially weighted moving average of daily training load over 42 days. Fatigue (ATL) uses a 7-day window. Form (TSB) = CTL − ATL. Zones aligned with Stryd RSB: Performance (5–25) for race readiness, Optimal (-10–5) the sweet spot between stress and recovery, Productive (-25–-10) building fitness with manageable fatigue, Overreaching (<-25) signals recovery needed. Projected values are estimated from your training plan. Uses the standard PMC model (Banister, 1975) with α = 1/τ, matching TrainingPeaks, Stryd, and Intervals.icu."
