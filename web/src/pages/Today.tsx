@@ -1,14 +1,26 @@
 import { useApi } from '@/hooks/useApi';
 import type { TodayResponse } from '@/types/api';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
+import { AlertTriangle } from 'lucide-react';
 import SignalHero from '@/components/SignalHero';
 import RecoveryPanel from '@/components/RecoveryPanel';
 import WorkoutCard from '@/components/WorkoutCard';
 import FormSparkline from '@/components/charts/FormSparkline';
 
-function Spinner() {
+function TodaySkeleton() {
   return (
-    <div className="flex items-center justify-center py-24">
-      <div className="h-10 w-10 rounded-full border-4 border-border border-t-accent-green animate-spin" />
+    <div className="space-y-6">
+      <div>
+        <Skeleton className="h-8 w-24" />
+        <Skeleton className="h-4 w-48 mt-2" />
+      </div>
+      <Skeleton className="h-60 w-full rounded-2xl" />
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+        <Skeleton className="h-48 rounded-2xl" />
+        <Skeleton className="h-48 rounded-2xl" />
+      </div>
+      <Skeleton className="h-32 w-full rounded-2xl" />
     </div>
   );
 }
@@ -24,14 +36,14 @@ export default function Today() {
     day: 'numeric',
   });
 
-  if (loading) return <Spinner />;
+  if (loading) return <TodaySkeleton />;
 
   if (error) {
     return (
-      <div className="py-12 text-center">
-        <p className="text-destructive text-lg font-semibold">Failed to load</p>
-        <p className="text-muted-foreground text-sm mt-1">{error}</p>
-      </div>
+      <Alert variant="destructive" className="my-12">
+        <AlertTitle>Failed to load</AlertTitle>
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
     );
   }
 
@@ -66,12 +78,10 @@ export default function Today() {
             Warnings
           </h3>
           {warnings.map((w, i) => (
-            <div
-              key={i}
-              className="rounded-xl border border-accent-amber/30 bg-accent-amber/5 px-4 py-3 text-sm text-accent-amber"
-            >
-              {w}
-            </div>
+            <Alert key={i} className="border-accent-amber/30 bg-accent-amber/5 text-accent-amber [&>svg]:text-accent-amber">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{w}</AlertDescription>
+            </Alert>
           ))}
         </div>
       )}

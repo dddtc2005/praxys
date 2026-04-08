@@ -1,5 +1,7 @@
 import { useApi } from '@/hooks/useApi';
 import type { PlanResponse, PlannedWorkout } from '@/types/api';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
   easy:       { bg: 'bg-primary/15', text: 'text-primary' },
@@ -102,35 +104,38 @@ export default function UpcomingPlanCard() {
 
   if (loading) {
     return (
-      <div className="rounded-2xl bg-card p-5 sm:p-6">
-        <div className="h-6 w-32 bg-muted rounded animate-pulse mb-4" />
-        <div className="space-y-3">
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-4 w-32" />
+        </CardHeader>
+        <CardContent className="space-y-3">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-12 bg-muted rounded-lg animate-pulse" />
+            <Skeleton key={i} className="h-12 rounded-lg" />
           ))}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     );
   }
 
   if (error || !data || data.workouts.length === 0) return null;
 
   return (
-    <div className="rounded-2xl bg-card p-5 sm:p-6">
-      <div className="flex items-baseline justify-between mb-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+    <Card>
+      <CardHeader className="flex-row items-baseline justify-between space-y-0">
+        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Upcoming Plan
-        </h3>
+        </CardTitle>
         <span className="text-xs text-muted-foreground font-data">
           {data.workouts.length} workouts
         </span>
-      </div>
-
-      <div className="space-y-0.5">
-        {data.workouts.map((w) => (
-          <WorkoutRow key={w.date} workout={w} />
-        ))}
-      </div>
-    </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-0.5">
+          {data.workouts.map((w) => (
+            <WorkoutRow key={w.date} workout={w} />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

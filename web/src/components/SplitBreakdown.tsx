@@ -1,4 +1,12 @@
 import type { SplitData } from '@/types/api';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface Props {
   splits: SplitData[];
@@ -30,44 +38,44 @@ export default function SplitBreakdown({ splits, cpEstimate }: Props) {
 
   return (
     <div className="mt-4 border-t border-border pt-4 overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            <th className="text-left py-1 pr-3">#</th>
-            <th className="text-right py-1 px-3">Dist</th>
-            <th className="text-right py-1 px-3">Duration</th>
-            <th className="text-right py-1 px-3">Power</th>
-            <th className="text-right py-1 px-3">HR</th>
-            <th className="text-right py-1 pl-3">Pace</th>
-          </tr>
-        </thead>
-        <tbody>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="text-left">#</TableHead>
+            <TableHead className="text-right">Dist</TableHead>
+            <TableHead className="text-right">Duration</TableHead>
+            <TableHead className="text-right">Power</TableHead>
+            <TableHead className="text-right">HR</TableHead>
+            <TableHead className="text-right">Pace</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {splits.map((s) => (
-            <tr key={s.split_num} className="border-t border-border/50">
-              <td className="py-1.5 pr-3 text-muted-foreground font-data">
+            <TableRow key={s.split_num}>
+              <TableCell className="font-data text-muted-foreground">
                 {s.split_num}
-              </td>
-              <td className="py-1.5 px-3 text-right font-data text-muted-foreground">
+              </TableCell>
+              <TableCell className="text-right font-data text-muted-foreground">
                 {s.distance_km != null ? `${s.distance_km.toFixed(2)}` : '\u2014'}
-              </td>
-              <td className="py-1.5 px-3 text-right font-data text-muted-foreground">
+              </TableCell>
+              <TableCell className="text-right font-data text-muted-foreground">
                 {formatSplitDuration(s.duration_sec)}
-              </td>
-              <td
-                className={`py-1.5 px-3 text-right font-data font-medium ${powerZoneClass(s.avg_power, cpEstimate)}`}
+              </TableCell>
+              <TableCell
+                className={`text-right font-data font-medium ${powerZoneClass(s.avg_power, cpEstimate)}`}
               >
                 {s.avg_power != null ? `${Math.round(s.avg_power)}` : '\u2014'}
-              </td>
-              <td className="py-1.5 px-3 text-right font-data text-muted-foreground">
+              </TableCell>
+              <TableCell className="text-right font-data text-muted-foreground">
                 {s.avg_hr != null ? `${Math.round(s.avg_hr)}` : '\u2014'}
-              </td>
-              <td className="py-1.5 pl-3 text-right font-data text-muted-foreground">
+              </TableCell>
+              <TableCell className="text-right font-data text-muted-foreground">
                 {s.avg_pace_min_km ?? '\u2014'}
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 }

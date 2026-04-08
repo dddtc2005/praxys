@@ -60,9 +60,73 @@ All training metrics, predictions, and insights must be grounded in exercise sci
 ### Frontend
 - **TypeScript strict** — all API responses typed in `web/src/types/api.ts`
 - **`useApi<T>` hook** for data fetching (loading/error/data states)
-- **Tailwind v4** with custom theme vars (see `web/src/index.css`)
-- **Recharts** for all charts — dark theme tooltip/grid styling
+- **shadcn/ui** as the component library (base-nova style, dark-first)
+- **Tailwind CSS v4** with OKLCH color variables in `web/src/index.css`
+- **Recharts** for all charts — colors from `web/src/lib/chart-theme.ts`
 - Data numbers use `font-data` CSS class (JetBrains Mono, tabular-nums)
+
+## Frontend Design System
+
+### Theme
+- **Light + dark** themes via `.dark` class on `<html>`. Default stored preference is dark.
+- `:root` = light theme (warm paper tones), `.dark` = dark theme (deep navy tones)
+- Theme toggle in sidebar footer cycles: Dark → Light → System
+- User preference persisted in `localStorage` key `trainsight-theme`
+- Inline script in `index.html` prevents flash of wrong theme on load
+- shadcn's CSS variable system (`--background`, `--card`, `--primary`, etc.) is the **single source of truth** for surface colors
+- Brand accent: `--primary` is darkened green in light, vivid neon-green in dark
+- Semantic accent colors (`--color-accent-green`, etc.) use CSS custom property indirection (`--accent-green-val`) so `.dark` can override them
+- Chart colors use `useChartColors()` hook which returns theme-appropriate hex values for Recharts
+
+### Color Usage Rules
+| Token | Usage |
+|-------|-------|
+| `primary` | Positive signals, active states, brand accent (green) |
+| `destructive` | Negative signals, errors, high-intensity zones, rest signals |
+| `accent-amber` | Warnings, threshold zones, caution signals |
+| `accent-blue` | Informational, TSB/form, moderate zones |
+| `accent-purple` | Projections, sleep/recovery data, AI features |
+| `muted-foreground` | Secondary text, labels, descriptions |
+| `foreground` | Primary text, data values, headings |
+
+**Rule:** Never use raw hex colors in components. Use CSS variables, Tailwind color utilities, or the `chartColors` constants from `@/lib/chart-theme.ts`.
+
+### Typography
+- **Body text:** DM Sans (via `--font-sans`, loaded from Google Fonts in `index.html`)
+- **Data numbers:** `.font-data` class (JetBrains Mono, `tabular-nums`). Use for **all** numeric values: metrics, dates, percentages, chart labels
+- **Section headers:** `text-xs font-semibold uppercase tracking-wider text-muted-foreground`
+- **Headings:** Same as body font (DM Sans)
+
+### Component Rules (shadcn/ui)
+| Pattern | Component |
+|---------|-----------|
+| Page sections | `Card` with `CardHeader` + `CardContent` |
+| Loading states | `Skeleton` matching the shape of content (never "Loading..." text) |
+| Error states | `Alert variant="destructive"` |
+| Warnings | `Alert` with amber accent styling |
+| Editing forms | `Dialog` (modal overlay) |
+| Expandable sections | `Collapsible` |
+| Data tables | `Table` / `TableHeader` / `TableBody` / `TableRow` / `TableCell` |
+| Dropdowns | `Select` (never raw `<select>`) |
+| Buttons | `Button` with variants (never raw `<button>`) |
+| Form fields | `Input` + `Label` (never raw `<input>`) |
+| Status indicators | `Badge` with severity-based variants |
+| Progress bars | `Progress` |
+| Navigation | `Sidebar` (collapsible, sheet drawer on mobile) |
+
+### Chart Conventions
+- Import colors from `@/lib/chart-theme.ts` — **single source of truth** for chart colors
+- Chart tooltips use `bg-popover border-border text-popover-foreground rounded-lg shadow-xl`
+- Grid lines use `chartColors.grid`, axis ticks use `chartColors.tick` with `font-data`
+- All charts wrapped in a shadcn `Card`
+- Gradient stops reference `chartColors.*` constants (not raw hex)
+
+### Mobile Patterns
+- Sidebar renders as Sheet drawer on mobile (via shadcn Sidebar component with `collapsible="icon"`)
+- Sticky mobile header with `SidebarTrigger` (hamburger menu)
+- Content uses responsive grid: `grid-cols-1 lg:grid-cols-2`
+- Cards stack vertically on mobile
+- Padding: `px-4 py-6 sm:px-6 lg:px-8`
 
 ### API
 - All endpoints under `/api/` prefix

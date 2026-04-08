@@ -6,7 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 // --- Constants ---
@@ -154,8 +157,15 @@ export default function Settings() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <div className="space-y-6 py-6">
+        <Skeleton className="h-8 w-32" />
+        <Skeleton className="h-4 w-48" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Skeleton className="h-40 rounded-2xl" />
+          <Skeleton className="h-40 rounded-2xl" />
+          <Skeleton className="h-40 rounded-2xl" />
+        </div>
+        <Skeleton className="h-32 rounded-2xl" />
       </div>
     );
   }
@@ -366,16 +376,20 @@ export default function Settings() {
                     <>
                       <Separator />
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Region</span>
-                        <select
+                        <Label className="text-xs text-muted-foreground">Region</Label>
+                        <Select
                           value={config.source_options?.garmin_region || 'international'}
-                          onChange={(e) => handleRegionChange(e.target.value)}
+                          onValueChange={(v) => { if (v) handleRegionChange(v); }}
                           disabled={saving}
-                          className="rounded-md bg-muted border border-border px-2 py-1 text-xs text-foreground focus:outline-none focus:border-ring"
                         >
-                          <option value="international">International</option>
-                          <option value="cn">China</option>
-                        </select>
+                          <SelectTrigger className="w-32 h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="international">International</SelectItem>
+                            <SelectItem value="cn">China</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </>
                   )}

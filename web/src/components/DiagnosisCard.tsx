@@ -1,5 +1,6 @@
 import type { DiagnosisData, DiagnosisFinding, DisplayConfig } from '@/types/api';
 import DistributionBar from '@/components/DistributionBar';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface Props {
   diagnosis: DiagnosisData;
@@ -24,8 +25,11 @@ export default function DiagnosisCard({ diagnosis, display }: Props) {
   const topZoneName = display?.zone_names?.[3] ?? 'Supra-CP';
 
   return (
-    <div className="rounded-2xl bg-card p-5 sm:p-6">
-      <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-5">Training Diagnosis</h2>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Training Diagnosis</CardTitle>
+      </CardHeader>
+      <CardContent>
 
       {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
@@ -87,6 +91,7 @@ export default function DiagnosisCard({ diagnosis, display }: Props) {
           </ul>
         </>
       )}
-    </div>
+      </CardContent>
+    </Card>
   );
 }
