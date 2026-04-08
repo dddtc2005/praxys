@@ -12,8 +12,9 @@ function scoreColor(value: number | undefined, thresholds = { green: 80, amber: 
 }
 
 function tsbColor(value: number): string {
-  if (value > 0) return 'text-accent-green';
-  if (value >= -10) return 'text-accent-amber';
+  if (value >= 5) return 'text-accent-green';
+  if (value >= -10) return 'text-accent-blue';
+  if (value >= -25) return 'text-[#22c55e]';
   return 'text-accent-red';
 }
 

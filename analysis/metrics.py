@@ -41,14 +41,48 @@ def get_distance_config(distance: str) -> dict:
 
 
 def compute_ewma_load(daily_rss: pd.Series, time_constant: int) -> pd.Series:
-    """Compute EWMA of daily RSS using exponential decay time constant."""
-    alpha = 1 - math.exp(-1.0 / time_constant)
+    """Compute EWMA of daily load using the standard PMC time constant.
+
+    Uses alpha = 1/τ to match the industry-standard Performance Management
+    Chart model used by TrainingPeaks, Stryd, and Intervals.icu.
+    The continuous-time exact form (alpha = 1 - exp(-1/τ)) differs by ~7%
+    for ATL (τ=7), causing 5-10 point TSB discrepancies vs platforms.
+
+    Reference: Banister impulse-response model (1975);
+    https://help.trainingpeaks.com/hc/en-us/articles/204071944
+    """
+    alpha = 1.0 / time_constant
     return daily_rss.ewm(alpha=alpha, adjust=False).mean()
 
 
 def compute_tsb(ctl: pd.Series, atl: pd.Series) -> pd.Series:
     """Training Stress Balance = CTL - ATL."""
     return ctl - atl
+
+
+def project_tsb(
+    current_ctl: float,
+    current_atl: float,
+    future_daily_loads: list[float],
+    ctl_tc: int = 42,
+    atl_tc: int = 7,
+) -> tuple[list[float], list[float], list[float]]:
+    """Project CTL/ATL/TSB forward given estimated future daily loads.
+
+    Uses the same EWMA recurrence as compute_ewma_load (alpha = 1/tau).
+    Returns (projected_ctl, projected_atl, projected_tsb) lists.
+    """
+    alpha_ctl = 1.0 / ctl_tc
+    alpha_atl = 1.0 / atl_tc
+    ctl, atl = current_ctl, current_atl
+    proj_ctl, proj_atl, proj_tsb = [], [], []
+    for load in future_daily_loads:
+        ctl = ctl + alpha_ctl * (load - ctl)
+        atl = atl + alpha_atl * (load - atl)
+        proj_ctl.append(round(ctl, 1))
+        proj_atl.append(round(atl, 1))
+        proj_tsb.append(round(ctl - atl, 1))
+    return proj_ctl, proj_atl, proj_tsb
 
 
 def compute_rss(duration_sec: float, avg_power: float, cp: float) -> float:

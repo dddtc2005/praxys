@@ -97,6 +97,9 @@ export interface TrainingSignal {
 export interface TsbSparkline {
   dates: string[];
   values: number[];
+  /** Projected future dates (from training plan). */
+  projected_dates?: string[];
+  projected_values?: number[];
 }
 
 export interface TodayResponse {
@@ -142,6 +145,11 @@ export interface TimeSeriesData {
   ctl: number[];
   atl: number[];
   tsb: number[];
+  /** Projected future dates (from training plan). */
+  projected_dates?: string[];
+  projected_ctl?: number[];
+  projected_atl?: number[];
+  projected_tsb?: number[];
 }
 
 export interface CpTrendChart {

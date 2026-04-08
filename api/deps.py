@@ -24,6 +24,8 @@ from analysis.metrics import (
     cp_milestone_check,
     diagnose_training,
     get_distance_config,
+    compute_rss,
+    project_tsb,
 )
 
 # ---------------------------------------------------------------------------
@@ -159,6 +161,55 @@ def _compute_daily_load(
     daily = merged.groupby("date")["_load"].sum()
     daily = daily.reindex(date_range.date, fill_value=0.0)
     return daily.astype(float)
+
+
+def _estimate_plan_daily_loads(
+    plan: pd.DataFrame,
+    start_date: date,
+    days: int,
+    thresholds: ThresholdEstimate,
+    training_base: str,
+) -> list[float]:
+    """Estimate daily load for each of the next *days* days from the plan.
+
+    For days with no planned workout, load is 0.
+    Uses target power midpoint × planned duration to estimate RSS.
+    """
+    loads = [0.0] * days
+    if plan.empty:
+        return loads
+
+    for i in range(days):
+        d = start_date + timedelta(days=i + 1)
+        day_plan = plan[plan["date"] == d]
+        if day_plan.empty:
+            continue
+        day_load = 0.0
+        for _, row in day_plan.iterrows():
+            dur_min = pd.to_numeric(
+                pd.Series([row.get("planned_duration_min", 0)]), errors="coerce"
+            ).iloc[0]
+            dur_sec = float(dur_min) * 60 if pd.notna(dur_min) and dur_min > 0 else 0
+            if dur_sec <= 0:
+                continue
+
+            # Estimate power from plan targets
+            p_min = pd.to_numeric(pd.Series([row.get("target_power_min")]), errors="coerce").iloc[0]
+            p_max = pd.to_numeric(pd.Series([row.get("target_power_max")]), errors="coerce").iloc[0]
+            if pd.notna(p_min) and pd.notna(p_max) and p_min > 0:
+                avg_power = (float(p_min) + float(p_max)) / 2
+            elif pd.notna(p_max) and p_max > 0:
+                avg_power = float(p_max) * 0.85  # conservative estimate
+            else:
+                avg_power = None
+
+            if avg_power and thresholds.cp_watts and thresholds.cp_watts > 0:
+                day_load += compute_rss(dur_sec, avg_power, thresholds.cp_watts)
+            elif dur_sec > 0:
+                # Fallback: estimate ~60 RSS per hour (moderate effort)
+                day_load += (dur_sec / 3600) * 60
+        loads[i] = day_load
+    return loads
 
 
 def _get_hrv_trend(readiness: pd.DataFrame, days: int = 3) -> float:
@@ -648,6 +699,22 @@ def get_dashboard_data() -> dict:
     atl = compute_ewma_load(daily_load, time_constant=7)
     tsb = compute_tsb(ctl, atl)
 
+    # Project TSB forward using the training plan (up to 14 days)
+    plan = data["plan"]
+    projection_days = 14
+    future_loads = _estimate_plan_daily_loads(
+        plan, today, projection_days, thresholds, config.training_base,
+    )
+    current_ctl = float(ctl.iloc[-1]) if not ctl.empty else 0.0
+    current_atl = float(atl.iloc[-1]) if not atl.empty else 0.0
+    proj_ctl, proj_atl, proj_tsb = project_tsb(
+        current_ctl, current_atl, future_loads,
+    )
+    proj_dates = [
+        (today + timedelta(days=i + 1)).strftime("%Y-%m-%d")
+        for i in range(projection_days)
+    ]
+
     # Display window for charts (last 60 days)
     display_days = 60
     date_range = pd.date_range(today - timedelta(days=display_days), today)
@@ -737,7 +804,6 @@ def get_dashboard_data() -> dict:
     hrv_trend = _get_hrv_trend(recovery)
     current_tsb = float(tsb.iloc[-1]) if not tsb.empty else 0.0
 
-    plan = data["plan"]
     planned_today, planned_detail = _get_todays_plan(plan, today)
 
     signal = daily_training_signal(
@@ -761,12 +827,18 @@ def get_dashboard_data() -> dict:
         "ctl": [round(float(v), 1) for v in display_ctl.values],
         "atl": [round(float(v), 1) for v in display_atl.values],
         "tsb": [round(float(v), 1) for v in display_tsb.values],
+        "projected_dates": proj_dates,
+        "projected_ctl": proj_ctl,
+        "projected_atl": proj_atl,
+        "projected_tsb": proj_tsb,
     }
 
-    # TSB sparkline (last 14 days)
+    # TSB sparkline (last 14 days + projection)
     tsb_sparkline = {
         "dates": ff_dates[-14:],
         "values": [round(float(v), 1) for v in display_tsb.values][-14:],
+        "projected_dates": proj_dates[:7],
+        "projected_values": proj_tsb[:7],
     }
 
     # Threshold trend chart — varies by training base
