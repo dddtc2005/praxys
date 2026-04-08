@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useScience } from '../contexts/ScienceContext';
 import type { SciencePillar, TheorySummary } from '../types/api';
 
@@ -31,11 +30,13 @@ function PillarCard({
   active,
   alternatives,
   recommendation,
+  onSelectTheory,
 }: {
   pillar: SciencePillar;
   active: TheorySummary | undefined;
   alternatives: TheorySummary[];
   recommendation?: { recommended_id: string; reason: string; confidence: string };
+  onSelectTheory: (pillar: SciencePillar, theoryId: string) => void;
 }) {
   const [mode, setMode] = useState<'simple' | 'advanced'>('simple');
   const meta = PILLAR_META[pillar];
@@ -82,10 +83,30 @@ function PillarCard({
           </div>
         </div>
 
-        {/* Active theory badge */}
+        {/* Theory selector */}
         <div className="flex items-center gap-2 mb-4">
-          <span className="h-2 w-2 rounded-full bg-accent-green" />
-          <span className="text-xs font-semibold text-accent-green">Active: {active.name}</span>
+          <div className="flex rounded-lg border border-border overflow-hidden">
+            {alternatives.map((theory) => {
+              const isSelected = active.id === theory.id;
+              const isRecommended = recommendation?.recommended_id === theory.id;
+              return (
+                <button
+                  key={theory.id}
+                  onClick={() => onSelectTheory(pillar, theory.id)}
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors relative ${
+                    isSelected
+                      ? 'bg-accent-green/15 text-accent-green'
+                      : 'bg-panel-light text-text-muted hover:text-text-secondary'
+                  }`}
+                >
+                  {theory.name}
+                  {isRecommended && !isSelected && (
+                    <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-accent-amber" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -146,41 +167,35 @@ function PillarCard({
           </div>
         )}
 
-        {/* Other available theories */}
+        {/* Other available theories (brief) */}
         {otherTheories.length > 0 && (
           <div className="mt-4">
-            <p className="text-[10px] text-text-muted uppercase tracking-wider mb-2">Also available</p>
+            <p className="text-[10px] text-text-muted uppercase tracking-wider mb-2">Other options</p>
             <div className="space-y-2">
               {otherTheories.map((theory) => (
-                <div key={theory.id} className="rounded-lg bg-base/50 border border-border px-4 py-3">
+                <button
+                  key={theory.id}
+                  onClick={() => onSelectTheory(pillar, theory.id)}
+                  className="w-full rounded-lg bg-base/50 border border-border px-4 py-3 text-left hover:border-accent-green/30 transition-colors"
+                >
                   <p className="text-sm font-medium text-text-primary">{theory.name}</p>
                   <p className="text-xs text-text-muted mt-0.5">
                     {mode === 'simple'
                       ? theory.simple_description || theory.description
                       : theory.advanced_description || theory.description}
                   </p>
-                </div>
+                </button>
               ))}
             </div>
           </div>
         )}
-
-        {/* Link to settings */}
-        <div className="mt-4 flex justify-end">
-          <Link
-            to="/settings"
-            className="text-xs text-text-muted hover:text-accent-green transition-colors"
-          >
-            Change in Settings &rarr;
-          </Link>
-        </div>
       </div>
     </div>
   );
 }
 
 export default function Science() {
-  const { science, loading } = useScience();
+  const { science, loading, updateScience } = useScience();
 
   if (loading) {
     return (
@@ -200,6 +215,14 @@ export default function Science() {
 
   const recs = science.recommendations ?? [];
 
+  const handleSelectTheory = (pillar: SciencePillar, theoryId: string) => {
+    updateScience({ science: { [pillar]: theoryId } });
+  };
+
+  const handleLabelsChange = (labelId: string) => {
+    updateScience({ zone_labels: labelId });
+  };
+
   return (
     <div>
       {/* Header */}
@@ -212,9 +235,8 @@ export default function Science() {
       <div className="rounded-2xl bg-panel p-5 sm:p-6 mb-6">
         <p className="text-sm text-text-secondary leading-relaxed">
           Your training analysis is built on four scientific pillars. Each pillar uses a specific
-          theory to answer a key question about your training. You can switch theories in{' '}
-          <Link to="/settings" className="text-accent-green hover:underline">Settings</Link>{' '}
-          to match your training style, and we'll suggest the best fit based on your data.
+          theory to answer a key question about your training. Select the theory that best matches
+          your training style — we'll suggest the best fit based on your data.
         </p>
       </div>
 
@@ -227,8 +249,37 @@ export default function Science() {
             active={science.active[pillar]}
             alternatives={science.available[pillar] ?? []}
             recommendation={recs.find((r) => r.pillar === pillar)}
+            onSelectTheory={handleSelectTheory}
           />
         ))}
+      </div>
+
+      {/* Zone labels preference */}
+      <div className="rounded-2xl bg-panel p-5 sm:p-6 mt-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-text-primary">Zone Labels</p>
+            <p className="text-xs text-text-muted mt-0.5">Changes zone names and colors without affecting calculations</p>
+          </div>
+          <div className="flex rounded-lg border border-border overflow-hidden shrink-0">
+            {(science.label_sets ?? []).map((ls) => {
+              const isSelected = science.active_labels === ls.id;
+              return (
+                <button
+                  key={ls.id}
+                  onClick={() => handleLabelsChange(ls.id)}
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                    isSelected
+                      ? 'bg-accent-green/15 text-accent-green'
+                      : 'bg-panel-light text-text-muted hover:text-text-secondary'
+                  }`}
+                >
+                  {ls.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );
