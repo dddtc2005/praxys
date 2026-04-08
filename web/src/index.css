@@ -48,3 +48,98 @@ select option {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
+
+/* Science page markdown styling */
+.science-markdown h2 {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+  letter-spacing: 0.01em;
+}
+
+.science-markdown h2:first-child {
+  margin-top: 0;
+}
+
+.science-markdown h3 {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-top: 1rem;
+  margin-bottom: 0.375rem;
+}
+
+.science-markdown p {
+  margin-bottom: 0.625rem;
+}
+
+.science-markdown p:last-child {
+  margin-bottom: 0;
+}
+
+.science-markdown strong {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.science-markdown code {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  color: var(--md-accent, var(--color-accent-green));
+}
+
+.science-markdown ul,
+.science-markdown ol {
+  padding-left: 1.25rem;
+  margin-bottom: 0.625rem;
+}
+
+.science-markdown li {
+  margin-bottom: 0.25rem;
+}
+
+.science-markdown li::marker {
+  color: var(--color-text-muted);
+}
+
+.science-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+}
+
+.science-markdown th {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  font-weight: 600;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.science-markdown td {
+  padding: 0.375rem 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  color: var(--color-text-secondary);
+}
+
+.science-markdown tr:last-child td {
+  border-bottom: none;
+}
+
+.science-markdown blockquote {
+  border-left: 2px solid var(--md-accent, var(--color-accent-green));
+  padding-left: 0.75rem;
+  margin: 0.75rem 0;
+  color: var(--color-text-muted);
+  font-style: italic;
+}

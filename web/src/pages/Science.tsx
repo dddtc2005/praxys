@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useScience } from '../contexts/ScienceContext';
 import type { SciencePillar, TheorySummary } from '../types/api';
 
@@ -127,14 +129,17 @@ function PillarSection({
             ) : (
               <div className="space-y-4">
                 <div
-                  className="rounded-xl p-5 whitespace-pre-line text-[13px] leading-[1.8] font-data"
+                  className="science-markdown rounded-xl p-5 text-[13px] leading-[1.8]"
                   style={{
                     backgroundColor: `${accent}08`,
                     border: `1px solid ${accent}15`,
                     color: 'var(--color-text-secondary)',
+                    ['--md-accent' as string]: accent,
                   }}
                 >
-                  {active.advanced_description || active.description}
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {active.advanced_description || active.description}
+                  </ReactMarkdown>
                 </div>
 
                 {/* Citations */}
