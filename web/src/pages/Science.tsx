@@ -1,8 +1,13 @@
-import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { useScience } from '../contexts/ScienceContext';
-import type { SciencePillar, TheorySummary } from '../types/api';
+import { useScience } from '@/contexts/ScienceContext';
+import type { SciencePillar, TheorySummary } from '@/types/api';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 /* ── Pillar config ────────────────────────────────────────────────────── */
 
@@ -28,7 +33,7 @@ function Md({ children, accent }: { children: string; accent: string }) {
   );
 }
 
-/* ── Theory card (used for both active and alternative) ───────────────── */
+/* ── Theory content (shared between active + alternative) ─────────────── */
 
 function TheoryContent({
   theory,
@@ -36,12 +41,12 @@ function TheoryContent({
   accent,
 }: {
   theory: TheorySummary;
-  mode: 'simple' | 'advanced';
+  mode: string;
   accent: string;
 }) {
   if (mode === 'simple') {
     return (
-      <p className="text-sm text-text-secondary leading-[1.75]">
+      <p className="text-sm text-muted-foreground leading-[1.75]">
         {theory.simple_description || theory.description}
       </p>
     );
@@ -52,31 +57,34 @@ function TheoryContent({
       <Md accent={accent}>{theory.advanced_description || theory.description}</Md>
 
       {theory.citations?.length > 0 && (
-        <div className="pt-3 border-t border-border/50">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-text-muted mb-2">
-            References
-          </p>
-          <ol className="space-y-1 list-decimal list-inside text-xs text-text-muted">
-            {theory.citations.map((c: any, i: number) => (
-              <li key={i} className="leading-relaxed">
-                {c.authors && <span className="text-text-secondary">{c.authors}. </span>}
-                <span className="italic">{c.title}</span>
-                {c.year && ` (${c.year})`}
-                {c.journal && `. ${c.journal}`}
-                {c.url && (
-                  <a
-                    href={c.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="ml-1 underline decoration-dotted underline-offset-2 hover:text-text-secondary transition-colors"
-                  >
-                    view
-                  </a>
-                )}
-              </li>
-            ))}
-          </ol>
-        </div>
+        <>
+          <Separator />
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
+              References
+            </p>
+            <ol className="space-y-1 list-decimal list-inside text-xs text-muted-foreground">
+              {theory.citations.map((c: any, i: number) => (
+                <li key={i} className="leading-relaxed">
+                  {c.authors && <span className="text-foreground/80">{c.authors}. </span>}
+                  <span className="italic">{c.title}</span>
+                  {c.year && ` (${c.year})`}
+                  {c.journal && `. ${c.journal}`}
+                  {c.url && (
+                    <a
+                      href={c.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-1 underline decoration-dotted underline-offset-2 hover:text-foreground transition-colors"
+                    >
+                      view
+                    </a>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </div>
+        </>
       )}
     </div>
   );
@@ -103,88 +111,74 @@ function PillarSection({
   recommendation?: { recommended_id: string; reason: string; confidence: string };
   onSelect: (pillar: SciencePillar, id: string) => void;
 }) {
-  const [mode, setMode] = useState<'simple' | 'advanced'>('simple');
-
   if (!active) return null;
 
   const others = alternatives.filter((t) => t.id !== active.id);
 
   return (
     <section id={pillar} className="scroll-mt-8">
-      {/* Header */}
-      <div className="flex items-end justify-between gap-4 mb-4">
-        <div>
-          <h2 className="text-xl font-bold text-text-primary tracking-tight">{label}</h2>
-          <p className="text-sm text-text-muted">{question}</p>
-        </div>
-        <div className="flex gap-1 shrink-0">
-          {(['simple', 'advanced'] as const).map((m) => (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                mode === m
-                  ? 'bg-panel-light text-text-primary'
-                  : 'text-text-muted hover:text-text-secondary'
-              }`}
-            >
-              {m === 'simple' ? 'Simple' : 'Advanced'}
-            </button>
-          ))}
-        </div>
+      <div className="mb-4">
+        <h2 className="text-xl font-bold text-foreground tracking-tight">{label}</h2>
+        <p className="text-sm text-muted-foreground">{question}</p>
       </div>
 
-      {/* Active theory */}
-      <div
-        className="rounded-xl p-5 sm:p-6"
-        style={{
-          backgroundColor: 'var(--color-panel)',
-          borderLeft: `2px solid ${accent}`,
-        }}
-      >
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-xs font-semibold tracking-wide" style={{ color: accent }}>
-            {active.name}
-          </span>
-          <span className="text-[10px] text-text-muted">&mdash; active</span>
-        </div>
+      <Tabs defaultValue="simple">
+        <TabsList>
+          <TabsTrigger value="simple">Simple</TabsTrigger>
+          <TabsTrigger value="advanced">Advanced</TabsTrigger>
+        </TabsList>
 
-        <TheoryContent theory={active} mode={mode} accent={accent} />
-      </div>
+        {(['simple', 'advanced'] as const).map((mode) => (
+          <TabsContent key={mode} value={mode} className="space-y-3 mt-4">
+            {/* Active theory */}
+            <Card style={{ borderLeftWidth: 2, borderLeftColor: accent }}>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-sm">{active.name}</CardTitle>
+                  <Badge variant="outline" className="text-[10px]" style={{ borderColor: `${accent}40`, color: accent }}>
+                    Active
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <TheoryContent theory={active} mode={mode} accent={accent} />
+              </CardContent>
+            </Card>
 
-      {/* Recommendation */}
-      {recommendation && recommendation.recommended_id !== active.id && (
-        <p className="text-xs text-accent-amber mt-3 px-1">
-          Based on your training, we suggest{' '}
-          <span className="font-semibold">
-            {alternatives.find((t) => t.id === recommendation.recommended_id)?.name}
-          </span>
-          {' '}&mdash; {recommendation.reason}
-        </p>
-      )}
+            {/* Recommendation */}
+            {recommendation && recommendation.recommended_id !== active.id && (
+              <p className="text-xs text-accent-amber px-1">
+                Based on your training, we suggest{' '}
+                <span className="font-semibold">
+                  {alternatives.find((t) => t.id === recommendation.recommended_id)?.name}
+                </span>
+                {' '}&mdash; {recommendation.reason}
+              </p>
+            )}
 
-      {/* Alternatives */}
-      {others.map((theory) => (
-        <div
-          key={theory.id}
-          className="mt-3 rounded-xl border border-border/50 p-5 sm:p-6"
-          style={{ backgroundColor: 'var(--color-panel)' }}
-        >
-          <div className="flex items-start justify-between gap-4 mb-3">
-            <span className="text-xs font-semibold text-text-secondary tracking-wide">
-              {theory.name}
-            </span>
-            <button
-              onClick={() => onSelect(pillar, theory.id)}
-              className="shrink-0 text-xs font-medium px-3 py-1 rounded-md transition-colors border border-border hover:border-text-muted text-text-muted hover:text-text-primary"
-            >
-              Use this
-            </button>
-          </div>
-
-          <TheoryContent theory={theory} mode={mode} accent={accent} />
-        </div>
-      ))}
+            {/* Alternative theories */}
+            {others.map((theory) => (
+              <Card key={theory.id}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm">{theory.name}</CardTitle>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onSelect(pillar, theory.id)}
+                    >
+                      Use this
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <TheoryContent theory={theory} mode={mode} accent={accent} />
+                </CardContent>
+              </Card>
+            ))}
+          </TabsContent>
+        ))}
+      </Tabs>
     </section>
   );
 }
@@ -197,16 +191,18 @@ export default function Science() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <div className="h-8 w-8 rounded-full border-2 border-border border-t-accent-green animate-spin" />
+        <div className="h-8 w-8 rounded-full border-2 border-border border-t-primary animate-spin" />
       </div>
     );
   }
 
   if (!science) {
     return (
-      <div className="rounded-2xl bg-panel p-6 text-center">
-        <p className="text-accent-red font-semibold">Failed to load science data</p>
-      </div>
+      <Card className="text-center">
+        <CardContent className="pt-6">
+          <p className="text-destructive font-semibold">Failed to load science data</p>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -214,16 +210,14 @@ export default function Science() {
 
   return (
     <div>
-      {/* Header */}
       <div className="mb-10">
-        <h1 className="text-2xl font-bold text-text-primary">Training Science</h1>
-        <p className="text-sm text-text-muted mt-1 max-w-lg">
+        <h1 className="text-2xl font-bold text-foreground">Training Science</h1>
+        <p className="text-sm text-muted-foreground mt-1 max-w-lg">
           Four pillars power your analysis. Each uses a published theory you can
           understand, verify, and change.
         </p>
       </div>
 
-      {/* Pillars */}
       <div className="space-y-14">
         {PILLARS.map((p) => (
           <PillarSection
@@ -240,34 +234,25 @@ export default function Science() {
         ))}
       </div>
 
-      {/* Zone labels */}
-      <div className="mt-14 pt-6 border-t border-border/30">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-semibold text-text-primary">Zone Labels</p>
-            <p className="text-xs text-text-muted mt-0.5">
-              Cosmetic &mdash; changes names and colors without affecting calculations
-            </p>
-          </div>
-          <div className="flex gap-1">
-            {(science.label_sets ?? []).map((ls) => {
-              const isActive = science.active_labels === ls.id;
-              return (
-                <button
-                  key={ls.id}
-                  onClick={() => updateScience({ zone_labels: ls.id })}
-                  className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                    isActive
-                      ? 'bg-panel-light text-text-primary'
-                      : 'text-text-muted hover:text-text-secondary'
-                  }`}
-                >
-                  {ls.name}
-                </button>
-              );
-            })}
-          </div>
+      <Separator className="mt-14 mb-6" />
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-semibold text-foreground">Zone Labels</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Cosmetic &mdash; changes names and colors without affecting calculations
+          </p>
         </div>
+        <ToggleGroup
+          type="single"
+          value={science.active_labels}
+          onValueChange={(v) => { if (v) updateScience({ zone_labels: v }); }}
+        >
+          {(science.label_sets ?? []).map((ls) => (
+            <ToggleGroupItem key={ls.id} value={ls.id} size="sm">
+              {ls.name}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
       </div>
     </div>
   );
