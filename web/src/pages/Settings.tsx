@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
-import type { TrainingBase, SyncStatusResponse } from '../types/api';
+import { useScience } from '../contexts/ScienceContext';
+import type { TrainingBase, SyncStatusResponse, SciencePillar } from '../types/api';
 
 // --- Constants ---
 
@@ -97,6 +98,189 @@ const THRESHOLD_FIELDS = [
   { key: 'max_hr_bpm', label: 'Max HR', unit: 'bpm' },
   { key: 'rest_hr_bpm', label: 'Resting HR', unit: 'bpm' },
 ];
+
+const PILLAR_META: Record<string, { label: string; desc: string }> = {
+  load: { label: 'Load & Fitness', desc: 'How training stress becomes fitness and fatigue' },
+  recovery: { label: 'Recovery', desc: 'How readiness is assessed from recovery signals' },
+  prediction: { label: 'Race Prediction', desc: 'Model used to predict race times' },
+  zones: { label: 'Training Zones', desc: 'How intensity zones are defined' },
+};
+
+function ScienceFrameworkSection({
+  saving, flash, setSaving,
+}: {
+  saving: boolean;
+  flash: (msg: string) => void;
+  setSaving: (v: boolean) => void;
+}) {
+  const { science, updateScience } = useScience();
+  const [expandedPillar, setExpandedPillar] = useState<string | null>(null);
+
+  if (!science) return null;
+
+  const handleTheoryChange = async (pillar: SciencePillar, theoryId: string) => {
+    setSaving(true);
+    try {
+      await updateScience({ science: { [pillar]: theoryId } });
+      flash('Saved');
+    } catch { flash('Error'); }
+    setSaving(false);
+  };
+
+  const handleLabelsChange = async (labelId: string) => {
+    setSaving(true);
+    try {
+      await updateScience({ zone_labels: labelId });
+      flash('Saved');
+    } catch { flash('Error'); }
+    setSaving(false);
+  };
+
+  const recs = science.recommendations ?? [];
+  const getRecommendation = (pillar: string) => recs.find((r) => r.pillar === pillar);
+
+  return (
+    <div className="rounded-2xl bg-panel p-5 sm:p-6 mb-6">
+      <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-1">
+        Science Framework
+      </h2>
+      <p className="text-sm text-text-muted mb-4">
+        Choose the scientific theories that drive your training analysis
+      </p>
+
+      <div className="space-y-3">
+        {(['load', 'recovery', 'prediction', 'zones'] as SciencePillar[]).map((pillar) => {
+          const meta = PILLAR_META[pillar];
+          const active = science.active[pillar];
+          const available = science.available[pillar] ?? [];
+          const rec = getRecommendation(pillar);
+          const isExpanded = expandedPillar === pillar;
+
+          return (
+            <div key={pillar} className="rounded-xl bg-panel-light overflow-hidden">
+              {/* Row: pillar info + selector */}
+              <div className="flex items-center justify-between gap-4 p-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-text-primary">{meta.label}</p>
+                    {rec && rec.recommended_id !== active?.id && (
+                      <span
+                        className="rounded-md px-1.5 py-0.5 text-[10px] font-semibold bg-accent-amber/10 text-accent-amber cursor-help"
+                        title={rec.reason}
+                      >
+                        Suggestion available
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-text-muted">{meta.desc}</p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex rounded-lg border border-border overflow-hidden">
+                    {available.map((theory) => {
+                      const isSelected = active?.id === theory.id;
+                      const isRecommended = rec?.recommended_id === theory.id;
+                      return (
+                        <button
+                          key={theory.id}
+                          onClick={() => handleTheoryChange(pillar, theory.id)}
+                          disabled={saving}
+                          className={`px-3 py-1.5 text-xs font-medium transition-colors relative ${
+                            isSelected
+                              ? 'bg-accent-green/15 text-accent-green'
+                              : 'bg-panel text-text-muted hover:text-text-secondary'
+                          }`}
+                          title={theory.description}
+                        >
+                          {theory.name}
+                          {isRecommended && !isSelected && (
+                            <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-accent-amber" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    onClick={() => setExpandedPillar(isExpanded ? null : pillar)}
+                    className="text-text-muted hover:text-text-secondary transition-colors p-1"
+                  >
+                    <span className="text-xs">{isExpanded ? '\u25be' : '\u25b8'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Expanded: description, citations, recommendation */}
+              {isExpanded && active && (
+                <div className="border-t border-border px-4 py-3 space-y-2">
+                  <p className="text-xs text-text-secondary leading-relaxed">{active.description}</p>
+
+                  {rec && rec.recommended_id !== active.id && (
+                    <div className="rounded-lg bg-accent-amber/5 border border-accent-amber/20 px-3 py-2">
+                      <p className="text-xs text-accent-amber font-medium">
+                        Suggestion: {available.find((t) => t.id === rec.recommended_id)?.name}
+                      </p>
+                      <p className="text-xs text-text-muted mt-0.5">{rec.reason}</p>
+                    </div>
+                  )}
+
+                  {active.citations?.length > 0 && (
+                    <div>
+                      <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Sources</p>
+                      <div className="space-y-0.5">
+                        {active.citations.map((c: any, i: number) => (
+                          <p key={i} className="text-[10px] text-text-muted">
+                            {c.title}
+                            {c.year && ` (${c.year})`}
+                            {c.url && (
+                              <>
+                                {' '}
+                                <a href={c.url} target="_blank" rel="noopener noreferrer" className="underline hover:text-text-secondary">
+                                  Link
+                                </a>
+                              </>
+                            )}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Label preference */}
+        <div className="flex items-center justify-between gap-4 pt-2 mt-2 border-t border-border">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-text-primary">Zone Labels</p>
+            <p className="text-xs text-text-muted">Cosmetic only — does not affect calculations</p>
+          </div>
+          <div className="flex rounded-lg border border-border overflow-hidden shrink-0">
+            {(science.label_sets ?? []).map((ls) => {
+              const isSelected = science.active_labels === ls.id;
+              return (
+                <button
+                  key={ls.id}
+                  onClick={() => handleLabelsChange(ls.id)}
+                  disabled={saving}
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                    isSelected
+                      ? 'bg-accent-green/15 text-accent-green'
+                      : 'bg-panel text-text-muted hover:text-text-secondary'
+                  }`}
+                >
+                  {ls.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // --- Component ---
 
@@ -436,6 +620,9 @@ export default function Settings() {
           })}
         </div>
       </div>
+
+      {/* ===== SECTION 2.5: Science Framework ===== */}
+      <ScienceFrameworkSection saving={saving} flash={flash} setSaving={setSaving} />
 
       {/* ===== SECTION 3: Data Preferences ===== */}
       <div className="rounded-2xl bg-panel p-5 sm:p-6 mb-6">
