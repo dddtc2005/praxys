@@ -6,6 +6,7 @@ import Today from './pages/Today';
 import Training from './pages/Training';
 import Goal from './pages/Goal';
 import History from './pages/History';
+import Science from './pages/Science';
 import Settings from './pages/Settings';
 
 export default function App() {
@@ -19,6 +20,7 @@ export default function App() {
             <Route path="training" element={<Training />} />
             <Route path="goal" element={<Goal />} />
             <Route path="history" element={<History />} />
+            <Route path="science" element={<Science />} />
             <Route path="settings" element={<Settings />} />
           </Route>
         </Routes>

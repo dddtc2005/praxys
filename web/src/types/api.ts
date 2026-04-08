@@ -14,6 +14,8 @@ export interface TheorySummary {
   id: string;
   name: string;
   description: string;
+  simple_description: string;
+  advanced_description: string;
   author: string;
   citations: Record<string, unknown>[];
   tsb_zones?: TsbZoneConfig[];

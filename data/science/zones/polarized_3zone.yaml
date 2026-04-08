@@ -6,6 +6,36 @@ description: >
   Seiler's 3-zone polarized model based on ventilatory thresholds (VT1/VT2).
   Emphasizes 80% easy, 5% moderate, 15% hard distribution. Supported by studies
   of elite endurance athletes.
+simple_description: >
+  Uses just 3 zones with a simple rule: spend about 80% of your training easy, 5%
+  moderate, and 15% hard. Research on elite athletes shows this distribution produces
+  the best gains while minimizing injury risk. The key is avoiding the 'moderate'
+  zone — it's too hard to recover from but too easy to drive big adaptations.
+advanced_description: |
+  ## Seiler Polarized 3-Zone Model
+
+  Three zones based on ventilatory thresholds (VT1/VT2):
+
+  **Boundary fractions:**
+  - Power: [0.82, 1.00] of CP
+  - Heart rate: [0.82, 0.89] of LTHR
+  - Pace: [1.14, 1.00] of threshold pace
+
+  **Target training distribution:**
+  | Zone | Name | Target % |
+  |------|------|----------|
+  | 1 | Easy (below VT1) | 80% |
+  | 2 | Moderate (VT1–VT2) | 5% |
+  | 3 | Hard (above VT2) | 15% |
+
+  The polarized model minimizes time in Zone 2 ("black hole" training) which
+  generates significant fatigue without the stimulus needed for top-end adaptation.
+
+  **References:**
+  - Seiler & Kjerland (2006) "Quantifying training intensity distribution in elite
+    endurance athletes," *SJMSS*
+  - Stöggl & Sperlich (2014) "Polarized training has greater impact on key endurance
+    variables," *Frontiers in Physiology*
 
 citations:
   - key: seiler2006

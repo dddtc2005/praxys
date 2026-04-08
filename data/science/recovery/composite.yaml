@@ -6,6 +6,32 @@ description: >
   Balanced readiness model combining heart rate variability, sleep quality, and
   resting heart rate. Works well even with incomplete data - gracefully degrades
   when one signal is missing.
+simple_description: >
+  Combines three recovery signals — heart rate variability (how well your nervous
+  system has recovered), sleep quality, and resting heart rate — into one readiness
+  picture. Works even if some data is missing; it just weighs what's available.
+advanced_description: |
+  ## Composite Readiness Model
+
+  **Weighted composite score:**
+  - HRV: **40%**
+  - Sleep quality: **35%**
+  - Resting heart rate: **25%**
+
+  **Readiness thresholds:**
+  | Score | Status | Recommendation |
+  |-------|--------|----------------|
+  | ≥ 80 | Fresh | Full training |
+  | 60–80 | Moderate | Modify intensity |
+  | < 60 | Rest | Recovery day |
+
+  **Graceful degradation:** When one or more signals are missing, the model
+  re-normalizes weights across the available signals, maintaining a valid
+  readiness estimate with reduced confidence.
+
+  **References:**
+  - Walsh et al (2021) "Sleep and the athlete," *BJSM*
+  - Plews et al (2013) "Heart rate variability in elite triathletes," *JSSM*
 
 citations:
   - key: walsh2021

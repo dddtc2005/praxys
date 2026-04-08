@@ -20,6 +20,8 @@ def _theory_summary(theory) -> dict:
         "id": theory.id,
         "name": theory.name,
         "description": theory.description,
+        "simple_description": theory.simple_description,
+        "advanced_description": theory.advanced_description,
         "author": theory.author,
         "citations": [
             {k: v for k, v in c.__dict__.items() if v is not None}

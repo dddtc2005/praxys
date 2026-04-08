@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useSettings } from '../contexts/SettingsContext';
 import { useScience } from '../contexts/ScienceContext';
 import type { TrainingBase, SyncStatusResponse, SciencePillar } from '../types/api';
@@ -141,9 +142,14 @@ function ScienceFrameworkSection({
 
   return (
     <div className="rounded-2xl bg-panel p-5 sm:p-6 mb-6">
-      <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-1">
-        Science Framework
-      </h2>
+      <div className="flex items-center justify-between mb-1">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+          Science Framework
+        </h2>
+        <Link to="/science" className="text-xs text-text-muted hover:text-accent-green transition-colors">
+          Learn more &rarr;
+        </Link>
+      </div>
       <p className="text-sm text-text-muted mb-4">
         Choose the scientific theories that drive your training analysis
       </p>

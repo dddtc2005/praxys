@@ -54,6 +54,8 @@ class Theory:
     pillar: str
     name: str
     description: str
+    simple_description: str = ""
+    advanced_description: str = ""
     author: str = "system"
     citations: list[Citation] = field(default_factory=list)
     params: dict[str, Any] = field(default_factory=dict)
@@ -119,6 +121,8 @@ def load_theory(pillar: str, theory_id: str) -> Theory:
         pillar=data.get("pillar", pillar),
         name=data["name"],
         description=data.get("description", ""),
+        simple_description=data.get("simple_description", ""),
+        advanced_description=data.get("advanced_description", ""),
         author=data.get("author", "system"),
         citations=_parse_citations(data.get("citations")),
         params=data.get("params", {}),

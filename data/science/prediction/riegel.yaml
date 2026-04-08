@@ -5,6 +5,30 @@ author: system
 description: >
   Empirical pace-scaling formula: T2 = T1 x (D2/D1)^1.06. Works from a known race
   time at any distance. Best for pace/HR-based athletes without power data.
+simple_description: >
+  Predicts race times by scaling from a known result. If you've raced a 10K, it can
+  estimate your half marathon time by accounting for how pace naturally slows over
+  longer distances. Simple and surprisingly accurate for standard road distances.
+advanced_description: |
+  ## Riegel Formula
+
+  **Formula:** T₂ = T₁ × (D₂/D₁)^1.06
+
+  The exponent 1.06 is empirical, derived from analysis of world records and
+  large race databases. Assumes threshold pace ≈ 10K race pace.
+
+  **Accuracy range:** Works best for distances 5K through marathon. Less reliable
+  for ultra distances where fueling, terrain, and sleep deprivation introduce
+  non-linear slowdown factors.
+
+  **Individual variation in exponent:**
+  - Elite athletes: ~1.08 (more endurance-limited)
+  - Recreational runners: ~1.06 (standard)
+
+  **References:**
+  - Riegel (1977) "Athletic Records and Human Endurance," *American Scientist*
+  - Vickers & Vertosick (2016) "An Empirical Study of Race Times in Recreational
+    Running," *BMC Sports Science*
 
 citations:
   - key: riegel1977
