@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import type { Activity } from '../types/api';
-import SplitBreakdown from './SplitBreakdown';
+import type { Activity } from '@/types/api';
+import SplitBreakdown from '@/components/SplitBreakdown';
 
 interface Props {
   activity: Activity;
@@ -39,7 +39,7 @@ export default function ActivityCard({ activity }: Props) {
 
   return (
     <div
-      className={`rounded-2xl bg-panel p-5 transition-colors ${hasSplits ? 'hover:bg-panel-light cursor-pointer' : ''}`}
+      className={`rounded-2xl bg-card p-5 transition-colors ${hasSplits ? 'hover:bg-muted cursor-pointer' : ''}`}
       onClick={() => {
         if (hasSplits) setExpanded((v) => !v);
       }}
@@ -47,15 +47,15 @@ export default function ActivityCard({ activity }: Props) {
       {/* Header: date + type badge */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
-          <span className="text-sm text-text-secondary">
+          <span className="text-sm text-muted-foreground">
             {formatDate(activity.date)}
           </span>
-          <span className="rounded-full bg-panel-light px-2.5 py-0.5 text-xs font-medium text-text-muted">
+          <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
             {formatActivityType(activity.activity_type)}
           </span>
         </div>
         {hasSplits && (
-          <span className="text-text-muted">
+          <span className="text-muted-foreground">
             {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
           </span>
         )}
@@ -65,61 +65,61 @@ export default function ActivityCard({ activity }: Props) {
       <div className="flex flex-wrap gap-x-6 gap-y-2 mb-2">
         {activity.distance_km != null && (
           <div>
-            <span className="text-xs text-text-muted uppercase tracking-wider">
+            <span className="text-xs text-muted-foreground uppercase tracking-wider">
               Distance
             </span>
-            <p className="font-data text-lg font-semibold text-text-primary">
+            <p className="font-data text-lg font-semibold text-foreground">
               {activity.distance_km.toFixed(1)}{' '}
-              <span className="text-xs text-text-muted font-normal">km</span>
+              <span className="text-xs text-muted-foreground font-normal">km</span>
             </p>
           </div>
         )}
         {activity.duration_sec != null && (
           <div>
-            <span className="text-xs text-text-muted uppercase tracking-wider">
+            <span className="text-xs text-muted-foreground uppercase tracking-wider">
               Duration
             </span>
-            <p className="font-data text-lg font-semibold text-text-primary">
+            <p className="font-data text-lg font-semibold text-foreground">
               {formatDuration(activity.duration_sec)}
             </p>
           </div>
         )}
         {activity.avg_power != null && (
           <div>
-            <span className="text-xs text-text-muted uppercase tracking-wider">
+            <span className="text-xs text-muted-foreground uppercase tracking-wider">
               Avg Power
             </span>
-            <p className="font-data text-lg font-semibold text-text-primary">
+            <p className="font-data text-lg font-semibold text-foreground">
               {Math.round(activity.avg_power)}{' '}
-              <span className="text-xs text-text-muted font-normal">W</span>
+              <span className="text-xs text-muted-foreground font-normal">W</span>
             </p>
           </div>
         )}
         {activity.avg_hr != null && (
           <div>
-            <span className="text-xs text-text-muted uppercase tracking-wider">
+            <span className="text-xs text-muted-foreground uppercase tracking-wider">
               Avg HR
             </span>
-            <p className="font-data text-lg font-semibold text-text-primary">
+            <p className="font-data text-lg font-semibold text-foreground">
               {Math.round(activity.avg_hr)}{' '}
-              <span className="text-xs text-text-muted font-normal">bpm</span>
+              <span className="text-xs text-muted-foreground font-normal">bpm</span>
             </p>
           </div>
         )}
       </div>
 
       {/* Secondary metrics */}
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-text-secondary">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
         {activity.avg_pace_min_km != null && (
           <span>
-            <span className="text-text-muted">Pace</span>{' '}
+            <span className="text-muted-foreground">Pace</span>{' '}
             <span className="font-data">{activity.avg_pace_min_km}</span>{' '}
             /km
           </span>
         )}
         {activity.elevation_gain_m != null && (
           <span>
-            <span className="text-text-muted">Elev</span>{' '}
+            <span className="text-muted-foreground">Elev</span>{' '}
             <span className="font-data">
               {Math.round(activity.elevation_gain_m)}
             </span>{' '}
@@ -128,13 +128,13 @@ export default function ActivityCard({ activity }: Props) {
         )}
         {activity.rss != null && (
           <span>
-            <span className="text-text-muted">RSS</span>{' '}
+            <span className="text-muted-foreground">RSS</span>{' '}
             <span className="font-data">{Math.round(activity.rss)}</span>
           </span>
         )}
         {activity.cp_estimate != null && (
           <span>
-            <span className="text-text-muted">CP</span>{' '}
+            <span className="text-muted-foreground">CP</span>{' '}
             <span className="font-data">{Math.round(activity.cp_estimate)}</span>{' '}
             W
           </span>

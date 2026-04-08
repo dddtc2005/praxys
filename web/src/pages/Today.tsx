@@ -1,9 +1,9 @@
-import { useApi } from '../hooks/useApi';
-import type { TodayResponse } from '../types/api';
-import SignalHero from '../components/SignalHero';
-import RecoveryPanel from '../components/RecoveryPanel';
-import WorkoutCard from '../components/WorkoutCard';
-import FormSparkline from '../components/charts/FormSparkline';
+import { useApi } from '@/hooks/useApi';
+import type { TodayResponse } from '@/types/api';
+import SignalHero from '@/components/SignalHero';
+import RecoveryPanel from '@/components/RecoveryPanel';
+import WorkoutCard from '@/components/WorkoutCard';
+import FormSparkline from '@/components/charts/FormSparkline';
 
 function Spinner() {
   return (
@@ -29,8 +29,8 @@ export default function Today() {
   if (error) {
     return (
       <div className="py-12 text-center">
-        <p className="text-accent-red text-lg font-semibold">Failed to load</p>
-        <p className="text-text-muted text-sm mt-1">{error}</p>
+        <p className="text-destructive text-lg font-semibold">Failed to load</p>
+        <p className="text-muted-foreground text-sm mt-1">{error}</p>
       </div>
     );
   }
@@ -43,8 +43,8 @@ export default function Today() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-text-primary">Today</h1>
-        <p className="text-sm text-text-muted mt-1">{dateStr}</p>
+        <h1 className="text-2xl font-bold text-foreground">Today</h1>
+        <p className="text-sm text-muted-foreground mt-1">{dateStr}</p>
       </div>
 
       {/* Signal Hero — full width */}
@@ -62,7 +62,7 @@ export default function Today() {
       {/* Warnings */}
       {warnings.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Warnings
           </h3>
           {warnings.map((w, i) => (

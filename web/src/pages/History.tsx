@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import type { HistoryResponse } from '../types/api';
-import ActivityCard from '../components/ActivityCard';
+import type { HistoryResponse } from '@/types/api';
+import ActivityCard from '@/components/ActivityCard';
 
 export default function History() {
   const [data, setData] = useState<HistoryResponse | null>(null);
@@ -49,7 +49,7 @@ export default function History() {
       <div className="flex items-baseline justify-between mb-6">
         <h1 className="text-2xl font-bold">Activities</h1>
         {data && (
-          <span className="text-sm text-text-muted">
+          <span className="text-sm text-muted-foreground">
             <span className="font-data">{total}</span> activities
           </span>
         )}
@@ -58,17 +58,17 @@ export default function History() {
       {/* Loading state */}
       {loading && (
         <div className="flex items-center justify-center py-20">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent-green border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
       )}
 
       {/* Error state */}
       {error && !loading && (
-        <div className="rounded-2xl bg-panel p-6 text-center">
-          <p className="text-accent-red font-medium mb-1">
+        <div className="rounded-2xl bg-card p-6 text-center">
+          <p className="text-destructive font-medium mb-1">
             Failed to load activities
           </p>
-          <p className="text-sm text-text-muted">{error}</p>
+          <p className="text-sm text-muted-foreground">{error}</p>
         </div>
       )}
 
@@ -76,7 +76,7 @@ export default function History() {
       {data && !loading && !error && (
         <>
           {data.activities.length === 0 ? (
-            <p className="text-text-secondary text-center py-12">
+            <p className="text-muted-foreground text-center py-12">
               No activities found.
             </p>
           ) : (
@@ -94,14 +94,14 @@ export default function History() {
                 type="button"
                 disabled={!hasPrev}
                 onClick={() => setOffset((o) => Math.max(0, o - limit))}
-                className={`rounded-lg px-4 py-2 text-sm font-medium bg-panel hover:bg-panel-light transition-colors ${
+                className={`rounded-lg px-4 py-2 text-sm font-medium bg-card hover:bg-muted transition-colors ${
                   !hasPrev ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
               >
                 Previous
               </button>
 
-              <span className="text-sm text-text-muted">
+              <span className="text-sm text-muted-foreground">
                 Showing{' '}
                 <span className="font-data">
                   {showingFrom}&ndash;{showingTo}
@@ -113,7 +113,7 @@ export default function History() {
                 type="button"
                 disabled={!hasNext}
                 onClick={() => setOffset((o) => o + limit)}
-                className={`rounded-lg px-4 py-2 text-sm font-medium bg-panel hover:bg-panel-light transition-colors ${
+                className={`rounded-lg px-4 py-2 text-sm font-medium bg-card hover:bg-muted transition-colors ${
                   !hasNext ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
               >

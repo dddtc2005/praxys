@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { PlanData } from '../types/api';
+import type { PlanData } from '@/types/api';
 
 interface Props {
   plan: PlanData;
@@ -23,21 +23,21 @@ export default function WorkoutCard({ plan, alternatives }: Props) {
     details.push(`${plan.power_min}\u2013${plan.power_max} W`);
 
   return (
-    <div className="rounded-2xl bg-panel p-5 sm:p-6">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">
+    <div className="rounded-2xl bg-card p-5 sm:p-6">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
         Planned Workout
       </h3>
 
-      <p className="text-2xl font-bold text-text-primary mb-2">{title}</p>
+      <p className="text-2xl font-bold text-foreground mb-2">{title}</p>
 
       {details.length > 0 && (
-        <p className="text-sm text-text-secondary mb-3">
+        <p className="text-sm text-muted-foreground mb-3">
           {details.join(' \u00b7 ')}
         </p>
       )}
 
       {plan.description && (
-        <p className="text-sm text-text-secondary leading-relaxed">{plan.description}</p>
+        <p className="text-sm text-muted-foreground leading-relaxed">{plan.description}</p>
       )}
 
       {alternatives.length > 0 && (
@@ -45,7 +45,7 @@ export default function WorkoutCard({ plan, alternatives }: Props) {
           <button
             type="button"
             onClick={() => setShowAlts((v) => !v)}
-            className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-text-muted hover:text-text-secondary transition-colors"
+            className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-muted-foreground transition-colors"
           >
             <span className={`inline-block transition-transform ${showAlts ? 'rotate-90' : ''}`}>
               &#9654;
@@ -55,7 +55,7 @@ export default function WorkoutCard({ plan, alternatives }: Props) {
           {showAlts && (
             <ul className="mt-2 space-y-1">
               {alternatives.map((alt, i) => (
-                <li key={i} className="text-sm text-text-secondary pl-4">
+                <li key={i} className="text-sm text-muted-foreground pl-4">
                   &bull; {alt}
                 </li>
               ))}

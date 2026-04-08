@@ -1,3 +1,4 @@
+import type React from 'react';
 import { useState, useEffect, useRef } from 'react';
 import { useSettings } from '@/contexts/SettingsContext';
 import type { TrainingBase, SyncStatusResponse } from '@/types/api';
@@ -10,7 +11,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 // --- Constants ---
 
-const PLATFORM_META: Record<string, { label: string; color: string; icon: JSX.Element }> = {
+const PLATFORM_META: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   garmin: {
     label: 'Garmin',
     color: '#00b4d8',
@@ -66,7 +67,7 @@ const PREFERENCE_CATEGORIES = [
   { key: 'plan', label: 'Plan', desc: 'Training plan & targets' },
 ];
 
-const BASE_CONFIG: Record<TrainingBase, { label: string; desc: string; icon: JSX.Element }> = {
+const BASE_CONFIG: Record<TrainingBase, { label: string; desc: string; icon: React.ReactNode }> = {
   power: {
     label: 'Power',
     desc: 'Zones & load from Critical Power',
@@ -426,10 +427,10 @@ export default function Settings() {
         </CardHeader>
         <CardContent className="space-y-3">
           {PREFERENCE_CATEGORIES.map(({ key, label, desc }) => {
-            const providers = (availableProviders[key] || []).filter(
-              (p) => connections.includes(p) || (key === 'plan' && p === 'ai')
+            const providers = (availableProviders[key as keyof typeof availableProviders] || []).filter(
+              (p: string) => (connections as string[]).includes(p) || (key === 'plan' && p === 'ai')
             );
-            const current = config.preferences[key] || providers[0];
+            const current = (config.preferences as Record<string, string>)[key] || providers[0];
 
             return (
               <div key={key} className="flex items-center justify-between gap-4">
@@ -438,9 +439,8 @@ export default function Settings() {
                   <p className="text-xs text-muted-foreground">{desc}</p>
                 </div>
                 <ToggleGroup
-                  type="single"
-                  value={current}
-                  onValueChange={(v) => { if (v) handlePreferenceChange(key, v); }}
+                  value={[current]}
+                  onValueChange={(v) => { if (v.length) handlePreferenceChange(key, v[v.length - 1]); }}
                 >
                   {providers.map((p) => {
                     const meta = PLATFORM_META[p];

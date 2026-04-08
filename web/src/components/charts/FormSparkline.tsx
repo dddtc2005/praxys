@@ -8,8 +8,8 @@ import {
   Tooltip,
   XAxis,
 } from 'recharts';
-import type { TsbSparkline } from '../../types/api';
-import { useScience, tsbZoneFromConfig } from '../../contexts/ScienceContext';
+import type { TsbSparkline } from '@/types/api';
+import { useScience, tsbZoneFromConfig } from '@/contexts/ScienceContext';
 
 interface Props {
   data: TsbSparkline;
@@ -22,9 +22,9 @@ function SparkTooltip({ active, payload, label, tsbZones }: any) {
   const isProj = entry?._projected;
   const zone = tsbZoneFromConfig(val, tsbZones ?? []);
   return (
-    <div className="rounded-md border border-border bg-panel px-2.5 py-1.5 shadow-lg shadow-black/30">
+    <div className="rounded-md border border-border bg-card px-2.5 py-1.5 shadow-lg shadow-black/30">
       <div className="flex items-center gap-2">
-        <span className="text-[10px] text-text-muted font-data">{label}</span>
+        <span className="text-[10px] text-muted-foreground font-data">{label}</span>
         {isProj && (
           <span className="text-[8px] uppercase tracking-wider text-accent-purple font-semibold">
             Proj
@@ -90,10 +90,10 @@ export default function FormSparkline({ data }: Props) {
   const zone = tsbZoneFromConfig(latestTsb, tsbZones);
 
   return (
-    <div className="rounded-2xl bg-panel p-5 sm:p-6">
+    <div className="rounded-2xl bg-card p-5 sm:p-6">
       {/* Header with current value */}
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Form (TSB)
         </h3>
         <div className="flex items-center gap-2">
@@ -204,7 +204,7 @@ export default function FormSparkline({ data }: Props) {
 
       {/* Footer: timeframe + projection note */}
       <div className="flex items-center justify-between mt-2">
-        <span className="text-[10px] text-text-muted">Last 14 days</span>
+        <span className="text-[10px] text-muted-foreground">Last 14 days</span>
         {hasProjection && (
           <span className="text-[10px] text-accent-purple/60">
             + {data.projected_dates?.length ?? 0}d projected from plan

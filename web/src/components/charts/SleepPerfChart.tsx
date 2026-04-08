@@ -19,8 +19,8 @@ export default function SleepPerfChart({ data }: Props) {
   }));
 
   return (
-    <div className="rounded-2xl bg-panel p-5 sm:p-6">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-4">
+    <div className="rounded-2xl bg-card p-5 sm:p-6">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">
         Sleep Score vs Power
       </h3>
       <ResponsiveContainer width="100%" height={300}>

@@ -1,21 +1,21 @@
-import type { RecoveryData } from '../types/api';
-import { useScience, tsbZoneFromConfig } from '../contexts/ScienceContext';
+import type { RecoveryData } from '@/types/api';
+import { useScience, tsbZoneFromConfig } from '@/contexts/ScienceContext';
 
 interface Props {
   recovery: RecoveryData;
 }
 
 function scoreColor(value: number | undefined, thresholds = { green: 80, amber: 60 }): string {
-  if (value == null) return 'text-text-muted';
-  if (value >= thresholds.green) return 'text-accent-green';
+  if (value == null) return 'text-muted-foreground';
+  if (value >= thresholds.green) return 'text-primary';
   if (value >= thresholds.amber) return 'text-accent-amber';
-  return 'text-accent-red';
+  return 'text-destructive';
 }
 
 function trendArrow(pct: number | undefined): { arrow: string; color: string } {
-  if (pct == null || Math.abs(pct) < 1) return { arrow: '\u2192', color: 'text-text-muted' };
-  if (pct > 0) return { arrow: '\u2191', color: 'text-accent-green' };
-  return { arrow: '\u2193', color: 'text-accent-red' };
+  if (pct == null || Math.abs(pct) < 1) return { arrow: '\u2192', color: 'text-muted-foreground' };
+  if (pct > 0) return { arrow: '\u2191', color: 'text-primary' };
+  return { arrow: '\u2193', color: 'text-destructive' };
 }
 
 function MetricCard({
@@ -34,13 +34,13 @@ function MetricCard({
   extra?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl bg-panel-light p-4">
-      <p className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">
+    <div className="rounded-xl bg-muted p-4">
+      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
         {label}
       </p>
       <div className="flex items-baseline gap-1">
         <span className={`text-3xl font-bold font-data ${colorClass}`} style={colorStyle ? { color: colorStyle } : undefined}>{value}</span>
-        {suffix && <span className="text-sm text-text-muted">{suffix}</span>}
+        {suffix && <span className="text-sm text-muted-foreground">{suffix}</span>}
         {extra}
       </div>
     </div>
@@ -53,8 +53,8 @@ export default function RecoveryPanel({ recovery }: Props) {
   const trend = trendArrow(recovery.hrv_trend_pct);
 
   return (
-    <div className="rounded-2xl bg-panel p-5 sm:p-6">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">
+    <div className="rounded-2xl bg-card p-5 sm:p-6">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
         Recovery
       </h3>
       <div className="grid grid-cols-2 gap-3">
@@ -67,7 +67,7 @@ export default function RecoveryPanel({ recovery }: Props) {
           label="HRV"
           value={recovery.hrv_ms != null ? String(recovery.hrv_ms) : '--'}
           suffix="ms"
-          colorClass={recovery.hrv_ms != null ? 'text-text-primary' : 'text-text-muted'}
+          colorClass={recovery.hrv_ms != null ? 'text-foreground' : 'text-muted-foreground'}
           extra={
             <span className={`ml-1 text-lg font-bold ${trend.color}`}>{trend.arrow}</span>
           }

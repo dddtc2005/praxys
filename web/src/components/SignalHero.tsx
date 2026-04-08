@@ -13,8 +13,8 @@ const SIGNAL_MAP: Record<string, { label: string; subtitle: string; color: 'gree
 
 const COLOR_CLASSES = {
   green: {
-    text: 'text-accent-green',
-    bg: 'bg-accent-green',
+    text: 'text-primary',
+    bg: 'bg-primary',
     shadow: 'shadow-[0_0_40px_rgba(0,255,135,0.3)]',
     ring: 'ring-accent-green/30',
     glow: 'animate-pulse',
@@ -27,8 +27,8 @@ const COLOR_CLASSES = {
     glow: 'animate-pulse',
   },
   red: {
-    text: 'text-accent-red',
-    bg: 'bg-accent-red',
+    text: 'text-destructive',
+    bg: 'bg-destructive',
     shadow: 'shadow-[0_0_40px_rgba(239,68,68,0.3)]',
     ring: 'ring-accent-red/30',
     glow: 'animate-pulse',
@@ -40,7 +40,7 @@ export default function SignalHero({ recommendation, reason }: Props) {
   const colors = COLOR_CLASSES[signal.color];
 
   return (
-    <div className="rounded-2xl bg-panel p-5 sm:p-6">
+    <div className="rounded-2xl bg-card p-5 sm:p-6">
       <div className="flex flex-col items-center gap-4 py-4">
         {/* Circular indicator */}
         <div
@@ -59,7 +59,7 @@ export default function SignalHero({ recommendation, reason }: Props) {
         <p className={`text-lg font-semibold ${colors.text}`}>{signal.subtitle}</p>
 
         {/* Reason */}
-        <p className="max-w-md text-center text-sm text-text-secondary">{reason}</p>
+        <p className="max-w-md text-center text-sm text-muted-foreground">{reason}</p>
       </div>
     </div>
   );

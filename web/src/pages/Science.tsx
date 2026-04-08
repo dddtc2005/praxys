@@ -243,9 +243,8 @@ export default function Science() {
           </p>
         </div>
         <ToggleGroup
-          type="single"
-          value={science.active_labels}
-          onValueChange={(v) => { if (v) updateScience({ zone_labels: v }); }}
+          value={[science.active_labels]}
+          onValueChange={(v) => { if (v.length) updateScience({ zone_labels: v[v.length - 1] }); }}
         >
           {(science.label_sets ?? []).map((ls) => (
             <ToggleGroupItem key={ls.id} value={ls.id} size="sm">

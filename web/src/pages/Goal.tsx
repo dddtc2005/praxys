@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { useApi } from '../hooks/useApi';
-import { useSettings } from '../contexts/SettingsContext';
-import type { GoalResponse, DisplayConfig } from '../types/api';
-import MilestoneTracker from '../components/MilestoneTracker';
-import CpTrendChart from '../components/charts/CpTrendChart';
-import ScienceNote from '../components/ScienceNote';
+import { useApi } from '@/hooks/useApi';
+import { useSettings } from '@/contexts/SettingsContext';
+import type { GoalResponse } from '@/types/api';
+import MilestoneTracker from '@/components/MilestoneTracker';
+import CpTrendChart from '@/components/charts/CpTrendChart';
+import ScienceNote from '@/components/ScienceNote';
 
 function formatTime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -40,28 +40,28 @@ type Severity = 'on_track' | 'close' | 'behind' | 'unlikely';
 function severityColor(severity: string): string {
   switch (severity as Severity) {
     case 'on_track':
-      return 'text-accent-green';
+      return 'text-primary';
     case 'close':
       return 'text-accent-amber';
     case 'behind':
     case 'unlikely':
-      return 'text-accent-red';
+      return 'text-destructive';
     default:
-      return 'text-text-secondary';
+      return 'text-muted-foreground';
   }
 }
 
 function severityBgColor(severity: string): string {
   switch (severity as Severity) {
     case 'on_track':
-      return 'bg-accent-green/15 text-accent-green';
+      return 'bg-primary/15 text-primary';
     case 'close':
       return 'bg-accent-amber/15 text-accent-amber';
     case 'behind':
     case 'unlikely':
-      return 'bg-accent-red/15 text-accent-red';
+      return 'bg-destructive/15 text-destructive';
     default:
-      return 'bg-panel-light text-text-secondary';
+      return 'bg-muted text-muted-foreground';
   }
 }
 
@@ -158,8 +158,8 @@ function GoalEditor({ initialType, initialRaceDate, initialDistance, initialTarg
   };
 
   return (
-    <div className="rounded-2xl bg-panel p-5 sm:p-6 mb-4">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-4">
+    <div className="rounded-2xl bg-card p-5 sm:p-6 mb-4">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">
         Set Your Goal
       </h3>
 
@@ -169,33 +169,33 @@ function GoalEditor({ initialType, initialRaceDate, initialDistance, initialTarg
           onClick={() => setGoalType('race')}
           className={`rounded-xl p-4 text-left transition-colors border-2 ${
             goalType === 'race'
-              ? 'border-accent-green bg-accent-green/10'
-              : 'border-border bg-panel-light hover:border-text-muted'
+              ? 'border-primary bg-primary/10'
+              : 'border-border bg-muted hover:border-text-muted'
           }`}
         >
-          <p className={`font-semibold ${goalType === 'race' ? 'text-accent-green' : 'text-text-primary'}`}>
+          <p className={`font-semibold ${goalType === 'race' ? 'text-primary' : 'text-foreground'}`}>
             Race Goal
           </p>
-          <p className="text-xs text-text-muted mt-1">Train toward a specific race date</p>
+          <p className="text-xs text-muted-foreground mt-1">Train toward a specific race date</p>
         </button>
         <button
           onClick={() => setGoalType('continuous')}
           className={`rounded-xl p-4 text-left transition-colors border-2 ${
             goalType === 'continuous'
-              ? 'border-accent-green bg-accent-green/10'
-              : 'border-border bg-panel-light hover:border-text-muted'
+              ? 'border-primary bg-primary/10'
+              : 'border-border bg-muted hover:border-text-muted'
           }`}
         >
-          <p className={`font-semibold ${goalType === 'continuous' ? 'text-accent-green' : 'text-text-primary'}`}>
+          <p className={`font-semibold ${goalType === 'continuous' ? 'text-primary' : 'text-foreground'}`}>
             Continuous Improvement
           </p>
-          <p className="text-xs text-text-muted mt-1">Build fitness over time</p>
+          <p className="text-xs text-muted-foreground mt-1">Build fitness over time</p>
         </button>
       </div>
 
       {/* Distance selection */}
       <div className="mb-5">
-        <label className="block text-xs text-text-muted mb-2">Distance</label>
+        <label className="block text-xs text-muted-foreground mb-2">Distance</label>
         <div className="grid grid-cols-4 gap-2">
           {DISTANCES.map((d) => (
             <button
@@ -203,8 +203,8 @@ function GoalEditor({ initialType, initialRaceDate, initialDistance, initialTarg
               onClick={() => setDistance(d.value)}
               className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                 distance === d.value
-                  ? 'bg-accent-green/15 text-accent-green border border-accent-green/30'
-                  : 'bg-panel-light text-text-secondary border border-border hover:text-text-primary hover:border-text-muted'
+                  ? 'bg-primary/15 text-primary border border-primary/30'
+                  : 'bg-muted text-muted-foreground border border-border hover:text-foreground hover:border-text-muted'
               }`}
             >
               {d.label}
@@ -217,28 +217,28 @@ function GoalEditor({ initialType, initialRaceDate, initialDistance, initialTarg
       <div className="space-y-4 mb-5">
         {goalType === 'race' && (
           <div>
-            <label className="block text-xs text-text-muted mb-1">Race Date</label>
+            <label className="block text-xs text-muted-foreground mb-1">Race Date</label>
             <input
               type="date"
               value={raceDate}
               onChange={(e) => setRaceDate(e.target.value)}
-              className="rounded-lg bg-panel-light border border-border px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-green w-full sm:w-auto"
+              className="rounded-lg bg-muted border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary w-full sm:w-auto"
             />
           </div>
         )}
 
         <div>
-          <label className="block text-xs text-text-muted mb-1">
-            Target Time <span className="text-text-muted/60">(optional)</span>
+          <label className="block text-xs text-muted-foreground mb-1">
+            Target Time <span className="text-muted-foreground/60">(optional)</span>
           </label>
           <input
             type="text"
             value={targetTimeInput}
             onChange={(e) => setTargetTimeInput(e.target.value)}
             placeholder={selectedDist?.placeholder ?? 'H:MM:SS'}
-            className="rounded-lg bg-panel-light border border-border px-3 py-2 text-sm font-data text-text-primary focus:outline-none focus:border-accent-green w-full sm:w-48"
+            className="rounded-lg bg-muted border border-border px-3 py-2 text-sm font-data text-foreground focus:outline-none focus:border-primary w-full sm:w-48"
           />
-          <p className="text-[10px] text-text-muted mt-1">
+          <p className="text-[10px] text-muted-foreground mt-1">
             {goalType === 'race'
               ? 'Leave blank to track predicted time only'
               : 'What time are you working toward? Leave blank to track trend only'}
@@ -246,21 +246,21 @@ function GoalEditor({ initialType, initialRaceDate, initialDistance, initialTarg
         </div>
       </div>
 
-      {error && <p className="text-xs text-accent-red mb-3">{error}</p>}
+      {error && <p className="text-xs text-destructive mb-3">{error}</p>}
 
       {/* Actions */}
       <div className="flex items-center gap-3">
         <button
           onClick={handleSave}
           disabled={saving}
-          className="rounded-lg bg-accent-green/15 px-4 py-2 text-sm font-semibold text-accent-green hover:bg-accent-green/25 transition-colors disabled:opacity-50"
+          className="rounded-lg bg-primary/15 px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/25 transition-colors disabled:opacity-50"
         >
           {saving ? 'Saving...' : 'Save Goal'}
         </button>
         {onCancel && (
           <button
             onClick={onCancel}
-            className="rounded-lg px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
+            className="rounded-lg px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             Cancel
           </button>
@@ -285,15 +285,15 @@ function RaceDateMode({ data }: { data: GoalResponse }) {
   return (
     <div className="space-y-4">
       {/* Hero: Countdown */}
-      <div className="rounded-2xl bg-panel p-5 sm:p-6 text-center">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">
+      <div className="rounded-2xl bg-card p-5 sm:p-6 text-center">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
           {distLabel} Countdown
         </h3>
         <div className="flex flex-col items-center gap-2">
-          <span className="font-data text-6xl font-bold text-text-primary">
+          <span className="font-data text-6xl font-bold text-foreground">
             {rc.days_left ?? '\u2014'}
           </span>
-          <span className="text-sm text-text-secondary">
+          <span className="text-sm text-muted-foreground">
             days until {rc.race_date ?? 'race day'}
           </span>
           <StatusBadge status={rc.status} severity={rCheck.severity} />
@@ -302,15 +302,15 @@ function RaceDateMode({ data }: { data: GoalResponse }) {
         {/* Predicted vs Target */}
         <div className={`mt-6 grid gap-4 ${hasTarget ? 'grid-cols-2' : 'grid-cols-1'}`}>
           <div>
-            <p className="text-xs text-text-muted uppercase tracking-wider mb-1">Predicted {distLabel}</p>
-            <p className="font-data text-2xl text-text-primary">
+            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Predicted {distLabel}</p>
+            <p className="font-data text-2xl text-foreground">
               {rc.predicted_time_sec != null ? formatTime(rc.predicted_time_sec) : '\u2014'}
             </p>
           </div>
           {hasTarget && (
             <div>
-              <p className="text-xs text-text-muted uppercase tracking-wider mb-1">Target</p>
-              <p className="font-data text-2xl text-text-primary">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Target</p>
+              <p className="font-data text-2xl text-foreground">
                 {formatTime(rc.target_time_sec!)}
               </p>
             </div>
@@ -321,8 +321,8 @@ function RaceDateMode({ data }: { data: GoalResponse }) {
 
       {/* Reality Check — only when we have a target and meaningful assessment */}
       {hasTarget && rCheck.severity !== 'unknown' && (
-        <div className="rounded-2xl bg-panel p-5 sm:p-6 space-y-4">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">
+        <div className="rounded-2xl bg-card p-5 sm:p-6 space-y-4">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
             Reality Check
           </h3>
 
@@ -331,19 +331,19 @@ function RaceDateMode({ data }: { data: GoalResponse }) {
           </p>
 
           {rCheck.current_cp != null && rCheck.needed_cp != null && (
-            <div className="flex items-center gap-4 rounded-lg bg-panel-light px-4 py-3">
+            <div className="flex items-center gap-4 rounded-lg bg-muted px-4 py-3">
               <div className="text-center">
-                <p className="text-xs text-text-muted">Current {abbrev}</p>
-                <p className="font-data text-lg text-text-primary">{formatThreshold(rCheck.current_cp, unit)}{unit}</p>
+                <p className="text-xs text-muted-foreground">Current {abbrev}</p>
+                <p className="font-data text-lg text-foreground">{formatThreshold(rCheck.current_cp, unit)}{unit}</p>
               </div>
-              <div className="text-text-muted">&rarr;</div>
+              <div className="text-muted-foreground">&rarr;</div>
               <div className="text-center">
-                <p className="text-xs text-text-muted">Needed {abbrev}</p>
-                <p className="font-data text-lg text-text-primary">{formatThreshold(rCheck.needed_cp, unit)}{unit}</p>
+                <p className="text-xs text-muted-foreground">Needed {abbrev}</p>
+                <p className="font-data text-lg text-foreground">{formatThreshold(rCheck.needed_cp, unit)}{unit}</p>
               </div>
               {rCheck.cp_gap_watts != null && (
                 <div className="ml-auto text-center">
-                  <p className="text-xs text-text-muted">Gap</p>
+                  <p className="text-xs text-muted-foreground">Gap</p>
                   <p className={`font-data text-lg font-semibold ${severityColor(rCheck.severity)}`}>
                     {rCheck.cp_gap_watts > 0 ? '+' : ''}
                     {unit === '/km' ? formatPace(Math.abs(rCheck.cp_gap_watts)) : rCheck.cp_gap_watts}{unit}
@@ -354,24 +354,24 @@ function RaceDateMode({ data }: { data: GoalResponse }) {
           )}
 
           {rCheck.trend_note && (
-            <p className="text-sm text-text-secondary">{rCheck.trend_note}</p>
+            <p className="text-sm text-muted-foreground">{rCheck.trend_note}</p>
           )}
 
           {rCheck.realistic_targets &&
             (rCheck.severity === 'behind' || rCheck.severity === 'unlikely') && (
-              <div className="rounded-lg bg-panel-light px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-2">
+              <div className="rounded-lg bg-muted px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
                   Realistic Alternative Targets
                 </p>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-xs text-text-muted">Comfortable</p>
-                    <p className="font-data text-lg text-accent-green">
+                    <p className="text-xs text-muted-foreground">Comfortable</p>
+                    <p className="font-data text-lg text-primary">
                       {formatTime(rCheck.realistic_targets.comfortable)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-text-muted">Stretch</p>
+                    <p className="text-xs text-muted-foreground">Stretch</p>
                     <p className="font-data text-lg text-accent-amber">
                       {formatTime(rCheck.realistic_targets.stretch)}
                     </p>
@@ -384,14 +384,14 @@ function RaceDateMode({ data }: { data: GoalResponse }) {
 
       {/* Trend-based assessment when no target */}
       {!hasTarget && rCheck.trend_note && (
-        <div className="rounded-2xl bg-panel p-5 sm:p-6">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">
+        <div className="rounded-2xl bg-card p-5 sm:p-6">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
             Fitness Trend
           </h3>
           <p className={`text-sm font-medium ${severityColor(rCheck.severity)}`}>
             {rCheck.assessment}
           </p>
-          <p className="text-sm text-text-secondary mt-2">{rCheck.trend_note}</p>
+          <p className="text-sm text-muted-foreground mt-2">{rCheck.trend_note}</p>
         </div>
       )}
 
@@ -422,16 +422,16 @@ function CpMilestoneMode({ data }: { data: GoalResponse }) {
 
   const barColor =
     progressPct >= 90
-      ? 'bg-accent-green'
+      ? 'bg-primary'
       : progressPct >= 70
         ? 'bg-accent-amber'
-        : 'bg-accent-red';
+        : 'bg-destructive';
 
   return (
     <div className="space-y-4">
       {/* Hero: Target + Progress */}
-      <div className="rounded-2xl bg-panel p-5 sm:p-6 text-center">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">
+      <div className="rounded-2xl bg-card p-5 sm:p-6 text-center">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
           {hasTimeTarget
             ? `Building toward ${formatTime(rc.target_time_sec!)} ${distLabel}`
             : `${distLabel} Progress`}
@@ -441,13 +441,13 @@ function CpMilestoneMode({ data }: { data: GoalResponse }) {
         {rc.predicted_time_sec != null && (
           <div className={`grid gap-4 mb-4 ${hasTimeTarget ? 'grid-cols-2' : 'grid-cols-1'}`}>
             <div>
-              <p className="text-xs text-text-muted uppercase tracking-wider mb-1">Predicted {distLabel}</p>
-              <p className="font-data text-2xl text-text-primary">{formatTime(rc.predicted_time_sec)}</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Predicted {distLabel}</p>
+              <p className="font-data text-2xl text-foreground">{formatTime(rc.predicted_time_sec)}</p>
             </div>
             {hasTimeTarget && (
               <div>
-                <p className="text-xs text-text-muted uppercase tracking-wider mb-1">Target</p>
-                <p className="font-data text-2xl text-text-primary">{formatTime(rc.target_time_sec!)}</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Target</p>
+                <p className="font-data text-2xl text-foreground">{formatTime(rc.target_time_sec!)}</p>
               </div>
             )}
           </div>
@@ -457,21 +457,21 @@ function CpMilestoneMode({ data }: { data: GoalResponse }) {
         {targetCp != null && (
           <>
             <div className="flex items-baseline justify-center gap-2 mb-2">
-              <span className="font-data text-4xl font-bold text-text-primary">
+              <span className="font-data text-4xl font-bold text-foreground">
                 {currentCp != null ? formatThreshold(currentCp, unit) : '\u2014'}
               </span>
-              <span className="text-text-muted text-lg">&rarr;</span>
-              <span className="font-data text-2xl text-text-secondary">{formatThreshold(targetCp, unit)}</span>
-              <span className="text-sm text-text-muted">{unit}</span>
+              <span className="text-muted-foreground text-lg">&rarr;</span>
+              <span className="font-data text-2xl text-muted-foreground">{formatThreshold(targetCp, unit)}</span>
+              <span className="text-sm text-muted-foreground">{unit}</span>
             </div>
             <div className="mx-auto max-w-md">
-              <div className="h-4 w-full rounded-full bg-panel-light overflow-hidden">
+              <div className="h-4 w-full rounded-full bg-muted overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${barColor}`}
                   style={{ width: `${progressPct}%` }}
                 />
               </div>
-              <p className="text-xs text-text-muted mt-1 font-data">{progressPct.toFixed(0)}%</p>
+              <p className="text-xs text-muted-foreground mt-1 font-data">{progressPct.toFixed(0)}%</p>
             </div>
           </>
         )}
@@ -484,8 +484,8 @@ function CpMilestoneMode({ data }: { data: GoalResponse }) {
 
       {/* Milestones */}
       {rc.milestones && rc.milestones.length > 0 && (
-        <div className="rounded-2xl bg-panel p-5 sm:p-6">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">
+        <div className="rounded-2xl bg-card p-5 sm:p-6">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
             Milestones
           </h3>
           <MilestoneTracker
@@ -497,8 +497,8 @@ function CpMilestoneMode({ data }: { data: GoalResponse }) {
       )}
 
       {/* Assessment + details */}
-      <div className="rounded-2xl bg-panel p-5 sm:p-6 space-y-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">
+      <div className="rounded-2xl bg-card p-5 sm:p-6 space-y-4">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
           Assessment
         </h3>
         <p className={`text-sm font-medium ${severityColor(rCheck.severity)}`}>
@@ -506,16 +506,16 @@ function CpMilestoneMode({ data }: { data: GoalResponse }) {
         </p>
 
         {rc.estimated_months != null && (
-          <div className="rounded-lg bg-panel-light px-4 py-3">
-            <p className="text-xs text-text-muted">Estimated time to target</p>
-            <p className="font-data text-lg text-text-primary">
+          <div className="rounded-lg bg-muted px-4 py-3">
+            <p className="text-xs text-muted-foreground">Estimated time to target</p>
+            <p className="font-data text-lg text-foreground">
               {rc.estimated_months.toFixed(1)} months
             </p>
           </div>
         )}
 
         {rCheck.trend_note && (
-          <p className="text-sm text-text-secondary">{rCheck.trend_note}</p>
+          <p className="text-sm text-muted-foreground">{rCheck.trend_note}</p>
         )}
       </div>
 
@@ -538,16 +538,16 @@ function ContinuousMode({ data }: { data: GoalResponse }) {
   return (
     <div className="space-y-4">
       {/* Hero: Current Threshold + Predicted Time */}
-      <div className="rounded-2xl bg-panel p-5 sm:p-6 text-center">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">
+      <div className="rounded-2xl bg-card p-5 sm:p-6 text-center">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
           Current Fitness
         </h3>
         <div className="flex flex-col items-center gap-2">
           <div className="flex items-baseline gap-2">
-            <span className="font-data text-5xl font-bold text-text-primary">
+            <span className="font-data text-5xl font-bold text-foreground">
               {currentCp != null ? formatThreshold(currentCp, unit) : '\u2014'}
             </span>
-            <span className="text-sm text-text-muted">{unit}</span>
+            <span className="text-sm text-muted-foreground">{unit}</span>
           </div>
           {trend && (
             <div className="flex items-center gap-2">
@@ -555,7 +555,7 @@ function ContinuousMode({ data }: { data: GoalResponse }) {
                 {trendDirectionLabel(trend.direction)}
               </span>
               {trend.slope_per_month !== 0 && (
-                <span className="text-xs text-text-muted font-data">
+                <span className="text-xs text-muted-foreground font-data">
                   ({trend.slope_per_month > 0 ? '+' : ''}{unit === '/km' ? formatPace(Math.abs(trend.slope_per_month)) : trend.slope_per_month.toFixed(1)}{unit}/mo)
                 </span>
               )}
@@ -566,8 +566,8 @@ function ContinuousMode({ data }: { data: GoalResponse }) {
         {/* Predicted time for configured distance */}
         {rc.predicted_time_sec != null && (
           <div className="mt-4 pt-4 border-t border-border">
-            <p className="text-xs text-text-muted uppercase tracking-wider mb-1">Predicted {distLabel}</p>
-            <p className="font-data text-2xl text-text-primary">{formatTime(rc.predicted_time_sec)}</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Predicted {distLabel}</p>
+            <p className="font-data text-2xl text-foreground">{formatTime(rc.predicted_time_sec)}</p>
           </div>
         )}
         <ScienceNote text={note.text} sourceUrl={note.url} sourceLabel="Source" />
@@ -575,14 +575,14 @@ function ContinuousMode({ data }: { data: GoalResponse }) {
 
       {/* Assessment */}
       {rCheck.trend_note && (
-        <div className="rounded-2xl bg-panel p-5 sm:p-6">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">
+        <div className="rounded-2xl bg-card p-5 sm:p-6">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
             Trend
           </h3>
           <p className={`text-sm font-medium ${severityColor(rCheck.severity)}`}>
             {rCheck.assessment}
           </p>
-          <p className="text-sm text-text-secondary mt-2">{rCheck.trend_note}</p>
+          <p className="text-sm text-muted-foreground mt-2">{rCheck.trend_note}</p>
         </div>
       )}
 
@@ -624,18 +624,18 @@ export default function Goal() {
         {!isEditing && data && (
           <button
             onClick={() => setIsEditing(true)}
-            className="rounded-lg border border-border px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary hover:border-text-muted transition-colors"
+            className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:border-text-muted transition-colors"
           >
             Change Goal
           </button>
         )}
       </div>
 
-      {loading && <p className="text-text-secondary">Loading...</p>}
+      {loading && <p className="text-muted-foreground">Loading...</p>}
 
       {error && (
-        <div className="rounded-2xl bg-accent-red/10 border border-accent-red/30 p-4 mb-4">
-          <p className="text-accent-red text-sm">Failed to load goal data: {error}</p>
+        <div className="rounded-2xl bg-destructive/10 border border-destructive/30 p-4 mb-4">
+          <p className="text-destructive text-sm">Failed to load goal data: {error}</p>
         </div>
       )}
 

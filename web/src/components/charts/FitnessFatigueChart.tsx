@@ -11,9 +11,9 @@ import {
   ReferenceArea,
   ReferenceLine,
 } from 'recharts';
-import type { TimeSeriesData, TsbZoneConfig } from '../../types/api';
-import ScienceNote from '../ScienceNote';
-import { useScience, tsbZoneFromConfig } from '../../contexts/ScienceContext';
+import type { TimeSeriesData, TsbZoneConfig } from '@/types/api';
+import ScienceNote from '@/components/ScienceNote';
+import { useScience, tsbZoneFromConfig } from '@/contexts/ScienceContext';
 
 interface Props {
   data: TimeSeriesData;
@@ -32,9 +32,9 @@ function CustomTooltip({ active, payload, label, tsbZones }: any) {
   const zone = tsbZoneFromConfig(tsbVal, tsbZones ?? []);
 
   return (
-    <div className="rounded-lg border border-border bg-panel px-3 py-2.5 shadow-xl shadow-black/40">
+    <div className="rounded-lg border border-border bg-card px-3 py-2.5 shadow-xl shadow-black/40">
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-[11px] text-text-muted font-data">{label}</span>
+        <span className="text-[11px] text-muted-foreground font-data">{label}</span>
         {isProjected && (
           <span className="text-[9px] uppercase tracking-wider text-accent-purple font-semibold px-1.5 py-0.5 rounded bg-accent-purple/10">
             Projected
@@ -44,19 +44,19 @@ function CustomTooltip({ active, payload, label, tsbZones }: any) {
       <div className="space-y-1 text-[12px] font-data">
         {ctl && (
           <div className="flex justify-between gap-6">
-            <span className="text-text-muted">Fitness</span>
+            <span className="text-muted-foreground">Fitness</span>
             <span style={{ color: '#00ff87' }}>{ctl.value?.toFixed(1)}</span>
           </div>
         )}
         {atl && (
           <div className="flex justify-between gap-6">
-            <span className="text-text-muted">Fatigue</span>
+            <span className="text-muted-foreground">Fatigue</span>
             <span style={{ color: '#ef4444' }}>{atl.value?.toFixed(1)}</span>
           </div>
         )}
         {tsb && (
           <div className="flex justify-between gap-6 pt-1 border-t border-border">
-            <span className="text-text-muted">Form</span>
+            <span className="text-muted-foreground">Form</span>
             <span style={{ color: zone.color }} className="font-semibold">
               {tsbVal.toFixed(1)}
             </span>
@@ -93,7 +93,7 @@ function ZoneLegend({ zones: tsbZones }: { zones: TsbZoneConfig[] }) {
             className="w-2 h-2 rounded-full"
             style={{ backgroundColor: z.color, opacity: 0.8 }}
           />
-          <span className="text-[10px] text-text-muted">
+          <span className="text-[10px] text-muted-foreground">
             {z.label} <span className="font-data opacity-60">{z.range}</span>
           </span>
         </div>
@@ -176,29 +176,29 @@ export default function FitnessFatigueChart({ data }: Props) {
   const projectionStartDate = data.dates[data.dates.length - 1];
 
   return (
-    <div className="rounded-2xl bg-panel p-5 sm:p-6">
+    <div className="rounded-2xl bg-card p-5 sm:p-6">
       {/* Header row */}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Fitness / Fatigue / Form
         </h3>
         <div className="flex items-center gap-4 text-[11px]">
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-0.5 rounded-full bg-[#00ff87]" />
-            <span className="text-text-muted">CTL</span>
+            <span className="text-muted-foreground">CTL</span>
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-0.5 rounded-full bg-[#ef4444]" />
-            <span className="text-text-muted">ATL</span>
+            <span className="text-muted-foreground">ATL</span>
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-0.5 rounded-full bg-[#3b82f6]" />
-            <span className="text-text-muted">TSB</span>
+            <span className="text-muted-foreground">TSB</span>
           </span>
           {hasProjection && (
             <span className="flex items-center gap-1.5">
               <span className="inline-block w-3 h-0.5 rounded-full bg-[#8b5cf6] opacity-60" style={{ borderTop: '2px dashed #8b5cf6' }} />
-              <span className="text-text-muted">Projected</span>
+              <span className="text-muted-foreground">Projected</span>
             </span>
           )}
         </div>

@@ -7,7 +7,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import type { CpTrendChart as CpTrendChartData } from '../../types/api';
+import type { CpTrendChart as CpTrendChartData } from '@/types/api';
 
 interface Props {
   data: CpTrendChartData;
@@ -33,8 +33,8 @@ export default function CpTrendChart({ data, targetCp, label, unit = 'W', metric
   const formatValue = (v: number) => isPace ? `${formatPace(v)}${unit}` : `${v}${unit}`;
 
   return (
-    <div className="rounded-2xl bg-panel p-5 sm:p-6">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-4">
+    <div className="rounded-2xl bg-card p-5 sm:p-6">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">
         {label || 'CP Trend'}
       </h3>
       <ResponsiveContainer width="100%" height={300}>

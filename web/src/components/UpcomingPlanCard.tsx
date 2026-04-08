@@ -1,14 +1,14 @@
-import { useApi } from '../hooks/useApi';
-import type { PlanResponse, PlannedWorkout } from '../types/api';
+import { useApi } from '@/hooks/useApi';
+import type { PlanResponse, PlannedWorkout } from '@/types/api';
 
 const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
-  easy:       { bg: 'bg-accent-green/15', text: 'text-accent-green' },
-  recovery:   { bg: 'bg-accent-green/15', text: 'text-accent-green' },
+  easy:       { bg: 'bg-primary/15', text: 'text-primary' },
+  recovery:   { bg: 'bg-primary/15', text: 'text-primary' },
   long:       { bg: 'bg-accent-blue/15',  text: 'text-accent-blue' },
   tempo:      { bg: 'bg-accent-amber/15', text: 'text-accent-amber' },
   threshold:  { bg: 'bg-accent-amber/15', text: 'text-accent-amber' },
-  interval:   { bg: 'bg-accent-red/15',   text: 'text-accent-red' },
-  repetition: { bg: 'bg-accent-red/15',   text: 'text-accent-red' },
+  interval:   { bg: 'bg-destructive/15',   text: 'text-destructive' },
+  repetition: { bg: 'bg-destructive/15',   text: 'text-destructive' },
 };
 
 const DEFAULT_COLOR = { bg: 'bg-accent-purple/15', text: 'text-accent-purple' };
@@ -56,26 +56,26 @@ function WorkoutRow({ workout }: { workout: PlannedWorkout }) {
     <div
       className={`flex items-center gap-3 py-2.5 px-3 rounded-lg transition-colors ${
         isToday
-          ? 'bg-accent-green/5 ring-1 ring-accent-green/20'
-          : 'hover:bg-panel-light/50'
+          ? 'bg-primary/5 ring-1 ring-accent-green/20'
+          : 'hover:bg-muted/50'
       }`}
     >
       {/* Date column */}
       <div className="flex flex-col items-center w-10 shrink-0">
         <span className={`text-[10px] font-semibold tracking-wider ${
-          isToday ? 'text-accent-green' : 'text-text-muted'
+          isToday ? 'text-primary' : 'text-muted-foreground'
         }`}>
           {isToday ? 'TODAY' : weekday}
         </span>
         <span className={`font-data text-lg leading-tight ${
-          isToday ? 'text-accent-green font-bold' : 'text-text-secondary'
+          isToday ? 'text-primary font-bold' : 'text-muted-foreground'
         }`}>
           {day}
         </span>
       </div>
 
       {/* Divider */}
-      <div className={`w-px h-8 ${isToday ? 'bg-accent-green/30' : 'bg-border'}`} />
+      <div className={`w-px h-8 ${isToday ? 'bg-primary/30' : 'bg-border'}`} />
 
       {/* Type badge + details */}
       <div className="flex-1 min-w-0">
@@ -84,13 +84,13 @@ function WorkoutRow({ workout }: { workout: PlannedWorkout }) {
             {formatType(workout.workout_type)}
           </span>
           {details.length > 0 && (
-            <span className="font-data text-xs text-text-muted truncate">
+            <span className="font-data text-xs text-muted-foreground truncate">
               {details.join(' · ')}
             </span>
           )}
         </div>
         {workout.description && (
-          <p className="text-xs text-text-muted mt-0.5 truncate">{workout.description}</p>
+          <p className="text-xs text-muted-foreground mt-0.5 truncate">{workout.description}</p>
         )}
       </div>
     </div>
@@ -102,11 +102,11 @@ export default function UpcomingPlanCard() {
 
   if (loading) {
     return (
-      <div className="rounded-2xl bg-panel p-5 sm:p-6">
-        <div className="h-6 w-32 bg-panel-light rounded animate-pulse mb-4" />
+      <div className="rounded-2xl bg-card p-5 sm:p-6">
+        <div className="h-6 w-32 bg-muted rounded animate-pulse mb-4" />
         <div className="space-y-3">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-12 bg-panel-light rounded-lg animate-pulse" />
+            <div key={i} className="h-12 bg-muted rounded-lg animate-pulse" />
           ))}
         </div>
       </div>
@@ -116,12 +116,12 @@ export default function UpcomingPlanCard() {
   if (error || !data || data.workouts.length === 0) return null;
 
   return (
-    <div className="rounded-2xl bg-panel p-5 sm:p-6">
+    <div className="rounded-2xl bg-card p-5 sm:p-6">
       <div className="flex items-baseline justify-between mb-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Upcoming Plan
         </h3>
-        <span className="text-xs text-text-muted font-data">
+        <span className="text-xs text-muted-foreground font-data">
           {data.workouts.length} workouts
         </span>
       </div>

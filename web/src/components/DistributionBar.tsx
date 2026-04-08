@@ -1,4 +1,4 @@
-import type { DisplayConfig } from '../types/api';
+import type { DisplayConfig } from '@/types/api';
 
 interface Props {
   distribution: { supra_cp: number; threshold: number; tempo: number; easy: number };
@@ -6,10 +6,10 @@ interface Props {
 }
 
 const ZONE_COLORS = [
-  { color: 'bg-accent-red', textColor: 'text-accent-red' },
+  { color: 'bg-destructive', textColor: 'text-destructive' },
   { color: 'bg-accent-amber', textColor: 'text-accent-amber' },
   { color: 'bg-accent-blue', textColor: 'text-accent-blue' },
-  { color: 'bg-text-muted', textColor: 'text-text-muted' },
+  { color: 'bg-text-muted', textColor: 'text-muted-foreground' },
 ];
 
 // Map distribution keys to ordered zone indices (highest intensity first)
@@ -54,7 +54,7 @@ export default function DistributionBar({ distribution, display }: Props) {
         {zones.map((zone) => (
           <span key={zone.key} className="flex items-center gap-1.5">
             <span className={`inline-block h-2.5 w-2.5 rounded-full ${zone.color}`} />
-            <span className="text-text-secondary">{zone.label}</span>
+            <span className="text-muted-foreground">{zone.label}</span>
             <span className={`font-data font-semibold ${zone.textColor}`}>{zone.pct.toFixed(0)}%</span>
           </span>
         ))}
