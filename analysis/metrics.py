@@ -41,14 +41,48 @@ def get_distance_config(distance: str) -> dict:
 
 
 def compute_ewma_load(daily_rss: pd.Series, time_constant: int) -> pd.Series:
-    """Compute EWMA of daily RSS using exponential decay time constant."""
-    alpha = 1 - math.exp(-1.0 / time_constant)
+    """Compute EWMA of daily load using the standard PMC time constant.
+
+    Uses alpha = 1/τ to match the industry-standard Performance Management
+    Chart model used by TrainingPeaks, Stryd, and Intervals.icu.
+    The continuous-time exact form (alpha = 1 - exp(-1/τ)) differs by ~7%
+    for ATL (τ=7), causing 5-10 point TSB discrepancies vs platforms.
+
+    Reference: Banister impulse-response model (1975);
+    https://help.trainingpeaks.com/hc/en-us/articles/204071944
+    """
+    alpha = 1.0 / time_constant
     return daily_rss.ewm(alpha=alpha, adjust=False).mean()
 
 
 def compute_tsb(ctl: pd.Series, atl: pd.Series) -> pd.Series:
     """Training Stress Balance = CTL - ATL."""
     return ctl - atl
+
+
+def project_tsb(
+    current_ctl: float,
+    current_atl: float,
+    future_daily_loads: list[float],
+    ctl_tc: int = 42,
+    atl_tc: int = 7,
+) -> tuple[list[float], list[float], list[float]]:
+    """Project CTL/ATL/TSB forward given estimated future daily loads.
+
+    Uses the same EWMA recurrence as compute_ewma_load (alpha = 1/tau).
+    Returns (projected_ctl, projected_atl, projected_tsb) lists.
+    """
+    alpha_ctl = 1.0 / ctl_tc
+    alpha_atl = 1.0 / atl_tc
+    ctl, atl = current_ctl, current_atl
+    proj_ctl, proj_atl, proj_tsb = [], [], []
+    for load in future_daily_loads:
+        ctl = ctl + alpha_ctl * (load - ctl)
+        atl = atl + alpha_atl * (load - atl)
+        proj_ctl.append(round(ctl, 1))
+        proj_atl.append(round(atl, 1))
+        proj_tsb.append(round(ctl - atl, 1))
+    return proj_ctl, proj_atl, proj_tsb
 
 
 def compute_rss(duration_sec: float, avg_power: float, cp: float) -> float:
@@ -67,17 +101,21 @@ def compute_trimp(
     rest_hr: float,
     max_hr: float,
     sex: str = "male",
+    *,
+    k_male: float = 1.92,
+    k_female: float = 1.67,
 ) -> float:
     """Banister TRIMP (HR-based load).
 
     Uses exponential weighting of HR intensity.
+    k values can be overridden from a science theory.
     """
     if duration_sec <= 0 or max_hr <= rest_hr:
         return 0.0
     duration_min = duration_sec / 60
     delta_ratio = (avg_hr - rest_hr) / (max_hr - rest_hr)
     delta_ratio = max(0.0, min(1.0, delta_ratio))
-    k = 1.92 if sex == "male" else 1.67
+    k = k_male if sex == "male" else k_female
     return duration_min * delta_ratio * 0.64 * math.exp(k * delta_ratio)
 
 
@@ -158,6 +196,7 @@ def daily_training_signal(
     planned_detail: dict | None = None,
     sleep_score: float | None = None,
     hrv_value: float | None = None,
+    signal_thresholds: dict | None = None,
 ) -> dict:
     """Generate today's training recommendation from recovery + plan data.
 
@@ -169,7 +208,14 @@ def daily_training_signal(
         planned_detail: full plan row dict with duration, distance, power targets
         sleep_score: last night's Oura sleep score
         hrv_value: today's HRV in ms
+        signal_thresholds: overrides from science theory (readiness_rest, readiness_modify,
+            tsb_high_fatigue, hrv_decline_pct)
     """
+    st = signal_thresholds or {}
+    rest_thresh = st.get("readiness_rest", 60)
+    modify_thresh = st.get("readiness_modify", 70)
+    fatigue_thresh = st.get("tsb_high_fatigue", -20)
+    hrv_thresh = st.get("hrv_decline_pct", -15)
     # Classify workout difficulty
     hard_types = {"threshold", "tempo", "interval", "race", "long"}
     is_hard = planned_workout.lower() in hard_types if planned_workout else False
@@ -203,14 +249,14 @@ def daily_training_signal(
             plan["description"] = planned_detail["workout_description"]
 
     # Decision logic
-    if readiness_score is not None and readiness_score < 60:
+    if readiness_score is not None and readiness_score < rest_thresh:
         rec = "rest"
         reason = f"Readiness is low ({readiness_score:.0f}). Prioritize recovery."
         alternatives = []
         if is_hard and planned_workout:
             alternatives.append(f"Shift {planned_workout} to tomorrow if possible")
             alternatives.append("If you must move, walk 30min only")
-    elif readiness_score is not None and readiness_score < 70 and is_hard:
+    elif readiness_score is not None and readiness_score < modify_thresh and is_hard:
         rec = "modify"
         reason = f"Readiness moderate ({readiness_score:.0f}) but planned workout is hard ({planned_workout})."
         alternatives = [
@@ -218,11 +264,11 @@ def daily_training_signal(
             f"Push {planned_workout} to tomorrow if tomorrow is rest/easy",
             "Run as planned but cap at low end of power range, bail if HR drifts high",
         ]
-    elif readiness_score is not None and readiness_score < 70 and tsb < -20:
+    elif readiness_score is not None and readiness_score < modify_thresh and tsb < fatigue_thresh:
         rec = "easy"
         reason = f"Readiness moderate ({readiness_score:.0f}) with high fatigue (TSB={tsb:.0f}). Go easy."
         alternatives = []
-    elif hrv_trend_pct < -15:
+    elif hrv_trend_pct < hrv_thresh:
         rec = "reduce_intensity"
         reason = f"HRV has declined {hrv_trend_pct:.0f}% over 3 days. Reduce intensity to prevent overtraining."
         alternatives = []

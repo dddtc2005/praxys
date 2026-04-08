@@ -1,0 +1,49 @@
+id: hrv_weighted
+pillar: recovery
+name: "HRV-Weighted Readiness"
+author: system
+description: >
+  HRV-primary readiness model for athletes with consistent daily HRV recordings.
+  Uses both HRV mean and coefficient of variation (CV) to detect acute homeostatic
+  disturbances. Requires >80% daily HRV data coverage for accuracy.
+simple_description: >
+  Puts most of the weight on your heart rate variability (HRV) readings, which are
+  the most direct measure of how your nervous system is recovering. Best if you have
+  a chest strap or Oura ring that records HRV consistently every day.
+advanced_description: |
+  ## HRV-Weighted Readiness Model
+
+  **Signal weights:**
+  - HRV: **60%**
+  - Sleep quality: **25%**
+  - Resting heart rate: **15%**
+
+  Uses both HRV **mean** (long-term baseline trend) and **coefficient of variation**
+  (CV, acute disturbance detection). CV threshold: **10%** — values above this
+  indicate significant autonomic disturbance.
+
+  **Data coverage requirement:** ≥ 80% daily HRV recordings for reliable estimates.
+  Below this threshold, consider switching to the composite readiness model.
+
+  **References:**
+  - Kiviniemi et al (2007) "Endurance training guided individually by daily heart
+    rate variability measurements," *European Journal of Applied Physiology*
+  - Plews et al (2013) "Heart rate variability in elite triathletes," *JSSM*
+
+citations:
+  - key: kiviniemi2007
+    title: "Endurance training guided individually by daily heart rate variability measurements"
+    year: 2007
+    journal: "European Journal of Applied Physiology"
+  - key: plews2013
+    title: "Heart rate variability in elite triathletes"
+    year: 2013
+    journal: "Journal of Science and Medicine in Sport"
+
+params:
+  hrv_weight: 0.6
+  sleep_weight: 0.25
+  rhr_weight: 0.15
+  readiness_fresh: 80
+  readiness_moderate: 60
+  hrv_cv_threshold: 10

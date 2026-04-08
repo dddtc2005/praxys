@@ -1,0 +1,60 @@
+id: critical_power
+pillar: prediction
+name: "Critical Power Model"
+author: system
+description: >
+  Uses Critical Power as the primary predictor, with power-duration fractions per
+  race distance from Stryd's model. Best when power data and CP estimates are available.
+simple_description: >
+  Predicts your race times using your Critical Power (CP) — the highest power you
+  can sustain for about an hour. For each race distance, there's a known fraction
+  of CP that top runners sustain. Your predicted time comes from your CP, this
+  fraction, and your power-to-pace relationship.
+advanced_description: |
+  ## Critical Power Prediction Model
+
+  **Power-duration model:** P = CP + W'/t
+
+  Where CP is Critical Power (sustainable ~60 min) and W' is the finite work
+  capacity above CP.
+
+  **Race power fractions (from Stryd):**
+  | Distance | % of CP |
+  |----------|---------|
+  | 5K | 103.8% |
+  | 10K | 100.0% |
+  | Half Marathon | 94.6% |
+  | Marathon | 89.9% |
+  | 50K | 88.0% |
+  | 50 Mile | 85.0% |
+  | 100K | 82.0% |
+  | 100 Mile | 78.0% |
+
+  Uses Riegel exponent (1.06) as fallback for pace scaling when power-to-pace
+  lookup is unavailable.
+
+  **References:**
+  - Monod & Scherrer (1965) "The work capacity of a synergic muscular group," *Ergonomics*
+  - Stryd Race Power Calculator
+
+citations:
+  - key: monod1965
+    title: "The work capacity of a synergic muscular group"
+    year: 1965
+    journal: "Ergonomics"
+  - key: stryd_race_calculator
+    title: "Race Power Calculator"
+    url: "https://help.stryd.com/en/articles/6879547-race-power-calculator"
+
+params:
+  distance_power_fractions:
+    5k: 1.038
+    10k: 1.00
+    half: 0.946
+    marathon: 0.899
+    50k: 0.88
+    50mi: 0.85
+    100k: 0.82
+    100mi: 0.78
+  riegel_exponent: 1.06
+  threshold_reference_km: 10.0

@@ -1,4 +1,5 @@
 import type { RecoveryData } from '../types/api';
+import { useScience, tsbZoneFromConfig } from '../contexts/ScienceContext';
 
 interface Props {
   recovery: RecoveryData;
@@ -8,12 +9,6 @@ function scoreColor(value: number | undefined, thresholds = { green: 80, amber: 
   if (value == null) return 'text-text-muted';
   if (value >= thresholds.green) return 'text-accent-green';
   if (value >= thresholds.amber) return 'text-accent-amber';
-  return 'text-accent-red';
-}
-
-function tsbColor(value: number): string {
-  if (value > 0) return 'text-accent-green';
-  if (value >= -10) return 'text-accent-amber';
   return 'text-accent-red';
 }
 
@@ -28,12 +23,14 @@ function MetricCard({
   value,
   suffix,
   colorClass,
+  colorStyle,
   extra,
 }: {
   label: string;
   value: string;
   suffix?: string;
   colorClass: string;
+  colorStyle?: string;
   extra?: React.ReactNode;
 }) {
   return (
@@ -42,7 +39,7 @@ function MetricCard({
         {label}
       </p>
       <div className="flex items-baseline gap-1">
-        <span className={`text-3xl font-bold font-data ${colorClass}`}>{value}</span>
+        <span className={`text-3xl font-bold font-data ${colorClass}`} style={colorStyle ? { color: colorStyle } : undefined}>{value}</span>
         {suffix && <span className="text-sm text-text-muted">{suffix}</span>}
         {extra}
       </div>
@@ -51,6 +48,8 @@ function MetricCard({
 }
 
 export default function RecoveryPanel({ recovery }: Props) {
+  const { tsbZones } = useScience();
+  const tsbZone = tsbZoneFromConfig(recovery.tsb, tsbZones);
   const trend = trendArrow(recovery.hrv_trend_pct);
 
   return (
@@ -81,7 +80,8 @@ export default function RecoveryPanel({ recovery }: Props) {
         <MetricCard
           label="TSB"
           value={String(recovery.tsb)}
-          colorClass={tsbColor(recovery.tsb)}
+          colorClass=""
+          colorStyle={tsbZone.color}
         />
       </div>
     </div>

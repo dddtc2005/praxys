@@ -10,6 +10,7 @@ from analysis.config import load_config
 from analysis.data_loader import load_data
 from analysis.providers.models import ThresholdEstimate
 from analysis.training_base import get_display_config
+from analysis.science import load_active_science
 from analysis.metrics import (
     compute_ewma_load,
     compute_tsb,
@@ -24,6 +25,8 @@ from analysis.metrics import (
     cp_milestone_check,
     diagnose_training,
     get_distance_config,
+    compute_rss,
+    project_tsb,
 )
 
 # ---------------------------------------------------------------------------
@@ -47,6 +50,11 @@ def _ensure_env():
 _cache: dict = {}
 _cache_time: float = 0
 CACHE_TTL = 300  # 5 minutes
+
+
+def _clear_cache():
+    """Force data reload on next request (alias for invalidate_cache)."""
+    invalidate_cache()
 
 
 def invalidate_cache():
@@ -159,6 +167,55 @@ def _compute_daily_load(
     daily = merged.groupby("date")["_load"].sum()
     daily = daily.reindex(date_range.date, fill_value=0.0)
     return daily.astype(float)
+
+
+def _estimate_plan_daily_loads(
+    plan: pd.DataFrame,
+    start_date: date,
+    days: int,
+    thresholds: ThresholdEstimate,
+    training_base: str,
+) -> list[float]:
+    """Estimate daily load for each of the next *days* days from the plan.
+
+    For days with no planned workout, load is 0.
+    Uses target power midpoint × planned duration to estimate RSS.
+    """
+    loads = [0.0] * days
+    if plan.empty:
+        return loads
+
+    for i in range(days):
+        d = start_date + timedelta(days=i + 1)
+        day_plan = plan[plan["date"] == d]
+        if day_plan.empty:
+            continue
+        day_load = 0.0
+        for _, row in day_plan.iterrows():
+            dur_min = pd.to_numeric(
+                pd.Series([row.get("planned_duration_min", 0)]), errors="coerce"
+            ).iloc[0]
+            dur_sec = float(dur_min) * 60 if pd.notna(dur_min) and dur_min > 0 else 0
+            if dur_sec <= 0:
+                continue
+
+            # Estimate power from plan targets
+            p_min = pd.to_numeric(pd.Series([row.get("target_power_min")]), errors="coerce").iloc[0]
+            p_max = pd.to_numeric(pd.Series([row.get("target_power_max")]), errors="coerce").iloc[0]
+            if pd.notna(p_min) and pd.notna(p_max) and p_min > 0:
+                avg_power = (float(p_min) + float(p_max)) / 2
+            elif pd.notna(p_max) and p_max > 0:
+                avg_power = float(p_max) * 0.85  # conservative estimate
+            else:
+                avg_power = None
+
+            if avg_power and thresholds.cp_watts and thresholds.cp_watts > 0:
+                day_load += compute_rss(dur_sec, avg_power, thresholds.cp_watts)
+            elif dur_sec > 0:
+                # Fallback: estimate ~60 RSS per hour (moderate effort)
+                day_load += (dur_sec / 3600) * 60
+        loads[i] = day_load
+    return loads
 
 
 def _get_hrv_trend(readiness: pd.DataFrame, days: int = 3) -> float:
@@ -633,10 +690,16 @@ def get_dashboard_data() -> dict:
     merged = data["activities"]  # Already merged by load_data()
     thresholds = _resolve_thresholds(config, data_dir)
 
+    # Load science framework (theories for each pillar)
+    science = load_active_science(config.science, config.zone_labels)
+    load_theory = science.get("load")
+    load_params = load_theory.params if load_theory else {}
+    ctl_tc = int(load_params.get("ctl_time_constant", 42))
+    atl_tc = int(load_params.get("atl_time_constant", 7))
+
     today = date.today()
 
     # Use ALL historical data for EWMA so CTL/ATL stabilize correctly.
-    # The 42-day CTL time constant needs months of history to be accurate.
     earliest = today - timedelta(days=365)  # default if no data
     if not merged.empty and "date" in merged.columns:
         first_date = pd.to_datetime(merged["date"]).min()
@@ -644,9 +707,26 @@ def get_dashboard_data() -> dict:
             earliest = first_date.date()
     full_range = pd.date_range(earliest, today)
     daily_load = _compute_daily_load(merged, full_range, config, thresholds)
-    ctl = compute_ewma_load(daily_load, time_constant=42)
-    atl = compute_ewma_load(daily_load, time_constant=7)
+    ctl = compute_ewma_load(daily_load, time_constant=ctl_tc)
+    atl = compute_ewma_load(daily_load, time_constant=atl_tc)
     tsb = compute_tsb(ctl, atl)
+
+    # Project TSB forward using the training plan (up to 14 days)
+    plan = data["plan"]
+    projection_days = 14
+    future_loads = _estimate_plan_daily_loads(
+        plan, today, projection_days, thresholds, config.training_base,
+    )
+    current_ctl = float(ctl.iloc[-1]) if not ctl.empty else 0.0
+    current_atl = float(atl.iloc[-1]) if not atl.empty else 0.0
+    proj_ctl, proj_atl, proj_tsb = project_tsb(
+        current_ctl, current_atl, future_loads,
+        ctl_tc=ctl_tc, atl_tc=atl_tc,
+    )
+    proj_dates = [
+        (today + timedelta(days=i + 1)).strftime("%Y-%m-%d")
+        for i in range(projection_days)
+    ]
 
     # Display window for charts (last 60 days)
     display_days = 60
@@ -737,7 +817,6 @@ def get_dashboard_data() -> dict:
     hrv_trend = _get_hrv_trend(recovery)
     current_tsb = float(tsb.iloc[-1]) if not tsb.empty else 0.0
 
-    plan = data["plan"]
     planned_today, planned_detail = _get_todays_plan(plan, today)
 
     signal = daily_training_signal(
@@ -748,6 +827,7 @@ def get_dashboard_data() -> dict:
         planned_detail=planned_detail,
         sleep_score=latest_sleep,
         hrv_value=latest_hrv,
+        signal_thresholds=load_theory.signal if load_theory else None,
     )
 
     # Chart data — fitness/fatigue (last 60 days from display window)
@@ -761,12 +841,18 @@ def get_dashboard_data() -> dict:
         "ctl": [round(float(v), 1) for v in display_ctl.values],
         "atl": [round(float(v), 1) for v in display_atl.values],
         "tsb": [round(float(v), 1) for v in display_tsb.values],
+        "projected_dates": proj_dates,
+        "projected_ctl": proj_ctl,
+        "projected_atl": proj_atl,
+        "projected_tsb": proj_tsb,
     }
 
-    # TSB sparkline (last 14 days)
+    # TSB sparkline (last 14 days + projection)
     tsb_sparkline = {
         "dates": ff_dates[-14:],
         "values": [round(float(v), 1) for v in display_tsb.values][-14:],
+        "projected_dates": proj_dates[:7],
+        "projected_values": proj_tsb[:7],
     }
 
     # Threshold trend chart — varies by training base
@@ -853,6 +939,12 @@ def get_dashboard_data() -> dict:
         "training_base": config.training_base,
         "display": get_display_config(config.training_base),
         "plan": plan,
+        # Science framework: active theories + TSB zones for frontend
+        "science": science,
+        "tsb_zones": [
+            {"min": z.min, "max": z.max, "label": z.label, "color": z.color}
+            for z in (load_theory.tsb_zones_labeled if load_theory else [])
+        ],
     }
 
     _cache = result

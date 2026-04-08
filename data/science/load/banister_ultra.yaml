@@ -1,0 +1,68 @@
+id: banister_ultra
+pillar: load
+name: "Banister Ultra"
+author: system
+description: >
+  Adapted for ultra-distance athletes (50K+). Longer time constants (50/10 days)
+  reflect extended recovery arcs from high-volume mountain training. Wider productive
+  zone accommodates deeper fatigue loads normal in ultra blocks.
+simple_description: >
+  Designed for ultra runners doing long mountain sessions. Uses longer time windows
+  (7 weeks for fitness, 10 days for fatigue) because your body needs more time to
+  absorb the stress of multi-hour runs. The fatigue zone is wider because deeper
+  tiredness is expected during ultra training blocks.
+advanced_description: |
+  ## Banister Ultra Adaptation
+
+  Modified time constants for ultra-distance athletes:
+  - **CTL** τ = 50 days (vs 42 in standard PMC)
+  - **ATL** τ = 10 days (vs 7 in standard PMC)
+
+  **Wider productive zone:** −35 to −10 (vs −25 to −10 in standard), reflecting
+  the deeper fatigue loads that are normal and expected during ultra training blocks.
+
+  **Diagnosis adjustments:**
+  - Work split filter extended to **3600 seconds** (vs 1800s) to capture long
+    sustained climbs typical in mountain ultras
+  - Volume thresholds raised: **80 km/week** = strong, **60 km/week** = moderate
+    (vs 60/40 in standard)
+
+  **References:**
+  - Banister (1975) "A systems model of training for athletic performance"
+  - Koop (2016) *Training Essentials for Ultrarunning*
+
+citations:
+  - key: banister1975
+    title: "A systems model of training for athletic performance"
+    year: 1975
+    journal: "Australian Journal of Sports Medicine"
+  - key: koop2016
+    title: "Training Essentials for Ultrarunning"
+    year: 2016
+    type: book
+
+tsb_zones:
+  - {min: 25}
+  - {min: 5, max: 25}
+  - {min: -10, max: 5}
+  - {min: -35, max: -10}
+  - {max: -35}
+
+params:
+  ctl_time_constant: 50
+  atl_time_constant: 10
+  rss_exponent: 2.0
+  trimp_k_male: 1.92
+  trimp_k_female: 1.67
+
+signal:
+  readiness_rest: 55
+  readiness_modify: 65
+  tsb_high_fatigue: -25
+  hrv_decline_pct: -15
+
+diagnosis:
+  work_split_min_sec: 120
+  work_split_max_sec: 3600
+  volume_strong_km: 80
+  volume_moderate_km: 60

@@ -1,0 +1,10 @@
+id: stryd
+name: "Stryd RSB"
+author: system
+
+tsb_zone_labels:
+  - {label: "Detraining", color: "#64748b"}
+  - {label: "Performance", color: "#22c55e"}
+  - {label: "Productive & Maintenance", color: "#3b82f6"}
+  - {label: "Cautionary", color: "#f59e0b"}
+  - {label: "Overreaching", color: "#ef4444"}

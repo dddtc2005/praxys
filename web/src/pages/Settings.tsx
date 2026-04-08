@@ -97,7 +97,6 @@ const THRESHOLD_FIELDS = [
   { key: 'max_hr_bpm', label: 'Max HR', unit: 'bpm' },
   { key: 'rest_hr_bpm', label: 'Resting HR', unit: 'bpm' },
 ];
-
 // --- Component ---
 
 export default function Settings() {

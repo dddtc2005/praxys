@@ -1,0 +1,72 @@
+id: banister_pmc
+pillar: load
+name: "Banister PMC"
+author: system
+description: >
+  Industry-standard Performance Management Chart. Fitness builds over ~6 weeks (CTL),
+  fatigue clears in ~1 week (ATL). TSB = CTL - ATL. Best for 5K-marathon runners
+  training 4-6 days/week.
+simple_description: >
+  Your dashboard tracks fitness as a 6-week running average of daily training stress,
+  and fatigue as a 1-week average. The gap between them is your 'form' — when positive
+  you're fresh and ready to race, when negative you're carrying fatigue from recent
+  training. This is normal and expected during training blocks.
+advanced_description: |
+  ## Banister Performance Management Chart
+
+  **Exponentially Weighted Moving Averages (EWMA):**
+  - **CTL** (Chronic Training Load / Fitness) = EWMA(daily_load, α = 1/42)
+  - **ATL** (Acute Training Load / Fatigue) = EWMA(daily_load, α = 1/7)
+  - **TSB** (Training Stress Balance / Form) = CTL − ATL
+
+  The smoothing constant α = 1/τ follows the convention used by TrainingPeaks,
+  Stryd, and Intervals.icu. Time constants of 42 and 7 days are nominal
+  approximations of Banister's original ranges (30–50 days for fitness,
+  5–10 days for fatigue).
+
+  **TSB Zone Boundaries:**
+  | Zone | TSB Range | Interpretation |
+  |------|-----------|----------------|
+  | Performance | 5 to 25 | Fresh, ready to race |
+  | Optimal | −10 to 5 | Balanced training/recovery |
+  | Productive | −25 to −10 | Absorbing training load |
+  | Overreaching | < −25 | High fatigue, injury risk |
+
+  **References:**
+  - Banister (1975) "A systems model of training for athletic performance"
+  - TrainingPeaks, "The Science of the Performance Manager"
+
+citations:
+  - key: banister1975
+    title: "A systems model of training for athletic performance"
+    year: 1975
+    journal: "Australian Journal of Sports Medicine"
+  - key: trainingpeaks_pmc
+    title: "The Science of the Performance Manager"
+    url: "https://www.trainingpeaks.com/learn/articles/the-science-of-the-performance-manager/"
+
+tsb_zones:
+  - {min: 25}
+  - {min: 5, max: 25}
+  - {min: -10, max: 5}
+  - {min: -25, max: -10}
+  - {max: -25}
+
+params:
+  ctl_time_constant: 42
+  atl_time_constant: 7
+  rss_exponent: 2.0
+  trimp_k_male: 1.92
+  trimp_k_female: 1.67
+
+signal:
+  readiness_rest: 60
+  readiness_modify: 70
+  tsb_high_fatigue: -20
+  hrv_decline_pct: -15
+
+diagnosis:
+  work_split_min_sec: 120
+  work_split_max_sec: 1800
+  volume_strong_km: 60
+  volume_moderate_km: 40

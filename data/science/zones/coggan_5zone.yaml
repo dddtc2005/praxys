@@ -1,0 +1,54 @@
+id: coggan_5zone
+pillar: zones
+name: "Coggan 5-Zone"
+author: system
+description: >
+  Classic 5-zone model derived from Coggan's power training levels. Zones are defined
+  as fractions of threshold (CP, LTHR, or threshold pace). Industry standard for
+  structured training.
+simple_description: >
+  Divides your training intensity into 5 zones based on your threshold (CP, lactate
+  threshold HR, or threshold pace). Each zone targets different physical adaptations —
+  from easy recovery runs to max-effort intervals. This is the standard system used
+  by most coaches and training platforms.
+advanced_description: |
+  ## Coggan 5-Zone Model
+
+  Four boundary fractions define 5 zones across three metrics:
+
+  **Power zones** (fraction of CP):
+  | Zone | Name | Range |
+  |------|------|-------|
+  | 1 | Easy | < 55% CP |
+  | 2 | Tempo | 55–75% CP |
+  | 3 | Threshold | 75–90% CP |
+  | 4 | Supra-CP | 90–105% CP |
+  | 5 | VO2max | > 105% CP |
+
+  **Heart rate zones** (fraction of LTHR): [0.72, 0.82, 0.89, 0.96]
+
+  **Pace zones** (fraction of threshold pace, inverted): [1.29, 1.14, 1.06, 1.00]
+  (Higher values = slower pace relative to threshold)
+
+  **References:**
+  - Coggan (2012) *Training and Racing with a Power Meter*
+
+citations:
+  - key: coggan2012
+    title: "Training and Racing with a Power Meter"
+    year: 2012
+    type: book
+  - key: friel_hr
+    title: "The Cyclist's Training Bible"
+    type: book
+
+params:
+  zone_count: 5
+  boundaries:
+    power: [0.55, 0.75, 0.90, 1.05]
+    hr: [0.72, 0.82, 0.89, 0.96]
+    pace: [1.29, 1.14, 1.06, 1.00]
+  zone_names:
+    power: ["Easy", "Tempo", "Threshold", "Supra-CP", "VO2max"]
+    hr: ["Recovery", "Aerobic", "Tempo", "Threshold", "VO2max"]
+    pace: ["Recovery", "Easy", "Tempo", "Threshold", "Interval"]

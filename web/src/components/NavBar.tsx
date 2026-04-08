@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom';
-import { Sun, TrendingUp, Target, Clock, Settings } from 'lucide-react';
+import { Sun, TrendingUp, Target, Clock, FlaskConical, Settings } from 'lucide-react';
 
 const links = [
   { to: '/', icon: Sun, label: 'Today' },
   { to: '/training', icon: TrendingUp, label: 'Training' },
   { to: '/goal', icon: Target, label: 'Goal' },
   { to: '/history', icon: Clock, label: 'Activities' },
+  { to: '/science', icon: FlaskConical, label: 'Science' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 

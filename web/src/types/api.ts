@@ -1,6 +1,40 @@
 // API response types
 
 export type TrainingBase = 'power' | 'hr' | 'pace';
+export type SciencePillar = 'load' | 'recovery' | 'prediction' | 'zones';
+
+export interface TsbZoneConfig {
+  min: number | null;
+  max: number | null;
+  label: string;
+  color: string;
+}
+
+export interface TheorySummary {
+  id: string;
+  name: string;
+  description: string;
+  simple_description: string;
+  advanced_description: string;
+  author: string;
+  citations: Record<string, unknown>[];
+  tsb_zones?: TsbZoneConfig[];
+}
+
+export interface PillarRecommendation {
+  pillar: SciencePillar;
+  recommended_id: string;
+  reason: string;
+  confidence: 'strong' | 'moderate' | 'weak';
+}
+
+export interface ScienceResponse {
+  active: Partial<Record<SciencePillar, TheorySummary>>;
+  active_labels: string;
+  available: Record<SciencePillar, TheorySummary[]>;
+  label_sets: { id: string; name: string }[];
+  recommendations: PillarRecommendation[];
+}
 export type PlatformName = 'garmin' | 'stryd' | 'oura' | 'coros';
 export type PlanSourceName = PlatformName | 'ai';
 export type DataCategory = 'activities' | 'recovery' | 'fitness' | 'plan';
@@ -97,6 +131,9 @@ export interface TrainingSignal {
 export interface TsbSparkline {
   dates: string[];
   values: number[];
+  /** Projected future dates (from training plan). */
+  projected_dates?: string[];
+  projected_values?: number[];
 }
 
 export interface TodayResponse {
@@ -142,6 +179,11 @@ export interface TimeSeriesData {
   ctl: number[];
   atl: number[];
   tsb: number[];
+  /** Projected future dates (from training plan). */
+  projected_dates?: string[];
+  projected_ctl?: number[];
+  projected_atl?: number[];
+  projected_tsb?: number[];
 }
 
 export interface CpTrendChart {
