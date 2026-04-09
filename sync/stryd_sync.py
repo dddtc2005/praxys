@@ -9,6 +9,7 @@ The user ID is automatically derived from the Stryd login API response.
 import argparse
 import os
 import re
+import uuid
 from datetime import date, datetime, timedelta, timezone
 
 import requests
@@ -28,6 +29,8 @@ def _workout_type_from_name(name: str) -> str:
 STRYD_LOGIN_URL = "https://www.stryd.com/b/email/signin"
 STRYD_CALENDAR_API = "https://api.stryd.com/b/api/v1/users/{user_id}/calendar"
 STRYD_ACTIVITY_API = "https://api.stryd.com/b/api/v1/activities/{activity_id}"
+STRYD_WORKOUT_API = "https://api.stryd.com/b/api/v1/users/{user_id}/workouts"
+STRYD_ESTIMATE_API = "https://api.stryd.com/b/api/v1/users/workouts/estimate"
 
 
 def _login_api(email: str, password: str) -> tuple[str, str]:
@@ -500,6 +503,288 @@ def _round_or_empty(val: float | int | None, decimals: int = 1) -> str:
     if val is None:
         return ""
     return str(round(float(val), decimals))
+
+
+# --- Workout upload ---
+
+# Map AI plan workout_type to Stryd workout type strings
+_STRYD_WORKOUT_TYPES: dict[str, str] = {
+    "easy": "easy run",
+    "recovery": "recovery",
+    "long_run": "long run",
+    "long run": "long run",
+    "steady_aerobic": "steady state",
+    "tempo": "tempo",
+    "threshold": "threshold",
+    "interval": "intervals",
+    "repetition": "repetition",
+    "hill_repeat": "hill repeat",
+}
+
+
+def _make_segment(
+    intensity_class: str,
+    minutes: float,
+    cp_min_pct: int,
+    cp_max_pct: int,
+) -> dict:
+    """Build a single Stryd workout segment."""
+    h = int(minutes // 60)
+    m = int(minutes % 60)
+    s = int((minutes * 60) % 60)
+    return {
+        "desc": "",
+        "desc_no_cp": "",
+        "duration_type": "time",
+        "duration_time": {"hour": h, "minute": m, "second": s},
+        "intensity_class": intensity_class,
+        "intensity_type": "percentage",
+        "intensity_percent": {
+            "min": cp_min_pct,
+            "max": cp_max_pct,
+            "value": (cp_min_pct + cp_max_pct) // 2,
+        },
+        "flexible": False,
+        "incline": 0,
+        "grade": 0,
+        "distance_unit_selected": "km",
+        "duration_distance": 0,
+        "pdc_target": 0,
+        "rpe_selected": 1,
+        "zone_selected": 0,
+        "uuid": str(uuid.uuid4()),
+    }
+
+
+def _parse_structured_description(
+    description: str, cp_watts: float
+) -> list[dict] | None:
+    """Parse AI plan descriptions like 'WU 15min, 3x3min @275-290W w/ 3min jog recovery, CD 10min'.
+
+    Returns list of Stryd blocks if parseable, None if description is unstructured.
+    """
+    if not description:
+        return None
+
+    # Strip trailing markers like [DONE]
+    desc = re.sub(r"\s*\[DONE\]\s*$", "", description).strip()
+
+    blocks: list[dict] = []
+
+    # Try to extract structured segments from comma-separated parts
+    # Pattern: "WU 15min, 3x3min @275-290W w/ 3min jog recovery, CD 10min"
+    parts = [p.strip() for p in desc.split(",")]
+
+    for part in parts:
+        part_lower = part.lower()
+
+        # Warmup: "WU 15min" or "WU 10min easy"
+        wu_match = re.match(r"wu\s+(\d+)\s*min", part_lower)
+        if wu_match:
+            mins = int(wu_match.group(1))
+            blocks.append({
+                "uuid": str(uuid.uuid4()),
+                "repeat": 1,
+                "segments": [_make_segment("warmup", mins, 65, 75)],
+            })
+            continue
+
+        # Cooldown: "CD 10min"
+        cd_match = re.match(r"cd\s+(\d+)\s*min", part_lower)
+        if cd_match:
+            mins = int(cd_match.group(1))
+            blocks.append({
+                "uuid": str(uuid.uuid4()),
+                "repeat": 1,
+                "segments": [_make_segment("cooldown", mins, 65, 75)],
+            })
+            continue
+
+        # Intervals: "3x3min @275-290W w/ 3min jog recovery"
+        # or "4x4min @265-280W w/ 3min jog recovery"
+        interval_match = re.match(
+            r"(\d+)x(\d+)\s*min\s+@(\d+)-(\d+)w\s+w/\s+(\d+)\s*min",
+            part_lower,
+        )
+        if interval_match:
+            reps = int(interval_match.group(1))
+            work_min = int(interval_match.group(2))
+            power_min = int(interval_match.group(3))
+            power_max = int(interval_match.group(4))
+            rest_min = int(interval_match.group(5))
+            work_cp_min = round(power_min / cp_watts * 100)
+            work_cp_max = round(power_max / cp_watts * 100)
+            blocks.append({
+                "uuid": str(uuid.uuid4()),
+                "repeat": reps,
+                "segments": [
+                    _make_segment("work", work_min, work_cp_min, work_cp_max),
+                    _make_segment("rest", rest_min, 55, 65),
+                ],
+            })
+            continue
+
+        # Threshold reps: "2x20min @235-255W w/ 5min easy"
+        threshold_match = re.match(
+            r"(\d+)x(\d+)\s*min\s+@(\d+)-(\d+)w\s+w/\s+(\d+)\s*min",
+            part_lower,
+        )
+        if threshold_match:
+            # Already handled by interval_match above
+            continue
+
+        # Tempo block: "15min @220-240W"
+        tempo_match = re.match(r"(\d+)\s*min\s+@(\d+)-(\d+)w", part_lower)
+        if tempo_match:
+            mins = int(tempo_match.group(1))
+            power_min = int(tempo_match.group(2))
+            power_max = int(tempo_match.group(3))
+            cp_min = round(power_min / cp_watts * 100)
+            cp_max = round(power_max / cp_watts * 100)
+            blocks.append({
+                "uuid": str(uuid.uuid4()),
+                "repeat": 1,
+                "segments": [_make_segment("work", mins, cp_min, cp_max)],
+            })
+            continue
+
+    # Only return if we parsed at least a warmup or work block
+    has_content = any(
+        seg.get("intensity_class") in ("warmup", "work")
+        for b in blocks
+        for seg in b.get("segments", [])
+    )
+    return blocks if has_content else None
+
+
+def build_workout_blocks(workout: dict, cp_watts: float) -> list[dict]:
+    """Convert an AI plan workout dict to Stryd API block format.
+
+    Args:
+        workout: Dict with keys from the AI plan CSV (workout_type, planned_duration_min,
+                 target_power_min, target_power_max, workout_description).
+        cp_watts: Current Critical Power in watts for percentage conversion.
+
+    Returns:
+        List of Stryd block dicts ready for the create workout API.
+    """
+    description = workout.get("workout_description", "")
+
+    # Try parsing structured descriptions first (interval/threshold/tempo workouts)
+    parsed = _parse_structured_description(description, cp_watts)
+    if parsed:
+        return parsed
+
+    # Fallback: build a simple single-block workout from power targets and duration
+    duration_min = float(workout.get("planned_duration_min") or 0)
+    power_min = workout.get("target_power_min")
+    power_max = workout.get("target_power_max")
+    workout_type = (workout.get("workout_type") or "easy").lower()
+
+    if power_min and power_max and cp_watts:
+        cp_min_pct = round(float(power_min) / cp_watts * 100)
+        cp_max_pct = round(float(power_max) / cp_watts * 100)
+    else:
+        # Default zones by workout type
+        defaults = {
+            "easy": (65, 75),
+            "recovery": (55, 65),
+            "long_run": (68, 78),
+            "long run": (68, 78),
+            "steady_aerobic": (72, 82),
+            "tempo": (82, 92),
+            "threshold": (88, 100),
+            "interval": (100, 110),
+        }
+        cp_min_pct, cp_max_pct = defaults.get(workout_type, (65, 75))
+
+    # Determine intensity class
+    if workout_type in ("easy", "recovery"):
+        intensity = "warmup"  # Stryd uses warmup for easy/recovery single-block
+    elif workout_type in ("tempo", "threshold", "interval", "steady_aerobic"):
+        intensity = "work"
+    else:
+        intensity = "warmup"
+
+    if duration_min <= 0:
+        duration_min = 30  # default
+
+    return [{
+        "uuid": str(uuid.uuid4()),
+        "repeat": 1,
+        "segments": [_make_segment(intensity, duration_min, cp_min_pct, cp_max_pct)],
+    }]
+
+
+def create_workout_api(
+    user_id: str,
+    token: str,
+    workout_date: str,
+    title: str,
+    blocks: list[dict],
+    workout_type: str = "",
+    description: str = "",
+    surface: str = "road",
+) -> dict:
+    """Create a structured workout on the Stryd calendar.
+
+    Args:
+        workout_date: ISO date string like '2026-04-10'.
+        title: Workout name shown in the calendar.
+        blocks: List of Stryd block dicts (from build_workout_blocks).
+        workout_type: Stryd workout type string (e.g., 'easy run', 'intervals').
+        description: Free-text description.
+        surface: 'road', 'track', 'trail', or 'treadmill'.
+
+    Returns:
+        The created workout response dict (includes server-assigned id, stress, etc).
+    """
+    # Convert date to Unix timestamp at midnight UTC
+    dt = datetime.strptime(workout_date, "%Y-%m-%d")
+    timestamp = int(dt.replace(tzinfo=timezone.utc).timestamp())
+
+    url = STRYD_WORKOUT_API.format(user_id=user_id)
+    payload = {
+        "type": workout_type,
+        "desc": description,
+        "title": title,
+        "blocks": blocks,
+        "id": -1,
+        "objective": "",
+        "source": "USER",
+        "duration": 0,
+        "stress": 0,
+        "surface": surface,
+        "tags": None,
+    }
+
+    resp = requests.post(
+        url,
+        params={"timestamp": timestamp},
+        json=payload,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+        timeout=30,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def delete_workout_api(user_id: str, token: str, workout_id: str) -> bool:
+    """Delete a workout from the Stryd calendar.
+
+    Returns True if successfully deleted.
+    """
+    url = f"{STRYD_WORKOUT_API.format(user_id=user_id)}/{workout_id}"
+    resp = requests.delete(
+        url,
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    return True
 
 
 # --- Sync entry point ---

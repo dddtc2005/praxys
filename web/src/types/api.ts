@@ -121,6 +121,21 @@ export interface PlanResponse {
   cp_current?: number;
 }
 
+export interface StrydPushResult {
+  date: string;
+  status: 'success' | 'error';
+  workout_id?: string;
+  error?: string;
+}
+
+export interface StrydPushStatusEntry {
+  workout_id: string;
+  pushed_at: string;
+  status: 'pushed';
+}
+
+export type StrydPushStatus = Record<string, StrydPushStatusEntry>;
+
 export interface TrainingSignal {
   recommendation: 'follow_plan' | 'easy' | 'modify' | 'reduce_intensity' | 'rest';
   reason: string;
