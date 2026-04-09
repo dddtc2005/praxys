@@ -26,6 +26,7 @@ from analysis.metrics import (
     diagnose_training,
     get_distance_config,
     compute_rss,
+    analyze_recovery,
     project_tsb,
 )
 
@@ -257,6 +258,7 @@ def _build_compliance(
     plan: pd.DataFrame,
     training_base: str = "power",
     daily_load: pd.Series | None = None,
+    thresholds: "ThresholdConfig | None" = None,
 ) -> dict:
     """Build weekly compliance data for chart using the configured training base."""
     if merged.empty:
@@ -284,10 +286,54 @@ def _build_compliance(
         if not weekly_actual.empty
         else []
     )
+
+    # Compute planned weekly RSS from training plan
+    planned_weekly: list[float] = []
+    if not plan.empty and "date" in plan.columns:
+        plan_copy = plan.copy()
+        plan_copy["_date"] = pd.to_datetime(plan_copy["date"])
+        plan_copy["_week"] = plan_copy["_date"].dt.isocalendar().week
+        plan_copy["_year"] = plan_copy["_date"].dt.isocalendar().year
+
+        # Estimate per-workout load from plan targets
+        plan_loads = []
+        for _, row in plan_copy.iterrows():
+            dur_min = pd.to_numeric(
+                pd.Series([row.get("planned_duration_min", 0)]), errors="coerce"
+            ).iloc[0]
+            dur_sec = float(dur_min) * 60 if pd.notna(dur_min) and dur_min > 0 else 0
+            if dur_sec <= 0:
+                plan_loads.append(0.0)
+                continue
+            p_min = pd.to_numeric(pd.Series([row.get("target_power_min")]), errors="coerce").iloc[0]
+            p_max = pd.to_numeric(pd.Series([row.get("target_power_max")]), errors="coerce").iloc[0]
+            if pd.notna(p_min) and pd.notna(p_max) and p_min > 0:
+                avg_power = (float(p_min) + float(p_max)) / 2
+            elif pd.notna(p_max) and p_max > 0:
+                avg_power = float(p_max) * 0.85
+            else:
+                avg_power = None
+            cp = thresholds.cp_watts if thresholds and thresholds.cp_watts else None
+            if avg_power and cp and cp > 0:
+                plan_loads.append(compute_rss(dur_sec, avg_power, cp))
+            else:
+                # Fallback: ~60 RSS per hour (moderate effort)
+                plan_loads.append((dur_sec / 3600) * 60)
+        plan_copy["_load"] = plan_loads
+        weekly_planned = plan_copy.groupby(["_year", "_week"])["_load"].sum()
+
+        # Align planned weeks to actual weeks
+        if not weekly_actual.empty:
+            for idx in weekly_actual.index:
+                if idx in weekly_planned.index:
+                    planned_weekly.append(round(float(weekly_planned[idx]), 1))
+                else:
+                    planned_weekly.append(0)
+
     return {
         "weeks": weeks[-8:],
         "actual_rss": [round(float(v), 1) for v in weekly_actual.values][-8:],
-        "planned_rss": [],  # TODO: compute from plan when available
+        "planned_rss": planned_weekly[-8:] if planned_weekly else [],
     }
 
 
@@ -806,27 +852,58 @@ def get_dashboard_data() -> dict:
         threshold_pace=threshold_pace,
     )
 
-    # Recovery data (sleep, HRV, readiness)
+    # Recovery analysis (Plews/Kiviniemi HRV protocols)
     recovery = data["recovery"]
-    latest_readiness, latest_hrv = _get_latest_readiness(recovery)
-    latest_sleep = (
-        float(recovery.sort_values("date").iloc[-1]["sleep_score"])
-        if not recovery.empty and "sleep_score" in recovery.columns
-        else None
+    recovery_sorted = recovery.sort_values("date") if not recovery.empty else recovery
+
+    # Extract time series for analyze_recovery()
+    hrv_series: list[float] = []
+    rhr_series: list[float] = []
+    today_hrv = None
+    today_sleep = None
+    today_rhr = None
+
+    if not recovery_sorted.empty:
+        if "hrv_avg" in recovery_sorted.columns:
+            hrv_vals = pd.to_numeric(recovery_sorted["hrv_avg"], errors="coerce")
+            hrv_series = [float(v) for v in hrv_vals.dropna() if v > 0]
+        if "resting_hr" in recovery_sorted.columns:
+            rhr_vals = pd.to_numeric(recovery_sorted["resting_hr"], errors="coerce")
+            rhr_series = [float(v) for v in rhr_vals.dropna() if v > 0]
+
+        latest_row = recovery_sorted.iloc[-1]
+        hrv_val = pd.to_numeric(
+            pd.Series([latest_row.get("hrv_avg")]), errors="coerce"
+        ).iloc[0]
+        today_hrv = float(hrv_val) if pd.notna(hrv_val) and hrv_val > 0 else None
+
+        sleep_val = pd.to_numeric(
+            pd.Series([latest_row.get("sleep_score")]), errors="coerce"
+        ).iloc[0]
+        today_sleep = float(sleep_val) if pd.notna(sleep_val) else None
+
+        rhr_val = pd.to_numeric(
+            pd.Series([latest_row.get("resting_hr")]), errors="coerce"
+        ).iloc[0]
+        today_rhr = float(rhr_val) if pd.notna(rhr_val) and rhr_val > 0 else None
+
+    recovery_analysis = analyze_recovery(
+        hrv_series,
+        today_hrv_ms=today_hrv,
+        today_sleep=today_sleep,
+        today_rhr=today_rhr,
+        rhr_series=rhr_series if rhr_series else None,
     )
-    hrv_trend = _get_hrv_trend(recovery)
+
     current_tsb = float(tsb.iloc[-1]) if not tsb.empty else 0.0
 
     planned_today, planned_detail = _get_todays_plan(plan, today)
 
     signal = daily_training_signal(
-        latest_readiness,
+        recovery_analysis,
         current_tsb,
-        hrv_trend,
         planned_today,
         planned_detail=planned_detail,
-        sleep_score=latest_sleep,
-        hrv_value=latest_hrv,
         signal_thresholds=load_theory.signal if load_theory else None,
     )
 
@@ -887,13 +964,16 @@ def get_dashboard_data() -> dict:
                         "values": [round(float(v), 1) for v in valid.values],
                     }
 
-    weekly_review = _build_compliance(merged, plan, config.training_base, daily_load)
+    weekly_review = _build_compliance(merged, plan, config.training_base, daily_load, thresholds)
     workout_flags = _build_workout_flags(merged, recovery, config.training_base)
     sleep_perf = _build_sleep_perf(merged, recovery)
 
     warnings: list[str] = []
-    if hrv_trend < -10:
-        warnings.append(f"HRV declining ({hrv_trend:.0f}% over 3 days)")
+    hrv_info = recovery_analysis.get("hrv") or {}
+    if hrv_info.get("trend") == "declining":
+        warnings.append("HRV rolling mean declining — monitor recovery")
+    if hrv_info.get("rolling_cv", 0) > 10:
+        warnings.append(f"HRV variability high (CV {hrv_info['rolling_cv']:.0f}%) — autonomic disturbance")
     if current_tsb < -25:
         warnings.append(f"High fatigue (TSB = {current_tsb:.0f})")
 
@@ -939,6 +1019,8 @@ def get_dashboard_data() -> dict:
         "training_base": config.training_base,
         "display": get_display_config(config.training_base),
         "plan": plan,
+        # Recovery analysis (Plews/Kiviniemi HRV protocols)
+        "recovery_analysis": recovery_analysis,
         # Science framework: active theories + TSB zones for frontend
         "science": science,
         "tsb_zones": [

@@ -7,6 +7,8 @@ import SignalHero from '@/components/SignalHero';
 import RecoveryPanel from '@/components/RecoveryPanel';
 import WorkoutCard from '@/components/WorkoutCard';
 import FormSparkline from '@/components/charts/FormSparkline';
+import LastActivityCard from '@/components/LastActivityCard';
+import WeeklyLoadMini from '@/components/WeeklyLoadMini';
 
 function TodaySkeleton() {
   return (
@@ -64,12 +66,20 @@ export default function Today() {
 
       {/* Two-column grid: Recovery + Workout */}
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
-        <RecoveryPanel recovery={signal.recovery} />
-        <WorkoutCard plan={signal.plan} alternatives={signal.alternatives} />
+        <RecoveryPanel recovery={signal.recovery} theoryMeta={data.recovery_theory} analysis={data.recovery_analysis} />
+        <WorkoutCard plan={signal.plan} alternatives={signal.alternatives} upcoming={data.upcoming} />
       </div>
 
       {/* Form sparkline — full width */}
       <FormSparkline data={tsb_sparkline} />
+
+      {/* Context row: Last Activity + Weekly Load */}
+      {(data.last_activity || data.week_load) && (
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+          {data.last_activity && <LastActivityCard activity={data.last_activity} />}
+          {data.week_load && <WeeklyLoadMini weekLoad={data.week_load} />}
+        </div>
+      )}
 
       {/* Warnings */}
       {warnings.length > 0 && (

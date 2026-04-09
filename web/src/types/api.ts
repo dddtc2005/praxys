@@ -18,6 +18,7 @@ export interface TheorySummary {
   advanced_description: string;
   author: string;
   citations: Record<string, unknown>[];
+  params?: Record<string, unknown>;
   tsb_zones?: TsbZoneConfig[];
 }
 
@@ -136,10 +137,63 @@ export interface TsbSparkline {
   projected_values?: number[];
 }
 
+export interface RecoveryTheoryMeta {
+  id: string;
+  name: string;
+  simple_description: string;
+  params: Record<string, number>;
+}
+
+export interface HrvAnalysis {
+  today_ms: number | null;
+  today_ln: number;
+  baseline_mean_ln: number;
+  baseline_sd_ln: number;
+  threshold_ln: number;
+  rolling_mean_ln: number;
+  rolling_cv: number;
+  trend: 'stable' | 'improving' | 'declining';
+}
+
+export interface RecoveryAnalysis {
+  status: 'fresh' | 'normal' | 'fatigued';
+  hrv: HrvAnalysis | null;
+  sleep_score: number | null;
+  resting_hr: number | null;
+  rhr_trend: 'stable' | 'elevated' | 'low' | null;
+}
+
+export interface LastActivity {
+  date: string;
+  activity_type: string;
+  distance_km: number | null;
+  duration_sec: number | null;
+  avg_power: number | null;
+  avg_pace_min_km: string | null;
+  rss: number | null;
+}
+
+export interface WeekLoad {
+  week_label: string;
+  actual: number;
+  planned: number | null;
+}
+
+export interface UpcomingWorkout {
+  date: string;
+  workout_type: string;
+  duration_min: number | null;
+}
+
 export interface TodayResponse {
   signal: TrainingSignal;
   tsb_sparkline: TsbSparkline;
   warnings: string[];
+  recovery_theory?: RecoveryTheoryMeta;
+  recovery_analysis?: RecoveryAnalysis;
+  last_activity?: LastActivity;
+  week_load?: WeekLoad;
+  upcoming?: UpcomingWorkout[];
 }
 
 export interface DiagnosisFinding {

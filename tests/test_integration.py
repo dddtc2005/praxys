@@ -145,7 +145,7 @@ def test_build_workout_flags(sample_data_dir):
 def test_full_pipeline(sample_data_dir, tmp_path):
     """Test the full data → metrics → dashboard pipeline."""
     from analysis.data_loader import load_all_data, match_activities
-    from analysis.metrics import compute_ewma_load, compute_tsb, predict_marathon_time, daily_training_signal
+    from analysis.metrics import compute_ewma_load, compute_tsb, predict_marathon_time, analyze_recovery, daily_training_signal
     from analysis.dashboard_renderer import render_dashboard
     from analysis.report_renderer import render_weekly_report
 
@@ -172,8 +172,10 @@ def test_full_pipeline(sample_data_dir, tmp_path):
     predicted = predict_marathon_time(latest_cp, [(245, 255)])
     assert predicted is not None
 
-    # Training signal
-    signal = daily_training_signal(readiness_score=80, tsb=float(tsb.iloc[-1]), hrv_trend_pct=2, planned_workout="tempo")
+    # Training signal (using analyze_recovery → daily_training_signal)
+    hrv_series = [50.0 + i * 0.1 for i in range(20)]  # stable HRV series
+    recovery_analysis = analyze_recovery(hrv_series, today_hrv_ms=55.0, today_sleep=80)
+    signal = daily_training_signal(recovery_analysis, tsb=float(tsb.iloc[-1]), planned_workout="tempo")
     assert "recommendation" in signal
 
     # Dashboard

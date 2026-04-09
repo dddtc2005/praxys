@@ -1,51 +1,61 @@
 id: composite
 pillar: recovery
-name: "Composite Readiness"
+name: "HRV-Based Recovery (Composite)"
 author: system
 description: >
-  Balanced readiness model combining heart rate variability, sleep quality, and
-  resting heart rate. Works well even with incomplete data - gracefully degrades
-  when one signal is missing.
+  Recovery assessment using ln(RMSSD) analysis with sleep and resting
+  heart rate as supplementary decision signals. Based on Plews et al (2012)
+  HRV monitoring and Kiviniemi et al (2007) threshold protocol.
 simple_description: >
-  Combines three recovery signals — heart rate variability (how well your nervous
-  system has recovered), sleep quality, and resting heart rate — into one readiness
-  picture. Works even if some data is missing; it just weighs what's available.
+  Monitors your heart rate variability (ln RMSSD) against a personal baseline
+  to determine recovery status (Fresh / Normal / Fatigued). Sleep quality
+  and resting heart rate are shown as supplementary context and can modify
+  the training recommendation when extreme, but are not combined into a
+  weighted score.
 advanced_description: |
-  ## Composite Readiness Model
+  ## HRV-Based Recovery Assessment
 
-  **Weighted composite score:**
-  - HRV: **40%**
-  - Sleep quality: **35%**
-  - Resting heart rate: **25%**
+  **Primary signal: ln(RMSSD)**
+  - Log-transformed nocturnal RMSSD from Oura Ring
+  - Compared to 30-day rolling mean and standard deviation
 
-  **Readiness thresholds:**
-  | Score | Status | Recommendation |
-  |-------|--------|----------------|
-  | ≥ 80 | Fresh | Full training |
-  | 60–80 | Moderate | Modify intensity |
-  | < 60 | Rest | Recovery day |
+  **Status determination (Kiviniemi et al, 2007):**
+  | Condition | Status | Action |
+  |-----------|--------|--------|
+  | ln(RMSSD) > mean + 0.5 SD | Fresh | Full training |
+  | mean − 1 SD ≤ ln(RMSSD) ≤ mean + 0.5 SD | Normal | Follow plan |
+  | ln(RMSSD) < mean − 1 SD | Fatigued | Rest or easy only |
 
-  **Graceful degradation:** When one or more signals are missing, the model
-  re-normalizes weights across the available signals, maintaining a valid
-  readiness estimate with reduced confidence.
+  **Trend monitoring (Plews et al, 2012):**
+  - 7-day rolling mean of ln(RMSSD): declining trend signals maladaptation
+  - 7-day coefficient of variation (CV): CV > 10% signals autonomic disturbance
 
-  **References:**
-  - Walsh et al (2021) "Sleep and the athlete," *BJSM*
-  - Plews et al (2013) "Heart rate variability in elite triathletes," *JSSM*
+  **Supplementary signals (informational, not weighted):**
+  - Sleep quality: modifies recommendation if < 55 (poor)
+  - Resting heart rate: flags if > 1 SD above personal mean
+  - TSB: from the load model, shown for context
+
+  **What this model does NOT do:**
+  - Does not combine signals into a single weighted score
+  - Does not invent normalization formulas without research backing
 
 citations:
-  - key: walsh2021
-    title: "Sleep and the athlete"
-    year: 2021
-    journal: "British Journal of Sports Medicine"
-  - key: plews2013
-    title: "Heart rate variability in elite triathletes"
-    year: 2013
-    journal: "Journal of Science and Medicine in Sport"
+  - key: plews2012
+    title: "Heart rate variability in elite triathletes, is variation in variability the key to effective training?"
+    year: 2012
+    journal: "European Journal of Applied Physiology"
+    doi: "10.1007/s00421-012-2354-4"
+  - key: kiviniemi2007
+    title: "Endurance training guided individually by daily heart rate variability measurements"
+    year: 2007
+    journal: "European Journal of Applied Physiology"
+    doi: "10.1007/s00421-007-0552-2"
 
 params:
-  hrv_weight: 0.4
-  sleep_weight: 0.35
-  rhr_weight: 0.25
-  readiness_fresh: 80
-  readiness_moderate: 60
+  rolling_days: 7
+  baseline_days: 30
+  cv_threshold: 10
+  sleep_poor_threshold: 55
+
+signal:
+  tsb_high_fatigue: -20

@@ -1,9 +1,12 @@
+import math
+
 import pandas as pd
 from datetime import date
 from analysis.metrics import (
     compute_ewma_load,
     compute_tsb,
     predict_marathon_time,
+    analyze_recovery,
     daily_training_signal,
     cp_milestone_check,
     diagnose_training,
@@ -36,21 +39,59 @@ def test_predict_marathon_time_no_data():
     assert time_sec is not None
 
 
+def _make_hrv_series(baseline_ms: float = 50.0, n: int = 30) -> list[float]:
+    """Generate a stable HRV series around a baseline for testing."""
+    import random
+    random.seed(42)
+    return [baseline_ms + random.gauss(0, 5) for _ in range(n)]
+
+
+def test_analyze_recovery_fresh():
+    """HRV well above baseline → fresh status."""
+    series = _make_hrv_series(50.0, 30)
+    analysis = analyze_recovery(series, today_hrv_ms=65.0)
+    assert analysis["status"] == "fresh"
+    assert analysis["hrv"] is not None
+    assert analysis["hrv"]["today_ln"] > analysis["hrv"]["baseline_mean_ln"]
+
+
+def test_analyze_recovery_fatigued():
+    """HRV well below baseline → fatigued status."""
+    series = _make_hrv_series(50.0, 30)
+    analysis = analyze_recovery(series, today_hrv_ms=30.0)
+    assert analysis["status"] == "fatigued"
+    assert analysis["hrv"]["today_ln"] < analysis["hrv"]["threshold_ln"]
+
+
+def test_analyze_recovery_insufficient_data():
+    """Too few data points → default normal status, no HRV analysis."""
+    analysis = analyze_recovery([50, 48, 52])
+    assert analysis["status"] == "normal"
+    assert analysis["hrv"] is None
+
+
 def test_daily_training_signal_rest():
-    signal = daily_training_signal(readiness_score=55, tsb=-10, hrv_trend_pct=-5, planned_workout="tempo")
+    series = _make_hrv_series(50.0, 30)
+    analysis = analyze_recovery(series, today_hrv_ms=30.0)  # fatigued
+    signal = daily_training_signal(analysis, tsb=-10, planned_workout="tempo")
     assert signal["recommendation"] in ["rest", "easy"]
-    assert "readiness" in signal["reason"].lower()
+    assert "hrv" in signal["reason"].lower()
 
 
 def test_daily_training_signal_follow_plan():
-    signal = daily_training_signal(readiness_score=85, tsb=5, hrv_trend_pct=2, planned_workout="tempo")
+    series = _make_hrv_series(50.0, 30)
+    analysis = analyze_recovery(series, today_hrv_ms=60.0, today_sleep=85)  # fresh
+    signal = daily_training_signal(analysis, tsb=5, planned_workout="tempo")
     assert signal["recommendation"] == "follow_plan"
 
 
 def test_daily_training_signal_hrv_warning():
-    signal = daily_training_signal(readiness_score=72, tsb=-5, hrv_trend_pct=-18, planned_workout="interval")
-    assert signal["recommendation"] in ["easy", "reduce_intensity"]
-    assert "hrv" in signal["reason"].lower()
+    # Create a declining HRV series to trigger trend warning
+    series = [55 - i * 0.8 for i in range(30)]  # declining from 55 to ~31
+    analysis = analyze_recovery(series, today_hrv_ms=32.0)
+    signal = daily_training_signal(analysis, tsb=-5, planned_workout="interval")
+    assert signal["recommendation"] in ["rest", "easy", "reduce_intensity"]
+    assert "hrv" in signal["reason"].lower() or "declining" in signal["reason"].lower()
 
 
 def test_cp_milestone_on_track():
