@@ -342,3 +342,78 @@ def test_diagnose_empty_splits():
     # Should handle gracefully
     assert "interval_power" in result
     assert any("split" in d["message"].lower() or "interval" in d["message"].lower() for d in result["diagnosis"])
+
+
+def test_diagnose_distribution_uses_zone_boundaries():
+    """Distribution should use provided zone boundaries, not hardcoded values."""
+    today = date(2026, 3, 23)
+    dates = [date(2026, 3, d) for d in [2, 4, 7, 9, 11, 14, 16, 18, 20, 21]]
+    activities = _make_activities(dates, [8, 10, 25, 8, 10, 8, 10, 25, 8, 10])
+    splits = _make_splits(
+        ["2", "2", "7", "7"],
+        [260, 220, 255, 210],
+        [600, 600, 600, 600],
+    )
+    trend = {"current": 250.0, "direction": "flat", "slope_per_month": 0.5}
+
+    result = diagnose_training(
+        activities, splits, trend,
+        lookback_weeks=4, current_date=today,
+        zone_boundaries=[0.82, 1.00],
+        zone_names=["Easy", "Moderate", "Hard"],
+        target_distribution=[0.80, 0.05, 0.15],
+    )
+
+    dist = result["distribution"]
+    assert isinstance(dist, list)
+    assert len(dist) == 3
+    assert dist[0]["name"] == "Easy"
+    assert dist[1]["name"] == "Moderate"
+    assert dist[2]["name"] == "Hard"
+    assert all("actual_pct" in d and "target_pct" in d for d in dist)
+    assert dist[0]["target_pct"] == 80
+    assert dist[1]["target_pct"] == 5
+    assert dist[2]["target_pct"] == 15
+
+
+def test_diagnose_distribution_default_5zone():
+    """Without zone_boundaries, should still produce 5-zone distribution as list."""
+    today = date(2026, 3, 23)
+    dates = [date(2026, 3, d) for d in [2, 4, 7, 9, 11]]
+    activities = _make_activities(dates, [8, 10, 15, 8, 10])
+    splits = _make_splits(["2"], [260], [600])
+    trend = {"current": 250.0, "direction": "flat", "slope_per_month": 0.5}
+
+    result = diagnose_training(
+        activities, splits, trend,
+        lookback_weeks=4, current_date=today,
+    )
+
+    dist = result["distribution"]
+    assert isinstance(dist, list)
+    assert len(dist) == 5
+    names = [d["name"] for d in dist]
+    assert names == ["Easy", "Tempo", "Threshold", "Supra-CP", "VO2max"]
+
+
+def test_diagnose_zone_ranges_included():
+    """Result should include zone_ranges and theory_name."""
+    today = date(2026, 3, 23)
+    dates = [date(2026, 3, d) for d in [2, 4, 7]]
+    activities = _make_activities(dates, [8, 10, 15])
+    splits = _make_splits(["0"], [200], [600])
+    trend = {"current": 250.0, "direction": "flat", "slope_per_month": 0.5}
+
+    result = diagnose_training(
+        activities, splits, trend,
+        lookback_weeks=4, current_date=today,
+        zone_boundaries=[0.82, 1.00],
+        zone_names=["Easy", "Moderate", "Hard"],
+        theory_name="Seiler Polarized 3-Zone",
+    )
+
+    assert "zone_ranges" in result
+    assert len(result["zone_ranges"]) == 3
+    assert result["zone_ranges"][0]["name"] == "Easy"
+    assert result["zone_ranges"][0]["unit"] == "W"
+    assert result["theory_name"] == "Seiler Polarized 3-Zone"

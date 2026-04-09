@@ -22,7 +22,7 @@ export default function DiagnosisCard({ diagnosis, display }: Props) {
 
   const intensityLabel = display?.intensity_metric ?? 'Power';
   const unit = display?.threshold_unit ?? 'W';
-  const topZoneName = display?.zone_names?.[3] ?? 'Supra-CP';
+  const topZoneName = distribution.length > 0 ? distribution[distribution.length - 1].name : 'Supra-CP';
 
   return (
     <Card>
@@ -63,7 +63,7 @@ export default function DiagnosisCard({ diagnosis, display }: Props) {
 
       {/* Distribution bar */}
       <div className="mb-6">
-        <DistributionBar distribution={distribution} display={display} />
+        <DistributionBar distribution={distribution} />
       </div>
 
       {/* Findings */}

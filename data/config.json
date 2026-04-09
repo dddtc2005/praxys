@@ -45,6 +45,13 @@
     "distance": "marathon",
     "target_time_sec": 10800
   },
+  "science": {
+    "load": "banister_pmc",
+    "recovery": "hrv_weighted",
+    "prediction": "critical_power",
+    "zones": "coggan_5zone"
+  },
+  "zone_labels": "standard",
   "source_options": {
     "garmin_region": "international"
   }

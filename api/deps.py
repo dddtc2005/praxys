@@ -1013,10 +1013,29 @@ def get_dashboard_data() -> dict:
     else:
         active_threshold = thresholds.threshold_pace_sec_km
 
+    # Get zone theory data for diagnosis
+    zones_theory = science.get("zones")
+    zone_boundaries = config.zones.get(config.training_base)
+    zone_names_list: list[str] | None = None
+    target_dist: list[float] | None = None
+    zone_theory_name: str | None = None
+    if zones_theory:
+        zone_theory_name = zones_theory.name
+        zn = zones_theory.zone_names
+        if isinstance(zn, dict):
+            zone_names_list = zn.get(config.training_base)
+        elif isinstance(zn, list):
+            zone_names_list = zn
+        target_dist = zones_theory.target_distribution or None
+
     diagnosis = diagnose_training(
         merged, splits, cp_trend_data,
         base=config.training_base,
         threshold_value=active_threshold,
+        zone_boundaries=zone_boundaries,
+        zone_names=zone_names_list,
+        target_distribution=target_dist,
+        theory_name=zone_theory_name,
     )
 
     # Activities for history

@@ -1,61 +1,54 @@
-import type { DisplayConfig } from '@/types/api';
+import type { ZoneDistribution } from '@/types/api';
 
 interface Props {
-  distribution: { supra_cp: number; threshold: number; tempo: number; easy: number };
-  display?: DisplayConfig;
+  distribution: ZoneDistribution[];
 }
 
 const ZONE_COLORS = [
   { color: 'bg-destructive', textColor: 'text-destructive' },
   { color: 'bg-accent-amber', textColor: 'text-accent-amber' },
   { color: 'bg-accent-blue', textColor: 'text-accent-blue' },
+  { color: 'bg-accent-blue/50', textColor: 'text-accent-blue' },
   { color: 'bg-muted-foreground', textColor: 'text-muted-foreground' },
 ];
 
-// Map distribution keys to ordered zone indices (highest intensity first)
-const DIST_KEYS = ['supra_cp', 'threshold', 'tempo', 'easy'] as const;
+function getZoneColor(index: number, total: number) {
+  const colorIdx = total - 1 - index;
+  return ZONE_COLORS[Math.min(colorIdx, ZONE_COLORS.length - 1)] ?? ZONE_COLORS[ZONE_COLORS.length - 1];
+}
 
-export default function DistributionBar({ distribution, display }: Props) {
-  const total = distribution.supra_cp + distribution.threshold + distribution.tempo + distribution.easy;
+export default function DistributionBar({ distribution }: Props) {
+  const total = distribution.reduce((sum, d) => sum + d.actual_pct, 0);
 
-  // Use display config zone names if available (reversed: Z5→Z2 = highest→lowest)
-  const zoneLabels = display?.zone_names
-    ? [display.zone_names[4] || display.zone_names[3], display.zone_names[3] || 'Threshold', display.zone_names[2] || 'Tempo', display.zone_names[1] || 'Easy']
-    : ['Supra-CP', 'Threshold', 'Tempo', 'Easy'];
-
-  const zones = DIST_KEYS.map((key, i) => ({
-    key,
-    label: zoneLabels[i],
-    ...ZONE_COLORS[i],
-    pct: total > 0 ? (distribution[key] / total) * 100 : 0,
+  const zones = [...distribution].reverse().map((d, i) => ({
+    name: d.name,
+    pct: total > 0 ? d.actual_pct : 0,
+    ...getZoneColor(distribution.length - 1 - i, distribution.length),
   }));
 
   return (
     <div>
-      {/* Stacked bar */}
       <div className="flex h-6 w-full overflow-hidden rounded-full">
         {zones.map((zone) => {
           if (zone.pct === 0) return null;
           return (
             <div
-              key={zone.key}
+              key={zone.name}
               className={`${zone.color} flex items-center justify-center text-[10px] font-semibold text-base`}
               style={{ width: `${zone.pct}%` }}
-              title={`${zone.label}: ${zone.pct.toFixed(0)}%`}
+              title={`${zone.name}: ${zone.pct}%`}
             >
-              {zone.pct >= 8 ? `${zone.pct.toFixed(0)}%` : ''}
+              {zone.pct >= 8 ? `${zone.pct}%` : ''}
             </div>
           );
         })}
       </div>
-
-      {/* Legend */}
       <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs">
         {zones.map((zone) => (
-          <span key={zone.key} className="flex items-center gap-1.5">
+          <span key={zone.name} className="flex items-center gap-1.5">
             <span className={`inline-block h-2.5 w-2.5 rounded-full ${zone.color}`} />
-            <span className="text-muted-foreground">{zone.label}</span>
-            <span className={`font-data font-semibold ${zone.textColor}`}>{zone.pct.toFixed(0)}%</span>
+            <span className="text-muted-foreground">{zone.name}</span>
+            <span className={`font-data font-semibold ${zone.textColor}`}>{zone.pct}%</span>
           </span>
         ))}
       </div>
