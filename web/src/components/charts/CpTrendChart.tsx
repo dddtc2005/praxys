@@ -9,7 +9,7 @@ import {
 } from 'recharts';
 import type { CpTrendChart as CpTrendChartData } from '@/types/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { chartColors } from '@/lib/chart-theme';
+import { useChartColors } from '@/hooks/useChartColors';
 
 interface Props {
   data: CpTrendChartData;
@@ -26,6 +26,7 @@ function formatPace(totalSec: number): string {
 }
 
 export default function CpTrendChart({ data, targetCp, label, unit = 'W', metricName = 'CP' }: Props) {
+  const chartColors = useChartColors();
   const isPace = unit === '/km';
   const chartData = data.dates.map((date, i) => ({
     date,

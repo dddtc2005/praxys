@@ -1,8 +1,9 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Sun, TrendingUp, Target, Clock, FlaskConical, Settings } from 'lucide-react';
+import { Sun, Moon, Monitor, TrendingUp, Target, Clock, FlaskConical, Settings } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarHeader,
@@ -10,6 +11,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import { useTheme } from '@/hooks/useTheme';
 
 const navItems = [
   { to: '/', icon: Sun, label: 'Today' },
@@ -20,8 +22,21 @@ const navItems = [
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
+const THEME_CYCLE = ['dark', 'light', 'system'] as const;
+const THEME_ICON = { dark: Moon, light: Sun, system: Monitor } as const;
+const THEME_LABEL = { dark: 'Dark', light: 'Light', system: 'System' } as const;
+
 export default function AppSidebar() {
   const location = useLocation();
+  const { theme, setTheme } = useTheme();
+
+  const cycleTheme = () => {
+    const idx = THEME_CYCLE.indexOf(theme as typeof THEME_CYCLE[number]);
+    const next = THEME_CYCLE[(idx + 1) % THEME_CYCLE.length];
+    setTheme(next);
+  };
+
+  const ThemeIcon = THEME_ICON[theme as keyof typeof THEME_ICON] ?? Monitor;
 
   return (
     <Sidebar collapsible="icon">
@@ -61,6 +76,16 @@ export default function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={cycleTheme} tooltip={`Theme: ${THEME_LABEL[theme as keyof typeof THEME_LABEL]}`}>
+              <ThemeIcon />
+              <span>{THEME_LABEL[theme as keyof typeof THEME_LABEL]}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
     </Sidebar>
   );
 }

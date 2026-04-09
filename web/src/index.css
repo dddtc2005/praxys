@@ -4,9 +4,67 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* ── Authoritative dark theme (dark-first, no light theme) ── */
+/* ══════════════════════════════════════════════════════════════════════
+   Light theme (default)
+   Warm paper tones with the green brand accent darkened for contrast.
+   ══════════════════════════════════════════════════════════════════════ */
 :root {
   /* Core surfaces */
+  --background: oklch(0.98 0.005 80);
+  --foreground: oklch(0.15 0.02 264);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.15 0.02 264);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.15 0.02 264);
+
+  /* Brand primary — darkened green for light bg contrast */
+  --primary: oklch(0.52 0.17 155);
+  --primary-foreground: oklch(0.98 0.005 80);
+
+  /* Secondary & muted */
+  --secondary: oklch(0.95 0.005 80);
+  --secondary-foreground: oklch(0.25 0.02 264);
+  --muted: oklch(0.94 0.005 80);
+  --muted-foreground: oklch(0.45 0.02 264);
+
+  /* Accent */
+  --accent: oklch(0.94 0.005 80);
+  --accent-foreground: oklch(0.25 0.02 264);
+
+  /* Destructive */
+  --destructive: oklch(0.55 0.22 27);
+
+  /* Borders & inputs */
+  --border: oklch(0.90 0.005 80);
+  --input: oklch(0.90 0.005 80);
+  --ring: oklch(0.52 0.17 155);
+
+  /* Radius */
+  --radius: 0.625rem;
+
+  /* Chart colors — slightly darkened for light bg contrast */
+  --chart-1: oklch(0.52 0.17 155);   /* green */
+  --chart-2: oklch(0.55 0.22 27);    /* red */
+  --chart-3: oklch(0.52 0.19 260);   /* blue */
+  --chart-4: oklch(0.65 0.17 75);    /* amber */
+  --chart-5: oklch(0.50 0.20 293);   /* purple */
+
+  /* Sidebar */
+  --sidebar: oklch(0.97 0.005 80);
+  --sidebar-foreground: oklch(0.15 0.02 264);
+  --sidebar-primary: oklch(0.52 0.17 155);
+  --sidebar-primary-foreground: oklch(0.98 0.005 80);
+  --sidebar-accent: oklch(0.94 0.005 80);
+  --sidebar-accent-foreground: oklch(0.25 0.02 264);
+  --sidebar-border: oklch(0.90 0.005 80);
+  --sidebar-ring: oklch(0.52 0.17 155);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Dark theme
+   Deep navy tones with vivid neon-green brand accent.
+   ══════════════════════════════════════════════════════════════════════ */
+.dark {
   --background: oklch(0.13 0.02 264);
   --foreground: oklch(0.93 0.01 264);
   --card: oklch(0.18 0.02 264);
@@ -14,39 +72,29 @@
   --popover: oklch(0.18 0.02 264);
   --popover-foreground: oklch(0.93 0.01 264);
 
-  /* Brand primary — green accent */
   --primary: oklch(0.85 0.22 155);
   --primary-foreground: oklch(0.13 0.02 264);
 
-  /* Secondary & muted */
   --secondary: oklch(0.25 0.02 264);
   --secondary-foreground: oklch(0.93 0.01 264);
   --muted: oklch(0.25 0.02 264);
   --muted-foreground: oklch(0.55 0.02 264);
 
-  /* Accent */
   --accent: oklch(0.25 0.02 264);
   --accent-foreground: oklch(0.93 0.01 264);
 
-  /* Destructive — red */
   --destructive: oklch(0.58 0.22 27);
 
-  /* Borders & inputs */
   --border: oklch(0.25 0.02 264);
   --input: oklch(0.25 0.02 264);
   --ring: oklch(0.85 0.22 155);
 
-  /* Radius */
-  --radius: 0.625rem;
+  --chart-1: oklch(0.85 0.25 155);
+  --chart-2: oklch(0.63 0.24 29);
+  --chart-3: oklch(0.62 0.21 260);
+  --chart-4: oklch(0.77 0.17 75);
+  --chart-5: oklch(0.59 0.22 293);
 
-  /* Chart colors — semantic mapping */
-  --chart-1: oklch(0.85 0.25 155);   /* green — fitness, positive signals */
-  --chart-2: oklch(0.63 0.24 29);    /* red — fatigue, destructive */
-  --chart-3: oklch(0.62 0.21 260);   /* blue — form/TSB, informational */
-  --chart-4: oklch(0.77 0.17 75);    /* amber — warnings, threshold */
-  --chart-5: oklch(0.59 0.22 293);   /* purple — projections, recovery */
-
-  /* Sidebar */
   --sidebar: oklch(0.15 0.02 264);
   --sidebar-foreground: oklch(0.93 0.01 264);
   --sidebar-primary: oklch(0.85 0.22 155);
@@ -57,13 +105,32 @@
   --sidebar-ring: oklch(0.85 0.22 155);
 }
 
-/* ── Semantic accent colors (used in chart-theme.ts and CSS) ── */
+/* ── Semantic accent colors (theme-adaptive via CSS custom properties) ── */
+
+/* Light accent values — darkened for contrast on white */
+:root {
+  --accent-green-val: #059669;
+  --accent-amber-val: #d97706;
+  --accent-red-val: #dc2626;
+  --accent-blue-val: #2563eb;
+  --accent-purple-val: #7c3aed;
+}
+
+/* Dark accent values — vivid/bright for dark backgrounds */
+.dark {
+  --accent-green-val: #00ff87;
+  --accent-amber-val: #f59e0b;
+  --accent-red-val: #ef4444;
+  --accent-blue-val: #3b82f6;
+  --accent-purple-val: #8b5cf6;
+}
+
 @theme {
-  --color-accent-green: #00ff87;
-  --color-accent-amber: #f59e0b;
-  --color-accent-red: #ef4444;
-  --color-accent-blue: #3b82f6;
-  --color-accent-purple: #8b5cf6;
+  --color-accent-green: var(--accent-green-val);
+  --color-accent-amber: var(--accent-amber-val);
+  --color-accent-red: var(--accent-red-val);
+  --color-accent-blue: var(--accent-blue-val);
+  --color-accent-purple: var(--accent-purple-val);
 
   --font-sans: 'DM Sans', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
@@ -127,19 +194,12 @@
   }
 }
 
-/* Dark-theme form elements — override browser defaults */
-select,
-input[type="date"],
-input[type="number"],
-input[type="text"] {
+/* Form elements — adapt to current theme */
+.dark select,
+.dark input[type="date"],
+.dark input[type="number"],
+.dark input[type="text"] {
   color-scheme: dark;
-  background-color: oklch(0.22 0.02 264);
-  color: oklch(0.93 0.01 264);
-}
-
-select option {
-  background-color: oklch(0.18 0.02 264);
-  color: oklch(0.93 0.01 264);
 }
 
 /* Data numbers use mono font */
@@ -186,7 +246,7 @@ select option {
 .science-markdown code {
   font-family: var(--font-mono);
   font-size: 0.8125rem;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--muted);
   padding: 0.125rem 0.375rem;
   border-radius: 0.25rem;
   color: var(--md-accent, var(--color-accent-green));
@@ -203,7 +263,7 @@ select option {
 }
 
 .science-markdown li::marker {
-  color: oklch(0.45 0.02 264);
+  color: var(--muted-foreground);
 }
 
 .science-markdown table {
@@ -227,8 +287,8 @@ select option {
 
 .science-markdown td {
   padding: 0.375rem 0.75rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-  color: oklch(0.7 0.01 264);
+  border-bottom: 1px solid var(--border);
+  color: var(--muted-foreground);
 }
 
 .science-markdown tr:last-child td {
@@ -239,6 +299,6 @@ select option {
   border-left: 2px solid var(--md-accent, var(--color-accent-green));
   padding-left: 0.75rem;
   margin: 0.75rem 0;
-  color: oklch(0.45 0.02 264);
+  color: var(--muted-foreground);
   font-style: italic;
 }

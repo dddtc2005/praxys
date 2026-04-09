@@ -14,7 +14,7 @@ function FindingIcon({ type }: { type: DiagnosisFinding['type'] }) {
   if (type === 'warning') {
     return <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-amber/20 text-xs font-bold text-accent-amber">!</span>;
   }
-  return <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-text-muted/20 text-xs font-bold text-muted-foreground">&ndash;</span>;
+  return <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted-foreground/20 text-xs font-bold text-muted-foreground">&ndash;</span>;
 }
 
 export default function DiagnosisCard({ diagnosis, display }: Props) {

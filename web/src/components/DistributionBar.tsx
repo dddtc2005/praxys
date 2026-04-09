@@ -9,7 +9,7 @@ const ZONE_COLORS = [
   { color: 'bg-destructive', textColor: 'text-destructive' },
   { color: 'bg-accent-amber', textColor: 'text-accent-amber' },
   { color: 'bg-accent-blue', textColor: 'text-accent-blue' },
-  { color: 'bg-text-muted', textColor: 'text-muted-foreground' },
+  { color: 'bg-muted-foreground', textColor: 'text-muted-foreground' },
 ];
 
 // Map distribution keys to ordered zone indices (highest intensity first)

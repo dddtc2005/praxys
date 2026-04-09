@@ -10,7 +10,7 @@ import {
 } from 'recharts';
 import type { WeeklyReview } from '@/types/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { chartColors } from '@/lib/chart-theme';
+import { useChartColors } from '@/hooks/useChartColors';
 
 interface Props {
   data: WeeklyReview;
@@ -18,6 +18,7 @@ interface Props {
 }
 
 export default function ComplianceChart({ data, loadLabel }: Props) {
+  const chartColors = useChartColors();
   const chartData = data.weeks.map((week, i) => ({
     week,
     planned: data.planned_rss[i],

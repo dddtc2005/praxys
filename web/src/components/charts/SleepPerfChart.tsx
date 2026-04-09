@@ -8,13 +8,14 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { chartColors } from '@/lib/chart-theme';
+import { useChartColors } from '@/hooks/useChartColors';
 
 interface Props {
   data: [number, number][];
 }
 
 export default function SleepPerfChart({ data }: Props) {
+  const chartColors = useChartColors();
   const chartData = data.map(([sleep, power]) => ({
     sleep,
     power,

@@ -15,7 +15,7 @@ import type { TimeSeriesData, TsbZoneConfig } from '@/types/api';
 import ScienceNote from '@/components/ScienceNote';
 import { useScience, tsbZoneFromConfig } from '@/contexts/ScienceContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { chartColors } from '@/lib/chart-theme';
+import { useChartColors } from '@/hooks/useChartColors';
 
 interface Props {
   data: TimeSeriesData;
@@ -23,7 +23,7 @@ interface Props {
 
 const ZONE_OPACITIES = [0.04, 0.07, 0.06, 0.04, 0.05];
 
-function CustomTooltip({ active, payload, label, tsbZones }: any) {
+function CustomTooltip({ active, payload, label, tsbZones, chartColors }: any) {
   if (!active || !payload?.length) return null;
   const isProjected = payload[0]?.payload?._projected;
   const ctl = payload.find((p: any) => p.dataKey === 'ctl' || p.dataKey === 'proj_ctl');
@@ -103,6 +103,7 @@ function ZoneLegend({ zones: tsbZones }: { zones: TsbZoneConfig[] }) {
 }
 
 export default function FitnessFatigueChart({ data }: Props) {
+  const chartColors = useChartColors();
   const { tsbZones } = useScience();
   const { chartData, yMin, yMax, hasProjection } = useMemo(() => {
     const hasProjData = !!(data.projected_dates?.length && data.projected_ctl?.length);
@@ -253,7 +254,7 @@ export default function FitnessFatigueChart({ data }: Props) {
               axisLine={false}
               domain={[yMin, yMax]}
             />
-            <Tooltip content={<CustomTooltip tsbZones={tsbZones} />} />
+            <Tooltip content={<CustomTooltip tsbZones={tsbZones} chartColors={chartColors} />} />
 
             <Area type="monotone" dataKey="tsb" fill="url(#tsbAreaGrad)" stroke="none" connectNulls={false} isAnimationActive={false} />
 

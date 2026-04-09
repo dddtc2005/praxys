@@ -11,7 +11,7 @@ import {
 import type { TsbSparkline } from '@/types/api';
 import { useScience, tsbZoneFromConfig } from '@/contexts/ScienceContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { chartColors } from '@/lib/chart-theme';
+import { useChartColors } from '@/hooks/useChartColors';
 
 interface Props {
   data: TsbSparkline;
@@ -46,6 +46,7 @@ function SparkTooltip({ active, payload, label, tsbZones }: any) {
 }
 
 export default function FormSparkline({ data }: Props) {
+  const chartColors = useChartColors();
   const { tsbZones } = useScience();
   const { chartData, yMin, yMax, hasProjection, latestTsb } = useMemo(() => {
     const hasProjData = !!(data.projected_dates?.length && data.projected_values?.length);
