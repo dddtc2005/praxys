@@ -67,9 +67,3 @@ export function getChartColors(isDark: boolean): ChartColors {
   return isDark ? darkColors : lightColors;
 }
 
-/**
- * Default export for backward compatibility and simple use cases
- * where you know the theme. Most components should use the
- * useChartColors() hook instead.
- */
-export const chartColors = darkColors;

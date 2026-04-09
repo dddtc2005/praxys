@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 type Theme = 'light' | 'dark' | 'system';
 
 function getSystemPreference(): 'light' | 'dark' {
+  if (typeof window === 'undefined' || !window.matchMedia) return 'dark';
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
@@ -21,21 +22,33 @@ function applyTheme(resolved: 'light' | 'dark') {
 
 const STORAGE_KEY = 'trainsight-theme';
 
-export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>(() => {
+function readStoredTheme(): Theme {
+  try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
-    return 'dark'; // default to dark (existing behavior)
-  });
+  } catch {
+    // localStorage unavailable (private browsing, disabled, etc.)
+  }
+  return 'dark';
+}
+
+function writeStoredTheme(theme: Theme) {
+  try {
+    localStorage.setItem(STORAGE_KEY, theme);
+  } catch {
+    // localStorage unavailable
+  }
+}
+
+export function useTheme() {
+  const [theme, setThemeState] = useState<Theme>(readStoredTheme);
 
   const resolved = resolveTheme(theme);
 
-  // Apply on mount and when theme changes
   useEffect(() => {
     applyTheme(resolved);
   }, [resolved]);
 
-  // Listen for system preference changes when in 'system' mode
   useEffect(() => {
     if (theme !== 'system') return;
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
@@ -46,7 +59,7 @@ export function useTheme() {
 
   const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme);
-    localStorage.setItem(STORAGE_KEY, newTheme);
+    writeStoredTheme(newTheme);
   }, []);
 
   return { theme, resolved, setTheme };

@@ -31,12 +31,12 @@ export default function AppSidebar() {
   const { theme, setTheme } = useTheme();
 
   const cycleTheme = () => {
-    const idx = THEME_CYCLE.indexOf(theme as typeof THEME_CYCLE[number]);
+    const idx = THEME_CYCLE.indexOf(theme);
     const next = THEME_CYCLE[(idx + 1) % THEME_CYCLE.length];
     setTheme(next);
   };
 
-  const ThemeIcon = THEME_ICON[theme as keyof typeof THEME_ICON] ?? Monitor;
+  const ThemeIcon = THEME_ICON[theme] ?? Monitor;
 
   return (
     <Sidebar collapsible="icon">
@@ -79,9 +79,9 @@ export default function AppSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={cycleTheme} tooltip={`Theme: ${THEME_LABEL[theme as keyof typeof THEME_LABEL]}`}>
+            <SidebarMenuButton onClick={cycleTheme} tooltip={`Theme: ${THEME_LABEL[theme]}`}>
               <ThemeIcon />
-              <span>{THEME_LABEL[theme as keyof typeof THEME_LABEL]}</span>
+              <span>{THEME_LABEL[theme]}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

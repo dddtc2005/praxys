@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { formatTime, parseTimeToSeconds } from '@/lib/format';
 
 const DISTANCES = [
   { value: '5k', label: '5K', placeholder: 'e.g. 20:00' },
@@ -22,24 +23,6 @@ const DISTANCES = [
   { value: '100k', label: '100K', placeholder: 'e.g. 12:00:00' },
   { value: '100mi', label: '100 Mi', placeholder: 'e.g. 24:00:00' },
 ];
-
-function formatTime(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-}
-
-function parseTimeToSeconds(input: string): number | null {
-  const trimmed = input.trim();
-  if (!trimmed) return null;
-  const parts = trimmed.split(':').map(Number);
-  if (parts.some(isNaN)) return null;
-  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  if (parts.length === 2) return parts[0] * 3600 + parts[1] * 60;
-  if (parts.length === 1 && parts[0] > 0) return parts[0];
-  return null;
-}
 
 type GoalType = 'race' | 'continuous';
 
@@ -95,8 +78,8 @@ export default function GoalEditor({
         target_time_sec: targetTimeSec || 0,
       });
       onOpenChange(false);
-    } catch {
-      setError('Failed to save goal');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save goal');
     }
     setSaving(false);
   };

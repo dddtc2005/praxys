@@ -117,7 +117,18 @@ export default function UpcomingPlanCard() {
     );
   }
 
-  if (error || !data || data.workouts.length === 0) return null;
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="pt-4">
+          <p className="text-sm text-destructive">Failed to load training plan</p>
+          <p className="text-xs text-muted-foreground">{error}</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!data || data.workouts.length === 0) return null;
 
   return (
     <Card>

@@ -10,6 +10,7 @@ import {
 import type { CpTrendChart as CpTrendChartData } from '@/types/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useChartColors } from '@/hooks/useChartColors';
+import { formatPace } from '@/lib/format';
 
 interface Props {
   data: CpTrendChartData;
@@ -17,12 +18,6 @@ interface Props {
   label?: string;
   unit?: string;
   metricName?: string;
-}
-
-function formatPace(totalSec: number): string {
-  const m = Math.floor(totalSec / 60);
-  const s = Math.round(totalSec % 60);
-  return `${m}:${String(s).padStart(2, '0')}`;
 }
 
 export default function CpTrendChart({ data, targetCp, label, unit = 'W', metricName = 'CP' }: Props) {

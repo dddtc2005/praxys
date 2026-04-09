@@ -177,7 +177,7 @@ export default function FormSparkline({ data }: Props) {
               <Area
                 type="monotone"
                 dataKey="tsb"
-                stroke={chartColors.fitness}
+                stroke={chartColors.form}
                 strokeWidth={2}
                 fill="url(#sparkGreen)"
                 baseValue={0}
