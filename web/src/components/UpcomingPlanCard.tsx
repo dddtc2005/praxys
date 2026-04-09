@@ -1,7 +1,10 @@
+import { useState, useEffect, useCallback } from 'react';
 import { useApi } from '@/hooks/useApi';
-import type { PlanResponse, PlannedWorkout } from '@/types/api';
+import type { PlanResponse, PlannedWorkout, StrydPushStatus, StrydPushResult } from '@/types/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
   easy:       { bg: 'bg-primary/15', text: 'text-primary' },
@@ -17,7 +20,6 @@ const DEFAULT_COLOR = { bg: 'bg-accent-purple/15', text: 'text-accent-purple' };
 
 function getTypeColor(type: string) {
   const key = type.toLowerCase().replace(/\s+/g, ' ');
-  // Check exact match first, then partial
   if (TYPE_COLORS[key]) return TYPE_COLORS[key];
   for (const [k, v] of Object.entries(TYPE_COLORS)) {
     if (key.includes(k)) return v;
@@ -44,9 +46,131 @@ function formatDate(dateStr: string): { day: string; weekday: string; isToday: b
   };
 }
 
-function WorkoutRow({ workout }: { workout: PlannedWorkout }) {
+type PushState = 'none' | 'pushed' | 'pushing' | 'error';
+
+const UploadIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <path d="M8 2v8M5 7l3-3 3 3M3 12h10" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const SpinnerIcon = ({ className }: { className?: string }) => (
+  <svg className={`animate-spin ${className}`} viewBox="0 0 24 24" fill="none">
+    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+  </svg>
+);
+
+const CheckIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M3 8.5l3 3 7-7" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const ErrorIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 16 16" fill="currentColor">
+    <path d="M8 1a7 7 0 100 14A7 7 0 008 1zM7 5h2v4H7V5zm0 5h2v2H7v-2z" />
+  </svg>
+);
+
+function StrydStatusBadge({
+  state,
+  error,
+  onPush,
+  showStryd,
+}: {
+  state: PushState;
+  error?: string;
+  onPush?: () => void;
+  showStryd: boolean;
+}) {
+  if (!showStryd) return null;
+
+  if (state === 'pushing') {
+    return (
+      <div className="w-6 h-6 flex items-center justify-center shrink-0">
+        <SpinnerIcon className="h-3.5 w-3.5 text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (state === 'error') {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger className="inline-flex">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onPush}
+              className="w-6 h-6 shrink-0 text-destructive hover:text-destructive/80"
+            >
+              <ErrorIcon className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            <p className="text-xs">{error || 'Push failed'} — click to retry</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  if (state === 'pushed') {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger className="inline-flex">
+            <div className="w-6 h-6 flex items-center justify-center shrink-0 text-primary">
+              <CheckIcon className="h-3.5 w-3.5" />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            <p className="text-xs">Synced to Stryd</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  // state === 'none' — show push button on hover
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger className="inline-flex">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onPush}
+            className="w-6 h-6 shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground hover:!text-primary"
+          >
+            <UploadIcon className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="left">
+          <p className="text-xs">Push to Stryd</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function WorkoutRow({
+  workout,
+  pushState,
+  pushError,
+  showStryd,
+  onPushSingle,
+}: {
+  workout: PlannedWorkout;
+  pushState: PushState;
+  pushError?: string;
+  showStryd: boolean;
+  onPushSingle: (date: string) => void;
+}) {
   const { day, weekday, isToday } = formatDate(workout.date);
   const color = getTypeColor(workout.workout_type);
+  const isRest = workout.workout_type.toLowerCase() === 'rest';
 
   const details: string[] = [];
   if (workout.duration_min != null) details.push(`${Math.round(workout.duration_min)}m`);
@@ -56,7 +180,7 @@ function WorkoutRow({ workout }: { workout: PlannedWorkout }) {
 
   return (
     <div
-      className={`flex items-center gap-3 py-2.5 px-3 rounded-lg transition-colors ${
+      className={`group flex items-center gap-3 py-2.5 px-3 rounded-lg transition-colors ${
         isToday
           ? 'bg-primary/5 ring-1 ring-accent-green/20'
           : 'hover:bg-muted/50'
@@ -95,12 +219,158 @@ function WorkoutRow({ workout }: { workout: PlannedWorkout }) {
           <p className="text-xs text-muted-foreground mt-0.5 truncate">{workout.description}</p>
         )}
       </div>
+
+      {/* Stryd sync status / push button */}
+      {!isRest && (
+        <StrydStatusBadge
+          state={pushState}
+          error={pushError}
+          showStryd={showStryd}
+          onPush={() => onPushSingle(workout.date)}
+        />
+      )}
     </div>
   );
 }
 
+async function pushDatesToStryd(dates: string[]): Promise<{
+  results: StrydPushResult[];
+}> {
+  const resp = await fetch('/api/plan/push-stryd', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ workout_dates: dates }),
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({ detail: `HTTP ${resp.status}` }));
+    throw new Error(err.detail || `HTTP ${resp.status}`);
+  }
+  return resp.json();
+}
+
 export default function UpcomingPlanCard() {
   const { data, loading, error } = useApi<PlanResponse>('/api/plan');
+  const [pushStatus, setPushStatus] = useState<StrydPushStatus>({});
+  const [pushErrors, setPushErrors] = useState<Record<string, string>>({});
+  const [pushing, setPushing] = useState(false);
+  const [pushingDates, setPushingDates] = useState<Set<string>>(new Set());
+  const [hasStryd, setHasStryd] = useState(false);
+
+  // Check if Stryd is connected
+  useEffect(() => {
+    fetch('/api/settings')
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((config) => {
+        if (config?.config?.connections?.includes('stryd')) setHasStryd(true);
+      })
+      .catch((err) => console.error('Failed to load settings:', err));
+  }, []);
+
+  // Load push status
+  useEffect(() => {
+    fetch('/api/plan/stryd-status')
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((status) => setPushStatus(status))
+      .catch((err) => console.error('Failed to load Stryd push status:', err));
+  }, []);
+
+  const getPushState = useCallback(
+    (date: string): PushState => {
+      if (pushingDates.has(date)) return 'pushing';
+      if (pushErrors[date]) return 'error';
+      if (pushStatus[date]) return 'pushed';
+      return 'none';
+    },
+    [pushingDates, pushErrors, pushStatus],
+  );
+
+  const handlePushResults = useCallback(
+    (results: StrydPushResult[], dates: string[]) => {
+      const newStatus = { ...pushStatus };
+      const newErrors = { ...pushErrors };
+
+      // Clear errors for dates we just retried
+      for (const d of dates) delete newErrors[d];
+
+      for (const r of results) {
+        if (r.status === 'success') {
+          newStatus[r.date] = {
+            workout_id: r.workout_id,
+            pushed_at: new Date().toISOString(),
+            status: 'pushed',
+          };
+          delete newErrors[r.date];
+        } else {
+          newErrors[r.date] = r.error;
+        }
+      }
+
+      setPushStatus(newStatus);
+      setPushErrors(newErrors);
+    },
+    [pushStatus, pushErrors],
+  );
+
+  // Push a single workout
+  const pushSingle = useCallback(
+    async (date: string) => {
+      if (pushingDates.has(date) || pushStatus[date]) return;
+
+      setPushingDates((prev) => new Set(prev).add(date));
+
+      try {
+        const { results } = await pushDatesToStryd([date]);
+        handlePushResults(results, [date]);
+      } catch (e) {
+        setPushErrors((prev) => ({
+          ...prev,
+          [date]: e instanceof Error ? e.message : 'Push failed',
+        }));
+      } finally {
+        setPushingDates((prev) => {
+          const next = new Set(prev);
+          next.delete(date);
+          return next;
+        });
+      }
+    },
+    [pushingDates, pushStatus, handlePushResults],
+  );
+
+  // Push all unpushed workouts
+  const pushAll = useCallback(async () => {
+    if (!data) return;
+
+    const datesToPush = data.workouts
+      .filter((w) => !pushStatus[w.date] && w.workout_type.toLowerCase() !== 'rest')
+      .map((w) => w.date);
+
+    if (datesToPush.length === 0) return;
+
+    setPushing(true);
+    setPushingDates(new Set(datesToPush));
+    setPushErrors({});
+
+    try {
+      const { results } = await pushDatesToStryd(datesToPush);
+      handlePushResults(results, datesToPush);
+    } catch (e) {
+      const newErrors: Record<string, string> = {};
+      for (const d of datesToPush) {
+        newErrors[d] = e instanceof Error ? e.message : 'Push failed';
+      }
+      setPushErrors(newErrors);
+    } finally {
+      setPushing(false);
+      setPushingDates(new Set());
+    }
+  }, [data, pushStatus, handlePushResults]);
 
   if (loading) {
     return (
@@ -130,20 +400,63 @@ export default function UpcomingPlanCard() {
 
   if (!data || data.workouts.length === 0) return null;
 
+  const unpushedCount = data.workouts.filter(
+    (w) => !pushStatus[w.date] && w.workout_type.toLowerCase() !== 'rest',
+  ).length;
+  const allPushed = unpushedCount === 0;
+
   return (
     <Card>
       <CardHeader className="flex-row items-baseline justify-between space-y-0">
         <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Upcoming Plan
         </CardTitle>
-        <span className="text-xs text-muted-foreground font-data">
-          {data.workouts.length} workouts
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground font-data">
+            {data.workouts.length} workouts
+          </span>
+          {hasStryd && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 px-2 text-[10px] font-semibold uppercase tracking-wider gap-1"
+              disabled={pushing || allPushed}
+              onClick={pushAll}
+            >
+              {pushing ? (
+                <>
+                  <SpinnerIcon className="h-3 w-3" />
+                  Pushing...
+                </>
+              ) : allPushed ? (
+                <>
+                  <CheckIcon className="h-3 w-3" />
+                  Synced
+                </>
+              ) : (
+                <>
+                  <UploadIcon className="h-3 w-3" />
+                  Push All
+                  {unpushedCount > 0 && (
+                    <span className="font-data ml-0.5">({unpushedCount})</span>
+                  )}
+                </>
+              )}
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-0.5">
           {data.workouts.map((w) => (
-            <WorkoutRow key={w.date} workout={w} />
+            <WorkoutRow
+              key={w.date}
+              workout={w}
+              pushState={getPushState(w.date)}
+              pushError={pushErrors[w.date]}
+              showStryd={hasStryd}
+              onPushSingle={pushSingle}
+            />
           ))}
         </div>
       </CardContent>
