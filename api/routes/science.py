@@ -8,6 +8,7 @@ from analysis.science import (
     list_theories,
     list_label_sets,
     load_active_science,
+    load_theory,
     recommend_science,
 )
 
@@ -103,6 +104,15 @@ def update_science(body: dict) -> dict:
         for pillar, theory_id in body["science"].items():
             if pillar in PILLARS and isinstance(theory_id, str):
                 config.science[pillar] = theory_id
+
+                # When changing zone theory, apply its boundaries to config.zones
+                if pillar == "zones":
+                    try:
+                        theory = load_theory("zones", theory_id)
+                        if theory.zone_boundaries:
+                            config.zones = theory.zone_boundaries
+                    except FileNotFoundError:
+                        pass  # Keep existing zones if theory file missing
 
     if "zone_labels" in body:
         config.zone_labels = str(body["zone_labels"])
