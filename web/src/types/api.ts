@@ -211,6 +211,19 @@ export interface TodayResponse {
   upcoming?: UpcomingWorkout[];
 }
 
+export interface ZoneDistribution {
+  name: string;
+  actual_pct: number;
+  target_pct: number | null;
+}
+
+export interface ZoneRange {
+  name: string;
+  lower: number;
+  upper: number | null;
+  unit: string;
+}
+
 export interface DiagnosisFinding {
   type: 'positive' | 'warning' | 'neutral';
   message: string;
@@ -228,12 +241,9 @@ export interface DiagnosisData {
     weekly_avg_km: number;
     trend: string;
   };
-  distribution: {
-    supra_cp: number;
-    threshold: number;
-    tempo: number;
-    easy: number;
-  };
+  distribution: ZoneDistribution[];
+  zone_ranges: ZoneRange[];
+  theory_name: string;
   consistency: {
     weeks_with_gaps: number;
     longest_gap_days: number;

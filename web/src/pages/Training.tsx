@@ -5,6 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import DiagnosisCard from '@/components/DiagnosisCard';
+import ZoneAnalysisCard from '@/components/ZoneAnalysisCard';
 import UpcomingPlanCard from '@/components/UpcomingPlanCard';
 import FitnessFatigueChart from '@/components/charts/FitnessFatigueChart';
 import CpTrendChart from '@/components/charts/CpTrendChart';
@@ -61,6 +62,18 @@ export default function Training() {
       <div className="mb-6">
         <DiagnosisCard diagnosis={data.diagnosis} display={activeDisplay ?? undefined} />
       </div>
+
+      {/* Zone analysis card */}
+      {data.diagnosis.zone_ranges.length > 0 && (
+        <div className="mb-6">
+          <ZoneAnalysisCard
+            distribution={data.diagnosis.distribution}
+            zoneRanges={data.diagnosis.zone_ranges}
+            theoryName={data.diagnosis.theory_name}
+            display={activeDisplay ?? undefined}
+          />
+        </div>
+      )}
 
       {/* Upcoming plan schedule */}
       <div className="mb-6">
