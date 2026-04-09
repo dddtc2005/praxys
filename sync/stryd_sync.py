@@ -624,15 +624,6 @@ def _parse_structured_description(
             })
             continue
 
-        # Threshold reps: "2x20min @235-255W w/ 5min easy"
-        threshold_match = re.match(
-            r"(\d+)x(\d+)\s*min\s+@(\d+)-(\d+)w\s+w/\s+(\d+)\s*min",
-            part_lower,
-        )
-        if threshold_match:
-            # Already handled by interval_match above
-            continue
-
         # Tempo block: "15min @220-240W"
         tempo_match = re.match(r"(\d+)\s*min\s+@(\d+)-(\d+)w", part_lower)
         if tempo_match:

@@ -121,12 +121,9 @@ export interface PlanResponse {
   cp_current?: number;
 }
 
-export interface StrydPushResult {
-  date: string;
-  status: 'success' | 'error';
-  workout_id?: string;
-  error?: string;
-}
+export type StrydPushResult =
+  | { date: string; status: 'success'; workout_id: string }
+  | { date: string; status: 'error'; error: string };
 
 export interface StrydPushStatusEntry {
   workout_id: string;

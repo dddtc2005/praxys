@@ -99,12 +99,14 @@ function StrydStatusBadge({
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger className="inline-flex">
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={onPush}
-              className="w-6 h-6 flex items-center justify-center shrink-0 text-destructive hover:text-destructive/80 cursor-pointer rounded transition-colors"
+              className="w-6 h-6 shrink-0 text-destructive hover:text-destructive/80"
             >
               <ErrorIcon className="h-3.5 w-3.5" />
-            </button>
+            </Button>
           </TooltipTrigger>
           <TooltipContent side="left">
             <p className="text-xs">{error || 'Push failed'} — click to retry</p>
@@ -136,12 +138,14 @@ function StrydStatusBadge({
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger className="inline-flex">
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onPush}
-            className="w-6 h-6 flex items-center justify-center shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground hover:!text-primary cursor-pointer rounded transition-colors"
+            className="w-6 h-6 shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground hover:!text-primary"
           >
             <UploadIcon className="h-3.5 w-3.5" />
-          </button>
+          </Button>
         </TooltipTrigger>
         <TooltipContent side="left">
           <p className="text-xs">Push to Stryd</p>
@@ -255,19 +259,25 @@ export default function UpcomingPlanCard() {
   // Check if Stryd is connected
   useEffect(() => {
     fetch('/api/settings')
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((config) => {
         if (config?.config?.connections?.includes('stryd')) setHasStryd(true);
       })
-      .catch(() => {});
+      .catch((err) => console.error('Failed to load settings:', err));
   }, []);
 
   // Load push status
   useEffect(() => {
     fetch('/api/plan/stryd-status')
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((status) => setPushStatus(status))
-      .catch(() => {});
+      .catch((err) => console.error('Failed to load Stryd push status:', err));
   }, []);
 
   const getPushState = useCallback(
@@ -289,15 +299,15 @@ export default function UpcomingPlanCard() {
       for (const d of dates) delete newErrors[d];
 
       for (const r of results) {
-        if (r.status === 'success' && r.workout_id) {
+        if (r.status === 'success') {
           newStatus[r.date] = {
             workout_id: r.workout_id,
             pushed_at: new Date().toISOString(),
             status: 'pushed',
           };
           delete newErrors[r.date];
-        } else if (r.status === 'error') {
-          newErrors[r.date] = r.error || 'Unknown error';
+        } else {
+          newErrors[r.date] = r.error;
         }
       }
 

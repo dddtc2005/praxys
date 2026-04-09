@@ -4,6 +4,7 @@ import os
 from datetime import date, datetime, timezone
 
 import pandas as pd
+import requests
 from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -59,18 +60,27 @@ def get_plan() -> dict:
 
 
 def _load_push_status() -> dict:
-    """Load the Stryd push status JSON."""
-    if os.path.exists(_STRYD_PUSH_STATUS_PATH):
+    """Load the Stryd push status JSON. Returns {} on missing or corrupt file."""
+    if not os.path.exists(_STRYD_PUSH_STATUS_PATH):
+        return {}
+    try:
         with open(_STRYD_PUSH_STATUS_PATH) as f:
-            return json.load(f)
-    return {}
+            data = json.load(f)
+            if not isinstance(data, dict):
+                raise ValueError(f"Expected dict, got {type(data).__name__}")
+            return data
+    except (json.JSONDecodeError, ValueError, OSError) as e:
+        print(f"WARNING: Corrupt push status file {_STRYD_PUSH_STATUS_PATH}: {e}")
+        return {}
 
 
 def _save_push_status(status: dict) -> None:
-    """Save the Stryd push status JSON."""
+    """Save the Stryd push status JSON atomically via temp file + rename."""
     os.makedirs(os.path.dirname(_STRYD_PUSH_STATUS_PATH), exist_ok=True)
-    with open(_STRYD_PUSH_STATUS_PATH, "w") as f:
+    tmp_path = _STRYD_PUSH_STATUS_PATH + ".tmp"
+    with open(tmp_path, "w") as f:
         json.dump(status, f, indent=2)
+    os.replace(tmp_path, _STRYD_PUSH_STATUS_PATH)
 
 
 @router.get("/plan/stryd-status")
@@ -107,7 +117,8 @@ def push_plan_to_stryd(request: PushStrydRequest) -> dict:
     try:
         user_id, token = _login_api(email, password)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Stryd login failed: {e}")
+        print(f"ERROR: Stryd login failed: {e}")
+        raise HTTPException(status_code=502, detail="Stryd login failed. Check your credentials in sync/.env")
 
     # Load AI plan data
     data = get_dashboard_data()
@@ -134,7 +145,10 @@ def push_plan_to_stryd(request: PushStrydRequest) -> dict:
                 if not valid_cp.empty:
                     cp_watts = float(valid_cp.iloc[-1])
     if not cp_watts:
-        cp_watts = 248.0  # reasonable fallback
+        raise HTTPException(
+            status_code=422,
+            detail="Cannot determine Critical Power from your data. Ensure recent activities with power data are synced before pushing to Stryd.",
+        )
 
     push_status = _load_push_status()
     results = []
@@ -184,10 +198,23 @@ def push_plan_to_stryd(request: PushStrydRequest) -> dict:
             }
             results.append({"date": workout_date, "status": "success", "workout_id": workout_id})
 
+        except requests.HTTPError as e:
+            detail = str(e)
+            if e.response is not None:
+                try:
+                    detail = e.response.json().get("message", detail)
+                except (ValueError, AttributeError):
+                    pass
+            results.append({"date": workout_date, "status": "error", "error": f"Stryd API error: {detail}"})
         except Exception as e:
+            print(f"ERROR: Failed to push workout for {workout_date}: {type(e).__name__}: {e}")
             results.append({"date": workout_date, "status": "error", "error": str(e)})
 
-    _save_push_status(push_status)
+    try:
+        _save_push_status(push_status)
+    except OSError as e:
+        print(f"WARNING: Failed to save push status: {e}")
+
     return {"results": results}
 
 
@@ -204,9 +231,20 @@ def delete_stryd_workout(workout_id: str) -> dict:
 
     try:
         user_id, token = _login_api(email, password)
-        delete_workout_api(user_id, token, workout_id)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Failed to delete from Stryd: {e}")
+        print(f"ERROR: Stryd login failed: {e}")
+        raise HTTPException(status_code=502, detail="Stryd login failed. Check your credentials in sync/.env")
+
+    try:
+        delete_workout_api(user_id, token, workout_id)
+    except requests.HTTPError as e:
+        if e.response is not None and e.response.status_code == 404:
+            pass  # Already deleted on Stryd — proceed to clean local status
+        else:
+            raise HTTPException(status_code=502, detail=f"Stryd delete failed: {e}")
+    except Exception as e:
+        print(f"ERROR: Stryd delete failed: {e}")
+        raise HTTPException(status_code=502, detail="Failed to delete from Stryd")
 
     # Remove from push status
     push_status = _load_push_status()
