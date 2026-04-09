@@ -103,16 +103,18 @@ def update_science(body: dict) -> dict:
     if "science" in body:
         for pillar, theory_id in body["science"].items():
             if pillar in PILLARS and isinstance(theory_id, str):
-                config.science[pillar] = theory_id
-
-                # When changing zone theory, apply its boundaries to config.zones
+                # When changing zone theory, validate first and apply boundaries
                 if pillar == "zones":
                     try:
                         theory = load_theory("zones", theory_id)
+                        config.science[pillar] = theory_id
                         if theory.zone_boundaries:
-                            config.zones = theory.zone_boundaries
+                            for base_key, bounds in theory.zone_boundaries.items():
+                                config.zones[base_key] = bounds
                     except FileNotFoundError:
-                        pass  # Keep existing zones if theory file missing
+                        continue  # Don't save invalid theory_id
+                else:
+                    config.science[pillar] = theory_id
 
     if "zone_labels" in body:
         config.zone_labels = str(body["zone_labels"])

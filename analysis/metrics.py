@@ -1024,7 +1024,7 @@ def diagnose_training(
                 for i in range(n_zones)
             ]
             result["zone_ranges"] = compute_zones(base, current_cp, bounds, names if zone_names else None)
-            result["theory_name"] = theory_name
+            result["theory_name"] = theory_name or ("Coggan 5-Zone" if len(bounds) == 4 else f"{n_zones}-Zone")
             _add_diagnosis_items(result, current_cp, base)
             return result
 
@@ -1143,7 +1143,7 @@ def diagnose_training(
         ]
 
     result["zone_ranges"] = compute_zones(base, current_cp, bounds, names if zone_names else None)
-    result["theory_name"] = theory_name
+    result["theory_name"] = theory_name or ("Coggan 5-Zone" if len(bounds) == 4 else f"{n_zones}-Zone")
 
     _add_diagnosis_items(result, current_cp, base)
     return result
