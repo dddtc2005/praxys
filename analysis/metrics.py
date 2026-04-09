@@ -11,6 +11,9 @@ if TYPE_CHECKING:
     from analysis.config import TrainingBase
     from analysis.providers.models import ThresholdEstimate
 
+from analysis.zones import compute_zones, _DEFAULT_NAMES as _ZONE_DEFAULT_NAMES
+from analysis.config import DEFAULT_ZONES
+
 # Distance configs: km, sustainable power fraction of CP, display label.
 # Power fractions for 5K–marathon from Stryd Race Power Calculator
 # (https://help.stryd.com/en/articles/6879547-race-power-calculator).
@@ -893,6 +896,10 @@ def diagnose_training(
     current_date: date | None = None,
     base: TrainingBase = "power",
     threshold_value: float | None = None,
+    zone_boundaries: list[float] | None = None,
+    zone_names: list[str] | None = None,
+    target_distribution: list[float] | None = None,
+    theory_name: str | None = None,
 ) -> dict:
     """Analyze recent training and diagnose issues holding back threshold progression.
 
@@ -906,6 +913,10 @@ def diagnose_training(
         current_date: override for testing (defaults to today)
         base: training base ("power", "hr", or "pace")
         threshold_value: threshold for the active base (CP watts, LTHR bpm, or threshold pace sec/km)
+        zone_boundaries: zone boundary fractions (N boundaries -> N+1 zones); defaults to Coggan 5-zone
+        zone_names: names for each zone (must be len(boundaries)+1); defaults per base
+        target_distribution: target fraction for each zone (must sum to ~1.0); optional
+        theory_name: name of the zone theory (e.g. "Seiler Polarized 3-Zone"); optional
     """
     today = current_date or date.today()
     cutoff = today - timedelta(weeks=lookback_weeks)
@@ -1004,8 +1015,17 @@ def diagnose_training(
         else:
             result["diagnosis"].append({"type": "warning", "message": "No split data available — interval analysis skipped."})
             result["interval_power"] = {"max": None, "avg_work": None, "supra_cp_sessions": 0, "total_quality_sessions": 0}
-            result["distribution"] = {"supra_cp": 0, "threshold": 0, "tempo": 0, "easy": 100}
-            _add_diagnosis_items(result, current_cp)
+            bounds = zone_boundaries or DEFAULT_ZONES.get(base, DEFAULT_ZONES["power"])
+            n_zones = len(bounds) + 1
+            names = zone_names if (zone_names and len(zone_names) == n_zones) else _ZONE_DEFAULT_NAMES.get(base, [f"Zone {i+1}" for i in range(n_zones)])
+            targets = [round(t * 100) for t in target_distribution] if target_distribution and len(target_distribution) == n_zones else [None] * n_zones
+            result["distribution"] = [
+                {"name": names[i], "actual_pct": 100 if i == 0 else 0, "target_pct": targets[i]}
+                for i in range(n_zones)
+            ]
+            result["zone_ranges"] = compute_zones(base, current_cp, bounds, names if zone_names else None)
+            result["theory_name"] = theory_name
+            _add_diagnosis_items(result, current_cp, base)
             return result
 
     # Join splits with activity dates
@@ -1070,7 +1090,12 @@ def diagnose_training(
         "total_quality_sessions": total_quality_sessions,
     }
 
-    # --- Training distribution ---
+    # --- Training distribution (dynamic zones) ---
+    bounds = zone_boundaries or DEFAULT_ZONES.get(base, DEFAULT_ZONES["power"])
+    n_zones = len(bounds) + 1
+    names = zone_names if (zone_names and len(zone_names) == n_zones) else _ZONE_DEFAULT_NAMES.get(base, [f"Zone {i+1}" for i in range(n_zones)])
+    targets = [round(t * 100) for t in target_distribution] if target_distribution and len(target_distribution) == n_zones else [None] * n_zones
+
     if "activity_id" in recent_splits.columns:
         if base == "pace":
             activity_best = recent_splits.groupby(recent_splits["activity_id"].astype(str))[metric_col].min()
@@ -1081,24 +1106,44 @@ def diagnose_training(
 
     total_activities = len(recent)
     if total_activities > 0 and not activity_best.empty and current_cp > 0:
-        if base == "pace":
-            # For pace: faster (lower) = harder intensity
-            supra = int((activity_best <= current_cp * 1.00).sum())
-            threshold_count = int(((activity_best > current_cp * 1.00) & (activity_best <= current_cp * 1.06)).sum())
-            tempo = int(((activity_best > current_cp * 1.06) & (activity_best <= current_cp * 1.14)).sum())
-        else:
-            supra = int((activity_best >= current_cp * 0.98).sum())
-            threshold_count = int(((activity_best >= current_cp * 0.92) & (activity_best < current_cp * 0.98)).sum())
-            tempo = int(((activity_best >= current_cp * 0.85) & (activity_best < current_cp * 0.92)).sum())
-        easy = total_activities - supra - threshold_count - tempo
-        result["distribution"] = {
-            "supra_cp": round(supra / total_activities * 100),
-            "threshold": round(threshold_count / total_activities * 100),
-            "tempo": round(tempo / total_activities * 100),
-            "easy": round(easy / total_activities * 100),
-        }
+        # Classify each activity into a zone based on its best split value
+        zone_counts = [0] * n_zones
+        for val in activity_best:
+            if base == "pace":
+                # For pace: lower value = faster = harder. Compute ratio as threshold/value.
+                ratio = current_cp / val if val > 0 else 0
+                inv_bounds = [1.0 / b if b > 0 else 0 for b in bounds]
+                assigned = 0
+                for i in range(len(inv_bounds) - 1, -1, -1):
+                    if ratio >= inv_bounds[i]:
+                        assigned = i + 1
+                        break
+            else:
+                # For power/HR: higher = harder
+                ratio = val / current_cp if current_cp > 0 else 0
+                assigned = 0
+                for i in range(len(bounds) - 1, -1, -1):
+                    if ratio >= bounds[i]:
+                        assigned = i + 1
+                        break
+            zone_counts[assigned] += 1
+
+        result["distribution"] = [
+            {
+                "name": names[i],
+                "actual_pct": round(zone_counts[i] / total_activities * 100),
+                "target_pct": targets[i],
+            }
+            for i in range(n_zones)
+        ]
     else:
-        result["distribution"] = {"supra_cp": 0, "threshold": 0, "tempo": 0, "easy": 100}
+        result["distribution"] = [
+            {"name": names[i], "actual_pct": 100 if i == 0 else 0, "target_pct": targets[i]}
+            for i in range(n_zones)
+        ]
+
+    result["zone_ranges"] = compute_zones(base, current_cp, bounds, names if zone_names else None)
+    result["theory_name"] = theory_name
 
     _add_diagnosis_items(result, current_cp, base)
     return result
@@ -1188,16 +1233,32 @@ def _add_diagnosis_items(result: dict, current_threshold: float, base: TrainingB
             "message": f"Peak interval {labels['metric']}: {max_val:.0f}{t_unit} ({pct:.0f}% of {t_name}) across {quality} quality sessions.",
         })
 
-    # Distribution check
-    easy_pct = dist.get("easy", 0)
-    hard_pct = dist.get("supra_cp", 0) + dist.get("threshold", 0)
-    if easy_pct > 85 and hard_pct < 10:
-        diag.append({
-            "type": "warning",
-            "message": f"Training is {easy_pct}% easy — insufficient hard sessions for {t_name} adaptation.",
-        })
-    elif 70 <= easy_pct <= 85:
-        diag.append({
-            "type": "positive",
-            "message": f"Good polarization: {easy_pct}% easy, {hard_pct}% hard.",
-        })
+    # Distribution check (dist is a list of zone dicts)
+    if isinstance(dist, list) and len(dist) > 0:
+        easy_pct = dist[0].get("actual_pct", 0)
+        hard_pct = sum(d.get("actual_pct", 0) for d in dist[2:])  # zones above the 2nd
+        has_targets = any(d.get("target_pct") is not None for d in dist)
+
+        if has_targets:
+            # Compare actual vs target, flag deviations > 5 percentage points
+            for d in dist:
+                target = d.get("target_pct")
+                actual = d.get("actual_pct", 0)
+                if target is not None and abs(actual - target) > 5:
+                    direction = "over" if actual > target else "under"
+                    diag.append({
+                        "type": "warning",
+                        "message": f"{d['name']} zone is {direction}-represented: {actual}% actual vs {target}% target.",
+                    })
+        else:
+            # Generic polarization check (no targets available)
+            if easy_pct > 85 and hard_pct < 10:
+                diag.append({
+                    "type": "warning",
+                    "message": f"Training is {easy_pct}% easy — insufficient hard sessions for {t_name} adaptation.",
+                })
+            elif 70 <= easy_pct <= 85:
+                diag.append({
+                    "type": "positive",
+                    "message": f"Good polarization: {easy_pct}% easy, {hard_pct}% hard.",
+                })
