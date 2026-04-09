@@ -289,51 +289,67 @@ def _build_compliance(
 
     # Compute planned weekly RSS from training plan
     planned_weekly: list[float] = []
+    planned_estimated = False
     if not plan.empty and "date" in plan.columns:
         plan_copy = plan.copy()
-        plan_copy["_date"] = pd.to_datetime(plan_copy["date"])
-        plan_copy["_week"] = plan_copy["_date"].dt.isocalendar().week
-        plan_copy["_year"] = plan_copy["_date"].dt.isocalendar().year
+        plan_copy["_date"] = pd.to_datetime(plan_copy["date"], errors="coerce")
+        plan_copy = plan_copy.dropna(subset=["_date"])
+        if not plan_copy.empty:
+            plan_copy["_week"] = plan_copy["_date"].dt.isocalendar().week
+            plan_copy["_year"] = plan_copy["_date"].dt.isocalendar().year
 
-        # Estimate per-workout load from plan targets
-        plan_loads = []
-        for _, row in plan_copy.iterrows():
-            dur_min = pd.to_numeric(
-                pd.Series([row.get("planned_duration_min", 0)]), errors="coerce"
-            ).iloc[0]
-            dur_sec = float(dur_min) * 60 if pd.notna(dur_min) and dur_min > 0 else 0
-            if dur_sec <= 0:
-                plan_loads.append(0.0)
-                continue
-            p_min = pd.to_numeric(pd.Series([row.get("target_power_min")]), errors="coerce").iloc[0]
-            p_max = pd.to_numeric(pd.Series([row.get("target_power_max")]), errors="coerce").iloc[0]
-            if pd.notna(p_min) and pd.notna(p_max) and p_min > 0:
-                avg_power = (float(p_min) + float(p_max)) / 2
-            elif pd.notna(p_max) and p_max > 0:
-                avg_power = float(p_max) * 0.85
-            else:
-                avg_power = None
-            cp = thresholds.cp_watts if thresholds and thresholds.cp_watts else None
-            if avg_power and cp and cp > 0:
-                plan_loads.append(compute_rss(dur_sec, avg_power, cp))
-            else:
-                # Fallback: ~60 RSS per hour (moderate effort)
-                plan_loads.append((dur_sec / 3600) * 60)
-        plan_copy["_load"] = plan_loads
-        weekly_planned = plan_copy.groupby(["_year", "_week"])["_load"].sum()
+            # Estimate per-workout load from plan targets
+            plan_loads = []
+            for _, row in plan_copy.iterrows():
+                dur_min = pd.to_numeric(
+                    pd.Series([row.get("planned_duration_min", 0)]), errors="coerce"
+                ).iloc[0]
+                dur_sec = float(dur_min) * 60 if pd.notna(dur_min) and dur_min > 0 else 0
+                if dur_sec <= 0:
+                    plan_loads.append(0.0)
+                    continue
+                p_min = pd.to_numeric(pd.Series([row.get("target_power_min")]), errors="coerce").iloc[0]
+                p_max = pd.to_numeric(pd.Series([row.get("target_power_max")]), errors="coerce").iloc[0]
+                if pd.notna(p_min) and pd.notna(p_max) and p_min > 0:
+                    avg_power = (float(p_min) + float(p_max)) / 2
+                elif pd.notna(p_max) and p_max > 0:
+                    avg_power = float(p_max) * 0.85
+                else:
+                    avg_power = None
+                cp = thresholds.cp_watts if thresholds and thresholds.cp_watts else None
+                if avg_power and cp and cp > 0:
+                    plan_loads.append(compute_rss(dur_sec, avg_power, cp))
+                else:
+                    # Fallback: ~60 RSS per hour. This is a rough estimate
+                    # when power targets are unavailable.
+                    plan_loads.append((dur_sec / 3600) * 60)
+                    planned_estimated = True
+            plan_copy["_load"] = plan_loads
+            weekly_planned = plan_copy.groupby(["_year", "_week"])["_load"].sum()
 
-        # Align planned weeks to actual weeks
-        if not weekly_actual.empty:
-            for idx in weekly_actual.index:
+            # Build planned list for all weeks that have either actuals or plan
+            all_indices = set(weekly_actual.index) | set(weekly_planned.index)
+            for idx in sorted(all_indices):
                 if idx in weekly_planned.index:
                     planned_weekly.append(round(float(weekly_planned[idx]), 1))
                 else:
                     planned_weekly.append(0)
 
+    # Align planned to actual weeks
+    aligned_planned: list[float] = []
+    if not weekly_actual.empty and not plan.empty and "_load" in plan_copy.columns:
+        weekly_planned_series = plan_copy.groupby(["_year", "_week"])["_load"].sum()
+        for idx in weekly_actual.index:
+            if idx in weekly_planned_series.index:
+                aligned_planned.append(round(float(weekly_planned_series[idx]), 1))
+            else:
+                aligned_planned.append(0)
+
     return {
         "weeks": weeks[-8:],
         "actual_rss": [round(float(v), 1) for v in weekly_actual.values][-8:],
-        "planned_rss": planned_weekly[-8:] if planned_weekly else [],
+        "planned_rss": aligned_planned[-8:] if aligned_planned else [],
+        "planned_estimated": planned_estimated,
     }
 
 
@@ -899,12 +915,17 @@ def get_dashboard_data() -> dict:
 
     planned_today, planned_detail = _get_todays_plan(plan, today)
 
+    # Determine HRV-only mode based on active recovery theory
+    recovery_theory = science.get("recovery")
+    hrv_only_mode = recovery_theory.id == "hrv_weighted" if recovery_theory else False
+
     signal = daily_training_signal(
         recovery_analysis,
         current_tsb,
         planned_today,
         planned_detail=planned_detail,
         signal_thresholds=load_theory.signal if load_theory else None,
+        hrv_only=hrv_only_mode,
     )
 
     # Chart data — fitness/fatigue (last 60 days from display window)

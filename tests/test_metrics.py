@@ -64,9 +64,9 @@ def test_analyze_recovery_fatigued():
 
 
 def test_analyze_recovery_insufficient_data():
-    """Too few data points → default normal status, no HRV analysis."""
+    """Too few data points → insufficient_data status, no HRV analysis."""
     analysis = analyze_recovery([50, 48, 52])
-    assert analysis["status"] == "normal"
+    assert analysis["status"] == "insufficient_data"
     assert analysis["hrv"] is None
 
 
@@ -92,6 +92,147 @@ def test_daily_training_signal_hrv_warning():
     signal = daily_training_signal(analysis, tsb=-5, planned_workout="interval")
     assert signal["recommendation"] in ["rest", "easy", "reduce_intensity"]
     assert "hrv" in signal["reason"].lower() or "declining" in signal["reason"].lower()
+
+
+def test_analyze_recovery_cv_override():
+    """High CV (>10%) should downgrade fresh → normal."""
+    # Create a series with high variability in the last 7 days
+    stable = [50.0] * 23
+    volatile = [30.0, 70.0, 25.0, 75.0, 35.0, 65.0, 40.0]  # high CV
+    series = stable + volatile
+    # Today is high (would be "fresh" by threshold alone)
+    analysis = analyze_recovery(series, today_hrv_ms=70.0)
+    # CV should be high from the volatile week
+    assert analysis["hrv"] is not None
+    assert analysis["hrv"]["rolling_cv"] > 10
+    # Status should NOT be "fresh" due to CV override
+    assert analysis["status"] != "fresh"
+
+
+def test_analyze_recovery_declining_trend_override():
+    """Declining trend should downgrade fresh → normal."""
+    # Build a series with clear downward slope over 14+ days
+    # but set today high enough to pass the fresh threshold
+    baseline = [60.0] * 16
+    declining = [60 - i * 2.5 for i in range(14)]  # 60 → 27.5
+    series = baseline + declining
+    # Today is high (would classify as "fresh" vs the now-lower recent baseline)
+    analysis = analyze_recovery(series, today_hrv_ms=65.0)
+    assert analysis["hrv"] is not None
+    assert analysis["hrv"]["trend"] == "declining"
+    # Fresh should be overridden to normal
+    assert analysis["status"] != "fresh"
+
+
+def test_analyze_recovery_zero_hrv_values():
+    """Series with zero/negative values should be handled gracefully."""
+    # Mix of valid and invalid values
+    series = [50.0, 0.0, 48.0, -5.0, 52.0, 0.0, 47.0, 51.0, 49.0, 53.0]
+    analysis = analyze_recovery(series, today_hrv_ms=50.0)
+    # Should work — zeros/negatives filtered out, enough valid data remains
+    assert analysis["hrv"] is not None
+    assert analysis["status"] in ["fresh", "normal", "fatigued"]
+
+
+def test_analyze_recovery_invalid_today():
+    """today_hrv_ms of 0 should return insufficient_data, not stale value."""
+    series = _make_hrv_series(50.0, 30)
+    analysis = analyze_recovery(series, today_hrv_ms=0.0)
+    assert analysis["status"] == "insufficient_data"
+    assert analysis["hrv"] is None
+
+
+def test_analyze_recovery_rhr_trend():
+    """RHR trend classification should work correctly."""
+    series = _make_hrv_series(50.0, 30)
+    # RHR with natural variance (SD ≈ 2 bpm)
+    import random
+    random.seed(99)
+    rhr = [52.0 + random.gauss(0, 2) for _ in range(30)]
+
+    # Elevated RHR
+    analysis = analyze_recovery(series, today_hrv_ms=50.0, today_rhr=62.0, rhr_series=rhr)
+    assert analysis["rhr_trend"] == "elevated"
+
+    # Low RHR
+    analysis = analyze_recovery(series, today_hrv_ms=50.0, today_rhr=44.0, rhr_series=rhr)
+    assert analysis["rhr_trend"] == "low"
+
+    # Stable RHR
+    analysis = analyze_recovery(series, today_hrv_ms=50.0, today_rhr=52.0, rhr_series=rhr)
+    assert analysis["rhr_trend"] == "stable"
+
+
+def test_daily_training_signal_fatigued_easy_workout():
+    """Fatigued + easy workout → easy (not rest)."""
+    series = _make_hrv_series(50.0, 30)
+    analysis = analyze_recovery(series, today_hrv_ms=30.0)  # fatigued
+    signal = daily_training_signal(analysis, tsb=-10, planned_workout="easy")
+    assert signal["recommendation"] == "easy"
+
+
+def test_daily_training_signal_high_cv():
+    """High CV + hard workout → modify."""
+    analysis = {
+        "status": "normal",
+        "hrv": {"today_ms": 50, "today_ln": 3.9, "baseline_mean_ln": 3.85,
+                "baseline_sd_ln": 0.15, "threshold_ln": 3.7, "swc_upper_ln": 3.93,
+                "rolling_mean_ln": 3.9, "rolling_cv": 15.0, "trend": "stable"},
+        "sleep_score": 80, "resting_hr": 52, "rhr_trend": "stable",
+    }
+    signal = daily_training_signal(analysis, tsb=-5, planned_workout="interval")
+    assert signal["recommendation"] == "modify"
+    assert "cv" in signal["reason"].lower()
+
+
+def test_daily_training_signal_poor_sleep():
+    """Poor sleep + hard workout → modify (composite mode only)."""
+    analysis = {
+        "status": "normal",
+        "hrv": {"today_ms": 50, "today_ln": 3.9, "baseline_mean_ln": 3.85,
+                "baseline_sd_ln": 0.15, "threshold_ln": 3.7, "swc_upper_ln": 3.93,
+                "rolling_mean_ln": 3.9, "rolling_cv": 5.0, "trend": "stable"},
+        "sleep_score": 40, "resting_hr": 52, "rhr_trend": "stable",
+    }
+    signal = daily_training_signal(analysis, tsb=-5, planned_workout="threshold")
+    assert signal["recommendation"] == "modify"
+    assert "sleep" in signal["reason"].lower()
+
+
+def test_daily_training_signal_poor_sleep_hrv_only():
+    """In HRV-only mode, poor sleep does NOT modify the recommendation."""
+    analysis = {
+        "status": "normal",
+        "hrv": {"today_ms": 50, "today_ln": 3.9, "baseline_mean_ln": 3.85,
+                "baseline_sd_ln": 0.15, "threshold_ln": 3.7, "swc_upper_ln": 3.93,
+                "rolling_mean_ln": 3.9, "rolling_cv": 5.0, "trend": "stable"},
+        "sleep_score": 40, "resting_hr": 52, "rhr_trend": "stable",
+    }
+    signal = daily_training_signal(analysis, tsb=-5, planned_workout="threshold", hrv_only=True)
+    assert signal["recommendation"] == "follow_plan"
+
+
+def test_daily_training_signal_elevated_rhr():
+    """Elevated RHR + hard workout → modify (composite mode only)."""
+    analysis = {
+        "status": "normal",
+        "hrv": {"today_ms": 50, "today_ln": 3.9, "baseline_mean_ln": 3.85,
+                "baseline_sd_ln": 0.15, "threshold_ln": 3.7, "swc_upper_ln": 3.93,
+                "rolling_mean_ln": 3.9, "rolling_cv": 5.0, "trend": "stable"},
+        "sleep_score": 80, "resting_hr": 62, "rhr_trend": "elevated",
+    }
+    signal = daily_training_signal(analysis, tsb=-5, planned_workout="interval")
+    assert signal["recommendation"] == "modify"
+    assert "heart rate" in signal["reason"].lower()
+
+
+def test_daily_training_signal_insufficient_data():
+    """Insufficient data → follow plan with caveat."""
+    analysis = {"status": "insufficient_data", "hrv": None, "sleep_score": None,
+                "resting_hr": None, "rhr_trend": None}
+    signal = daily_training_signal(analysis, tsb=0, planned_workout="tempo")
+    assert signal["recommendation"] == "follow_plan"
+    assert "no recovery data" in signal["reason"].lower()
 
 
 def test_cp_milestone_on_track():

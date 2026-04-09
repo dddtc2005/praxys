@@ -44,7 +44,7 @@ function parseDescription(desc: string, totalMin: number): WorkoutPhase[] | null
     // Determine intensity from description context
     const isThreshold = lower.includes('threshold') || lower.includes('tempo');
     const isHard = lower.includes('vo2') || lower.includes('hard') || lower.includes('fast');
-    const mainIntensity: Intensity = isHard ? 'very_hard' : isThreshold ? 'hard' : 'hard';
+    const mainIntensity: Intensity = isHard ? 'very_hard' : isThreshold ? 'hard' : 'moderate';
 
     for (let i = 0; i < reps; i++) {
       phases.push({
@@ -128,18 +128,18 @@ function typeTemplate(workoutType: string, totalMin: number): WorkoutPhase[] {
     const warmup = Math.round(totalMin * 0.15);
     const cooldown = Math.round(totalMin * 0.15);
     const main = totalMin - warmup - cooldown;
-    const repMin = Math.round(main / 2);
-    const restMin = main - repMin * 2 > 0 ? main - repMin * 2 : Math.round(repMin * 0.25);
+    const repMin = Math.floor(main / 2);  // floor to stay within budget
+    const restMin = main - repMin * 2;    // remaining time becomes recovery
     return [
       { label: 'Warmup', duration_min: warmup, intensity: 'easy' },
       { label: 'Threshold', duration_min: repMin, intensity: 'hard' },
-      { label: 'Recovery', duration_min: restMin, intensity: 'rest' },
+      ...(restMin > 0 ? [{ label: 'Recovery', duration_min: restMin, intensity: 'rest' as Intensity }] : []),
       { label: 'Threshold', duration_min: repMin, intensity: 'hard' },
       { label: 'Cooldown', duration_min: cooldown, intensity: 'easy' },
     ];
   }
 
-  if (HARD_TYPES.has(t) || t === 'interval') {
+  if (HARD_TYPES.has(t)) {
     const warmup = Math.round(totalMin * 0.15);
     const cooldown = Math.round(totalMin * 0.15);
     const main = totalMin - warmup - cooldown;

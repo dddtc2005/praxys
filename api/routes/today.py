@@ -27,8 +27,10 @@ def _last_activity(activities: list[dict]) -> dict | None:
     if not activities:
         return None
     act = activities[0]  # already sorted descending by date
+    if not act.get("date"):
+        return None
     return {
-        "date": act.get("date", ""),
+        "date": act["date"],
         "activity_type": act.get("activity_type", ""),
         "distance_km": act.get("distance_km"),
         "duration_sec": act.get("duration_sec"),
@@ -60,14 +62,21 @@ def _upcoming_workouts(plan_df: pd.DataFrame, limit: int = 3) -> list[dict]:
     if "date" not in plan_df.columns:
         return []
     df = plan_df.copy()
-    df["date_str"] = df["date"].astype(str)
+    df["_date"] = pd.to_datetime(df["date"], errors="coerce")
+    df = df.dropna(subset=["_date"])
+    if df.empty:
+        return []
+    df["date_str"] = df["_date"].dt.strftime("%Y-%m-%d")
     future = df[df["date_str"] > today_str].sort_values("date_str").head(limit)
     result = []
     for _, row in future.iterrows():
+        dur = row.get("planned_duration_min")
+        if dur is None or (isinstance(dur, float) and dur != dur):  # NaN check
+            dur = row.get("duration_min")
         result.append({
-            "date": str(row.get("date", "")),
+            "date": row["date_str"],
             "workout_type": str(row.get("workout_type", "")),
-            "duration_min": row.get("planned_duration_min") or row.get("duration_min"),
+            "duration_min": dur if dur is not None and dur == dur else None,
         })
     return result
 

@@ -150,13 +150,16 @@ export interface HrvAnalysis {
   baseline_mean_ln: number;
   baseline_sd_ln: number;
   threshold_ln: number;
+  swc_upper_ln: number;
   rolling_mean_ln: number;
   rolling_cv: number;
   trend: 'stable' | 'improving' | 'declining';
 }
 
+export type RecoveryStatus = 'fresh' | 'normal' | 'fatigued' | 'insufficient_data';
+
 export interface RecoveryAnalysis {
-  status: 'fresh' | 'normal' | 'fatigued';
+  status: RecoveryStatus;
   hrv: HrvAnalysis | null;
   sleep_score: number | null;
   resting_hr: number | null;

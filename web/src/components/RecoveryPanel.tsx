@@ -1,9 +1,8 @@
-import type { RecoveryData, RecoveryTheoryMeta, RecoveryAnalysis } from '@/types/api';
+import type { RecoveryData, RecoveryTheoryMeta, RecoveryAnalysis, RecoveryStatus } from '@/types/api';
 import { useScience, tsbZoneFromConfig } from '@/contexts/ScienceContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import ScienceNote from '@/components/ScienceNote';
-import { useChartColors } from '@/hooks/useChartColors';
 
 interface Props {
   recovery: RecoveryData;
@@ -11,37 +10,38 @@ interface Props {
   analysis?: RecoveryAnalysis;
 }
 
-const STATUS_CONFIG = {
-  fresh: { label: 'Fresh', class: 'text-primary', badgeBg: 'bg-primary/10 text-primary', desc: 'HRV above baseline' },
+const STATUS_CONFIG: Record<string, { label: string; class: string; badgeBg: string; desc: string }> = {
+  fresh: { label: 'Fresh', class: 'text-primary', badgeBg: 'bg-primary/10 text-primary', desc: 'HRV above baseline (Plews SWC)' },
   normal: { label: 'Normal', class: 'text-foreground', badgeBg: 'bg-muted text-muted-foreground', desc: 'HRV within normal range' },
-  fatigued: { label: 'Fatigued', class: 'text-destructive', badgeBg: 'bg-destructive/10 text-destructive', desc: 'HRV below threshold' },
-} as const;
+  fatigued: { label: 'Fatigued', class: 'text-destructive', badgeBg: 'bg-destructive/10 text-destructive', desc: 'HRV below threshold (Kiviniemi)' },
+  insufficient_data: { label: 'No Data', class: 'text-muted-foreground', badgeBg: 'bg-muted text-muted-foreground', desc: 'Insufficient HRV data for analysis' },
+};
+const DEFAULT_STATUS = STATUS_CONFIG.normal;
 
-const TREND_LABELS = {
+const TREND_LABELS: Record<string, { symbol: string; label: string; class: string }> = {
   stable: { symbol: '\u2192', label: 'Stable', class: 'text-muted-foreground' },
   improving: { symbol: '\u2191', label: 'Improving', class: 'text-primary' },
   declining: { symbol: '\u2193', label: 'Declining', class: 'text-destructive' },
-} as const;
+};
 
-const RHR_LABELS = {
+const RHR_LABELS: Record<string, { label: string; class: string }> = {
   stable: { label: 'Normal', class: 'text-muted-foreground' },
   elevated: { label: 'Elevated', class: 'text-destructive' },
   low: { label: 'Low', class: 'text-primary' },
-} as const;
+};
 
 export default function RecoveryPanel({ recovery, theoryMeta, analysis }: Props) {
   const { tsbZones } = useScience();
   const tsbZone = tsbZoneFromConfig(recovery.tsb, tsbZones);
-  const chartColors = useChartColors();
 
   const headerTitle = theoryMeta
     ? `Recovery \u00b7 ${theoryMeta.name}`
     : 'Recovery';
 
-  const status = analysis?.status ?? 'normal';
-  const statusCfg = STATUS_CONFIG[status];
+  const status: RecoveryStatus = analysis?.status ?? 'normal';
+  const statusCfg = STATUS_CONFIG[status] ?? DEFAULT_STATUS;
   const hrv = analysis?.hrv;
-  const trendCfg = hrv ? TREND_LABELS[hrv.trend] : null;
+  const trendCfg = hrv ? (TREND_LABELS[hrv.trend] ?? TREND_LABELS.stable) : null;
 
   return (
     <Card>
@@ -51,7 +51,7 @@ export default function RecoveryPanel({ recovery, theoryMeta, analysis }: Props)
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {/* Status — categorical output from Kiviniemi protocol */}
+        {/* Status — categorical output from Kiviniemi/Plews protocols */}
         <div className="rounded-xl bg-muted p-4 mb-3">
           <div className="flex items-center justify-between mb-1">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -126,7 +126,7 @@ export default function RecoveryPanel({ recovery, theoryMeta, analysis }: Props)
         </p>
         <div className="grid grid-cols-3 gap-2 mb-3">
           <div className="rounded-lg bg-muted p-3">
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1" style={{ color: `${chartColors.fitness}99` }}>
+            <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">
               Sleep
             </p>
             <span className={`text-lg font-bold font-data ${
@@ -138,7 +138,7 @@ export default function RecoveryPanel({ recovery, theoryMeta, analysis }: Props)
             </span>
           </div>
           <div className="rounded-lg bg-muted p-3">
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1" style={{ color: `${chartColors.threshold}99` }}>
+            <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">
               RHR
             </p>
             <div className="flex items-baseline gap-1">
@@ -149,7 +149,7 @@ export default function RecoveryPanel({ recovery, theoryMeta, analysis }: Props)
                 <span className="text-[9px] text-muted-foreground">bpm</span>
               )}
             </div>
-            {analysis?.rhr_trend && (
+            {analysis?.rhr_trend && RHR_LABELS[analysis.rhr_trend] && (
               <span className={`text-[9px] ${RHR_LABELS[analysis.rhr_trend].class}`}>
                 {RHR_LABELS[analysis.rhr_trend].label}
               </span>
@@ -166,7 +166,7 @@ export default function RecoveryPanel({ recovery, theoryMeta, analysis }: Props)
         </div>
 
         <ScienceNote
-          text="Recovery status is determined by comparing today's ln(RMSSD) to your personal baseline mean minus 1 standard deviation (Kiviniemi et al, 2007). The 7-day trend and coefficient of variation (CV) are monitored per Plews et al (2012) — a declining trend or CV above 10% signals autonomic disturbance. Sleep, RHR, and TSB are shown as informational context but are not combined into a weighted score."
+          text="Recovery status uses ln(RMSSD) compared to your personal baseline. 'Fatigued' = below baseline mean minus 1 SD (Kiviniemi et al, 2007 threshold). 'Fresh' = above baseline mean plus 0.5 SD (Plews et al, 2012 smallest worthwhile change). The 7-day trend and CV are monitored per Plews — declining trend or CV above 10% signals autonomic disturbance. Sleep, RHR, and TSB are shown as informational context."
           sourceUrl="https://link.springer.com/article/10.1007/s00421-012-2354-4"
           sourceLabel="Plews et al (2012)"
         />

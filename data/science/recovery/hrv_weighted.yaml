@@ -15,13 +15,15 @@ simple_description: >
 advanced_description: |
   ## HRV-Primary Recovery Assessment
 
-  Uses the same Plews/Kiviniemi ln(RMSSD) analysis as the composite model,
-  but with stricter HRV-driven decisions:
+  Uses the same Plews/Kiviniemi ln(RMSSD) analysis as the composite model
+  for HRV status classification (Fresh / Normal / Fatigued), but with
+  stricter HRV-only training decisions:
 
   **Key difference from composite:**
-  - Sleep and RHR do NOT modify the recommendation
-  - HRV status alone drives the Fresh / Normal / Fatigued decision
-  - CV threshold is enforced more strictly (any CV > 10% → modify)
+  - Sleep quality and RHR do NOT modify the training recommendation
+  - Only HRV status, HRV trend, and CV drive Go/Modify/Rest decisions
+  - In composite mode, poor sleep (<55) or elevated RHR can trigger
+    "modify" for hard sessions; in HRV-Primary mode, they do not
 
   **Data requirement:** ≥ 80% daily HRV recordings for reliable baseline.
   Below this threshold, consider the composite model instead.

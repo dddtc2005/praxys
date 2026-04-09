@@ -19,12 +19,18 @@ advanced_description: |
   - Log-transformed nocturnal RMSSD from Oura Ring
   - Compared to 30-day rolling mean and standard deviation
 
-  **Status determination (Kiviniemi et al, 2007):**
-  | Condition | Status | Action |
+  **Status determination (combining Kiviniemi + Plews):**
+  | Condition | Status | Source |
   |-----------|--------|--------|
-  | ln(RMSSD) > mean + 0.5 SD | Fresh | Full training |
-  | mean − 1 SD ≤ ln(RMSSD) ≤ mean + 0.5 SD | Normal | Follow plan |
-  | ln(RMSSD) < mean − 1 SD | Fatigued | Rest or easy only |
+  | ln(RMSSD) > mean + 0.5 SD | Fresh | Plews SWC (smallest worthwhile change) |
+  | mean − 1 SD ≤ ln(RMSSD) ≤ mean + 0.5 SD | Normal | Between thresholds |
+  | ln(RMSSD) < mean − 1 SD | Fatigued | Kiviniemi threshold |
+  | < 5 HRV readings | Insufficient Data | Cannot classify |
+
+  Note: Kiviniemi's original protocol was binary (above/below mean − 1 SD).
+  The "Fresh" upper bound uses Plews' SWC concept (±0.5 SD = smallest
+  meaningful change) to add a third zone. Kiviniemi used HF power; we use
+  RMSSD as a validated proxy (both reflect parasympathetic activity).
 
   **Trend monitoring (Plews et al, 2012):**
   - 7-day rolling mean of ln(RMSSD): declining trend signals maladaptation
