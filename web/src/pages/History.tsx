@@ -1,6 +1,19 @@
 import { useState, useEffect } from 'react';
 import type { HistoryResponse } from '@/types/api';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import ActivityCard from '@/components/ActivityCard';
+
+function HistorySkeleton() {
+  return (
+    <div className="space-y-3">
+      {[...Array(5)].map((_, i) => (
+        <Skeleton key={i} className="h-32 rounded-2xl" />
+      ))}
+    </div>
+  );
+}
 
 export default function History() {
   const [data, setData] = useState<HistoryResponse | null>(null);
@@ -55,24 +68,15 @@ export default function History() {
         )}
       </div>
 
-      {/* Loading state */}
-      {loading && (
-        <div className="flex items-center justify-center py-20">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        </div>
-      )}
+      {loading && <HistorySkeleton />}
 
-      {/* Error state */}
       {error && !loading && (
-        <div className="rounded-2xl bg-card p-6 text-center">
-          <p className="text-destructive font-medium mb-1">
-            Failed to load activities
-          </p>
-          <p className="text-sm text-muted-foreground">{error}</p>
-        </div>
+        <Alert variant="destructive">
+          <AlertTitle>Failed to load activities</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
-      {/* Activity feed */}
       {data && !loading && !error && (
         <>
           {data.activities.length === 0 ? (
@@ -90,16 +94,13 @@ export default function History() {
           {/* Pagination controls */}
           {total > limit && (
             <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
-              <button
-                type="button"
+              <Button
+                variant="outline"
                 disabled={!hasPrev}
                 onClick={() => setOffset((o) => Math.max(0, o - limit))}
-                className={`rounded-lg px-4 py-2 text-sm font-medium bg-card hover:bg-muted transition-colors ${
-                  !hasPrev ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
               >
                 Previous
-              </button>
+              </Button>
 
               <span className="text-sm text-muted-foreground">
                 Showing{' '}
@@ -109,16 +110,13 @@ export default function History() {
                 of <span className="font-data">{total}</span>
               </span>
 
-              <button
-                type="button"
+              <Button
+                variant="outline"
                 disabled={!hasNext}
                 onClick={() => setOffset((o) => o + limit)}
-                className={`rounded-lg px-4 py-2 text-sm font-medium bg-card hover:bg-muted transition-colors ${
-                  !hasNext ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
               >
                 Next
-              </button>
+              </Button>
             </div>
           )}
         </>

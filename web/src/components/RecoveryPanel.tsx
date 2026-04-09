@@ -1,5 +1,6 @@
 import type { RecoveryData } from '@/types/api';
 import { useScience, tsbZoneFromConfig } from '@/contexts/ScienceContext';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface Props {
   recovery: RecoveryData;
@@ -53,10 +54,13 @@ export default function RecoveryPanel({ recovery }: Props) {
   const trend = trendArrow(recovery.hrv_trend_pct);
 
   return (
-    <div className="rounded-2xl bg-card p-5 sm:p-6">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-        Recovery
-      </h3>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Recovery
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
       <div className="grid grid-cols-2 gap-3">
         <MetricCard
           label="Readiness"
@@ -84,6 +88,7 @@ export default function RecoveryPanel({ recovery }: Props) {
           colorStyle={tsbZone.color}
         />
       </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

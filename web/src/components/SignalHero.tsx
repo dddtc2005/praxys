@@ -1,3 +1,5 @@
+import { Card, CardContent } from '@/components/ui/card';
+
 interface Props {
   recommendation: string;
   reason: string;
@@ -40,27 +42,29 @@ export default function SignalHero({ recommendation, reason }: Props) {
   const colors = COLOR_CLASSES[signal.color];
 
   return (
-    <div className="rounded-2xl bg-card p-5 sm:p-6">
-      <div className="flex flex-col items-center gap-4 py-4">
-        {/* Circular indicator */}
-        <div
-          className={`relative flex h-32 w-32 items-center justify-center rounded-full ring-4 ${colors.ring} ${colors.shadow}`}
-        >
-          {/* Pulsing glow ring */}
+    <Card>
+      <CardContent className="pt-6">
+        <div className="flex flex-col items-center gap-4 py-4">
+          {/* Circular indicator */}
           <div
-            className={`absolute inset-0 rounded-full ${colors.bg} opacity-10 ${colors.glow}`}
-          />
-          <span className={`relative text-3xl font-bold font-data tracking-wider ${colors.text}`}>
-            {signal.label}
-          </span>
+            className={`relative flex h-32 w-32 items-center justify-center rounded-full ring-4 ${colors.ring} ${colors.shadow}`}
+          >
+            {/* Pulsing glow ring */}
+            <div
+              className={`absolute inset-0 rounded-full ${colors.bg} opacity-10 ${colors.glow}`}
+            />
+            <span className={`relative text-3xl font-bold font-data tracking-wider ${colors.text}`}>
+              {signal.label}
+            </span>
+          </div>
+
+          {/* Subtitle */}
+          <p className={`text-lg font-semibold ${colors.text}`}>{signal.subtitle}</p>
+
+          {/* Reason */}
+          <p className="max-w-md text-center text-sm text-muted-foreground">{reason}</p>
         </div>
-
-        {/* Subtitle */}
-        <p className={`text-lg font-semibold ${colors.text}`}>{signal.subtitle}</p>
-
-        {/* Reason */}
-        <p className="max-w-md text-center text-sm text-muted-foreground">{reason}</p>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

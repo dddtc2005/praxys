@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { TooltipProvider } from './components/ui/tooltip';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { ScienceProvider } from './contexts/ScienceContext';
 import Layout from './components/Layout';
@@ -11,21 +12,23 @@ import Settings from './pages/Settings';
 
 export default function App() {
   return (
-    <SettingsProvider>
-      <ScienceProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route element={<Layout />}>
-            <Route index element={<Today />} />
-            <Route path="training" element={<Training />} />
-            <Route path="goal" element={<Goal />} />
-            <Route path="history" element={<History />} />
-            <Route path="science" element={<Science />} />
-            <Route path="settings" element={<Settings />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-      </ScienceProvider>
-    </SettingsProvider>
+    <TooltipProvider>
+      <SettingsProvider>
+        <ScienceProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route element={<Layout />}>
+                <Route index element={<Today />} />
+                <Route path="training" element={<Training />} />
+                <Route path="goal" element={<Goal />} />
+                <Route path="history" element={<History />} />
+                <Route path="science" element={<Science />} />
+                <Route path="settings" element={<Settings />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </ScienceProvider>
+      </SettingsProvider>
+    </TooltipProvider>
   );
 }

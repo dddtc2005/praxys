@@ -1,5 +1,7 @@
 import { CheckCircle, Circle } from 'lucide-react';
 import type { Milestone } from '@/types/api';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 
 interface Props {
   milestones: Milestone[];
@@ -12,13 +14,6 @@ export default function MilestoneTracker({ milestones, currentCp, targetCp }: Pr
     currentCp != null && targetCp != null && targetCp > 0
       ? Math.min(100, Math.max(0, (currentCp / targetCp) * 100))
       : 0;
-
-  const barColor =
-    progressPct >= 90
-      ? 'bg-primary'
-      : progressPct >= 70
-        ? 'bg-accent-amber'
-        : 'bg-destructive';
 
   return (
     <div className="space-y-5">
@@ -33,12 +28,7 @@ export default function MilestoneTracker({ milestones, currentCp, targetCp }: Pr
               Target: <span className="font-data text-foreground">{targetCp}W</span>
             </span>
           </div>
-          <div className="h-3 w-full rounded-full bg-muted overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${barColor}`}
-              style={{ width: `${progressPct}%` }}
-            />
-          </div>
+          <Progress value={progressPct} className="h-3" />
           <p className="text-xs text-muted-foreground mt-1 text-right font-data">
             {progressPct.toFixed(0)}%
           </p>
@@ -64,9 +54,7 @@ export default function MilestoneTracker({ milestones, currentCp, targetCp }: Pr
               <span className="font-data text-sm text-foreground">{ms.cp}W</span>
               <span className="text-sm text-muted-foreground">{ms.marathon}</span>
               {isCurrent && (
-                <span className="ml-auto rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
-                  Current
-                </span>
+                <Badge className="ml-auto" variant="secondary">Current</Badge>
               )}
             </div>
           );

@@ -5,6 +5,7 @@ import type { SciencePillar, TheorySummary } from '@/types/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -190,8 +191,14 @@ export default function Science() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <div className="h-8 w-8 rounded-full border-2 border-border border-t-primary animate-spin" />
+      <div className="space-y-8 py-6">
+        <div>
+          <Skeleton className="h-8 w-44" />
+          <Skeleton className="h-4 w-64 mt-2" />
+        </div>
+        {[...Array(4)].map((_, i) => (
+          <Skeleton key={i} className="h-48 rounded-2xl" />
+        ))}
       </div>
     );
   }
