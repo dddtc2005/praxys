@@ -10,8 +10,18 @@ import {
 } from 'recharts';
 import type { TsbSparkline } from '@/types/api';
 import { useScience, tsbZoneFromConfig } from '@/contexts/ScienceContext';
+import ZoneLegend from '@/components/charts/ZoneLegend';
+import ScienceNote from '@/components/ScienceNote';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useChartColors } from '@/hooks/useChartColors';
+
+const ZONE_INSIGHTS: Record<string, string> = {
+  Performance: 'Freshened up \u2014 good window for racing or testing.',
+  Optimal: 'Good balance of fitness and recovery. Ready for quality work.',
+  Productive: 'Building fitness with manageable fatigue.',
+  Overreaching: 'High fatigue accumulation. Prioritize recovery.',
+  Detraining: 'Extended rest period. Fitness declining.',
+};
 
 interface Props {
   data: TsbSparkline;
@@ -212,6 +222,21 @@ export default function FormSparkline({ data }: Props) {
             </span>
           )}
         </div>
+
+        {/* Form insight */}
+        {ZONE_INSIGHTS[zone.label] && (
+          <p className="text-xs text-muted-foreground mt-3" style={{ color: `${zone.color}99` }}>
+            {ZONE_INSIGHTS[zone.label]}
+          </p>
+        )}
+
+        <ZoneLegend zones={tsbZones} />
+
+        <ScienceNote
+          text="Form (TSB) = Fitness (CTL) \u2212 Fatigue (ATL). CTL tracks long-term training load (42-day average), ATL tracks short-term load (7-day). Positive TSB means you're fresh; negative means fatigued. Zones based on the standard PMC model (Banister, 1975)."
+          sourceUrl="https://help.trainingpeaks.com/hc/en-us/articles/204071944"
+          sourceLabel="TrainingPeaks PMC"
+        />
       </CardContent>
     </Card>
   );

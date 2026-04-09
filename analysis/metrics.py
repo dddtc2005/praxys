@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import math
 from datetime import date, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, TypedDict
 
 import pandas as pd
 
@@ -38,6 +38,216 @@ THRESHOLD_REFERENCE_KM = 10.0
 def get_distance_config(distance: str) -> dict:
     """Return distance config, defaulting to marathon."""
     return DISTANCE_CONFIGS.get(distance, DISTANCE_CONFIGS["marathon"])
+
+
+class HrvAnalysisResult(TypedDict):
+    """Structured HRV analysis output."""
+    today_ms: float | None
+    today_ln: float
+    baseline_mean_ln: float
+    baseline_sd_ln: float
+    threshold_ln: float
+    swc_upper_ln: float
+    rolling_mean_ln: float
+    rolling_cv: float
+    trend: Literal["stable", "improving", "declining"]
+
+
+class RecoveryResult(TypedDict):
+    """Structured recovery analysis output."""
+    status: Literal["fresh", "normal", "fatigued", "insufficient_data"]
+    hrv: HrvAnalysisResult | None
+    sleep_score: float | None
+    resting_hr: float | None
+    rhr_trend: Literal["stable", "elevated", "low"] | None
+
+
+def analyze_recovery(
+    hrv_series: list[float],
+    today_hrv_ms: float | None = None,
+    today_sleep: float | None = None,
+    today_rhr: float | None = None,
+    *,
+    rhr_series: list[float] | None = None,
+    rolling_days: int = 7,
+    baseline_days: int = 30,
+) -> RecoveryResult:
+    """Analyze recovery status using research-backed HRV methodology.
+
+    Combines two established protocols:
+
+    1. **Kiviniemi et al (2007):** Binary threshold — compare today's HRV
+       to personal reference value (baseline_mean − 1 SD). Below → fatigued.
+       Original protocol used HF power; we use RMSSD as a validated proxy
+       (highly correlated, both reflect parasympathetic activity).
+       Ref: Eur J Appl Physiol, doi:10.1007/s00421-007-0552-2
+
+    2. **Plews et al (2012):** Monitor ln(RMSSD) via 7-day rolling mean
+       and coefficient of variation (CV). Declining rolling mean signals
+       maladaptation. SWC (Smallest Worthwhile Change) = ±0.5 × baseline SD.
+       Ref: Eur J Appl Physiol, doi:10.1007/s00421-012-2354-4
+
+    **Status classification (combining both protocols):**
+      - "fatigued": today < baseline_mean − 1 SD (Kiviniemi threshold)
+      - "fresh": today > baseline_mean + 0.5 SD (Plews SWC upper bound)
+      - "normal": between the two thresholds
+      - "insufficient_data": <5 valid HRV readings
+
+    Sleep and RHR are included as informational signals — they are NOT
+    combined into a weighted composite score, as no controlled study
+    validates a specific weighting formula.
+
+    Args:
+        hrv_series: Recent RMSSD values in ms (oldest first), at least
+            baseline_days of history for reliable analysis.
+        today_hrv_ms: Today's RMSSD in ms (if not included in series).
+        today_sleep: Sleep quality score (0-100), informational.
+        today_rhr: Resting heart rate in bpm, informational.
+        rhr_series: Recent RHR values (oldest first), for trend analysis.
+        rolling_days: Window for rolling statistics (default 7, per Plews).
+        baseline_days: Window for personal baseline (default 30).
+    """
+    insufficient: RecoveryResult = {
+        "status": "insufficient_data",
+        "hrv": None,
+        "sleep_score": today_sleep,
+        "resting_hr": today_rhr,
+        "rhr_trend": None,
+    }
+
+    # --- HRV analysis (Plews + Kiviniemi) ---
+    # Separate today's value from the historical baseline pool
+    history = [v for v in hrv_series if v > 0]
+
+    # Validate today's value (sensor can return 0 or negatives)
+    today_valid = today_hrv_ms if (today_hrv_ms is not None and today_hrv_ms > 0) else None
+
+    if len(history) < 5 and today_valid is None:
+        return insufficient
+
+    # Step 1: ln-transform (Plews protocol — all analysis uses ln RMSSD)
+    ln_history = [math.log(v) for v in history]
+    if len(ln_history) < 5:
+        return insufficient
+
+    # Determine today's ln value
+    if today_valid is not None:
+        today_ln = math.log(today_valid)
+    else:
+        # No valid today value — can't classify status
+        return insufficient
+
+    # Step 2: Baseline statistics from history (excluding today)
+    # Kiviniemi used a short rolling baseline; we use baseline_days for
+    # stability with consumer-grade devices (Oura Ring vs lab equipment)
+    baseline_pool = ln_history[-baseline_days:]
+    baseline_n = len(baseline_pool)
+    baseline_mean = sum(baseline_pool) / baseline_n
+    # Sample SD (N-1) for small samples, population SD (N) for large
+    sd_divisor = max(1, baseline_n - 1) if baseline_n < 20 else baseline_n
+    baseline_sd = (sum((x - baseline_mean) ** 2 for x in baseline_pool) / sd_divisor) ** 0.5
+
+    if baseline_sd == 0:
+        # All values identical — can't compute meaningful thresholds
+        baseline_sd = 0.01  # prevent division by zero
+
+    # Step 3: 7-day rolling mean and CV (Plews protocol)
+    # Include today in the rolling window (it's a current snapshot)
+    recent = (ln_history + [today_ln])[-rolling_days:]
+    rolling_mean = sum(recent) / len(recent)
+    rolling_sd = (sum((x - rolling_mean) ** 2 for x in recent) / len(recent)) ** 0.5
+    rolling_cv = (rolling_sd / abs(rolling_mean) * 100) if rolling_mean != 0 else 0
+
+    # Step 4: Trend — slope of 7-day rolling mean (Plews)
+    trend: Literal["stable", "improving", "declining"] = "stable"
+    all_ln = ln_history + [today_ln]
+    if len(all_ln) >= rolling_days + 7:
+        rolling_means = []
+        for i in range(min(14, len(all_ln) - rolling_days + 1)):
+            end = len(all_ln) - i
+            start = end - rolling_days
+            window = all_ln[start:end]
+            rolling_means.append(sum(window) / len(window))
+        rolling_means.reverse()  # oldest first
+        if len(rolling_means) >= 3:
+            n = len(rolling_means)
+            x_mean = (n - 1) / 2
+            y_mean = sum(rolling_means) / n
+            num = sum((i - x_mean) * (y - y_mean) for i, y in enumerate(rolling_means))
+            den = sum((i - x_mean) ** 2 for i in range(n))
+            slope = num / den if den > 0 else 0
+            # Plews SWC = 0.5 SD; slope threshold = 0.5 SD spread over
+            # ~14 days ≈ 0.036 SD/day. We use a conservative practical
+            # threshold (not directly from Plews, who used visual trend
+            # inspection rather than a numeric cutoff).
+            swc_per_day = 0.5 * baseline_sd / 14
+            if slope > swc_per_day:
+                trend = "improving"
+            elif slope < -swc_per_day:
+                trend = "declining"
+
+    # Step 5: Classify status
+    # Fatigued threshold: Kiviniemi — baseline_mean − 1 SD
+    threshold_ln = baseline_mean - baseline_sd
+    # Fresh threshold: Plews SWC — baseline_mean + 0.5 SD
+    # (meaningfully above baseline per Plews' smallest worthwhile change)
+    swc_upper_ln = baseline_mean + 0.5 * baseline_sd
+
+    status: Literal["fresh", "normal", "fatigued", "insufficient_data"]
+    if today_ln < threshold_ln:
+        status = "fatigued"
+    elif today_ln > swc_upper_ln:
+        status = "fresh"
+    else:
+        status = "normal"
+
+    # Override: high CV signals autonomic disturbance. This is a practical
+    # guideline used by HRV monitoring tools — Plews tracked CV trends
+    # rather than absolute thresholds, but consistently low or high CV
+    # outside ~3-10% range warrants caution.
+    if rolling_cv > 10 and status == "fresh":
+        status = "normal"
+
+    # Override: declining trend is a warning (Plews — declining 7-day
+    # rolling mean signals maladaptation progression)
+    if trend == "declining" and status == "fresh":
+        status = "normal"
+
+    hrv_result: HrvAnalysisResult = {
+        "today_ms": today_valid,
+        "today_ln": round(today_ln, 2),
+        "baseline_mean_ln": round(baseline_mean, 2),
+        "baseline_sd_ln": round(baseline_sd, 2),
+        "threshold_ln": round(threshold_ln, 2),
+        "swc_upper_ln": round(swc_upper_ln, 2),
+        "rolling_mean_ln": round(rolling_mean, 2),
+        "rolling_cv": round(rolling_cv, 1),
+        "trend": trend,
+    }
+
+    result: RecoveryResult = {
+        "status": status,
+        "hrv": hrv_result,
+        "sleep_score": today_sleep,
+        "resting_hr": today_rhr,
+        "rhr_trend": None,
+    }
+
+    # --- RHR trend (informational) ---
+    if rhr_series and len(rhr_series) >= 5 and today_rhr is not None:
+        rhr_recent = rhr_series[-baseline_days:]
+        rhr_mean = sum(rhr_recent) / len(rhr_recent)
+        rhr_n = len(rhr_recent)
+        rhr_sd = (sum((x - rhr_mean) ** 2 for x in rhr_recent) / max(1, rhr_n - 1)) ** 0.5
+        if rhr_sd > 0:
+            if today_rhr > rhr_mean + rhr_sd:
+                result["rhr_trend"] = "elevated"
+            elif today_rhr < rhr_mean - rhr_sd:
+                result["rhr_trend"] = "low"
+            else:
+                result["rhr_trend"] = "stable"
+
+    return result
 
 
 def compute_ewma_load(daily_rss: pd.Series, time_constant: int) -> pd.Series:
@@ -188,49 +398,55 @@ def predict_marathon_time(
 
 
 def daily_training_signal(
-    readiness_score: float | None,
+    recovery_analysis: RecoveryResult,
     tsb: float,
-    hrv_trend_pct: float,
     planned_workout: str,
     *,
     planned_detail: dict | None = None,
-    sleep_score: float | None = None,
-    hrv_value: float | None = None,
     signal_thresholds: dict | None = None,
+    hrv_only: bool = False,
 ) -> dict:
-    """Generate today's training recommendation from recovery + plan data.
+    """Generate today's training recommendation from recovery analysis + plan.
+
+    Uses categorical HRV status from analyze_recovery() (Plews/Kiviniemi
+    protocols) rather than an invented numeric score.
 
     Args:
-        readiness_score: Oura readiness (0-100)
-        tsb: Training Stress Balance
-        hrv_trend_pct: HRV % change over last 3 days
-        planned_workout: workout type string (e.g. "steady aerobic")
-        planned_detail: full plan row dict with duration, distance, power targets
-        sleep_score: last night's Oura sleep score
-        hrv_value: today's HRV in ms
-        signal_thresholds: overrides from science theory (readiness_rest, readiness_modify,
-            tsb_high_fatigue, hrv_decline_pct)
+        recovery_analysis: Output of analyze_recovery().
+        tsb: Training Stress Balance.
+        planned_workout: Workout type string (e.g. "steady aerobic").
+        planned_detail: Full plan row dict with duration, distance, power targets.
+        signal_thresholds: Overrides from science theory (tsb_high_fatigue, etc).
+        hrv_only: If True (HRV-Primary mode), only HRV status drives the
+            recommendation — sleep and RHR do not modify the decision.
     """
     st = signal_thresholds or {}
-    rest_thresh = st.get("readiness_rest", 60)
-    modify_thresh = st.get("readiness_modify", 70)
     fatigue_thresh = st.get("tsb_high_fatigue", -20)
-    hrv_thresh = st.get("hrv_decline_pct", -15)
+
     # Classify workout difficulty
     hard_types = {"threshold", "tempo", "interval", "race", "long"}
     is_hard = planned_workout.lower() in hard_types if planned_workout else False
 
-    # Build recovery context
-    recovery = {}
-    if readiness_score is not None:
-        recovery["readiness"] = readiness_score
-    if hrv_value is not None:
-        recovery["hrv_ms"] = hrv_value
-    if hrv_trend_pct != 0:
-        recovery["hrv_trend_pct"] = round(hrv_trend_pct, 1)
+    status = recovery_analysis.get("status", "normal")
+    hrv_info = recovery_analysis.get("hrv") or {}
+    hrv_trend = hrv_info.get("trend", "stable")
+    hrv_cv = hrv_info.get("rolling_cv", 0)
+    sleep_score = recovery_analysis.get("sleep_score")
+    today_hrv = hrv_info.get("today_ms")
+    rhr_trend = recovery_analysis.get("rhr_trend")
+
+    # Build recovery context for frontend display
+    recovery = {"tsb": round(tsb, 1)}
+    if today_hrv is not None:
+        recovery["hrv_ms"] = today_hrv
+    if hrv_trend != "stable":
+        if hrv_info.get("baseline_mean_ln") and hrv_info.get("today_ln"):
+            # ln difference approximates fractional change (accurate for
+            # small deviations; understates large ones)
+            hrv_pct = (hrv_info["today_ln"] - hrv_info["baseline_mean_ln"]) * 100
+            recovery["hrv_trend_pct"] = round(hrv_pct, 1)
     if sleep_score is not None:
         recovery["sleep_score"] = sleep_score
-    recovery["tsb"] = round(tsb, 1)
 
     # Build plan context
     plan = {}
@@ -249,34 +465,75 @@ def daily_training_signal(
             plan["description"] = planned_detail["workout_description"]
 
     # Decision logic
-    if readiness_score is not None and readiness_score < rest_thresh:
-        rec = "rest"
-        reason = f"Readiness is low ({readiness_score:.0f}). Prioritize recovery."
-        alternatives = []
-        if is_hard and planned_workout:
-            alternatives.append(f"Shift {planned_workout} to tomorrow if possible")
-            alternatives.append("If you must move, walk 30min only")
-    elif readiness_score is not None and readiness_score < modify_thresh and is_hard:
-        rec = "modify"
-        reason = f"Readiness moderate ({readiness_score:.0f}) but planned workout is hard ({planned_workout})."
-        alternatives = [
-            "Drop to easy run (keep power at recovery zone)",
-            f"Push {planned_workout} to tomorrow if tomorrow is rest/easy",
-            "Run as planned but cap at low end of power range, bail if HR drifts high",
-        ]
-    elif readiness_score is not None and readiness_score < modify_thresh and tsb < fatigue_thresh:
-        rec = "easy"
-        reason = f"Readiness moderate ({readiness_score:.0f}) with high fatigue (TSB={tsb:.0f}). Go easy."
-        alternatives = []
-    elif hrv_trend_pct < hrv_thresh:
-        rec = "reduce_intensity"
-        reason = f"HRV has declined {hrv_trend_pct:.0f}% over 3 days. Reduce intensity to prevent overtraining."
-        alternatives = []
+    if status == "insufficient_data":
+        rec = "follow_plan"
+        reason = "No recovery data available. Follow plan but listen to your body."
+        alternatives = ["Consider an easy day if you feel fatigued"]
+
+    elif status == "fatigued":
         if is_hard:
-            alternatives.append(f"Swap {planned_workout} for easy run")
+            rec = "rest"
+            reason = "HRV is below your personal threshold (Kiviniemi). Autonomic recovery incomplete."
+            alternatives = [
+                f"Shift {planned_workout} to tomorrow if possible",
+                "If you must move, walk 30 min only",
+            ]
+        else:
+            rec = "easy"
+            reason = "HRV below threshold. Keep today easy to support recovery."
+            alternatives = []
+
+    elif status == "normal" and is_hard and tsb < fatigue_thresh:
+        rec = "modify"
+        reason = f"HRV is normal but training load is high (TSB {tsb:.0f}). Modify the hard session."
+        alternatives = [
+            "Drop to easy run (keep power in recovery zone)",
+            f"Push {planned_workout} to tomorrow if tomorrow is rest/easy",
+            "Run as planned but cap at low end of power range",
+        ]
+
+    elif hrv_trend == "declining":
+        # Plews: declining 7-day rolling mean signals maladaptation
+        if is_hard:
+            rec = "reduce_intensity"
+            reason = "HRV rolling mean is declining (Plews). Reduce intensity to prevent overreaching."
+            alternatives = [f"Swap {planned_workout} for easy run"]
+        else:
+            rec = "easy"
+            reason = "HRV trend declining. Stay easy today."
+            alternatives = []
+
+    elif hrv_cv > 10 and is_hard:
+        rec = "modify"
+        reason = f"HRV variability is high (CV {hrv_cv:.0f}%). Autonomic system unsettled."
+        alternatives = [
+            "Drop intensity by one zone",
+            f"Push {planned_workout} to tomorrow",
+        ]
+
+    # Supplementary signals — only in composite mode (not hrv_only)
+    elif not hrv_only and sleep_score is not None and sleep_score < 55 and is_hard:
+        rec = "modify"
+        reason = f"Sleep quality poor ({sleep_score:.0f}). Consider reducing today's intensity."
+        alternatives = [
+            "Run as planned but listen to body closely",
+            "Shorten the session if fatigue sets in",
+        ]
+
+    elif not hrv_only and rhr_trend == "elevated" and is_hard:
+        rec = "modify"
+        reason = "Resting heart rate elevated above your baseline. May indicate incomplete recovery."
+        alternatives = [
+            "Run easy instead",
+            "Proceed but monitor HR drift during session",
+        ]
+
     else:
         rec = "follow_plan"
-        reason = "Recovery looks good. Follow plan as written."
+        if status == "fresh":
+            reason = "HRV above baseline — good recovery. Follow plan as written."
+        else:
+            reason = "Recovery signals normal. Follow plan as written."
         alternatives = []
 
     return {

@@ -27,6 +27,7 @@ def _theory_summary(theory) -> dict:
             {k: v for k, v in c.__dict__.items() if v is not None}
             for c in theory.citations
         ],
+        "params": theory.params,
     }
 
 

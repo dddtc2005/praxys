@@ -11,8 +11,9 @@ import {
   ReferenceArea,
   ReferenceLine,
 } from 'recharts';
-import type { TimeSeriesData, TsbZoneConfig } from '@/types/api';
+import type { TimeSeriesData } from '@/types/api';
 import ScienceNote from '@/components/ScienceNote';
+import ZoneLegend from '@/components/charts/ZoneLegend';
 import { useScience, tsbZoneFromConfig } from '@/contexts/ScienceContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useChartColors } from '@/hooks/useChartColors';
@@ -72,32 +73,6 @@ function CustomTooltip({ active, payload, label, tsbZones, chartColors }: any) {
           {zone.label}
         </span>
       </div>
-    </div>
-  );
-}
-
-function ZoneLegend({ zones: tsbZones }: { zones: TsbZoneConfig[] }) {
-  const zones = tsbZones
-    .filter((z) => z.label !== 'Detraining')
-    .map((z) => {
-      const lo = z.min != null ? String(z.min) : '';
-      const hi = z.max != null ? String(z.max) : '';
-      const range = lo && hi ? `${lo}\u2013${hi}` : lo ? `${lo}+` : `<${hi}`;
-      return { label: z.label, color: z.color, range };
-    });
-  return (
-    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3">
-      {zones.map((z) => (
-        <div key={z.label} className="flex items-center gap-1.5">
-          <div
-            className="w-2 h-2 rounded-full"
-            style={{ backgroundColor: z.color, opacity: 0.8 }}
-          />
-          <span className="text-[10px] text-muted-foreground">
-            {z.label} <span className="font-data opacity-60">{z.range}</span>
-          </span>
-        </div>
-      ))}
     </div>
   );
 }
@@ -274,6 +249,7 @@ export default function FitnessFatigueChart({ data }: Props) {
         </ResponsiveContainer>
 
         <ZoneLegend zones={tsbZones} />
+
 
         <ScienceNote
           text="Fitness (CTL) is an exponentially weighted moving average of daily training load over 42 days. Fatigue (ATL) uses a 7-day window. Form (TSB) = CTL \u2212 ATL. Zones aligned with Stryd RSB: Performance (5\u201325) for race readiness, Optimal (-10\u20135) the sweet spot between stress and recovery, Productive (-25\u2013-10) building fitness with manageable fatigue, Overreaching (<-25) signals recovery needed. Projected values are estimated from your training plan. Uses the standard PMC model (Banister, 1975) with \u03B1 = 1/\u03C4, matching TrainingPeaks, Stryd, and Intervals.icu."

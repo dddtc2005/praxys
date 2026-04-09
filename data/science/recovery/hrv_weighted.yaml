@@ -1,49 +1,55 @@
 id: hrv_weighted
 pillar: recovery
-name: "HRV-Weighted Readiness"
+name: "HRV-Primary Recovery"
 author: system
 description: >
-  HRV-primary readiness model for athletes with consistent daily HRV recordings.
-  Uses both HRV mean and coefficient of variation (CV) to detect acute homeostatic
-  disturbances. Requires >80% daily HRV data coverage for accuracy.
+  Strict HRV-driven recovery assessment. Uses the same ln(RMSSD) analysis
+  as the composite model but relies almost exclusively on HRV status for
+  training decisions. Requires consistent daily HRV recordings (>80% coverage).
+  Based on Kiviniemi et al (2007).
 simple_description: >
-  Puts most of the weight on your heart rate variability (HRV) readings, which are
-  the most direct measure of how your nervous system is recovering. Best if you have
-  a chest strap or Oura ring that records HRV consistently every day.
+  Relies primarily on your heart rate variability for recovery decisions.
+  If HRV says you're fatigued, the recommendation is always rest or easy —
+  regardless of how sleep or resting heart rate look. Best if you have
+  consistent daily HRV recordings from an Oura Ring or chest strap.
 advanced_description: |
-  ## HRV-Weighted Readiness Model
+  ## HRV-Primary Recovery Assessment
 
-  **Signal weights:**
-  - HRV: **60%**
-  - Sleep quality: **25%**
-  - Resting heart rate: **15%**
+  Uses the same Plews/Kiviniemi ln(RMSSD) analysis as the composite model
+  for HRV status classification (Fresh / Normal / Fatigued), but with
+  stricter HRV-only training decisions:
 
-  Uses both HRV **mean** (long-term baseline trend) and **coefficient of variation**
-  (CV, acute disturbance detection). CV threshold: **10%** — values above this
-  indicate significant autonomic disturbance.
+  **Key difference from composite:**
+  - Sleep quality and RHR do NOT modify the training recommendation
+  - Only HRV status, HRV trend, and CV drive Go/Modify/Rest decisions
+  - In composite mode, poor sleep (<55) or elevated RHR can trigger
+    "modify" for hard sessions; in HRV-Primary mode, they do not
 
-  **Data coverage requirement:** ≥ 80% daily HRV recordings for reliable estimates.
-  Below this threshold, consider switching to the composite readiness model.
+  **Data requirement:** ≥ 80% daily HRV recordings for reliable baseline.
+  Below this threshold, consider the composite model instead.
 
-  **References:**
-  - Kiviniemi et al (2007) "Endurance training guided individually by daily heart
-    rate variability measurements," *European Journal of Applied Physiology*
-  - Plews et al (2013) "Heart rate variability in elite triathletes," *JSSM*
+  **Protocol (Kiviniemi et al, 2007):**
+  - HRV ≥ threshold → high intensity permitted
+  - HRV < threshold OR 2+ day decline → rest/easy only
+  - No subjective overrides
 
 citations:
   - key: kiviniemi2007
     title: "Endurance training guided individually by daily heart rate variability measurements"
     year: 2007
     journal: "European Journal of Applied Physiology"
-  - key: plews2013
-    title: "Heart rate variability in elite triathletes"
-    year: 2013
-    journal: "Journal of Science and Medicine in Sport"
+    doi: "10.1007/s00421-007-0552-2"
+  - key: plews2012
+    title: "Heart rate variability in elite triathletes, is variation in variability the key to effective training?"
+    year: 2012
+    journal: "European Journal of Applied Physiology"
+    doi: "10.1007/s00421-012-2354-4"
 
 params:
-  hrv_weight: 0.6
-  sleep_weight: 0.25
-  rhr_weight: 0.15
-  readiness_fresh: 80
-  readiness_moderate: 60
-  hrv_cv_threshold: 10
+  rolling_days: 7
+  baseline_days: 30
+  cv_threshold: 10
+  hrv_coverage_min: 0.8
+
+signal:
+  tsb_high_fatigue: -20
