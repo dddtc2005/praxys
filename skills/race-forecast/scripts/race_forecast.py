@@ -18,7 +18,7 @@ _PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "..")
 sys.path.insert(0, _PROJECT_ROOT)
 
 from api.deps import get_dashboard_data  # noqa: E402
-from api.views import fitness_summary  # noqa: E402
+from api.views import fitness_summary, science_context  # noqa: E402
 from analysis.config import load_config  # noqa: E402
 
 
@@ -43,6 +43,7 @@ def main() -> None:
             "target_time_sec": config.goal.get("target_time_sec")
                 or config.goal.get("race_target_time_sec"),
         },
+        "science": science_context(data.get("science", {})),
         "fitness_snapshot": fitness_summary(data.get("fitness_fatigue", {})),
     }
 

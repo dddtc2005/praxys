@@ -18,7 +18,7 @@ _PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "..")
 sys.path.insert(0, _PROJECT_ROOT)
 
 from api.deps import get_dashboard_data  # noqa: E402
-from api.views import fitness_summary  # noqa: E402
+from api.views import fitness_summary, science_context  # noqa: E402
 
 
 def main() -> None:
@@ -35,6 +35,7 @@ def main() -> None:
         "latest_threshold": data.get("latest_cp"),
         "threshold_trend": data.get("cp_trend_data"),
         "diagnosis": data.get("diagnosis", {}),
+        "science": science_context(data.get("science", {})),
         "fitness_summary": fitness_summary(data.get("fitness_fatigue", {})),
         "weekly_review": data.get("weekly_review", {}),
         "workout_flags": data.get("workout_flags", []),

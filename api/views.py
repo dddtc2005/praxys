@@ -66,6 +66,34 @@ def week_load(weekly_review: dict) -> dict | None:
     }
 
 
+def science_context(science: dict) -> dict:
+    """Extract active science theory metadata for display.
+
+    Returns a dict with theory name, simple description, and key citation
+    for each active pillar. Used to show methodology in both web and CLI.
+    """
+    result: dict = {}
+    for pillar in ("load", "recovery", "prediction", "zones"):
+        theory = science.get(pillar)
+        if theory is None:
+            continue
+        citations = []
+        for c in getattr(theory, "citations", []):
+            cite = {"title": c.title}
+            if c.year:
+                cite["year"] = c.year
+            if getattr(c, "url", None):
+                cite["url"] = c.url
+            citations.append(cite)
+        result[pillar] = {
+            "id": theory.id,
+            "name": theory.name,
+            "simple_description": theory.simple_description,
+            "citations": citations,
+        }
+    return result
+
+
 def fitness_summary(fitness_fatigue: dict) -> dict:
     """Extract latest CTL/ATL/TSB values from fitness_fatigue arrays."""
     ctl = fitness_fatigue.get("ctl", [])

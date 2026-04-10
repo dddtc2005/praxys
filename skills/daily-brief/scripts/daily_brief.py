@@ -20,7 +20,7 @@ _PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "..")
 sys.path.insert(0, _PROJECT_ROOT)
 
 from api.deps import get_dashboard_data  # noqa: E402
-from api.views import last_activity, upcoming_workouts, week_load  # noqa: E402
+from api.views import last_activity, upcoming_workouts, week_load, science_context  # noqa: E402
 
 
 def _data_freshness(data_dir: str) -> dict:
@@ -64,6 +64,7 @@ def main() -> None:
         "data_freshness": _data_freshness(data_dir),
         "signal": data["signal"],
         "recovery_analysis": data.get("recovery_analysis"),
+        "science": science_context(data.get("science", {})),
         "last_activity": last_activity(data.get("activities", [])),
         "upcoming_workouts": upcoming_workouts(plan_df),
         "week_load": week_load(data.get("weekly_review", {})),

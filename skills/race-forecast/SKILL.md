@@ -75,6 +75,20 @@ From `race_countdown` (when available):
 Also from `fitness_snapshot`:
 - Current CTL (fitness level), ATL (fatigue), TSB (form)
 
+## Scientific Methodology
+
+The `science` object contains the active prediction theory with name and citations.
+Show how the prediction is made:
+
+- **Critical Power model** (`science.prediction.id == "critical_power"`): "Predicted
+  using Stryd race power fractions — marathon at 89.9% of CP, converted to pace via
+  power-to-pace regression from recent activities." Cite the source.
+- **Riegel model** (`science.prediction.id == "riegel"`): "Predicted using Riegel's
+  formula: T2 = T1 * (D2/D1)^1.06, extrapolating from recent race/time-trial pace."
+  Cite Riegel (1981).
+
+Also note the threshold source (auto-detected from Stryd/Garmin, or manual).
+
 ## AI Interpretation
 
 After presenting the data, provide a brief assessment:

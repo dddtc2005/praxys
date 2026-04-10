@@ -82,6 +82,22 @@ Format as a compact summary:
 - Sleep: score (if available)
 - RHR: today's value vs baseline (if available)
 
+**Show the methodology.** The `science` object has the active theories. Include
+the recovery theory name in the header (e.g., "Recovery (Composite protocol)")
+and after the recovery data, add a brief methodology note:
+
+- For `composite`: "Recovery status uses ln(RMSSD) compared to your personal
+  baseline. Fresh = above SWC (Plews et al, 2012). Fatigued = below baseline
+  minus 1 SD (Kiviniemi et al, 2007). Sleep, RHR, and TSB provide additional
+  context."
+- For `hrv_weighted`: "Recovery status based on Kiviniemi HRV-guided protocol.
+  HRV only — sleep and RHR signals are informational, not used in the status
+  determination."
+
+Include the citation from `science.recovery.citations` (title + year).
+This matters because the system's value proposition is scientific rigor —
+users should see the same methodology transparency in the CLI as in the web UI.
+
 ### 3. Upcoming Workouts
 
 The `upcoming_workouts` array has the next 3 planned workouts:
@@ -108,6 +124,23 @@ The `warnings` array contains active alerts:
 - HRV declining, high fatigue, plan staleness, etc.
 
 Show any warnings prominently.
+
+## Scientific Rigor
+
+The CLI should convey the same scientific transparency as the web dashboard.
+The `science` object in the output contains the active theory for each pillar
+(load, recovery, prediction, zones) with name, description, and citations.
+
+For each section of the brief, show how the metric is calculated:
+
+- **Training Signal**: Note the load model (e.g., "Banister PMC: CTL tau=42d,
+  ATL tau=7d") and how TSB feeds into the recommendation
+- **Recovery**: Show the recovery theory name and protocol (see above)
+- **Weekly Load**: Note the load metric (RSS = power-based, TRIMP = HR-based)
+
+Keep methodology notes concise — one line per metric, not paragraphs. The goal
+is transparency, not a textbook. Format as small-text notes below each section,
+similar to the web UI's expandable "How this is calculated" notes.
 
 ## Interpretation
 

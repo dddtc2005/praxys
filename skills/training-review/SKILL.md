@@ -110,6 +110,23 @@ From `workout_flags`:
 - Sessions flagged as notably better or worse than expected
 - Context: low readiness + high performance = breakthrough; high readiness + low performance = concern
 
+## Scientific Methodology
+
+The `science` object in the output contains active theories with names and citations.
+Show methodology notes to maintain the same scientific transparency as the web dashboard:
+
+- **Fitness/Fatigue**: Name the load model (e.g., "Banister PMC") and time constants
+  (CTL tau, ATL tau). Note the load metric formula (RSS, TRIMP, or rTSS).
+- **Zone Distribution**: Name the zone framework (e.g., "Coggan 5-Zone") and show
+  zone boundaries as % of threshold. Note the target distribution source.
+- **Threshold Trend**: Note how threshold is detected (e.g., "CP auto-detected from
+  Stryd" or "LTHR from Garmin lactate threshold test").
+- **Diagnosis**: When showing supra-threshold sessions, note the threshold used
+  (>98% of CP/LTHR) and cite why this matters for progression.
+
+Format as concise one-line notes after each section. Include the citation
+(title + year) from `science.{pillar}.citations` where relevant.
+
 ## AI Interpretation
 
 After presenting the data, provide a synthesized interpretation:
