@@ -1,62 +1,63 @@
 """Zone calculation for all training bases."""
 from analysis.config import TrainingBase, DEFAULT_ZONES
 
+# Default zone names per base for Coggan 5-zone (used when no names provided)
+_DEFAULT_NAMES: dict[str, list[str]] = {
+    "power": ["Easy", "Tempo", "Threshold", "Supra-CP", "VO2max"],
+    "hr": ["Recovery", "Aerobic", "Tempo", "Threshold", "VO2max"],
+    "pace": ["Recovery", "Easy", "Tempo", "Threshold", "Interval"],
+}
+
+_UNITS: dict[str, str] = {"power": "W", "hr": "bpm", "pace": "sec/km"}
+
 
 def compute_zones(
     base: TrainingBase,
     threshold_value: float,
     custom_boundaries: list[float] | None = None,
+    zone_names: list[str] | None = None,
 ) -> list[dict]:
-    """Compute 5 training zones based on training base and threshold.
+    """Compute training zones based on training base and threshold.
+
+    Supports variable zone counts: N boundaries produce N+1 zones.
 
     Args:
         base: "power", "hr", or "pace"
         threshold_value: CP (W), LTHR (bpm), or threshold pace (sec/km)
-        custom_boundaries: 4 fractions defining zone boundaries; defaults used if None
+        custom_boundaries: fractions defining zone boundaries; defaults used if None
+        zone_names: optional names for each zone; generic "Zone N" used if None
 
     Returns:
-        List of 5 zone dicts with: name, lower, upper, unit
+        List of zone dicts with: name, lower, upper, unit
     """
     boundaries = custom_boundaries or DEFAULT_ZONES[base]
-    if len(boundaries) != 4:
-        boundaries = DEFAULT_ZONES[base]
+    n_zones = len(boundaries) + 1
+    unit = _UNITS.get(base, "")
 
-    if base == "power":
-        unit = "W"
-        names = ["Easy", "Tempo", "Threshold", "Supra-CP", "VO2max"]
-        # Boundaries are fractions of CP; zones go low → high
-        vals = [round(b * threshold_value) for b in boundaries]
-        return [
-            {"name": names[0], "lower": 0, "upper": vals[0], "unit": unit},
-            {"name": names[1], "lower": vals[0], "upper": vals[1], "unit": unit},
-            {"name": names[2], "lower": vals[1], "upper": vals[2], "unit": unit},
-            {"name": names[3], "lower": vals[2], "upper": vals[3], "unit": unit},
-            {"name": names[4], "lower": vals[3], "upper": None, "unit": unit},
-        ]
-    elif base == "hr":
-        unit = "bpm"
-        names = ["Recovery", "Aerobic", "Tempo", "Threshold", "VO2max"]
-        vals = [round(b * threshold_value) for b in boundaries]
-        return [
-            {"name": names[0], "lower": 0, "upper": vals[0], "unit": unit},
-            {"name": names[1], "lower": vals[0], "upper": vals[1], "unit": unit},
-            {"name": names[2], "lower": vals[1], "upper": vals[2], "unit": unit},
-            {"name": names[3], "lower": vals[2], "upper": vals[3], "unit": unit},
-            {"name": names[4], "lower": vals[3], "upper": None, "unit": unit},
-        ]
-    else:  # pace
-        unit = "sec/km"
-        names = ["Recovery", "Easy", "Tempo", "Threshold", "Interval"]
-        # Pace boundaries are inverted: higher fraction = slower pace
-        vals = [round(b * threshold_value) for b in boundaries]
-        # Zone 1 is slowest (highest sec/km), Zone 5 is fastest (lowest)
-        return [
-            {"name": names[0], "lower": vals[0], "upper": None, "unit": unit},
-            {"name": names[1], "lower": vals[1], "upper": vals[0], "unit": unit},
-            {"name": names[2], "lower": vals[2], "upper": vals[1], "unit": unit},
-            {"name": names[3], "lower": vals[3], "upper": vals[2], "unit": unit},
-            {"name": names[4], "lower": 0, "upper": vals[3], "unit": unit},
-        ]
+    # Resolve zone names
+    if zone_names and len(zone_names) == n_zones:
+        names = zone_names
+    elif not custom_boundaries and base in _DEFAULT_NAMES:
+        names = _DEFAULT_NAMES[base]
+    else:
+        names = [f"Zone {i + 1}" for i in range(n_zones)]
+
+    vals = [round(b * threshold_value) for b in boundaries]
+
+    if base in ("power", "hr"):
+        # Zones go low → high
+        zones = [{"name": names[0], "lower": 0, "upper": vals[0], "unit": unit}]
+        for i in range(1, len(vals)):
+            zones.append({"name": names[i], "lower": vals[i - 1], "upper": vals[i], "unit": unit})
+        zones.append({"name": names[-1], "lower": vals[-1], "upper": None, "unit": unit})
+        return zones
+    else:  # pace — higher value = slower
+        # Zone 1 is slowest (highest sec/km), last zone is fastest (lowest)
+        zones = [{"name": names[0], "lower": vals[0], "upper": None, "unit": unit}]
+        for i in range(1, len(vals)):
+            zones.append({"name": names[i], "lower": vals[i], "upper": vals[i - 1], "unit": unit})
+        zones.append({"name": names[-1], "lower": 0, "upper": vals[-1], "unit": unit})
+        return zones
 
 
 def classify_intensity(
@@ -67,34 +68,41 @@ def classify_intensity(
 ) -> str:
     """Classify a value into an intensity zone name.
 
+    Supports variable boundary counts. Returns "zone_N" for the matched zone
+    (0-indexed), or legacy names for 4-boundary (5-zone) configs.
+
     Args:
         base: "power", "hr", or "pace"
         value: power (W), HR (bpm), or pace (sec/km)
         threshold: CP, LTHR, or threshold pace
-        boundaries: custom zone boundaries (4 fractions); defaults used if None
+        boundaries: custom zone boundaries (fractions); defaults used if None
 
     Returns:
-        Zone key: "easy", "tempo", "threshold", "supra_threshold"
+        Zone key: e.g. "easy", "tempo", "threshold", "supra_threshold" for 5-zone,
+        or "zone_0", "zone_1", etc. for other configs
     """
     bounds = boundaries or DEFAULT_ZONES[base]
 
+    # Legacy 4-boundary (5-zone) names for backward compatibility
+    _LEGACY_KEYS = ["easy", "tempo", "threshold", "supra_threshold"]
+
     if base in ("power", "hr"):
         ratio = value / threshold if threshold > 0 else 0
-        if ratio >= bounds[3]:
-            return "supra_threshold"
-        if ratio >= bounds[2]:
-            return "threshold"
-        if ratio >= bounds[1]:
-            return "tempo"
-        return "easy"
+        # Walk boundaries top-down
+        for i in range(len(bounds) - 1, -1, -1):
+            if ratio >= bounds[i]:
+                zone_idx = i + 1  # zone above this boundary
+                if len(bounds) == 4 and zone_idx <= len(_LEGACY_KEYS):
+                    return _LEGACY_KEYS[min(zone_idx, len(_LEGACY_KEYS) - 1)]
+                return f"zone_{zone_idx}"
+        return _LEGACY_KEYS[0] if len(bounds) == 4 else "zone_0"
     else:  # pace — lower value = faster
         ratio = threshold / value if value > 0 else 0
-        # bounds for pace are inverted: [1.29, 1.14, 1.06, 1.00]
-        # ratio > 1.0 means running faster than threshold
-        if ratio >= 1.0 / bounds[3]:  # faster than threshold boundary
-            return "supra_threshold"
-        if ratio >= 1.0 / bounds[2]:
-            return "threshold"
-        if ratio >= 1.0 / bounds[1]:
-            return "tempo"
-        return "easy"
+        inv_bounds = [1.0 / b if b > 0 else 0 for b in bounds]
+        for i in range(len(inv_bounds) - 1, -1, -1):
+            if ratio >= inv_bounds[i]:
+                zone_idx = i + 1
+                if len(bounds) == 4 and zone_idx <= len(_LEGACY_KEYS):
+                    return _LEGACY_KEYS[min(zone_idx, len(_LEGACY_KEYS) - 1)]
+                return f"zone_{zone_idx}"
+        return _LEGACY_KEYS[0] if len(bounds) == 4 else "zone_0"
