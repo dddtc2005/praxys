@@ -84,6 +84,19 @@ class TestDiscoverActivityTypes:
             assert result["stryd"] == ["running"]
 
 
+    def test_empty_string_activity_types_excluded(self):
+        """CSV rows with empty string activity_type should not appear in results."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.makedirs(os.path.join(tmpdir, "garmin"))
+            _write_csv(os.path.join(tmpdir, "garmin", "activities.csv"), [
+                {"activity_id": "1", "date": "2026-03-10", "activity_type": "running", "distance_km": 10},
+                {"activity_id": "2", "date": "2026-03-11", "activity_type": "", "distance_km": 5},
+                {"activity_id": "3", "date": "2026-03-12", "activity_type": "hiking", "distance_km": 8},
+            ])
+            result = discover_activity_types(["garmin"], tmpdir)
+            assert result == {"garmin": ["hiking", "running"]}
+
+
 def test_match_activities():
     garmin = pd.DataFrame([
         {"activity_id": "1", "date": "2026-03-10", "start_time": "2026-03-10 07:00:00", "distance_km": 12.5},

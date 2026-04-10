@@ -50,21 +50,21 @@ def discover_activity_types(
     result: dict[str, list[str]] = {}
     for provider in connections:
         csv_path = provider_csv.get(provider)
-        if csv_path is None or not os.path.exists(csv_path):
+        if csv_path is None:
             result[provider] = []
             continue
-        try:
-            df = pd.read_csv(csv_path)
-            if "activity_type" in df.columns:
-                types = sorted(
-                    df["activity_type"].dropna().unique().tolist()
-                )
-                result[provider] = [str(t) for t in types]
-            else:
-                result[provider] = []
-        except Exception as exc:
-            logger.warning("Failed to read %s for activity types: %s", csv_path, exc)
+        df = _read_csv_safe(csv_path)
+        if df.empty or "activity_type" not in df.columns:
             result[provider] = []
+            continue
+        types = sorted(
+            df["activity_type"]
+            .replace("", pd.NA)
+            .dropna()
+            .unique()
+            .tolist()
+        )
+        result[provider] = [str(t) for t in types]
     return result
 
 

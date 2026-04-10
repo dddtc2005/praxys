@@ -147,3 +147,35 @@ class TestPostInit:
     def test_empty_strings_filtered_from_connections(self):
         config = UserConfig(connections=["garmin", "", "stryd", ""])
         assert config.connections == ["garmin", "stryd"]
+
+    def test_post_init_default_from_preferences(self):
+        """When activity_routing is missing 'default' but preferences.activities is set,
+        the default should come from preferences, not hardcoded 'garmin'."""
+        config = UserConfig(
+            activity_routing={"running": "stryd"},
+            preferences={"activities": "stryd", "recovery": "oura", "plan": "stryd"},
+        )
+        assert "default" in config.activity_routing
+        assert config.activity_routing["default"] == "stryd"
+
+
+class TestLoadConfigEndToEnd:
+    def test_old_format_roundtrip(self):
+        """Old-format JSON (with 'sources' key) loads correctly via load_config."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "config.json")
+            old_data = {
+                "sources": {
+                    "activities": "stryd",
+                    "health": "oura",
+                    "plan": "stryd",
+                }
+            }
+            with open(path, "w") as f:
+                json.dump(old_data, f)
+            config = load_config(path)
+            assert "stryd" in config.connections
+            assert "oura" in config.connections
+            assert config.preferences["activities"] == "stryd"
+            assert config.preferences["recovery"] == "oura"
+            assert config.activity_routing["default"] == "stryd"
