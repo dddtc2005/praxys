@@ -73,6 +73,13 @@ const ErrorIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const RefreshIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <path d="M2.5 8a5.5 5.5 0 019.3-4M13.5 8a5.5 5.5 0 01-9.3 4" strokeLinecap="round" />
+    <path d="M12 1.5v3h-3M4 11.5v3h3" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 function StrydStatusBadge({
   state,
   error,
@@ -121,12 +128,18 @@ function StrydStatusBadge({
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger className="inline-flex">
-            <div className="w-6 h-6 flex items-center justify-center shrink-0 text-primary">
-              <CheckIcon className="h-3.5 w-3.5" />
-            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onPush}
+              className="w-6 h-6 shrink-0 text-primary [&>svg.check]:block [&>svg.refresh]:hidden hover:[&>svg.check]:hidden hover:[&>svg.refresh]:block hover:text-accent-amber"
+            >
+              <CheckIcon className="check h-3.5 w-3.5" />
+              <RefreshIcon className="refresh h-3.5 w-3.5" />
+            </Button>
           </TooltipTrigger>
           <TooltipContent side="left">
-            <p className="text-xs">Synced to Stryd</p>
+            <p className="text-xs">Re-push to Stryd</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -317,14 +330,25 @@ export default function UpcomingPlanCard() {
     [pushStatus, pushErrors],
   );
 
-  // Push a single workout
+  // Push a single workout (or re-push by deleting old one first)
   const pushSingle = useCallback(
     async (date: string) => {
-      if (pushingDates.has(date) || pushStatus[date]) return;
+      if (pushingDates.has(date)) return;
 
       setPushingDates((prev) => new Set(prev).add(date));
 
       try {
+        // If already pushed, delete the old workout from Stryd first
+        const existing = pushStatus[date];
+        if (existing?.workout_id) {
+          await fetch(`/api/plan/stryd-workout/${existing.workout_id}`, { method: 'DELETE' });
+          setPushStatus((prev) => {
+            const next = { ...prev };
+            delete next[date];
+            return next;
+          });
+        }
+
         const { results } = await pushDatesToStryd([date]);
         handlePushResults(results, [date]);
       } catch (e) {
