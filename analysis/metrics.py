@@ -1104,14 +1104,26 @@ def diagnose_training(
     else:
         activity_best = pd.Series(dtype=float)
 
+    # Build per-activity threshold lookup for date-relative zone classification.
+    # For power base, use cp_estimate from each activity's date rather than a single
+    # current CP — a session at 240W when CP was 260W is Threshold, not VO2max.
+    _cp_by_aid: dict[str, float] = {}
+    if base == "power" and "activity_id" in recent.columns and "cp_estimate" in recent.columns:
+        cp_col = pd.to_numeric(recent["cp_estimate"], errors="coerce")
+        for aid, cp_val in zip(recent["activity_id"].astype(str), cp_col):
+            if pd.notna(cp_val) and cp_val > 0:
+                _cp_by_aid[aid] = float(cp_val)
+
     total_activities = len(recent)
     if total_activities > 0 and not activity_best.empty and current_cp > 0:
         # Classify each activity into a zone based on its best split value
         zone_counts = [0] * n_zones
-        for val in activity_best:
+        for aid, val in activity_best.items():
+            # Use per-activity threshold when available, fall back to current
+            act_cp = _cp_by_aid.get(str(aid), current_cp)
             if base == "pace":
                 # For pace: lower value = faster = harder. Compute ratio as threshold/value.
-                ratio = current_cp / val if val > 0 else 0
+                ratio = act_cp / val if val > 0 else 0
                 inv_bounds = [1.0 / b if b > 0 else 0 for b in bounds]
                 assigned = 0
                 for i in range(len(inv_bounds) - 1, -1, -1):
@@ -1120,7 +1132,7 @@ def diagnose_training(
                         break
             else:
                 # For power/HR: higher = harder
-                ratio = val / current_cp if current_cp > 0 else 0
+                ratio = val / act_cp if act_cp > 0 else 0
                 assigned = 0
                 for i in range(len(bounds) - 1, -1, -1):
                     if ratio >= bounds[i]:

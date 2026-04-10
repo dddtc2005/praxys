@@ -393,7 +393,7 @@ def test_diagnose_distribution_default_5zone():
     assert isinstance(dist, list)
     assert len(dist) == 5
     names = [d["name"] for d in dist]
-    assert names == ["Easy", "Tempo", "Threshold", "Supra-CP", "VO2max"]
+    assert names == ["Recovery", "Endurance", "Tempo", "Threshold", "VO2max"]
 
 
 def test_diagnose_zone_ranges_included():

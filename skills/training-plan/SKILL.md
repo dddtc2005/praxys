@@ -71,7 +71,7 @@ instead of assuming a specific framework.
 
 The context includes `science.zones` with the user's active zone framework:
 - `science.zones.name`: the theory name (e.g., "Coggan 5-Zone" or "Seiler Polarized 3-Zone")
-- `athlete_profile.zone_names`: zone names for the active training base (e.g., ["Easy", "Tempo", "Threshold", "Supra-CP", "VO2max"])
+- `athlete_profile.zone_names`: zone names for the active training base (e.g., ["Recovery", "Endurance", "Tempo", "Threshold", "VO2max"])
 - `athlete_profile.target_distribution`: target fraction per zone (e.g., [0.80, 0.10, 0.05, 0.03, 0.02])
 - `athlete_profile.zones`: zone boundary fractions of threshold (e.g., [0.55, 0.75, 0.90, 1.05])
 
@@ -134,7 +134,7 @@ When presenting the plan, note the science framework driving it:
 - **Load model**: Name the model (from `science.load.name`) and its parameters.
   E.g., "Load: Banister PMC (CTL tau=42d, ATL tau=7d)"
 - **Distribution target**: Show the target zone distribution from the theory.
-  E.g., "Target: 80% Easy, 10% Tempo, 5% Threshold, 3% Supra-CP, 2% VO2max"
+  E.g., "Target: 5% Recovery, 70% Endurance, 10% Tempo, 10% Threshold, 5% VO2max"
 
 This ensures the user knows which scientific framework is shaping their plan.
 

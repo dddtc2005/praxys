@@ -106,7 +106,7 @@ Controls how training intensity zones are defined and how distribution is analyz
 
 | Theory | Key Difference |
 |--------|---------------|
-| `coggan_5zone` | 5 zones: Easy / Tempo / Threshold / Supra-CP / VO2max |
+| `coggan_5zone` | 5 zones: Recovery / Endurance / Tempo / Threshold / VO2max |
 | `polarized_3zone` | 3 zones: Easy / No-man's-land / Hard (Seiler model) |
 
 **Affects:** Zone boundaries, zone names, target distribution in diagnosis,
