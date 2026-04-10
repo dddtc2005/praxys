@@ -15,7 +15,7 @@ def get_display_config(base: TrainingBase) -> dict:
             "load_label": "RSS",
             "load_unit": "",
             "intensity_metric": "Power",
-            "zone_names": ["Easy", "Tempo", "Threshold", "Supra-CP", "VO2max"],
+            "zone_names": ["Recovery", "Endurance", "Tempo", "Threshold", "VO2max"],
             "trend_label": "CP Trend",
         }
     elif base == "hr":
@@ -26,7 +26,7 @@ def get_display_config(base: TrainingBase) -> dict:
             "load_label": "TRIMP",
             "load_unit": "",
             "intensity_metric": "Heart Rate",
-            "zone_names": ["Recovery", "Aerobic", "Tempo", "Threshold", "VO2max"],
+            "zone_names": ["Recovery", "Endurance", "Tempo", "Threshold", "VO2max"],
             "trend_label": "LTHR Trend",
         }
     else:  # pace
@@ -37,6 +37,6 @@ def get_display_config(base: TrainingBase) -> dict:
             "load_label": "rTSS",
             "load_unit": "",
             "intensity_metric": "Pace",
-            "zone_names": ["Recovery", "Easy", "Tempo", "Threshold", "Interval"],
+            "zone_names": ["Recovery", "Endurance", "Tempo", "Threshold", "VO2max"],
             "trend_label": "Threshold Pace Trend",
         }

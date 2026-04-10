@@ -33,6 +33,31 @@ def build_training_context() -> dict:
     config = load_config()
     today = date.today()
 
+    # -- Science framework --
+    science = data.get("science", {})
+    science_section: dict = {}
+    for pillar in ("load", "recovery", "prediction", "zones"):
+        theory = science.get(pillar)
+        if theory is None:
+            continue
+        entry: dict = {"id": theory.id, "name": theory.name}
+        if pillar == "zones":
+            entry["zone_names"] = theory.zone_names
+            entry["target_distribution"] = theory.target_distribution
+            entry["zone_boundaries"] = theory.zone_boundaries
+        if pillar == "load":
+            entry["params"] = theory.params
+        science_section[pillar] = entry
+
+    # Resolve zone names for the active training base
+    zones_theory = science.get("zones")
+    active_zone_names: list[str] | None = None
+    active_target_dist: list[float] | None = None
+    if zones_theory:
+        zn = zones_theory.zone_names
+        active_zone_names = zn.get(config.training_base) if isinstance(zn, dict) else zn
+        active_target_dist = zones_theory.target_distribution or None
+
     # -- Athlete profile --
     athlete_profile = {
         "training_base": config.training_base,
@@ -44,6 +69,8 @@ def build_training_context() -> dict:
             "mode": "race_date" if config.goal.get("race_date") else "continuous",
         },
         "zones": config.zones.get(config.training_base, []),
+        "zone_names": active_zone_names,
+        "target_distribution": active_target_dist,
     }
 
     # -- Current fitness --
@@ -119,6 +146,7 @@ def build_training_context() -> dict:
     return {
         "generated_at": datetime.now().isoformat(),
         "athlete_profile": athlete_profile,
+        "science": science_section,
         "current_fitness": current_fitness,
         "recent_training": recent_training,
         "recovery_state": recovery_state,

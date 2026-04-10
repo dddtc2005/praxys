@@ -17,13 +17,16 @@ advanced_description: |
   Four boundary fractions define 5 zones across three metrics:
 
   **Power zones** (fraction of CP):
-  | Zone | Name | Range |
-  |------|------|-------|
-  | 1 | Easy | < 55% CP |
-  | 2 | Tempo | 55–75% CP |
-  | 3 | Threshold | 75–90% CP |
-  | 4 | Supra-CP | 90–105% CP |
-  | 5 | VO2max | > 105% CP |
+  | Zone | Name | Range | Target % |
+  |------|------|-------|----------|
+  | 1 | Recovery | < 55% CP | 5% |
+  | 2 | Endurance | 55–75% CP | 70% |
+  | 3 | Tempo | 75–90% CP | 10% |
+  | 4 | Threshold | 90–105% CP | 10% |
+  | 5 | VO2max | > 105% CP | 5% |
+
+  Target distribution follows the ~75/10/15 pattern (easy/moderate/hard) supported
+  by Seiler (2006, 2010) and confirmed in running by Filipas et al. (2022).
 
   **Heart rate zones** (fraction of LTHR): [0.72, 0.82, 0.89, 0.96]
 
@@ -32,6 +35,8 @@ advanced_description: |
 
   **References:**
   - Coggan (2012) *Training and Racing with a Power Meter*
+  - Seiler (2006) "Quantifying training intensity distribution in elite endurance athletes"
+  - Filipas et al. (2022) "Effects of pyramidal and polarized training in well-trained endurance runners"
 
 citations:
   - key: coggan2012
@@ -41,6 +46,14 @@ citations:
   - key: friel_hr
     title: "The Cyclist's Training Bible"
     type: book
+  - key: seiler2006
+    title: "Quantifying training intensity distribution in elite endurance athletes"
+    year: 2006
+    journal: "Scandinavian Journal of Medicine & Science in Sports"
+  - key: filipas2022
+    title: "Effects of 16 weeks of pyramidal and polarized training intensity distributions in well-trained endurance runners"
+    year: 2022
+    journal: "Scandinavian Journal of Medicine & Science in Sports"
 
 params:
   zone_count: 5
@@ -49,6 +62,7 @@ params:
     hr: [0.72, 0.82, 0.89, 0.96]
     pace: [1.29, 1.14, 1.06, 1.00]
   zone_names:
-    power: ["Easy", "Tempo", "Threshold", "Supra-CP", "VO2max"]
-    hr: ["Recovery", "Aerobic", "Tempo", "Threshold", "VO2max"]
-    pace: ["Recovery", "Easy", "Tempo", "Threshold", "Interval"]
+    power: ["Recovery", "Endurance", "Tempo", "Threshold", "VO2max"]
+    hr: ["Recovery", "Endurance", "Tempo", "Threshold", "VO2max"]
+    pace: ["Recovery", "Endurance", "Tempo", "Threshold", "VO2max"]
+  target_distribution: [0.05, 0.70, 0.10, 0.10, 0.05]

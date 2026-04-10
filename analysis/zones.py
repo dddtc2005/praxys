@@ -3,9 +3,9 @@ from analysis.config import TrainingBase, DEFAULT_ZONES
 
 # Default zone names per base for Coggan 5-zone (used when no names provided)
 _DEFAULT_NAMES: dict[str, list[str]] = {
-    "power": ["Easy", "Tempo", "Threshold", "Supra-CP", "VO2max"],
-    "hr": ["Recovery", "Aerobic", "Tempo", "Threshold", "VO2max"],
-    "pace": ["Recovery", "Easy", "Tempo", "Threshold", "Interval"],
+    "power": ["Recovery", "Endurance", "Tempo", "Threshold", "VO2max"],
+    "hr": ["Recovery", "Endurance", "Tempo", "Threshold", "VO2max"],
+    "pace": ["Recovery", "Endurance", "Tempo", "Threshold", "VO2max"],
 }
 
 _UNITS: dict[str, str] = {"power": "W", "hr": "bpm", "pace": "sec/km"}
