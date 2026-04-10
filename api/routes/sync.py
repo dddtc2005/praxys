@@ -1,8 +1,10 @@
 """Data sync endpoints — trigger sync per source with background task."""
+import logging
 import os
-import traceback
 import threading
 from datetime import date, datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, BackgroundTasks
 from dotenv import load_dotenv
@@ -102,7 +104,7 @@ def _run_sync(source: str, from_date: str | None = None) -> None:
         invalidate_cache()
 
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Sync failed for %s", source)
         with _sync_lock:
             _sync_status[source] = {
                 "status": "error",

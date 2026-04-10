@@ -1,9 +1,12 @@
 """User configuration: connections, preferences, training base, thresholds, zones, goals."""
 import json
+import logging
 import os
 from dataclasses import dataclass, field, asdict
 from typing import Literal
 from typing_extensions import TypedDict
+
+logger = logging.getLogger(__name__)
 
 TrainingBase = Literal["power", "hr", "pace"]
 PlatformName = Literal["garmin", "stryd", "oura", "coros"]
@@ -102,8 +105,10 @@ class UserConfig:
                 continue  # Tolerate — platform may be disconnected temporarily
             caps = PLATFORM_CAPABILITIES.get(platform)
             if caps and category in caps and not caps[category]:
-                print(f"  Warning: {platform} does not support {category}, "
-                      f"but is set as preference")
+                logger.warning(
+                    "%s does not support %s, but is set as preference",
+                    platform, category,
+                )
         # Filter empty strings from connections (from migration edge cases)
         self.connections = [c for c in self.connections if c]
 
