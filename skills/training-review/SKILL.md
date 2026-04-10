@@ -70,6 +70,9 @@ supra-threshold stimulus is the key driver.
 From `diagnosis.distribution` (array of zone objects):
 - Each entry: `name`, `actual_pct`, `target_pct`
 
+Show the active zone theory in the header: e.g., "Zone Distribution (Coggan 5-Zone)"
+using `diagnosis.theory_name`.
+
 Present as a table:
 
 | Zone | Actual | Target | Status |

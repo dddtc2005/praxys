@@ -13,8 +13,8 @@ description: >-
 
 # Generate AI Training Plan
 
-Generate a personalized 4-week rolling training plan based on the athlete's
-current fitness data, training history, recovery state, and goal.
+Generate or update a personalized training plan based on the athlete's current
+fitness data, training history, recovery state, and goal.
 
 ## Step 1: Gather Training Context
 
@@ -28,30 +28,72 @@ Read the JSON output carefully. This is the athlete's complete training profile
 including: current fitness (CTL/ATL/TSB), threshold (CP/LTHR/pace), recent
 training history with splits, recovery state (HRV/sleep), and current plan.
 
+## Step 1.5: Assess Existing Plan
+
+Check `current_plan` in the context. This contains remaining future workouts
+from the existing plan (if any).
+
+**If there IS an existing plan**, compare planned vs actual:
+- Which workouts were completed as planned? (match `current_plan` dates against
+  `recent_training.sessions` dates)
+- Which were missed or substituted?
+- Has the athlete's fitness/recovery changed significantly since the plan was
+  generated? (check `current_fitness.tsb`, recovery state, CP trend)
+- Is the plan stale? (check warnings for staleness alerts)
+
+Then decide:
+- **Update** — if the plan is recent and mostly on track, modify the remaining
+  workouts to account for what actually happened (e.g., missed a threshold session
+  → reschedule it, volume was low → adjust progression). Keep the overall
+  mesocycle structure.
+- **Extend** — if the plan is nearing its end (fewer than 7 days left), generate
+  the next 4-week block as a continuation, building on the current mesocycle phase.
+- **Regenerate** — if the plan is stale (>4 weeks old), CP has drifted significantly,
+  the athlete missed most sessions, or the user explicitly asks for a fresh plan.
+
+Ask the user which approach they want if it's ambiguous. If the user said
+"update my plan" → update. If "generate a new plan" → regenerate.
+
+**If there is NO existing plan**, proceed to generate a fresh 4-week plan.
+
 ## Step 2: Analyze and Generate Plan
 
-Using the training context, generate a 4-week (28-day) training plan following
-these exercise science principles:
+Using the training context, generate or update the training plan. The context
+includes a `science` section with the user's active training theories — use these
+instead of assuming a specific framework.
 
 ### Periodization
 - Use rolling 4-week mesocycles: 3 progressive build weeks + 1 recovery week
 - Build weeks increase weekly load by 5-10% over the previous week
 - Recovery week reduces volume to ~60-70% of peak build week
 
-### Workout Distribution (80/20 Polarized Model)
-- ~80% of sessions should be easy/aerobic (Zone 1-2)
-- ~20% should be quality sessions: tempo (Zone 3), threshold (Zone 4), intervals (Zone 5)
+### Workout Distribution — Read from Science Context
+
+The context includes `science.zones` with the user's active zone framework:
+- `science.zones.name`: the theory name (e.g., "Coggan 5-Zone" or "Seiler Polarized 3-Zone")
+- `athlete_profile.zone_names`: zone names for the active training base (e.g., ["Easy", "Tempo", "Threshold", "Supra-CP", "VO2max"])
+- `athlete_profile.target_distribution`: target fraction per zone (e.g., [0.80, 0.10, 0.05, 0.03, 0.02])
+- `athlete_profile.zones`: zone boundary fractions of threshold (e.g., [0.55, 0.75, 0.90, 1.05])
+
+**Use these values to define workout targets.** For example:
+- If Coggan 5-Zone with boundaries [0.55, 0.75, 0.90, 1.05] and CP=250W:
+  Zone 1 (Easy): <138W, Zone 2 (Tempo): 138-188W, Zone 3 (Threshold): 188-225W, etc.
+- If Seiler 3-Zone with boundaries [0.80, 1.00] and CP=250W:
+  Zone 1 (Easy): <200W, Zone 2 (Moderate): 200-250W, Zone 3 (Hard): >250W
+
+**Distribution rules** (universal regardless of theory):
 - Maximum 3 quality sessions per week
 - At least 1 full rest or recovery day per week
-- Reference: Seiler (2010) "What is Best Practice for Training Intensity and Duration Distribution?"
+- If `target_distribution` is provided, match it. Otherwise default to ~80% easy / ~20% quality
+  (Seiler 2010, "What is Best Practice for Training Intensity and Duration Distribution?")
 
-### Power Zone Targets (relative to threshold/CP)
-- Recovery: < 55% CP
-- Easy/Aerobic: 55-75% CP
-- Tempo: 75-90% CP
-- Threshold: 90-105% CP
-- Intervals/VO2max: 105-120% CP
-- Reference: Coggan power zones; Stryd race power model
+### Power/Intensity Zone Targets
+
+Calculate zone ranges from `athlete_profile.zones` (boundary fractions) and
+`athlete_profile.threshold` (current CP/LTHR/pace). Present workout targets
+using the zone names from `athlete_profile.zone_names`.
+
+Do NOT hardcode zone boundaries — always derive from the context.
 
 ### Key Considerations
 - **Use split-level data** from recent sessions to assess if the athlete is
@@ -83,6 +125,18 @@ Generate the plan as a JSON array of workout objects:
 ```
 
 For rest days, use `workout_type: "rest"` with no duration/distance/power targets.
+
+### Scientific Methodology
+
+When presenting the plan, note the science framework driving it:
+- **Zone framework**: Name the active theory (from `science.zones.name`) and show
+  the zone boundaries used. E.g., "Zones: Coggan 5-Zone (Easy <55% CP, Tempo 55-75%, ...)"
+- **Load model**: Name the model (from `science.load.name`) and its parameters.
+  E.g., "Load: Banister PMC (CTL tau=42d, ATL tau=7d)"
+- **Distribution target**: Show the target zone distribution from the theory.
+  E.g., "Target: 80% Easy, 10% Tempo, 5% Threshold, 3% Supra-CP, 2% VO2max"
+
+This ensures the user knows which scientific framework is shaping their plan.
 
 ## Step 3: Generate Coaching Narrative
 
@@ -149,7 +203,8 @@ Write to `data/ai/plan_narrative.md` — the coaching narrative from Step 3.
 Write to `data/ai/plan_meta.json`:
 ```json
 {
-  "generated_at": "ISO timestamp",
+  "generated_at": "ISO timestamp (first generation)",
+  "revised_at": "ISO timestamp (if this is an update, set to now; omit on fresh generation)",
   "plan_start": "first workout date",
   "plan_end": "last workout date",
   "cp_at_generation": <current CP from context>,
@@ -157,6 +212,9 @@ Write to `data/ai/plan_meta.json`:
   "model": "claude model used"
 }
 ```
+
+For updates: preserve `generated_at` from the existing meta, add/update `revised_at`.
+For fresh plans: set `generated_at` to now, omit `revised_at`.
 
 Create the `data/ai/` directory if it doesn't exist.
 
