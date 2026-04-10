@@ -1,20 +1,40 @@
 """Load and merge CSV data from all sources."""
 from __future__ import annotations
 
+import logging
 import os
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pandas as pd
 
+logger = logging.getLogger(__name__)
+
 if TYPE_CHECKING:
     from analysis.config import UserConfig
 
 
-def _read_csv_safe(path: str) -> pd.DataFrame:
+# Required columns per CSV schema key.  Missing columns are logged as warnings
+# but do not block loading — downstream code handles NaN/missing gracefully.
+REQUIRED_COLUMNS: dict[str, list[str]] = {
+    "activities": ["date", "distance_km", "duration_sec"],
+    "splits": ["activity_id", "split_num"],
+    "daily_metrics": ["date"],
+    "power_data": ["date", "avg_power"],
+    "training_plan": ["date"],
+    "sleep": ["date"],
+    "readiness": ["date"],
+}
+
+
+def _read_csv_safe(path: str, schema_key: str | None = None) -> pd.DataFrame:
     if not os.path.exists(path):
         return pd.DataFrame()
     df = pd.read_csv(path)
+    if schema_key and schema_key in REQUIRED_COLUMNS:
+        missing = set(REQUIRED_COLUMNS[schema_key]) - set(df.columns)
+        if missing:
+            logger.warning("%s missing required columns: %s", path, missing)
     if "date" in df.columns:
         df["date"] = pd.to_datetime(df["date"]).dt.date
     return df
@@ -22,13 +42,13 @@ def _read_csv_safe(path: str) -> pd.DataFrame:
 
 def load_all_data(data_dir: str) -> dict[str, pd.DataFrame]:
     return {
-        "garmin_activities": _read_csv_safe(os.path.join(data_dir, "garmin", "activities.csv")),
-        "garmin_splits": _read_csv_safe(os.path.join(data_dir, "garmin", "activity_splits.csv")),
-        "garmin_daily": _read_csv_safe(os.path.join(data_dir, "garmin", "daily_metrics.csv")),
-        "stryd_power": _read_csv_safe(os.path.join(data_dir, "stryd", "power_data.csv")),
-        "stryd_plan": _read_csv_safe(os.path.join(data_dir, "stryd", "training_plan.csv")),
-        "oura_sleep": _read_csv_safe(os.path.join(data_dir, "oura", "sleep.csv")),
-        "oura_readiness": _read_csv_safe(os.path.join(data_dir, "oura", "readiness.csv")),
+        "garmin_activities": _read_csv_safe(os.path.join(data_dir, "garmin", "activities.csv"), "activities"),
+        "garmin_splits": _read_csv_safe(os.path.join(data_dir, "garmin", "activity_splits.csv"), "splits"),
+        "garmin_daily": _read_csv_safe(os.path.join(data_dir, "garmin", "daily_metrics.csv"), "daily_metrics"),
+        "stryd_power": _read_csv_safe(os.path.join(data_dir, "stryd", "power_data.csv"), "power_data"),
+        "stryd_plan": _read_csv_safe(os.path.join(data_dir, "stryd", "training_plan.csv"), "training_plan"),
+        "oura_sleep": _read_csv_safe(os.path.join(data_dir, "oura", "sleep.csv"), "sleep"),
+        "oura_readiness": _read_csv_safe(os.path.join(data_dir, "oura", "readiness.csv"), "readiness"),
     }
 
 
@@ -150,7 +170,7 @@ def load_data(config: UserConfig, data_dir: str) -> dict[str, pd.DataFrame]:
             if not secondary_data.empty and not activities.empty:
                 activities = match_activities(activities, secondary_data)
         except Exception as e:
-            print(f"  Warning: activity enrichment from {conn} failed: {e}")
+            logger.warning("Activity enrichment from %s failed: %s", conn, e)
 
     # --- Recovery: single preferred source ---
     try:
@@ -174,7 +194,7 @@ def load_data(config: UserConfig, data_dir: str) -> dict[str, pd.DataFrame]:
             if not f_data.empty:
                 fitness_frames.append(f_data)
         except Exception as e:
-            print(f"  Warning: fitness data from {conn} failed: {e}")
+            logger.warning("Fitness data from %s failed: %s", conn, e)
 
     if fitness_frames:
         # Merge all fitness DataFrames on date (outer join, first non-null wins)

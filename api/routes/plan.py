@@ -1,5 +1,6 @@
 """Upcoming training plan endpoint with Stryd push integration."""
 import json
+import logging
 import os
 from datetime import date, datetime, timezone
 
@@ -8,6 +9,8 @@ import requests
 from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 from api.deps import get_dashboard_data
 
@@ -70,7 +73,7 @@ def _load_push_status() -> dict:
                 raise ValueError(f"Expected dict, got {type(data).__name__}")
             return data
     except (json.JSONDecodeError, ValueError, OSError) as e:
-        print(f"WARNING: Corrupt push status file {_STRYD_PUSH_STATUS_PATH}: {e}")
+        logger.warning("Corrupt push status file %s: %s", _STRYD_PUSH_STATUS_PATH, e)
         return {}
 
 
@@ -117,7 +120,7 @@ def push_plan_to_stryd(request: PushStrydRequest) -> dict:
     try:
         user_id, token = _login_api(email, password)
     except Exception as e:
-        print(f"ERROR: Stryd login failed: {e}")
+        logger.error("Stryd login failed: %s", e)
         raise HTTPException(status_code=502, detail="Stryd login failed. Check your credentials in sync/.env")
 
     # Load AI plan data
@@ -207,13 +210,13 @@ def push_plan_to_stryd(request: PushStrydRequest) -> dict:
                     pass
             results.append({"date": workout_date, "status": "error", "error": f"Stryd API error: {detail}"})
         except Exception as e:
-            print(f"ERROR: Failed to push workout for {workout_date}: {type(e).__name__}: {e}")
+            logger.error("Failed to push workout for %s: %s: %s", workout_date, type(e).__name__, e)
             results.append({"date": workout_date, "status": "error", "error": str(e)})
 
     try:
         _save_push_status(push_status)
     except OSError as e:
-        print(f"WARNING: Failed to save push status: {e}")
+        logger.warning("Failed to save push status: %s", e)
 
     return {"results": results}
 
@@ -232,7 +235,7 @@ def delete_stryd_workout(workout_id: str) -> dict:
     try:
         user_id, token = _login_api(email, password)
     except Exception as e:
-        print(f"ERROR: Stryd login failed: {e}")
+        logger.error("Stryd login failed: %s", e)
         raise HTTPException(status_code=502, detail="Stryd login failed. Check your credentials in sync/.env")
 
     try:
@@ -243,7 +246,7 @@ def delete_stryd_workout(workout_id: str) -> dict:
         else:
             raise HTTPException(status_code=502, detail=f"Stryd delete failed: {e}")
     except Exception as e:
-        print(f"ERROR: Stryd delete failed: {e}")
+        logger.error("Stryd delete failed: %s", e)
         raise HTTPException(status_code=502, detail="Failed to delete from Stryd")
 
     # Remove from push status

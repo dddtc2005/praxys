@@ -4,11 +4,14 @@ Each pillar (load, recovery, prediction, zones) has multiple theories stored
 as YAML files in data/science/{pillar}/. Label sets (cosmetic zone names)
 are stored in data/science/labels/.
 """
+import logging
 import os
 from dataclasses import dataclass, field
 from typing import Any
 
 import yaml
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Data classes
@@ -109,12 +112,22 @@ def _parse_tsb_zones(raw: list[dict] | None) -> list[TsbZone]:
 
 
 def load_theory(pillar: str, theory_id: str) -> Theory:
-    """Load a single theory YAML file."""
+    """Load a single theory YAML file.
+
+    Validates params against the pillar-specific Pydantic schema at load time.
+    Raises pydantic.ValidationError if required fields are missing or wrong type.
+    """
+    from analysis.theory_schema import validate_theory_params
+
     path = os.path.join(_SCIENCE_DIR, pillar, f"{theory_id}.yaml")
     if not os.path.exists(path):
         raise FileNotFoundError(f"Theory not found: {path}")
     with open(path, encoding="utf-8") as f:
         data = yaml.safe_load(f)
+
+    # Validate params against pillar schema (fail fast on bad YAML)
+    raw_params = data.get("params", {})
+    validate_theory_params(pillar, raw_params)
 
     theory = Theory(
         id=data["id"],
@@ -199,7 +212,8 @@ def list_theories(pillar: str) -> list[Theory]:
             theory_id = fname.rsplit(".", 1)[0]
             try:
                 theories.append(load_theory(pillar, theory_id))
-            except Exception:
+            except (FileNotFoundError, KeyError, yaml.YAMLError) as e:
+                logger.warning("Failed to load theory %s/%s: %s", pillar, theory_id, e)
                 continue
     return theories
 
@@ -215,7 +229,8 @@ def list_label_sets() -> list[LabelSet]:
             label_id = fname.rsplit(".", 1)[0]
             try:
                 sets.append(load_labels(label_id))
-            except Exception:
+            except (FileNotFoundError, KeyError, yaml.YAMLError) as e:
+                logger.warning("Failed to load label set %s: %s", label_id, e)
                 continue
     return sets
 

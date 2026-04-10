@@ -1,4 +1,5 @@
 """User settings endpoints."""
+import logging
 import os
 from dataclasses import asdict
 from typing import Any
@@ -6,9 +7,11 @@ from typing import Any
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+logger = logging.getLogger(__name__)
+
 from analysis.config import load_config, save_config, TrainingBase, PLATFORM_CAPABILITIES
-from analysis.providers import available_providers, get_fitness_provider
-from analysis.providers.models import ThresholdEstimate
+from analysis.providers import available_providers
+from analysis.thresholds import detect_thresholds
 from analysis.training_base import get_display_config
 from api.deps import invalidate_cache
 
@@ -28,36 +31,8 @@ class SettingsUpdate(BaseModel):
 
 def _detect_thresholds(connections: list[str]) -> dict:
     """Auto-detect thresholds from connected fitness providers."""
-    base_dir = os.path.join(os.path.dirname(__file__), "..", "..")
-    data_dir = os.path.join(base_dir, "data")
-
-    result: dict[str, Any] = {}
-
-    for conn in connections:
-        caps = PLATFORM_CAPABILITIES.get(conn, {})
-        if not caps.get("fitness"):
-            continue
-        try:
-            provider = get_fitness_provider(conn)
-            detected = provider.detect_thresholds(data_dir)
-            # Collect non-None values with their source
-            if detected.cp_watts and "cp_watts" not in result:
-                result["cp_watts"] = {"value": detected.cp_watts, "source": conn}
-            if detected.lthr_bpm and "lthr_bpm" not in result:
-                result["lthr_bpm"] = {"value": detected.lthr_bpm, "source": conn}
-            if detected.threshold_pace_sec_km and "threshold_pace_sec_km" not in result:
-                result["threshold_pace_sec_km"] = {"value": detected.threshold_pace_sec_km, "source": conn}
-            if detected.max_hr_bpm and "max_hr_bpm" not in result:
-                result["max_hr_bpm"] = {"value": detected.max_hr_bpm, "source": conn}
-            if detected.rest_hr_bpm and "rest_hr_bpm" not in result:
-                result["rest_hr_bpm"] = {"value": detected.rest_hr_bpm, "source": conn}
-        except KeyError:
-            continue  # Provider not registered for this connection
-        except Exception as e:
-            print(f"  Warning: threshold detection failed for {conn}: {e}")
-            continue
-
-    return result
+    data_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data")
+    return detect_thresholds(connections, data_dir)
 
 
 def resolve_thresholds(config_thresholds: dict, detected: dict) -> dict:

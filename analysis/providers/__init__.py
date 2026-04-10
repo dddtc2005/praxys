@@ -67,9 +67,10 @@ def _ensure_registered() -> None:
     global _registered
     if _registered:
         return
-    _registered = True
-    # Import triggers register_*() calls at module level
+    # Import triggers register_*() calls at module level.
+    # Set flag AFTER imports so a failed import retries next call.
     import analysis.providers.garmin  # noqa: F401
     import analysis.providers.stryd  # noqa: F401
     import analysis.providers.oura  # noqa: F401
     import analysis.providers.ai  # noqa: F401
+    _registered = True
