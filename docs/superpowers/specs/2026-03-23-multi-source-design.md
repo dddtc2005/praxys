@@ -62,6 +62,28 @@ Providers output canonical data models. User selects training base (power/HR/pac
 - All detailed analysis (power zones, splits, CP, pace) remains running-only
 - Dashboard can show activity calendar with all types, load charts include all types
 
+**Per-activity-type source routing (dynamic discovery):**
+
+Instead of a single `preferences.activities` pointer, the system supports routing each activity type to the best available source. The UI is data-driven: no hardcoded type lists.
+
+1. `discover_activity_types(connections, data_dir) -> dict[str, list[str]]` — reads each connected provider's CSV and returns distinct `activity_type` values actually present, e.g.:
+   ```json
+   { "garmin": ["running", "cycling", "hiking"], "stryd": ["running"] }
+   ```
+2. `activity_routing: dict[str, str]` in UserConfig stores explicit per-type choices, e.g.:
+   ```json
+   { "running": "stryd", "default": "garmin" }
+   ```
+   Types not in the dict fall through to `"default"`.
+3. `_load_activities_routed()` in `data_loader.py` replaces the single-source `match_activities()` path — it routes each type's rows to the appropriate provider before merging.
+
+Settings UI behaviour:
+- Types appearing in **multiple** connected providers → interactive toggle row (e.g., `Running: [Garmin] [Stryd]`)
+- Types appearing in only **one** provider → non-interactive badge (e.g., `Cycling: Garmin only`)
+- A final **"All others"** row shows the default provider
+- If only one activity provider is connected, the entire routing section is hidden
+- **Empty state:** if `discovered_activity_types` is empty (no data synced yet), show: *"Sync your data first to configure per-activity routing."*
+
 ### Platform Capability Matrix
 
 Each platform declares what data types it can provide:
@@ -193,9 +215,12 @@ Stored as `data/config.json`. Database deferred to Sub-project 2.
 {
   "connections": ["garmin", "stryd", "oura"],
   "preferences": {
-    "activities": "garmin",
     "recovery": "oura",
     "plan": "stryd"
+  },
+  "activity_routing": {
+    "running": "stryd",
+    "default": "garmin"
   },
   "training_base": "power",
   "thresholds": {
@@ -219,8 +244,8 @@ No `fitness` preference needed — auto-merged from all connections that provide
 
 ### Settings API
 
-- `GET /api/settings` — config + platform capabilities + auto-detected thresholds + display config
-- `PUT /api/settings` — partial update, invalidates dashboard cache
+- `GET /api/settings` — config + platform capabilities + auto-detected thresholds + display config + **`discovered_activity_types`** (dict of provider → list of activity types found in that provider's synced data)
+- `PUT /api/settings` — partial update (accepts `activity_routing` alongside other fields), invalidates dashboard cache
 
 ### Threshold Resolution
 
@@ -242,6 +267,7 @@ analysis/
         garmin.py                # Garmin adapters (Activity, Recovery, Fitness)
         stryd.py                 # Stryd adapters (Activity, Plan, Fitness)
         oura.py                  # Oura adapter (Recovery)
+    data_loader.py               # discover_activity_types() + _load_activities_routed()
 api/routes/
     settings.py                  # GET/PUT /api/settings
 data/
