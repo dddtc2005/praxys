@@ -27,6 +27,47 @@ REQUIRED_COLUMNS: dict[str, list[str]] = {
 }
 
 
+def discover_activity_types(
+    connections: list[str], data_dir: str
+) -> dict[str, list[str]]:
+    """Return distinct activity_type values found in each provider's activities CSV.
+
+    Reads each connected provider's activities CSV and extracts the unique
+    ``activity_type`` column values.  Providers whose CSV is missing or lacks
+    the column are returned with an empty list.
+
+    Example return::
+
+        {"garmin": ["running", "cycling", "hiking"], "stryd": ["running"]}
+    """
+    # Map provider name -> path to its activities CSV
+    provider_csv: dict[str, str] = {
+        "garmin": os.path.join(data_dir, "garmin", "activities.csv"),
+        "stryd": os.path.join(data_dir, "stryd", "power_data.csv"),
+        "coros": os.path.join(data_dir, "coros", "activities.csv"),
+    }
+
+    result: dict[str, list[str]] = {}
+    for provider in connections:
+        csv_path = provider_csv.get(provider)
+        if csv_path is None:
+            result[provider] = []
+            continue
+        df = _read_csv_safe(csv_path)
+        if df.empty or "activity_type" not in df.columns:
+            result[provider] = []
+            continue
+        types = sorted(
+            df["activity_type"]
+            .replace("", pd.NA)
+            .dropna()
+            .unique()
+            .tolist()
+        )
+        result[provider] = [str(t) for t in types]
+    return result
+
+
 def _read_csv_safe(path: str, schema_key: str | None = None) -> pd.DataFrame:
     if not os.path.exists(path):
         return pd.DataFrame()

@@ -104,7 +104,78 @@ class TestLoadSaveConfig:
             assert "training_base" in data
 
 
+class TestActivityRouting:
+    def test_default_activity_routing(self):
+        config = UserConfig()
+        assert config.activity_routing == {"default": "garmin"}
+
+    def test_migrate_preferences_to_activity_routing(self):
+        """Old config with preferences.activities but no activity_routing gets migrated."""
+        old = {
+            "connections": ["garmin", "stryd"],
+            "preferences": {"activities": "stryd", "recovery": "oura", "plan": "stryd"},
+        }
+        migrated = _migrate_config(old)
+        assert migrated["activity_routing"] == {"default": "stryd"}
+
+    def test_existing_activity_routing_not_overwritten(self):
+        """If activity_routing already exists, migration does not overwrite it."""
+        data = {
+            "connections": ["garmin", "stryd"],
+            "preferences": {"activities": "garmin", "recovery": "oura", "plan": "stryd"},
+            "activity_routing": {"default": "stryd", "cycling": "garmin"},
+        }
+        migrated = _migrate_config(data)
+        assert migrated["activity_routing"] == {"default": "stryd", "cycling": "garmin"}
+
+    def test_post_init_ensures_default_key(self):
+        """__post_init__ adds 'default' key if missing from activity_routing."""
+        config = UserConfig(activity_routing={"running": "stryd"})
+        assert "default" in config.activity_routing
+        assert config.activity_routing["default"] == "garmin"
+
+    def test_roundtrip_with_activity_routing(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "config.json")
+            config = UserConfig(activity_routing={"default": "stryd", "cycling": "garmin"})
+            save_config(config, path)
+            loaded = load_config(path)
+            assert loaded.activity_routing == {"default": "stryd", "cycling": "garmin"}
+
+
 class TestPostInit:
     def test_empty_strings_filtered_from_connections(self):
         config = UserConfig(connections=["garmin", "", "stryd", ""])
         assert config.connections == ["garmin", "stryd"]
+
+    def test_post_init_default_from_preferences(self):
+        """When activity_routing is missing 'default' but preferences.activities is set,
+        the default should come from preferences, not hardcoded 'garmin'."""
+        config = UserConfig(
+            activity_routing={"running": "stryd"},
+            preferences={"activities": "stryd", "recovery": "oura", "plan": "stryd"},
+        )
+        assert "default" in config.activity_routing
+        assert config.activity_routing["default"] == "stryd"
+
+
+class TestLoadConfigEndToEnd:
+    def test_old_format_roundtrip(self):
+        """Old-format JSON (with 'sources' key) loads correctly via load_config."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "config.json")
+            old_data = {
+                "sources": {
+                    "activities": "stryd",
+                    "health": "oura",
+                    "plan": "stryd",
+                }
+            }
+            with open(path, "w") as f:
+                json.dump(old_data, f)
+            config = load_config(path)
+            assert "stryd" in config.connections
+            assert "oura" in config.connections
+            assert config.preferences["activities"] == "stryd"
+            assert config.preferences["recovery"] == "oura"
+            assert config.activity_routing["default"] == "stryd"

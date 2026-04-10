@@ -85,6 +85,13 @@ class UserConfig:
         "zones": "coggan_5zone",
     })
 
+    # Per-activity-type source routing.  Keys are activity types (e.g.
+    # "running", "cycling") or the catch-all "default".  Values are platform
+    # names (e.g. "garmin", "stryd").
+    activity_routing: dict[str, str] = field(default_factory=lambda: {
+        "default": "garmin",
+    })
+
     # Display preference for zone labels (cosmetic, does not affect math)
     zone_labels: str = "standard"
 
@@ -111,6 +118,11 @@ class UserConfig:
                 )
         # Filter empty strings from connections (from migration edge cases)
         self.connections = [c for c in self.connections if c]
+        # Ensure activity_routing has a "default" entry
+        if "default" not in self.activity_routing:
+            self.activity_routing["default"] = self.preferences.get(
+                "activities", "garmin"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -139,6 +151,12 @@ def _migrate_config(data: dict) -> dict:
             "recovery": sources.get("health", "oura"),
             "plan": sources.get("plan", "stryd"),
         }
+
+    # Migrate preferences.activities -> activity_routing
+    prefs = data.get("preferences", {})
+    if prefs.get("activities") and "activity_routing" not in data:
+        data["activity_routing"] = {"default": prefs["activities"]}
+
     return data
 
 

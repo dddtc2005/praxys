@@ -52,9 +52,20 @@ const SCIENCE_POWER_URL = 'https://help.stryd.com/en/articles/6879547-race-power
 const SCIENCE_PACE = 'Predicted using Riegel\u2019s formula (T\u2082 = T\u2081 \u00d7 (D\u2082/D\u2081)^1.06), treating threshold pace as ~10K effort.';
 const SCIENCE_PACE_URL = 'https://runningwritings.com/2024/01/critical-speed-guide-for-runners.html';
 
+const ULTRA_DISTANCES = new Set(['50k', '50mi', '100k', '100mi']);
+const SCIENCE_ULTRA = 'Ultra distance power fractions (50K+) are estimates with limited research backing. ' +
+  'Riegel\u2019s exponent is validated only up to marathon distance. Predictions beyond marathon ' +
+  'carry significantly higher uncertainty due to factors like fueling, terrain, heat, and pacing ' +
+  'strategy that dominate ultra performance but are not captured by power/pace models.';
+const SCIENCE_ULTRA_URL = 'https://runningwritings.com/2024/01/critical-speed-guide-for-runners.html';
+
 function predictionNote(base?: string) {
   if (base === 'power') return { text: SCIENCE_POWER, url: SCIENCE_POWER_URL };
   return { text: SCIENCE_PACE, url: SCIENCE_PACE_URL };
+}
+
+function isUltraDistance(distance?: string): boolean {
+  return !!distance && ULTRA_DISTANCES.has(distance);
 }
 
 // --- Tracking Modes ---
@@ -106,6 +117,9 @@ function RaceDateMode({ data }: { data: GoalResponse }) {
             )}
           </div>
           <ScienceNote text={note.text} sourceUrl={note.url} sourceLabel="Source" />
+          {isUltraDistance(data.race_countdown.distance) && (
+            <ScienceNote text={SCIENCE_ULTRA} sourceUrl={SCIENCE_ULTRA_URL} sourceLabel="Discussion" />
+          )}
         </CardContent>
       </Card>
 
@@ -260,6 +274,9 @@ function CpMilestoneMode({ data }: { data: GoalResponse }) {
             </Badge>
           </div>
           <ScienceNote text={note.text} sourceUrl={note.url} sourceLabel="Source" />
+          {isUltraDistance(data.race_countdown.distance) && (
+            <ScienceNote text={SCIENCE_ULTRA} sourceUrl={SCIENCE_ULTRA_URL} sourceLabel="Discussion" />
+          )}
         </CardContent>
       </Card>
 
@@ -349,6 +366,9 @@ function ContinuousMode({ data }: { data: GoalResponse }) {
             </div>
           )}
           <ScienceNote text={note.text} sourceUrl={note.url} sourceLabel="Source" />
+          {isUltraDistance(data.race_countdown.distance) && (
+            <ScienceNote text={SCIENCE_ULTRA} sourceUrl={SCIENCE_ULTRA_URL} sourceLabel="Discussion" />
+          )}
         </CardContent>
       </Card>
 
