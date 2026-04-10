@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useApi } from '@/hooks/useApi';
 import type { HistoryResponse } from '@/types/api';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -16,39 +17,12 @@ function HistorySkeleton() {
 }
 
 export default function History() {
-  const [data, setData] = useState<HistoryResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [offset, setOffset] = useState(0);
   const limit = 20;
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    fetch(`/api/history?limit=${limit}&offset=${offset}`)
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((json) => {
-        if (!cancelled) {
-          setData(json);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err.message);
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [offset]);
+  const { data, loading, error, refetch } = useApi<HistoryResponse>(
+    `/api/history?limit=${limit}&offset=${offset}`
+  );
 
   const total = data?.total ?? 0;
   const showingFrom = total > 0 ? offset + 1 : 0;
@@ -73,7 +47,10 @@ export default function History() {
       {error && !loading && (
         <Alert variant="destructive">
           <AlertTitle>Failed to load activities</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription className="flex items-center justify-between">
+            <span>{error}</span>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button>
+          </AlertDescription>
         </Alert>
       )}
 

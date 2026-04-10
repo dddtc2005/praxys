@@ -392,7 +392,7 @@ function GoalSkeleton() {
 
 export default function Goal() {
   const [fetchKey, setFetchKey] = useState(0);
-  const { data, loading, error } = useApi<GoalResponse>(`/api/goal?_=${fetchKey}`);
+  const { data, loading, error, refetch } = useApi<GoalResponse>(`/api/goal?_=${fetchKey}`);
   const { config, updateSettings } = useSettings();
   const [isEditing, setIsEditing] = useState(false);
 
@@ -427,7 +427,10 @@ export default function Goal() {
       {error && (
         <Alert variant="destructive" className="mb-4">
           <AlertTitle>Failed to load goal data</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription className="flex items-center justify-between">
+            <span>{error}</span>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button>
+          </AlertDescription>
         </Alert>
       )}
 

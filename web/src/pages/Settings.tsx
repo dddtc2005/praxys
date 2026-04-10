@@ -175,7 +175,8 @@ export default function Settings() {
       <Card className="text-center">
         <CardContent className="pt-6">
           <p className="text-destructive font-semibold mb-2">Failed to load settings</p>
-          <p className="text-sm text-muted-foreground">{error}</p>
+          <p className="text-sm text-muted-foreground mb-3">{error}</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button>
         </CardContent>
       </Card>
     );

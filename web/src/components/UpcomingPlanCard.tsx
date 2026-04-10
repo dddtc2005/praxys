@@ -249,7 +249,7 @@ async function pushDatesToStryd(dates: string[]): Promise<{
 }
 
 export default function UpcomingPlanCard() {
-  const { data, loading, error } = useApi<PlanResponse>('/api/plan');
+  const { data, loading, error, refetch } = useApi<PlanResponse>('/api/plan');
   const [pushStatus, setPushStatus] = useState<StrydPushStatus>({});
   const [pushErrors, setPushErrors] = useState<Record<string, string>>({});
   const [pushing, setPushing] = useState(false);
@@ -390,9 +390,12 @@ export default function UpcomingPlanCard() {
   if (error) {
     return (
       <Card>
-        <CardContent className="pt-4">
-          <p className="text-sm text-destructive">Failed to load training plan</p>
-          <p className="text-xs text-muted-foreground">{error}</p>
+        <CardContent className="pt-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm text-destructive">Failed to load training plan</p>
+            <p className="text-xs text-muted-foreground">{error}</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button>
         </CardContent>
       </Card>
     );
