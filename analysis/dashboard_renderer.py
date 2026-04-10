@@ -163,16 +163,16 @@ def _build_diagnosis_card(diagnosis: dict) -> str:
     dist_html = f"""<div style="margin-bottom:12px;">
       <div style="font-size:0.8rem;color:#94a3b8;margin-bottom:4px;">Training Distribution</div>
       <div style="display:flex;height:16px;border-radius:8px;overflow:hidden;">
-        <div style="width:{s_pct}%;background:#ef4444;" title="Supra-CP {s_pct}%"></div>
-        <div style="width:{t_pct}%;background:#f59e0b;" title="Threshold {t_pct}%"></div>
-        <div style="width:{m_pct}%;background:#3b82f6;" title="Tempo {m_pct}%"></div>
-        <div style="width:{e_pct}%;background:#334155;" title="Easy {e_pct}%"></div>
+        <div style="width:{s_pct}%;background:#ef4444;" title="Threshold {s_pct}%"></div>
+        <div style="width:{t_pct}%;background:#f59e0b;" title="Tempo {t_pct}%"></div>
+        <div style="width:{m_pct}%;background:#3b82f6;" title="Endurance {m_pct}%"></div>
+        <div style="width:{e_pct}%;background:#334155;" title="Recovery {e_pct}%"></div>
       </div>
       <div style="display:flex;gap:12px;font-size:0.7rem;color:#94a3b8;margin-top:4px;">
-        <span style="color:#ef4444;">&#9632; Supra-CP {s_pct}%</span>
-        <span style="color:#f59e0b;">&#9632; Threshold {t_pct}%</span>
-        <span style="color:#3b82f6;">&#9632; Tempo {m_pct}%</span>
-        <span style="color:#64748b;">&#9632; Easy {e_pct}%</span>
+        <span style="color:#ef4444;">&#9632; Threshold {s_pct}%</span>
+        <span style="color:#f59e0b;">&#9632; Tempo {t_pct}%</span>
+        <span style="color:#3b82f6;">&#9632; Endurance {m_pct}%</span>
+        <span style="color:#64748b;">&#9632; Recovery {e_pct}%</span>
       </div>
     </div>"""
 

@@ -22,7 +22,7 @@ export default function DiagnosisCard({ diagnosis, display }: Props) {
 
   const intensityLabel = display?.intensity_metric ?? 'Power';
   const unit = display?.threshold_unit ?? 'W';
-  const topZoneName = distribution.length > 0 ? distribution[distribution.length - 1].name : 'Supra-CP';
+  const topZoneName = distribution.length > 0 ? distribution[distribution.length - 1].name : 'VO2max';
 
   return (
     <Card>

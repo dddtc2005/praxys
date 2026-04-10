@@ -22,7 +22,7 @@ const DEFAULT_DISPLAY: DisplayConfig = {
   load_label: 'RSS',
   load_unit: '',
   intensity_metric: 'Power',
-  zone_names: ['Easy', 'Tempo', 'Threshold', 'Supra-CP', 'VO2max'],
+  zone_names: ['Recovery', 'Endurance', 'Tempo', 'Threshold', 'VO2max'],
   trend_label: 'CP Trend',
 };
 

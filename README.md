@@ -86,12 +86,35 @@ Configured via the **Goal** page UI (stored in `data/config.json`):
 
 Distance options: 5K, 10K, Half Marathon, Marathon, 50K, 50 Mile, 100K, 100 Mile
 
+## CLI Skills (no web UI needed)
+
+If you have [Claude Code](https://claude.com/claude-code) or GitHub Copilot CLI, 7 AI skills give you terminal access to all features:
+
+| Skill | What It Does |
+|-------|-------------|
+| `/daily-brief` | Today's training signal, recovery, upcoming workouts |
+| `/training-review` | Multi-week training diagnosis and suggestions |
+| `/race-forecast` | Race time prediction and goal feasibility |
+| `/training-plan` | Generate a personalized 4-week plan |
+| `/sync-data` | Sync from Garmin/Stryd/Oura |
+| `/setup` | Configure connections, thresholds, goals |
+| `/science` | Browse training science theories |
+
+See [docs/skills.md](docs/skills.md) for setup and usage.
+
 ## Running Tests
 
 ```bash
 python -m pytest tests/ -v
 ```
 
-## Contributing
+## Docs
 
-See [CLAUDE.md](CLAUDE.md) for architecture details, conventions, and how to add new metrics or data sources. See [AGENTS.md](AGENTS.md) for AI-assisted development workflows.
+- [Getting Started](docs/getting-started.md) — Full setup guide
+- [Features](docs/features.md) — Feature overview
+- [CLI Skills](docs/skills.md) — Using skills from the terminal
+- [Architecture](docs/dev/architecture.md) — System design
+- [API Reference](docs/dev/api-reference.md) — All endpoints
+- [Contributing](docs/dev/contributing.md) — How to add features
+
+See [CLAUDE.md](CLAUDE.md) for architecture details and conventions.
