@@ -1,0 +1,82 @@
+id: pyramidal_3zone
+pillar: zones
+name: "Pyramidal 3-Zone"
+author: system
+description: >
+  Pyramidal 3-zone model with intensity distribution shaped like a pyramid:
+  ~75% easy, ~15% moderate/tempo, ~10% hard. Unlike polarized training, this
+  model allows substantial time near threshold, which may benefit well-trained
+  runners preparing for tempo-heavy race demands.
+simple_description: >
+  Distributes training in a pyramid shape: most time easy (~75%), a meaningful
+  chunk at moderate/tempo intensity (~15%), and a smaller portion hard (~10%).
+  Compared to polarized training, pyramidal allows more threshold work, which
+  some research suggests is equally effective for well-trained runners and may
+  better prepare you for sustained-effort races like half marathons and marathons.
+advanced_description: |
+  ## Pyramidal 3-Zone Model
+
+  Three zones based on ventilatory thresholds (VT1/VT2), identical boundaries
+  to the polarized model but with a different target distribution:
+
+  **Boundary fractions:**
+  - Power: [0.82, 1.00] of CP
+  - Heart rate: [0.82, 0.89] of LTHR
+  - Pace: [1.14, 1.00] of threshold pace
+
+  **Target training distribution:**
+  | Zone | Name | Target % |
+  |------|------|----------|
+  | 1 | Easy (below VT1) | 75% |
+  | 2 | Moderate (VT1-VT2) | 15% |
+  | 3 | Hard (above VT2) | 10% |
+
+  The pyramidal model derives its name from the shape of the intensity
+  distribution: a wide base of easy training, a moderate middle layer, and a
+  narrow peak of hard training. The key difference from polarized is the
+  substantially larger allocation to Zone 2 (moderate/tempo) at the expense
+  of Zone 3 (hard).
+
+  Esteve-Lanao et al. (2007) showed that sub-elite runners following a
+  pyramidal distribution improved 10K race times more than those using a
+  threshold-heavy approach. Filipas et al. (2022) found pyramidal and
+  polarized distributions produced similar improvements in well-trained
+  runners over 16 weeks, suggesting either approach can be effective
+  depending on individual response and race demands.
+
+  **When to consider pyramidal over polarized:**
+  - Preparing for sustained-effort events (half marathon, marathon)
+  - Responding well to tempo/threshold work
+  - Already well-trained with a strong aerobic base
+
+  **References:**
+  - Esteve-Lanao et al. (2007) "How do endurance runners actually train?"
+    *Medicine & Science in Sports & Exercise*
+  - Filipas et al. (2022) "Effects of 16 weeks of pyramidal and polarized
+    training intensity distributions in well-trained endurance runners,"
+    *Scandinavian Journal of Medicine & Science in Sports*
+  - Stöggl & Sperlich (2014) "Polarized training has greater impact on key
+    endurance variables," *Frontiers in Physiology*
+
+citations:
+  - key: esteve-lanao2007
+    title: "How do endurance runners actually train? Relationship with competition performance"
+    year: 2007
+    journal: "Medicine & Science in Sports & Exercise"
+  - key: filipas2022
+    title: "Effects of 16 weeks of pyramidal and polarized training intensity distributions in well-trained endurance runners"
+    year: 2022
+    journal: "Scandinavian Journal of Medicine & Science in Sports"
+  - key: stoggl2014
+    title: "Polarized training has greater impact on key endurance variables"
+    year: 2014
+    journal: "Frontiers in Physiology"
+
+params:
+  zone_count: 3
+  boundaries:
+    power: [0.82, 1.00]
+    hr: [0.82, 0.89]
+    pace: [1.14, 1.00]
+  zone_names: ["Zone 1 (Easy)", "Zone 2 (Moderate)", "Zone 3 (Hard)"]
+  target_distribution: [0.75, 0.15, 0.10]
