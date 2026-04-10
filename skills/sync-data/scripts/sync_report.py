@@ -10,6 +10,8 @@ import argparse
 import json
 import os
 import sys
+import traceback
+from collections.abc import Callable
 from datetime import date, timedelta
 
 # Project root is three levels up from this script.
@@ -39,8 +41,7 @@ def _date_range(csv_path: str, date_col: str = "date") -> list[str]:
 
 
 def _sync_source(
-    name: str,
-    sync_fn,
+    sync_fn: Callable[[str, str | None], None],
     data_dir: str,
     csv_files: list[str],
     from_date: str | None,
@@ -52,7 +53,8 @@ def _sync_source(
     try:
         sync_fn(data_dir, from_date)
     except Exception as e:
-        return {"status": "error", "reason": str(e)}
+        traceback.print_exc(file=sys.stderr)
+        return {"status": "error", "error_type": type(e).__name__, "reason": str(e)}
 
     after_counts = {f: _count_rows(os.path.join(data_dir, f)) for f in csv_files}
     total_after = sum(after_counts.values())
@@ -72,7 +74,8 @@ def _sync_source(
 
 
 def main() -> None:
-    load_dotenv(os.path.join(_PROJECT_ROOT, "sync", ".env"))
+    env_path = os.path.join(_PROJECT_ROOT, "sync", ".env")
+    env_loaded = load_dotenv(env_path)
 
     parser = argparse.ArgumentParser(description="Sync training data with JSON report")
     parser.add_argument("--from-date", help="Start date (YYYY-MM-DD) for backfill")
@@ -89,6 +92,8 @@ def main() -> None:
         "sync_date": date.today().isoformat(),
         "from_date": from_date or (date.today() - timedelta(days=7)).isoformat(),
     }
+    if not env_loaded:
+        result["env_hint"] = "No sync/.env file found. Run the setup skill to configure data sources."
 
     # --- Oura ---
     if "oura" in skip:
@@ -104,7 +109,7 @@ def main() -> None:
                 oura_sync(token, data_dir, from_date)
 
             result["sources"]["oura"] = _sync_source(
-                "oura", _oura, data_dir,
+                _oura, data_dir,
                 ["oura/sleep.csv", "oura/readiness.csv"],
                 from_date,
             )
@@ -129,7 +134,7 @@ def main() -> None:
                 garmin_sync(email, password, data_dir, from_date, is_cn=is_cn)
 
             result["sources"]["garmin"] = _sync_source(
-                "garmin", _garmin, data_dir,
+                _garmin, data_dir,
                 [
                     "garmin/activities.csv",
                     "garmin/activity_splits.csv",
@@ -157,7 +162,7 @@ def main() -> None:
                 stryd_sync(data_dir, email=stryd_email, password=stryd_password, from_date=from_date)
 
             result["sources"]["stryd"] = _sync_source(
-                "stryd", _stryd, data_dir,
+                _stryd, data_dir,
                 [
                     "stryd/power_data.csv",
                     "stryd/activity_splits.csv",
@@ -173,4 +178,10 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        json.dump({"error": True, "error_type": type(e).__name__, "message": str(e)},
+                  sys.stdout, indent=2)
+        traceback.print_exc(file=sys.stderr)
+        sys.exit(1)

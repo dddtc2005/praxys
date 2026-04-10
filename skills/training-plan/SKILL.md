@@ -223,18 +223,14 @@ plan source to 'AI' in Settings (or use the `setup` skill)."
 
 ## Optional: Push to Stryd
 
-If the user wants to sync the plan to their Stryd watch, they can use the
-dashboard's push-to-Stryd feature, or run:
+If the user wants to sync the plan to their Stryd watch, they can either:
 
-```bash
-python -c "
-import sys, json
-sys.path.insert(0, '.')
-from api.routes.plan import _push_to_stryd
-# Push specific dates
-results = _push_to_stryd(['YYYY-MM-DD', ...])
-print(json.dumps(results, indent=2))
-"
-```
+1. **Use the dashboard** — the plan page has a push-to-Stryd button per workout
+2. **Call the API** (if the server is running):
+   ```bash
+   curl -X POST http://localhost:8000/api/plan/push-stryd \
+     -H "Content-Type: application/json" \
+     -d '{"workout_dates": ["2026-04-11", "2026-04-12"]}'
+   ```
 
 This requires Stryd credentials in `sync/.env`.

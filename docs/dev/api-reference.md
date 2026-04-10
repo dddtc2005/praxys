@@ -12,7 +12,7 @@ Daily training brief.
 ```json
 {
   "signal": {
-    "recommendation": "follow_plan|go|modify|rest",
+    "recommendation": "follow_plan|modify|reduce_intensity|easy|rest",
     "reason": "string",
     "alternatives": [],
     "recovery": { "tsb": 0.6, "hrv_ms": 59.0, "sleep_score": 82.0 },
@@ -27,11 +27,15 @@ Daily training brief.
   },
   "last_activity": {
     "date": "2026-04-07",
+    "activity_type": "running",
     "distance_km": 9.43,
     "duration_sec": 3233,
     "avg_power": 210.0,
+    "avg_pace_min_km": "5:42",
     "rss": 64.8
   },
+  "tsb_sparkline": { "dates": [...], "values": [...], "projected_dates": [...], "projected_values": [...] },
+  "recovery_theory": { "id": "composite", "name": "Composite Recovery", "simple_description": "...", "params": {} },
   "upcoming": [
     { "date": "2026-04-11", "workout_type": "threshold", "duration_min": 65 }
   ],
@@ -78,6 +82,7 @@ Training analysis and diagnosis.
   "cp_trend": { "dates": [...], "values": [...] },
   "weekly_review": { "weeks": ["W10", ...], "actual_rss": [...], "planned_rss": [...] },
   "workout_flags": [{ "date": "...", "flag": "good|bad", "reason": "..." }],
+  "sleep_perf": { ... },
   "training_base": "power",
   "display": { ... }
 }
@@ -174,7 +179,7 @@ Push AI plan workouts to Stryd calendar.
 
 **Request body:**
 ```json
-{ "dates": ["2026-04-11", "2026-04-12"] }
+{ "workout_dates": ["2026-04-11", "2026-04-12"] }
 ```
 
 **Response:**
@@ -311,4 +316,7 @@ Every endpoint that returns training data includes:
   - `threshold_abbrev`: "CP" / "LTHR" / "T-Pace"
   - `threshold_unit`: "W" / "bpm" / "/km"
   - `load_label`: "RSS" / "TRIMP" / "rTSS"
+  - `load_unit`: "" (empty string)
+  - `intensity_metric`: "Power" / "Heart Rate" / "Pace"
   - `zone_names`: Zone name array from active theory
+  - `trend_label`: "CP Trend" / "LTHR Trend" / "Pace Trend"

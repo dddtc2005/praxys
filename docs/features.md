@@ -83,9 +83,9 @@ Based on Kiviniemi and Plews HRV protocols:
 ### Training Plan Generation
 
 AI generates personalized 4-week plans following:
-- 80/20 polarized distribution (Seiler)
+- Target distribution from your active zone theory (defaults to ~80% easy / ~20% quality)
 - 3 build + 1 recovery mesocycle
-- Power zones based on current CP
+- Zone targets based on current threshold and selected zone framework
 - Recovery-aware scheduling
 
 Plans can be pushed to Stryd for watch integration.

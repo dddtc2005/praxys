@@ -35,7 +35,7 @@ How to extend Trainsight with new features.
 
 2. **Define CSV schema** in `data/{source}/` and add sample data to `data/sample/{source}/`
 
-3. **Register in `data_loader.py`** `load_data()` dict
+3. **Register in `data_loader.py`** — add to both `load_all_data()` (raw CSV paths) and `load_data()` (provider-based loading)
 
 4. **Add credentials** to `sync/.env.example`
 

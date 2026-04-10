@@ -88,6 +88,9 @@ python -m sync.sync_all --from-date 2025-01-01
 
 # Sync specific source only
 python -m sync.garmin_sync --from-date 2025-01-01
+
+# Or use the skill script (outputs structured JSON report)
+python skills/sync-data/scripts/sync_report.py --pretty
 ```
 
 ## 5. Run the Dashboard

@@ -252,7 +252,7 @@ Skills with helper scripts (`sync-data`, `daily-brief`, `training-review`, `race
 
 The architecture is designed to support LLM-powered features. Planned extension points:
 
-- **`api/ai.py`** — Claude API integration module with `is_available()` for graceful degradation and `build_training_context()` for serializing computed metrics to LLM context
+- **`api/ai.py`** — AI context builder with `build_training_context()` for serializing computed metrics to LLM context, and `validate_plan()` for checking generated plans before writing
 - **Planned endpoints:** `GET /api/ai/status`, `POST /api/coach` (AI coaching narrative), `POST /api/ask` (NL training queries)
 - **Frontend pattern:** `useAiStatus()` hook gates all AI UI — components render nothing when unavailable
 - **Design principle:** AI is always optional. The app must function fully without `ANTHROPIC_API_KEY`

@@ -11,6 +11,7 @@ import argparse
 import json
 import sys
 import os
+import traceback
 from datetime import date
 
 # Project root is three levels up from this script.
@@ -54,4 +55,10 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        json.dump({"error": True, "error_type": type(e).__name__, "message": str(e)},
+                  sys.stdout, indent=2)
+        traceback.print_exc(file=sys.stderr)
+        sys.exit(1)

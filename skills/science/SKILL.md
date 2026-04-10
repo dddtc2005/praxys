@@ -158,6 +158,6 @@ in the YAML files so they can read the original research.
 
 ## Code Reference
 
-- `analysis/science.py` — `load_active_science()`, `get_available_theories()`, `Theory` dataclass
+- `analysis/science.py` — `load_active_science()`, `list_theories()`, `Theory` dataclass
 - `data/config.json` → `science` key (active selections) + `zone_labels`
 - `data/science/{pillar}/*.yaml` — theory definitions

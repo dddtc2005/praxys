@@ -147,6 +147,7 @@ The `display` object provides dynamic labels:
 - `threshold_unit`: "W", "bpm", or "/km"
 - `threshold_abbrev`: "CP", "LTHR", or "T-Pace"
 - `load_label`: "RSS", "TRIMP", or "rTSS"
-- `zone_type`: "power", "hr", or "pace"
+- `intensity_metric`: "Power", "Heart Rate", or "Pace"
 
+The `training_base` field ("power", "hr", or "pace") indicates the active base.
 Always use these for unit display to match the user's configured training base.

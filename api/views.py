@@ -26,7 +26,7 @@ def last_activity(activities: list[dict]) -> dict | None:
     }
 
 
-def upcoming_workouts(plan_df: pd.DataFrame, limit: int = 3) -> list[dict]:
+def upcoming_workouts(plan_df: pd.DataFrame | None, limit: int = 3) -> list[dict]:
     """Extract next N planned workouts after today."""
     if plan_df is None or plan_df.empty:
         return []
@@ -42,11 +42,17 @@ def upcoming_workouts(plan_df: pd.DataFrame, limit: int = 3) -> list[dict]:
     future = df[df["date_str"] > today_str].sort_values("date_str").head(limit)
     result = []
     for _, row in future.iterrows():
-        dur = row.get("planned_duration_min") or row.get("duration_min")
+        dur = row.get("planned_duration_min")
+        if pd.isna(dur) or dur == "":
+            dur = row.get("duration_min")
+        try:
+            duration_min = float(dur) if pd.notna(dur) and dur != "" else None
+        except (ValueError, TypeError):
+            duration_min = None
         result.append({
             "date": row["date_str"],
             "workout_type": str(row.get("workout_type", "")),
-            "duration_min": float(dur) if dur is not None and dur == dur else None,
+            "duration_min": duration_min,
             "description": str(row.get("workout_description", "")),
         })
     return result
@@ -61,7 +67,7 @@ def week_load(weekly_review: dict) -> dict | None:
         return None
     return {
         "week_label": weeks[-1],
-        "actual": actual[-1] if actual else 0,
+        "actual": actual[-1],
         "planned": planned[-1] if planned else None,
     }
 
@@ -79,16 +85,18 @@ def science_context(science: dict) -> dict:
             continue
         citations = []
         for c in getattr(theory, "citations", []):
-            cite = {"title": c.title}
-            if c.year:
-                cite["year"] = c.year
-            if getattr(c, "url", None):
-                cite["url"] = c.url
+            cite = {"title": getattr(c, "title", "")}
+            year = getattr(c, "year", None)
+            if year:
+                cite["year"] = year
+            url = getattr(c, "url", None)
+            if url:
+                cite["url"] = url
             citations.append(cite)
         result[pillar] = {
-            "id": theory.id,
-            "name": theory.name,
-            "simple_description": theory.simple_description,
+            "id": getattr(theory, "id", "unknown"),
+            "name": getattr(theory, "name", "Unknown Theory"),
+            "simple_description": getattr(theory, "simple_description", ""),
             "citations": citations,
         }
     return result
