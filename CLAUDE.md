@@ -24,7 +24,7 @@ Garmin/Stryd/Oura APIs → sync/*.py → data/**/*.csv
 |-----------|------|-----------|
 | `sync/` | API sync scripts | `garmin_sync.py`, `stryd_sync.py`, `oura_sync.py`, `csv_utils.py` |
 | `analysis/` | Metric computation | `metrics.py` (pure functions), `data_loader.py` (CSV loading + merge) |
-| `api/` | FastAPI backend | `main.py` (app), `deps.py` (cached data layer), `routes/` (endpoints) |
+| `api/` | FastAPI backend | `main.py` (app), `deps.py` (cached data layer), `views.py` (shared view helpers), `routes/` (endpoints) |
 | `web/src/` | React frontend | `pages/` (4 pages), `components/` (UI), `hooks/` (data fetching), `types/` (API contracts) |
 | `tests/` | pytest suite | `test_metrics.py`, `test_integration.py`, etc. |
 | `data/` | User CSV data | `garmin/`, `stryd/`, `oura/` (gitignored), `sample/` (tracked) |
@@ -58,6 +58,7 @@ All training metrics, predictions, and insights must be grounded in exercise sci
 - Metrics in `analysis/metrics.py` must be **pure functions** (no I/O, no side effects)
 - Data loading in `analysis/data_loader.py` — all CSV I/O goes here
 - API routes are thin wrappers calling `get_dashboard_data()` from `api/deps.py`
+- Shared view helpers in `api/views.py` — used by both API routes and CLI skill scripts to avoid duplication
 
 ### Frontend
 - **TypeScript strict** — all API responses typed in `web/src/types/api.ts`

@@ -94,6 +94,20 @@ How to extend Trainsight with new features.
 
 3. **Test** by selecting the theory in Settings or via `/science` skill
 
+## Keeping UI and CLI Skills in Sync
+
+The web API routes and CLI skill scripts share the same computation layer (`get_dashboard_data()` in `api/deps.py`). They also share **view helpers** in `api/views.py` for extracting presentation-ready data:
+
+- `last_activity()` — most recent activity summary
+- `upcoming_workouts()` — next N planned workouts
+- `week_load()` — current week load vs plan
+- `fitness_summary()` — latest CTL/ATL/TSB values
+
+When adding a new field or changing how data is extracted for display:
+1. Add or modify the function in `api/views.py`
+2. Both API routes and CLI scripts get the change automatically
+3. Never duplicate extraction logic between routes and scripts
+
 ## Code Conventions
 
 ### Python

@@ -18,6 +18,7 @@ _PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "..")
 sys.path.insert(0, _PROJECT_ROOT)
 
 from api.deps import get_dashboard_data  # noqa: E402
+from api.views import fitness_summary  # noqa: E402
 from analysis.config import load_config  # noqa: E402
 
 
@@ -42,22 +43,7 @@ def main() -> None:
             "target_time_sec": config.goal.get("target_time_sec")
                 or config.goal.get("race_target_time_sec"),
         },
-        "fitness_snapshot": {
-            "ctl": None,
-            "atl": None,
-            "tsb": None,
-        },
-    }
-
-    # Add fitness snapshot
-    ff = data.get("fitness_fatigue", {})
-    ctl = ff.get("ctl", [])
-    atl = ff.get("atl", [])
-    tsb = ff.get("tsb", [])
-    output["fitness_snapshot"] = {
-        "ctl": ctl[-1] if ctl else None,
-        "atl": atl[-1] if atl else None,
-        "tsb": tsb[-1] if tsb else None,
+        "fitness_snapshot": fitness_summary(data.get("fitness_fatigue", {})),
     }
 
     indent = 2 if args.pretty else None
