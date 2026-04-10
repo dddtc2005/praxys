@@ -2,6 +2,7 @@ import { useApi } from '@/hooks/useApi';
 import { useSettings } from '@/contexts/SettingsContext';
 import type { TrainingResponse } from '@/types/api';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import DiagnosisCard from '@/components/DiagnosisCard';
@@ -32,7 +33,7 @@ function TrainingSkeleton() {
 }
 
 export default function Training() {
-  const { data, loading, error } = useApi<TrainingResponse>('/api/training');
+  const { data, loading, error, refetch } = useApi<TrainingResponse>('/api/training');
   const { display } = useSettings();
 
   const activeDisplay = data?.display ?? display;
@@ -43,7 +44,10 @@ export default function Training() {
     return (
       <Alert variant="destructive" className="my-12">
         <AlertTitle>Failed to load training data</AlertTitle>
-        <AlertDescription>{error}</AlertDescription>
+        <AlertDescription className="flex items-center justify-between">
+          <span>{error}</span>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button>
+        </AlertDescription>
       </Alert>
     );
   }

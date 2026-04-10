@@ -2,6 +2,7 @@ import { useApi } from '@/hooks/useApi';
 import type { TodayResponse } from '@/types/api';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 import { AlertTriangle } from 'lucide-react';
 import SignalHero from '@/components/SignalHero';
 import RecoveryPanel from '@/components/RecoveryPanel';
@@ -28,7 +29,7 @@ function TodaySkeleton() {
 }
 
 export default function Today() {
-  const { data, loading, error } = useApi<TodayResponse>('/api/today');
+  const { data, loading, error, refetch } = useApi<TodayResponse>('/api/today');
 
   const now = new Date();
   const dateStr = now.toLocaleDateString('en-US', {
@@ -44,7 +45,10 @@ export default function Today() {
     return (
       <Alert variant="destructive" className="my-12">
         <AlertTitle>Failed to load</AlertTitle>
-        <AlertDescription>{error}</AlertDescription>
+        <AlertDescription className="flex items-center justify-between">
+          <span>{error}</span>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button>
+        </AlertDescription>
       </Alert>
     );
   }
