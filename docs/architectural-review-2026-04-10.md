@@ -1,7 +1,6 @@
 # Trainsight — Architectural Review
 
 **Date:** 2026-04-10  
-**Branch reviewed:** `copilot/review-repo-architecture`  
 **Test suite:** 116 / 116 passing
 
 ---
@@ -10,7 +9,11 @@
 
 Trainsight is a self-hosted, power-based scientific training system for endurance athletes. The architecture is well-structured: a strict CSV → pure-function → cached-API → React-SPA pipeline with clear layer boundaries. Core computation is fully separated from I/O, the science framework is YAML-driven and extensible, and the frontend design system is consistent. The three major feature specs (multi-source architecture, zone-aware training analysis, AI-generated training plans) have all reached various stages of implementation — the zone-aware analysis is shipped, the AI plan module is functional, and the multi-source provider system is partially in place.
 
-The main areas of debt are (a) the dynamic activity-type routing described in the updated design spec is not yet implemented, (b) `data_loader.py` still hard-codes the Garmin+Stryd+Oura CSV paths rather than routing through the provider interfaces, and (c) the `UserConfig` dataclass still holds the old single-pointer `preferences.activities` field rather than the `activity_routing` dict.
+**Spec debt** — the main gaps between design specs and code are: (a) dynamic activity-type routing not yet implemented, (b) `data_loader.py` hard-codes CSV paths instead of routing through provider interfaces, and (c) `UserConfig` lacks the `activity_routing` dict.
+
+**Runtime quality debt** — independent of specs, the codebase has: (d) a monolithic `deps.py` (1074 LOC) that is difficult to test and maintain, (e) no structured logging (all errors use `print()`), (f) race conditions on concurrent CSV writes during sync, (g) no frontend caching, polling, or error recovery, and (h) duplicated threshold detection and plan filtering logic.
+
+**Architectural decisions validated** — CSV storage and YAML-based science framework are the right choices for the current scale and use case. Both need targeted hardening (file locking, schema validation) rather than replacement.
 
 ---
 
@@ -208,7 +211,211 @@ sync/*.py → data/**/*.csv
 
 ---
 
-## 4. Science Grounding
+## 4. Runtime Quality Analysis
+
+This section covers issues found through independent code review that are not captured in any design spec — they are about how the existing code behaves at runtime.
+
+### 4.1 `deps.py` is a God Module (1074 LOC)
+
+`get_dashboard_data()` is the single aggregation point for all dashboard metrics. At 335 lines, it computes ~15 derived datasets in one function: fitness/fatigue, recovery, training signal, diagnosis, race prediction, compliance, workout flags, and more.
+
+**Impact:**
+- Impossible to unit-test individual metric types — must run the entire pipeline
+- Cache is all-or-nothing (5-min TTL on everything); no partial invalidation
+- Adding a new metric means editing this function
+- Several private builders (`_build_race_countdown`, `_build_compliance`, `_build_workout_flags`) contain significant computation that belongs in `metrics.py`
+
+**Solution:** Split into domain-specific aggregators that can be cached and tested independently:
+```python
+# api/deps.py — thin orchestrator
+def get_dashboard_data() -> dict:
+    return {
+        **get_fitness_metrics(data, config, science),
+        **get_recovery_metrics(data, config, science),
+        **get_training_signal(data, config, science),
+        **get_diagnostics(data, config, science),
+        **get_race_predictions(data, config, science),
+    }
+```
+Move pure computation helpers (`_build_race_countdown`, `_build_compliance`) to `metrics.py`.
+
+### 4.2 No Structured Logging
+
+All Python modules use `print()` for errors and warnings — no log levels, no rotation, no structured output.
+
+**Examples:**
+- `api/routes/plan.py`: `print(f"ERROR: Stryd login failed: {e}")`
+- `analysis/config.py`: `print(f"WARNING: Invalid platform...")`
+- `api/routes/settings.py`: `print(f"WARNING: Corrupt push status...")`
+
+**Impact:** Errors are mixed with stdout, invisible in production, and impossible to filter by severity.
+
+**Solution:** Replace all `print()` calls with Python `logging` module. Use `logging.getLogger(__name__)` per module. Configure a single format in `api/main.py`:
+```python
+import logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
+```
+
+### 4.3 Bare Exception Handling
+
+Several locations catch broad exceptions and silently continue:
+
+- `api/deps.py` lines 85–95: `except (KeyError, Exception): continue`
+- `analysis/config.py` `__post_init__`: prints warning but doesn't raise on invalid config
+- `api/routes/science.py` PUT handler: `except FileNotFoundError: continue` (invalid theory ID silently ignored)
+
+**Impact:** Programming bugs are masked. A misspelled theory ID, missing CSV column, or type error produces no error — just wrong/missing data.
+
+**Solution:** Catch specific expected exceptions only. Let unexpected exceptions propagate. Validate config at load time with strict checks (raise `ValueError` for invalid states).
+
+### 4.4 Sync Race Conditions
+
+`/api/routes/sync.py` uses `threading.Lock()` to protect the in-memory `_sync_status` dict, but CSV file writes in `csv_utils.append_rows()` have no locking. Since `append_rows()` does read-all → merge-in-memory → rewrite-all, concurrent syncs to overlapping files can lose data:
+
+1. Garmin sync reads `activities.csv` (state A)
+2. Stryd sync reads `activities.csv` (also state A)
+3. Garmin writes merged result (state B)
+4. Stryd writes its merged result from state A — **overwrites Garmin's write**
+
+In practice, each source writes to its own directory (`garmin/*.csv`, `stryd/*.csv`), so the risk is low but not zero (e.g., if both sources ever write to a shared file).
+
+**Solution:** Add file-level locking in `csv_utils.append_rows()`:
+```python
+import portalocker  # cross-platform file locking
+
+def append_rows(path, new_rows, key_column):
+    with portalocker.Lock(path + ".lock", timeout=30):
+        existing = read_csv(path)
+        merged = _merge(existing, new_rows, key_column)
+        _write_csv(path, merged)
+```
+
+### 4.5 Frontend Architecture Gaps
+
+The frontend passes design system compliance (shadcn/ui, `font-data`, chart theme) but has structural issues:
+
+**No caching or polling.** Each page independently calls `useApi('/api/today')`, `useApi('/api/training')`, etc. There is no shared cache — navigating between pages re-fetches data. Sync status is fetched once and never polls for updates.
+
+**No error recovery.** When a fetch fails, the error message persists permanently. No retry button, no stale-while-revalidate fallback.
+
+**`UpcomingPlanCard.tsx` is 465 LOC** — the largest component by far. It mixes Stryd plan push logic, workout form editing, push status tracking, plan generation UI, and example workout suggestions. Should be split into 3–4 focused components.
+
+**Solution:** Migrate from raw `useApi` to React Query (TanStack Query):
+- Automatic refetch on stale data and window focus
+- Shared cache across pages (navigating doesn't re-fetch)
+- Built-in retry with exponential backoff
+- Manual invalidation after sync completes
+- `refetchInterval` for polling sync status
+
+### 4.6 Duplicated Code
+
+**Threshold detection** exists in two places:
+- `api/deps.py` `_resolve_thresholds()` (lines 73–110)
+- `api/routes/settings.py` `_detect_thresholds()` (lines 29–60)
+
+Both iterate over connected platforms and detect CP/LTHR values with similar logic.
+
+**Plan date filtering** is duplicated between `api/views.py` and `api/routes/plan.py`.
+
+**Solution:** Extract shared utilities:
+```python
+# analysis/thresholds.py
+def detect_from_providers(connections: list[str], data_dir: str) -> dict
+
+# analysis/filtering.py
+def filter_plan_after_date(plan: pd.DataFrame, start_date: date) -> pd.DataFrame
+```
+
+### 4.7 Data Integrity
+
+**No CSV schema validation.** `csv_utils.append_rows()` accepts any dict of columns. Missing columns become empty strings, which downstream code converts to NaN via `pd.to_numeric(errors="coerce")`. No warning is raised.
+
+**Fragile timezone parsing.** `data_loader.py` `_parse_time()` uses a string hack (`replace("+00:00", "Z")`) to normalize timezones. Three fallback format strings are tried silently.
+
+**No physiological bounds checking.** HR, power, and pace values are accepted without validation. Negative power, HR > 300, or pace < 1 min/km would silently flow into metrics.
+
+**Solution:** Add a lightweight schema check in `_read_csv_safe()`:
+```python
+REQUIRED_COLUMNS = {
+    "activities": ["date", "distance_km", "duration_sec"],
+    "power_data": ["date", "avg_power"],
+    # ...
+}
+
+def _read_csv_safe(path, schema_key=None):
+    df = pd.read_csv(path)
+    if schema_key and schema_key in REQUIRED_COLUMNS:
+        missing = set(REQUIRED_COLUMNS[schema_key]) - set(df.columns)
+        if missing:
+            logger.warning(f"{path} missing columns: {missing}")
+    return df
+```
+
+---
+
+## 5. Architectural Decisions
+
+### 5.1 CSV vs Database: Keep CSV
+
+**Decision: CSV is the right storage format. Do not migrate to a database.**
+
+| Factor | Current State | Assessment |
+|--------|--------------|------------|
+| Data volume | ~3,000 rows across 9 files | Trivially small — fits in memory |
+| Query pattern | Full-table load into pandas every time | No selective queries that would benefit from indexes |
+| Write pattern | Append-only upsert, ~1 sync/day | Not write-heavy |
+| Users | Single-user, self-hosted | No concurrent access in practice |
+| Growth rate | ~365 rows/year | At 10 years: ~30K rows, still trivial |
+| Joins | Date-based pandas merges | Simple, well-understood |
+| Portability | Human-readable, git-friendly, copy-friendly | A database would be opaque |
+
+The computation model loads everything into pandas DataFrames regardless — `compute_ewma_load()`, `diagnose_training()`, and all other metric functions are numpy/pandas operations. A database would add a dependency and migration tooling for zero query performance gain.
+
+**The one real problem — concurrent sync writes — is a file-locking fix, not a migration** (see §4.4).
+
+**Revisit if:** multi-user support is added, or sub-second queries on historical data are needed.
+
+### 7.2 Science Framework: Keep YAML, Add Validation
+
+**Decision: YAML is the right format for theory files. Add Pydantic schema validation.**
+
+The 10 developer-authored theories are structured reference data — computation parameters, display text, and citations bundled together. They change infrequently and are loaded once at startup.
+
+| Alternative | Why Not |
+|-------------|---------|
+| Markdown | Cannot express nested params (time constants, zone boundaries, distributions). Frontmatter + body is just worse YAML. |
+| Skills | Skills are CLI interaction patterns, not data. A theory is a parameter set that feeds computation, not something you "invoke." |
+| Database | 10 static records don't need a database. Loses human editability and git diffs. |
+| JSON | Viable but worse to hand-edit. No comments, verbose syntax. |
+| Python dataclasses | Sacrifices separation between "science content" and "code." |
+
+**The real problem is untyped parameter access.** Theory params are consumed via `.get()` with silent defaults:
+```python
+ctl_tc = int(load_params.get("ctl_time_constant", 42))  # silent default if missing
+```
+If a new theory omits `ctl_time_constant`, it silently uses 42 — the wrong value.
+
+**Solution:** Add Pydantic validators per pillar that run at load time:
+```python
+class LoadTheoryParams(BaseModel):
+    ctl_time_constant: int
+    atl_time_constant: int
+    rss_exponent: float = 2.0
+
+class ZoneTheoryParams(BaseModel):
+    zone_count: int
+    boundaries: dict[str, list[float]]
+    zone_names: list[str] | dict[str, list[str]]
+    target_distribution: list[float]
+```
+
+Keep theories as YAML files, but fail fast on load if required fields are missing or wrong type.
+
+**Revisit if:** users need to create custom theories via the UI (would need a form + API + persistence layer).
+
+---
+
+## 6. Science Grounding
 
 The `docs/studies/openai.md` literature review covers five domains: training load models (Banister, PMC), intensity distribution (polarized, threshold, HIIT), periodization (linear, block, reverse), recovery (sleep, nutrition, HRV), and monitoring tools. This review directly informed the science framework implementation:
 
@@ -226,11 +433,11 @@ The `docs/studies/openai.md` literature review covers five domains: training loa
 
 ---
 
-## 5. Open Design Debt (Spec vs. Implementation)
+## 7. Open Design Debt (Spec vs. Implementation)
 
 The following items are in the approved or draft design specs but not yet in code:
 
-### 5.1 Dynamic Activity-Type Routing (High Priority)
+### 7.1 Dynamic Activity-Type Routing (High Priority)
 **Spec:** `2026-03-23-multi-source-design.md` (updated 2026-04-10)  
 **Status:** Not implemented
 
@@ -240,58 +447,32 @@ The following items are in the approved or draft design specs but not yet in cod
 - `discovered_activity_types` — missing from `GET /api/settings` response
 - Settings UI routing section — not yet built in `Settings.tsx`
 
-### 5.2 Provider Registry Dispatch (Medium Priority)
+### 7.2 Provider Registry Dispatch (Medium Priority)
 **Spec:** `2026-03-23-multi-source-design.md`  
 **Status:** Partial — providers exist as classes but are not wired to `data_loader.py`
 
 The `analysis/providers/__init__.py` does not expose a lookup that maps `UserConfig.preferences` → provider instance. Until this is wired, adding a new data source still requires modifying `data_loader.py` directly.
 
-### 5.3 AI Plan CLI Entry Point (Medium Priority)
+### 7.3 AI Plan CLI Entry Point (Medium Priority)
 **Spec:** `2026-03-24-ai-training-plan-design.md`  
 **Status:** Not implemented
 
 `scripts/build_training_context.py` does not exist. The Claude Code `/training-plan` skill cannot be invoked without it. This is a one-file, low-effort item.
 
-### 5.4 Threshold / Pyramidal Zone Theory (Low Priority)
+### 7.4 Threshold / Pyramidal Zone Theory (Low Priority)
 **Spec:** Discussed in `docs/studies/openai.md`  
 **Status:** Not implemented
 
 Adding a third zone theory would give users the full set of scientifically-documented distribution models. The YAML schema and `compute_zones()` already support it — only the YAML file is missing.
 
-### 5.5 `ScienceNote` on Ultra Distance Predictions (Low Priority)
+### 7.5 `ScienceNote` on Ultra Distance Predictions (Low Priority)
 **Status:** Ultra fractions flagged as estimates in code but not surfaced in the UI.
 
 The `ScienceNote` component pattern is established. Adding a note to the race prediction card for 50K+ distances is a small, targeted UI change.
 
 ---
 
-## 6. Recommendations
-
-### Immediate (unblocks planned work)
-
-1. **Add `scripts/build_training_context.py`** — 20-line CLI wrapper around `api/ai.build_training_context()` that prints JSON to stdout. Required for the `/training-plan` skill.
-
-2. **Add `activity_routing` to `UserConfig`** — replace `preferences["activities"]` with `activity_routing: dict[str, str]` defaulting to `{"default": "garmin"}`. Update `_migrate_config()` to convert the old field.
-
-3. **Implement `discover_activity_types()`** in `data_loader.py` — read each connected provider's activities CSV, return distinct `activity_type` values per provider. This unlocks the settings UI routing section.
-
-### Near-Term (architectural health)
-
-4. **Wire providers to `data_loader.load_data()`** — instead of hand-coding paths in `load_all_data()`, instantiate providers from the registry and call `provider.load_activities(data_dir)`. This makes adding Coros (or any new source) a matter of adding one YAML + one provider class, with zero changes to the loading pipeline.
-
-5. **Extract large builders from `deps.py` into `metrics.py`** — `_build_race_countdown()` and `_build_compliance()` contain significant computation logic that would benefit from unit tests. Moving them to `metrics.py` as pure functions follows the established pattern.
-
-6. **Add `discovered_activity_types` to `GET /api/settings`** — needed by the frontend routing UI.
-
-### Longer-Term (science framework)
-
-7. **Add `polarized_pyramidal.yaml`** (Threshold/Pyramidal zone theory) to complete the literature-grounded theory set.
-
-8. **Add a `periodization` science pillar** — encode block periodization, progressive overload, and taper parameters as YAML-driven, selectable theories that the AI plan builder can reference.
-
----
-
-## 7. Test Coverage Summary
+## 8. Test Coverage
 
 All 116 tests pass. Coverage spans:
 
@@ -309,23 +490,85 @@ All 116 tests pass. Coverage spans:
 | `test_stryd_upload.py` | Stryd plan upload parsing |
 
 **Coverage gaps:**
-- No tests for `analysis/science.py` (theory loading, recommendation logic).
-- No tests for the zone-aware diagnosis path added in PR #10 (dynamic zone distribution).
-- No tests for `analysis/zones.py` edge cases (pace zones, >5-zone configs).
+- No tests for `analysis/science.py` (theory loading, recommendation logic)
+- No tests for the zone-aware diagnosis path added in PR #10 (dynamic zone distribution)
+- No tests for `analysis/zones.py` edge cases (pace zones, >5-zone configs)
+- No tests for any API route (only sync modules, not route handlers)
+- No tests for `analysis/config.py` (load/save/migration)
+- No frontend tests
 
 ---
 
-## 8. Summary Table
+## 9. Consolidated Action Plan
 
-| Area | Health | Key Action |
-|------|--------|------------|
-| Layer separation (pure functions, I/O, API, UI) | 🟢 Strong | — |
-| Test suite | 🟢 116/116 | Add zone + science tests |
-| Zone-aware training analysis | 🟢 Shipped (PR #10) | — |
-| AI plan context builder & validation | 🟢 Functional | Add CLI script |
-| Science framework (YAML theories) | 🟢 Extensible | Add pyramidal zone theory |
-| Provider interfaces | 🟡 Defined, not wired | Wire to data_loader |
-| Dynamic activity-type routing | 🔴 Not started | Implement spec |
-| `UserConfig` schema | 🟡 Partial | Add `activity_routing` field |
-| Settings API (`discovered_activity_types`) | 🔴 Missing | Add to GET response |
-| Coros sync | 🟡 Capability declared | Sync script not built |
+All findings from sections 3–8 are merged into a single prioritized backlog. Items are grouped by effort and impact.
+
+### Phase 1: Runtime Safety (quick wins, high impact)
+
+These are targeted fixes to existing code — no new features, no architecture changes.
+
+| # | Item | Files | Effort | Section |
+|---|------|-------|--------|---------|
+| 1 | **Replace `print()` with `logging`** — Add `logging.getLogger(__name__)` to all Python modules. Configure format in `api/main.py`. | All `.py` files | 1–2 hrs | §4.2 |
+| 2 | **Add file locking to CSV writes** — Use `portalocker` in `csv_utils.append_rows()` to prevent concurrent write corruption. | `sync/csv_utils.py`, `requirements.txt` | 30 min | §4.4 |
+| 3 | **Narrow exception handling** — Replace `except (KeyError, Exception)` with specific catches. Let unexpected errors propagate. | `api/deps.py`, `analysis/config.py`, `api/routes/science.py` | 1 hr | §4.3 |
+| 4 | **Add Pydantic validators for YAML theories** — Validate theory params at load time. Fail fast on missing/wrong-type fields. | `analysis/science.py` (new: `analysis/theory_schema.py`) | 2 hrs | §5.2 |
+| 5 | **Add CSV schema validation** — Check required columns in `_read_csv_safe()`. Log warnings for missing columns. | `analysis/data_loader.py` | 1 hr | §4.7 |
+
+### Phase 2: Maintainability (medium effort, high impact)
+
+Refactors that improve testability and reduce duplication without changing behavior.
+
+| # | Item | Files | Effort | Section |
+|---|------|-------|--------|---------|
+| 6 | **Split `deps.py` into domain aggregators** — Extract `get_fitness_metrics()`, `get_recovery_metrics()`, `get_training_signal()`, `get_diagnostics()`, `get_race_predictions()`. Keep `get_dashboard_data()` as a thin orchestrator. Move pure computation helpers to `metrics.py`. | `api/deps.py` → `api/deps/*.py` or keep flat | 4–6 hrs | §4.1 |
+| 7 | **Extract duplicated code** — Create `analysis/thresholds.py` (shared threshold detection) and consolidate plan date filtering. | `api/deps.py`, `api/routes/settings.py`, `api/views.py`, `api/routes/plan.py` | 2 hrs | §4.6 |
+| 8 | **Break up `UpcomingPlanCard.tsx`** — Split into `PlanOverview`, `WorkoutEditor`, `StrydPushPanel` components. | `web/src/components/UpcomingPlanCard.tsx` | 2–3 hrs | §4.5 |
+| 9 | **Add missing test coverage** — Tests for `science.py` (theory loading, recommendations), `zones.py` (pace zones, N-zone configs), `config.py` (load/save/migration), and at least one API route integration test. | `tests/` | 4–6 hrs | §8 |
+
+### Phase 3: Frontend Architecture (medium effort, UX impact)
+
+| # | Item | Files | Effort | Section |
+|---|------|-------|--------|---------|
+| 10 | **Migrate to React Query** — Replace `useApi` with TanStack Query for shared cache, automatic refetch, retry, and polling. Add `refetchInterval` for sync status polling. | `web/src/hooks/useApi.ts`, all pages | 4–6 hrs | §4.5 |
+| 11 | **Add error recovery UI** — Retry buttons on failed fetches. Stale-while-revalidate for cached data. Loading skeletons already exist (good). | `web/src/pages/*`, `web/src/components/*` | 2 hrs | §4.5 |
+
+### Phase 4: Spec Implementation (larger effort, new features)
+
+These are the design-spec gaps identified in §7. They should be tackled after runtime quality is solid.
+
+| # | Item | Files | Effort | Section |
+|---|------|-------|--------|---------|
+| 12 | **Add `scripts/build_training_context.py`** — CLI wrapper for `api/ai.build_training_context()`. Required for `/training-plan` skill. | `scripts/build_training_context.py` | 30 min | §7.3 |
+| 13 | **Add `activity_routing` to `UserConfig`** — Replace `preferences["activities"]` with `activity_routing: dict[str, str]`. Update migration logic. | `analysis/config.py` | 1 hr | §7.1 |
+| 14 | **Implement `discover_activity_types()`** — Read connected providers' CSVs, return distinct activity types per provider. | `analysis/data_loader.py` | 2 hrs | §7.1 |
+| 15 | **Wire provider registry to `data_loader`** — Replace hard-coded CSV paths with provider dispatch. | `analysis/providers/__init__.py`, `analysis/data_loader.py` | 4–6 hrs | §7.2 |
+| 16 | **Add `discovered_activity_types` to Settings API** + frontend routing UI. | `api/routes/settings.py`, `web/src/pages/Settings.tsx` | 3–4 hrs | §7.1 |
+
+### Phase 5: Science Expansion (low effort, completeness)
+
+| # | Item | Files | Effort | Section |
+|---|------|-------|--------|---------|
+| 17 | **Add Threshold/Pyramidal zone theory** — Third zone theory YAML file. Infrastructure already supports it. | `data/science/zones/pyramidal.yaml` | 1 hr | §7.4 |
+| 18 | **Add `ScienceNote` for ultra predictions** — Flag 50K+ distance estimates in the race prediction UI. | `web/src/components/` (race prediction card) | 30 min | §7.5 |
+| 19 | **Add `periodization` science pillar** — Encode block periodization, progressive overload, taper as YAML theories for AI plan builder. | `data/science/periodization/` | 2–3 hrs | §6 |
+
+---
+
+## 10. Summary
+
+| Area | Health | Key Issue | Action Phase |
+|------|--------|-----------|--------------|
+| Layer separation | 🟢 Strong | — | — |
+| Test suite | 🟢 116/116 passing | Coverage gaps in science, zones, config, routes | Phase 2 (#9) |
+| Zone-aware analysis | 🟢 Shipped (PR #10) | — | — |
+| AI plan module | 🟢 Functional | Missing CLI entry point | Phase 4 (#12) |
+| Science framework | 🟢 Extensible | No param validation at load time | Phase 1 (#4) |
+| CSV storage | 🟢 Right choice | No file locking on writes | Phase 1 (#2) |
+| Error handling | 🔴 print() + bare except | Silent failures, no log levels | Phase 1 (#1, #3) |
+| `deps.py` | 🟡 Functional but 1074 LOC | Untestable, all-or-nothing cache | Phase 2 (#6) |
+| Frontend data layer | 🟡 Works but fragile | No cache, no retry, no polling | Phase 3 (#10, #11) |
+| Code duplication | 🟡 2 duplicated patterns | Threshold detection, plan filtering | Phase 2 (#7) |
+| Provider registry | 🟡 Defined, not wired | Hard-coded paths in data_loader | Phase 4 (#15) |
+| Activity-type routing | 🔴 Not started | Full spec unimplemented | Phase 4 (#13–16) |
+| `UserConfig` schema | 🟡 Partial | Missing `activity_routing` | Phase 4 (#13) |
