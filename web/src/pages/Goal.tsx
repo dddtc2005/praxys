@@ -391,8 +391,7 @@ function GoalSkeleton() {
 }
 
 export default function Goal() {
-  const [fetchKey, setFetchKey] = useState(0);
-  const { data, loading, error, refetch } = useApi<GoalResponse>(`/api/goal?_=${fetchKey}`);
+  const { data, loading, error, refetch } = useApi<GoalResponse>('/api/goal');
   const { config, updateSettings } = useSettings();
   const [isEditing, setIsEditing] = useState(false);
 
@@ -408,7 +407,7 @@ export default function Goal() {
 
   const handleSaveGoal = async (goal: { race_date: string; distance: string; target_time_sec: number }) => {
     await updateSettings({ goal });
-    setFetchKey((k) => k + 1);
+    refetch();
   };
 
   if (loading) return <GoalSkeleton />;

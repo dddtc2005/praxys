@@ -22,10 +22,6 @@ export function useApi<T>(url: string, options?: UseApiOptions): UseApiResult<T>
   const { data, isLoading, error, refetch } = useQuery<T, Error>({
     queryKey: [url],
     queryFn: () => apiFetcher<T>(url),
-    staleTime: 2 * 60 * 1000,      // 2 min — data considered fresh
-    gcTime: 5 * 60 * 1000,          // 5 min — cache kept (matches backend TTL)
-    retry: 2,                        // retry twice with exponential backoff
-    refetchOnWindowFocus: true,      // refresh when user returns to tab
     refetchInterval: options?.refetchInterval,
   });
 
