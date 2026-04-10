@@ -2,7 +2,7 @@ import os
 import tempfile
 import pandas as pd
 import pytest
-from analysis.data_loader import load_all_data, match_activities
+from analysis.data_loader import load_all_data, match_activities, discover_activity_types
 
 
 def _write_csv(path, rows):
@@ -35,6 +35,53 @@ def test_load_all_data_with_files():
         data = load_all_data(tmpdir)
         assert len(data["oura_readiness"]) == 1
         assert data["oura_readiness"].iloc[0]["readiness_score"] == 82
+
+
+class TestDiscoverActivityTypes:
+    def test_returns_types_from_csv(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.makedirs(os.path.join(tmpdir, "garmin"))
+            _write_csv(os.path.join(tmpdir, "garmin", "activities.csv"), [
+                {"activity_id": "1", "date": "2026-03-10", "activity_type": "running", "distance_km": 10},
+                {"activity_id": "2", "date": "2026-03-11", "activity_type": "cycling", "distance_km": 30},
+                {"activity_id": "3", "date": "2026-03-12", "activity_type": "running", "distance_km": 8},
+            ])
+            result = discover_activity_types(["garmin"], tmpdir)
+            assert result == {"garmin": ["cycling", "running"]}
+
+    def test_missing_csv_returns_empty(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = discover_activity_types(["garmin", "stryd"], tmpdir)
+            assert result == {"garmin": [], "stryd": []}
+
+    def test_csv_without_activity_type_column(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.makedirs(os.path.join(tmpdir, "garmin"))
+            _write_csv(os.path.join(tmpdir, "garmin", "activities.csv"), [
+                {"activity_id": "1", "date": "2026-03-10", "distance_km": 10},
+            ])
+            result = discover_activity_types(["garmin"], tmpdir)
+            assert result == {"garmin": []}
+
+    def test_unknown_provider_returns_empty(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = discover_activity_types(["oura"], tmpdir)
+            assert result == {"oura": []}
+
+    def test_multiple_providers(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.makedirs(os.path.join(tmpdir, "garmin"))
+            os.makedirs(os.path.join(tmpdir, "stryd"))
+            _write_csv(os.path.join(tmpdir, "garmin", "activities.csv"), [
+                {"activity_id": "1", "date": "2026-03-10", "activity_type": "running", "distance_km": 10},
+                {"activity_id": "2", "date": "2026-03-11", "activity_type": "hiking", "distance_km": 5},
+            ])
+            _write_csv(os.path.join(tmpdir, "stryd", "power_data.csv"), [
+                {"date": "2026-03-10", "activity_type": "running", "avg_power": 240},
+            ])
+            result = discover_activity_types(["garmin", "stryd"], tmpdir)
+            assert result["garmin"] == ["hiking", "running"]
+            assert result["stryd"] == ["running"]
 
 
 def test_match_activities():
