@@ -1,10 +1,12 @@
 # Trainsight
 
-CLI-first training insights for technical athletes.
+Skills-based training insights for technical athletes.
 
 Trainsight is built for engineers who train seriously and prefer terminal-native workflows with tools like [Claude Code](https://claude.com/claude-code) and [GitHub Copilot CLI](https://githubnext.com/projects/copilot-cli/). It combines Garmin, Stryd, and Oura data into training metrics, race predictions, and daily recommendations through AI skills.
 
-The local web dashboard is still supported, but now acts as a secondary visualization layer.
+Skills in CLI and the local web dashboard are both supported, so you can choose workflow-first interaction in the terminal and visual exploration in the browser.
+
+![Trainsight Dashboard](data/screenshots/desktop-today.png)
 
 ## Who This Is For
 
@@ -13,7 +15,7 @@ The local web dashboard is still supported, but now acts as a secondary visualiz
 - Users who prefer skill-driven interaction over point-and-click UI
 - People comfortable managing Python dependencies and API credentials
 
-## CLI Skills (Primary Interface)
+## CLI Skills
 
 Trainsight ships with 7 CLI skills:
 
@@ -29,7 +31,7 @@ Trainsight ships with 7 CLI skills:
 
 See [docs/skills.md](docs/skills.md) for full installation and usage details.
 
-## CLI Quickstart (Recommended)
+## Quickstart (Skills + Optional Web)
 
 Choose one data path:
 - **Sample data path:** run step 2 and skip credential setup/sync steps.
