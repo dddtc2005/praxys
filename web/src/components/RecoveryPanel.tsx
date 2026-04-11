@@ -38,10 +38,10 @@ export default function RecoveryPanel({ recovery, theoryMeta, analysis }: Props)
     ? `Recovery \u00b7 ${theoryMeta.name}`
     : 'Recovery';
 
-  const status: RecoveryStatus = analysis?.status ?? 'insufficient_data';
+  const status: RecoveryStatus = analysis?.status ?? 'normal';
   const statusCfg = STATUS_CONFIG[status] ?? DEFAULT_STATUS;
   const hrv = analysis?.hrv;
-  const recoveryUnavailable = status === 'insufficient_data' || !hrv;
+  const recoveryUnavailable = status === 'insufficient_data';
   const trendCfg = hrv ? (TREND_LABELS[hrv.trend] ?? TREND_LABELS.stable) : null;
 
   return (
@@ -68,7 +68,7 @@ export default function RecoveryPanel({ recovery, theoryMeta, analysis }: Props)
         {recoveryUnavailable && (
           <div className="rounded-lg border border-border bg-card p-3">
             <p className="text-sm text-muted-foreground">
-              Recovery requires HRV data. We do not provide recovery status or suggestions without sufficient HRV readings.
+              Recovery requires HRV data from a compatible device (for example Oura Ring or an HRV-capable chest strap). Connect one to enable recovery status and suggestions.
             </p>
           </div>
         )}

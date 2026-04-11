@@ -470,7 +470,7 @@ def daily_training_signal(
     # Decision logic
     if status == "insufficient_data":
         rec = "follow_plan"
-        reason = "Recovery requires HRV data. No recovery suggestion is provided."
+        reason = "Recovery requires HRV data. Connect an HRV-capable device to receive recovery suggestions."
         alternatives = []
 
     elif status == "fatigued":

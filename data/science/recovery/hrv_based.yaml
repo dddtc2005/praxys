@@ -30,7 +30,7 @@ advanced_description: |
   - 7-day rolling mean of ln(RMSSD): declining trend signals maladaptation
   - 7-day coefficient of variation (CV): CV > 10% signals autonomic disturbance
 
-  **Product rule:**
+  **Availability policy:**
   - Recovery requires HRV data.
   - Sleep and resting HR are context only when HRV exists.
   - No HRV means no recovery status, score, or recovery recommendation.
