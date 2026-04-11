@@ -22,12 +22,13 @@ Garmin/Stryd/Oura APIs → sync/*.py → data/**/*.csv
 
 | Directory | Owns | Key Files |
 |-----------|------|-----------|
-| `sync/` | API sync scripts | `garmin_sync.py`, `stryd_sync.py`, `oura_sync.py`, `csv_utils.py` |
-| `analysis/` | Metric computation | `metrics.py` (pure functions), `data_loader.py` (CSV loading + merge) |
+| `sync/` | API sync scripts | `garmin_sync.py`, `stryd_sync.py`, `oura_sync.py`, `csv_utils.py`, `sync_all.py` (orchestrator), `bootstrap_garmin_tokens.py` |
+| `analysis/` | Metric computation | `metrics.py` (pure functions), `data_loader.py` (CSV I/O + merge), `science.py` (theory YAML loader), `config.py` (UserConfig dataclass), `zones.py`, `thresholds.py`, `training_base.py` |
+| `analysis/providers/` | Pluggable data sources | `base.py` (abstract provider ABCs), `garmin.py`, `stryd.py`, `oura.py`, `ai.py` (AI plan CSV loader), `models.py` |
 | `api/` | FastAPI backend | `main.py` (app), `deps.py` (cached data layer), `views.py` (shared view helpers), `routes/` (endpoints) |
-| `web/src/` | React frontend | `pages/` (4 pages), `components/` (UI), `hooks/` (data fetching), `types/` (API contracts) |
+| `web/src/` | React frontend | `pages/` (6 pages: Today, Training, Goal, History, Science, Settings), `components/` (UI + `charts/` sub-dir), `hooks/` (`useApi`, `useChartColors`, `useTheme`, `use-mobile`), `contexts/` (`ScienceContext`, `SettingsContext`), `types/` (API contracts), `lib/` (`chart-theme`, `format`, `utils`, `workout-parser`) |
 | `tests/` | pytest suite | `test_metrics.py`, `test_integration.py`, etc. |
-| `data/` | User CSV data | `garmin/`, `stryd/`, `oura/` (gitignored), `sample/` (tracked) |
+| `data/` | User CSV data | `garmin/`, `stryd/`, `oura/`, `ai/` (gitignored), `sample/` (tracked), `science/` (theory YAMLs: load, recovery, prediction, zones, labels) |
 | `skills/` | AI skills (CLI) | 7 skills for terminal-based training workflows |
 | `scripts/` | Utility scripts | `seed_sample_data.py`, `generate_sample_data.py`, `build_training_context.py` |
 | `docs/` | Documentation | `docs/` (user guides), `docs/dev/` (developer docs) |
@@ -186,51 +187,9 @@ python -m pytest tests/ -v
 
 ## Documentation
 
-### Doc Types
+Keep docs in sync with code — stale docs are worse than no docs. See `docs/dev/contributing.md` for which files to update when making changes.
 
-| Doc | Audience | Purpose | Update Trigger |
-|-----|----------|---------|----------------|
-| `README.md` | Everyone | High-level overview, quick start, what this is | Major feature additions, setup changes |
-| `docs/*.md` | Users | Feature guides, skill usage, configuration | New features, UI changes, new skills |
-| `docs/dev/*.md` | Developers | Architecture deep dives, API reference, contributing | Architecture changes, new modules, API changes |
-| `CLAUDE.md` | AI + developers | Living architecture doc, conventions, design system | Any code change that affects architecture, conventions, or patterns |
-| `skills/*/SKILL.md` | AI tools | Skill instructions for Claude Code / Copilot CLI | When the skill's underlying code or data format changes |
-
-### Documentation Rules
-
-1. **Keep docs in sync with code.** When a code change affects behavior, API shape, architecture, or conventions, update the relevant docs in the same PR. Stale docs are worse than no docs.
-
-2. **Match doc type to audience:**
-   - `README.md` — Write for someone who just found the project. No jargon, no internals. Quick start in under 2 minutes.
-   - `docs/*.md` — Write for users who want to understand features. How-to oriented, task-focused. Include examples.
-   - `docs/dev/*.md` — Write for developers who want to contribute or understand internals. Include architecture decisions, data flows, and API contracts.
-   - `CLAUDE.md` — Write for AI assistants and developers reading code. Terse, precise, pattern-oriented. This is the single source of truth for conventions and architecture.
-
-3. **What triggers a doc update:**
-   - New module, endpoint, or page → update `CLAUDE.md` module map + `docs/dev/architecture.md`
-   - New or changed API endpoint → update `docs/dev/api-reference.md`
-   - New skill → update `docs/skills.md`
-   - New user-facing feature → update `docs/features.md`
-   - Changed setup steps → update `README.md` + `docs/getting-started.md`
-   - Changed conventions or design patterns → update `CLAUDE.md`
-   - Changed data format or CSV schema → update `CLAUDE.md` data sources section
-
-4. **Don't over-document.** Code comments explain *why*, not *what*. Docs explain *how to use*, not *how it works internally* (that's what the code is for). If a doc section just restates the code, delete it.
-
-### Current Doc Files
-
-```
-README.md                    — Project overview + quick start
-CLAUDE.md                    — AI instructions + living architecture doc
-docs/
-  getting-started.md         — User: full setup guide (credentials, config, first sync)
-  features.md                — User: feature overview (dashboard, diagnosis, predictions)
-  skills.md                  — User: CLI skill usage guide (all 7 skills)
-  dev/
-    architecture.md          — Dev: system architecture, data flow, module responsibilities
-    api-reference.md         — Dev: all API endpoints with request/response shapes
-    contributing.md          — Dev: how to add metrics, data sources, skills
-```
+Key files: `README.md` (quick start), `docs/*.md` (user guides), `docs/dev/*.md` (architecture + API reference + contributing), `skills/*/SKILL.md` (skill instructions).
 
 ## AI Skills (CLI)
 
@@ -248,12 +207,15 @@ docs/
 
 Skills with helper scripts (`sync-data`, `daily-brief`, `training-review`, `race-forecast`) have a `scripts/` subdirectory with Python CLI tools that output JSON to stdout, following the same pattern as `scripts/build_training_context.py`.
 
-## Future: AI Features
+## AI Features
 
-The architecture is designed to support LLM-powered features. Planned extension points:
-
-- **`api/ai.py`** — AI context builder with `build_training_context()` for serializing computed metrics to LLM context, and `validate_plan()` for checking generated plans before writing
-- **Planned endpoints:** `GET /api/ai/status`, `POST /api/coach` (AI coaching narrative), `POST /api/ask` (NL training queries)
-- **Frontend pattern:** `useAiStatus()` hook gates all AI UI — components render nothing when unavailable
+### Implemented
+- **`api/ai.py`** — `build_training_context()` serializes all computed metrics to a structured dict for LLM consumption; `validate_plan()` checks AI-generated plans (date ranges, power targets, distribution) before CSV write; `check_plan_staleness()` detects stale plans (>28 days or CP drift >3%)
+- **`analysis/providers/ai.py`** — `AiPlanProvider` loads AI-generated plans from `data/ai/training_plan.csv`
+- **`analysis/science.py`** — Theory framework loads YAML from `data/science/` (10 theories across 4 pillars + 2 label sets)
 - **Design principle:** AI is always optional. The app must function fully without `ANTHROPIC_API_KEY`
-- **Possible features:** AI coaching insights, natural language training queries, AI-enhanced weekly summaries
+
+### Not yet built
+- **Endpoints:** `GET /api/ai/status`, `POST /api/coach`, `POST /api/ask` — no routes registered yet
+- **Frontend:** `useAiStatus()` hook to gate AI UI — not implemented yet
+- **Possible features:** AI coaching narratives, natural language training queries, AI-enhanced weekly summaries
