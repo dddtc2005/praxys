@@ -32,7 +32,7 @@ Browse and select training science theories across 4 pillars.
 - "What zone theories are available?"
 - "Explain Coggan 5-zone vs Seiler polarized"
 - "Switch to the Riegel prediction model"
-- "Which recovery theory should I use with Oura?"
+- "How does HRV-based recovery work?"
 
 ### /sync-data
 

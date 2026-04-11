@@ -979,8 +979,8 @@ def get_dashboard_data() -> dict:
 
     # Daily training signal
     planned_today, planned_detail = _get_todays_plan(plan, today)
-    recovery_theory = science.get("recovery")
-    hrv_only_mode = recovery_theory.id == "hrv_weighted" if recovery_theory else False
+    # Recovery is standardized to a single HRV-based theory.
+    hrv_only_mode = True
     signal = daily_training_signal(
         recovery_analysis, current_tsb, planned_today,
         planned_detail=planned_detail,

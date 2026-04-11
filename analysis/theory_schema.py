@@ -17,7 +17,7 @@ class LoadTheoryParams(BaseModel):
 
 
 class RecoveryTheoryParams(BaseModel):
-    """Required params for recovery-pillar theories (e.g., composite)."""
+    """Required params for recovery-pillar theories (e.g., hrv_based)."""
     rolling_days: int = 7
     baseline_days: int = 30
 

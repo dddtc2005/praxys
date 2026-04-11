@@ -68,6 +68,8 @@ def test_analyze_recovery_insufficient_data():
     analysis = analyze_recovery([50, 48, 52])
     assert analysis["status"] == "insufficient_data"
     assert analysis["hrv"] is None
+    assert analysis["sleep_score"] is None
+    assert analysis["resting_hr"] is None
 
 
 def test_daily_training_signal_rest():
@@ -186,7 +188,7 @@ def test_daily_training_signal_high_cv():
 
 
 def test_daily_training_signal_poor_sleep():
-    """Poor sleep + hard workout → modify (composite mode only)."""
+    """Poor sleep + hard workout → modify when contextual modifiers are enabled."""
     analysis = {
         "status": "normal",
         "hrv": {"today_ms": 50, "today_ln": 3.9, "baseline_mean_ln": 3.85,
@@ -213,7 +215,7 @@ def test_daily_training_signal_poor_sleep_hrv_only():
 
 
 def test_daily_training_signal_elevated_rhr():
-    """Elevated RHR + hard workout → modify (composite mode only)."""
+    """Elevated RHR + hard workout → modify when contextual modifiers are enabled."""
     analysis = {
         "status": "normal",
         "hrv": {"today_ms": 50, "today_ln": 3.9, "baseline_mean_ln": 3.85,
@@ -232,7 +234,8 @@ def test_daily_training_signal_insufficient_data():
                 "resting_hr": None, "rhr_trend": None}
     signal = daily_training_signal(analysis, tsb=0, planned_workout="tempo")
     assert signal["recommendation"] == "follow_plan"
-    assert "no recovery data" in signal["reason"].lower()
+    assert "requires hrv" in signal["reason"].lower()
+    assert signal["alternatives"] == []
 
 
 def test_cp_milestone_on_track():

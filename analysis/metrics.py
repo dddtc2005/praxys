@@ -113,8 +113,8 @@ def analyze_recovery(
     insufficient: RecoveryResult = {
         "status": "insufficient_data",
         "hrv": None,
-        "sleep_score": today_sleep,
-        "resting_hr": today_rhr,
+        "sleep_score": None,
+        "resting_hr": None,
         "rhr_trend": None,
     }
 
@@ -470,8 +470,8 @@ def daily_training_signal(
     # Decision logic
     if status == "insufficient_data":
         rec = "follow_plan"
-        reason = "No recovery data available. Follow plan but listen to your body."
-        alternatives = ["Consider an easy day if you feel fatigued"]
+        reason = "Recovery requires HRV data. Connect an HRV-capable device to receive recovery suggestions."
+        alternatives = []
 
     elif status == "fatigued":
         if is_hard:
@@ -514,7 +514,7 @@ def daily_training_signal(
             f"Push {planned_workout} to tomorrow",
         ]
 
-    # Supplementary signals — only in composite mode (not hrv_only)
+    # Supplementary signals — only when HRV model allows contextual modifiers
     elif not hrv_only and sleep_score is not None and sleep_score < 55 and is_hard:
         rec = "modify"
         reason = f"Sleep quality poor ({sleep_score:.0f}). Consider reducing today's intensity."

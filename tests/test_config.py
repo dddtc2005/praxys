@@ -3,8 +3,6 @@ import json
 import os
 import tempfile
 
-import pytest
-
 from analysis.config import (
     UserConfig,
     load_config,
@@ -38,6 +36,7 @@ class TestUserConfigDefaults:
     def test_default_science_choices(self):
         config = UserConfig()
         assert config.science["load"] == "banister_pmc"
+        assert config.science["recovery"] == "hrv_based"
         assert config.science["zones"] == "coggan_5zone"
 
 

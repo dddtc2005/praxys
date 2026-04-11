@@ -80,7 +80,7 @@ class UserConfig:
     # Science framework: one theory per pillar
     science: dict[str, str] = field(default_factory=lambda: {
         "load": "banister_pmc",
-        "recovery": "composite",
+        "recovery": "hrv_based",
         "prediction": "critical_power",
         "zones": "coggan_5zone",
     })

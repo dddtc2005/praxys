@@ -1,0 +1,56 @@
+id: hrv_based
+pillar: recovery
+name: "HRV-Based Recovery"
+author: system
+description: >
+  Recovery assessment based on ln(RMSSD) relative to your personal baseline.
+  Uses Plews et al (2012) trend/CV monitoring and Kiviniemi et al (2007)
+  threshold protocol. Recovery output is only available when sufficient HRV
+  data exists.
+simple_description: >
+  Uses your HRV (ln RMSSD) versus your own baseline to classify recovery as
+  Fresh, Normal, or Fatigued. If HRV data is missing or insufficient, recovery
+  status and suggestions are not provided.
+advanced_description: |
+  ## HRV-Based Recovery Assessment
+
+  **Primary signal: ln(RMSSD)**
+  - Log-transformed nocturnal RMSSD from wearable data
+  - Compared to 30-day rolling mean and standard deviation
+
+  **Status determination (combining Kiviniemi + Plews):**
+  | Condition | Status | Source |
+  |-----------|--------|--------|
+  | ln(RMSSD) > mean + 0.5 SD | Fresh | Plews SWC (smallest worthwhile change) |
+  | mean − 1 SD ≤ ln(RMSSD) ≤ mean + 0.5 SD | Normal | Between thresholds |
+  | ln(RMSSD) < mean − 1 SD | Fatigued | Kiviniemi threshold |
+  | < 5 HRV readings or no valid today value | No Data | Cannot classify |
+
+  **Trend monitoring (Plews et al, 2012):**
+  - 7-day rolling mean of ln(RMSSD): declining trend signals maladaptation
+  - 7-day coefficient of variation (CV): CV > 10% signals autonomic disturbance
+
+  **Availability policy:**
+  - Recovery requires HRV data.
+  - Sleep and resting HR are context only when HRV exists.
+  - No HRV means no recovery status, score, or recovery recommendation.
+
+citations:
+  - key: plews2012
+    title: "Heart rate variability in elite triathletes, is variation in variability the key to effective training?"
+    year: 2012
+    journal: "European Journal of Applied Physiology"
+    doi: "10.1007/s00421-012-2354-4"
+  - key: kiviniemi2007
+    title: "Endurance training guided individually by daily heart rate variability measurements"
+    year: 2007
+    journal: "European Journal of Applied Physiology"
+    doi: "10.1007/s00421-007-0552-2"
+
+params:
+  rolling_days: 7
+  baseline_days: 30
+  cv_threshold: 10
+
+signal:
+  tsb_high_fatigue: -20

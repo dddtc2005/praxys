@@ -26,7 +26,7 @@ is stored in `data/config.json` → `science` key:
 ```json
 "science": {
   "load": "banister_pmc",
-  "recovery": "composite",
+  "recovery": "hrv_based",
   "prediction": "critical_power",
   "zones": "coggan_5zone"
 }
@@ -39,7 +39,7 @@ To show available theories, read the YAML files in each pillar directory:
 ```
 data/science/
   load/           → banister_pmc.yaml, banister_ultra.yaml
-  recovery/       → hrv_weighted.yaml, composite.yaml
+  recovery/       → hrv_based.yaml
   prediction/     → critical_power.yaml, riegel.yaml
   zones/          → coggan_5zone.yaml, polarized_3zone.yaml
   labels/         → standard.yaml, stryd.yaml
@@ -73,18 +73,17 @@ TSB zone colors on the fitness chart.
 
 ### 2. Recovery Assessment
 
-Controls how HRV, sleep, and resting HR are weighted in recovery analysis.
+Recovery is standardized to one HRV-based theory.
 
 | Theory | Key Difference |
 |--------|---------------|
-| `hrv_weighted` | HRV-primary (Kiviniemi protocol). Ignores sleep/RHR modification. |
-| `composite` | HRV + sleep + RHR combined (Plews protocol with practical weighting). |
+| `hrv_based` | Canonical ln(RMSSD) recovery model (Plews + Kiviniemi). Requires HRV data. |
 
 **Affects:** Recovery status (Fresh/Normal/Fatigued), daily training signal,
 workout modification recommendations.
 
-**Recommendation:** Use `composite` if the user has Oura Ring (sleep + HRV).
-Use `hrv_weighted` if they only have HRV data.
+**Recommendation:** Use `hrv_based`. If HRV data is unavailable, do not provide
+recovery status or recovery suggestions.
 
 ### 3. Race Prediction
 
@@ -151,7 +150,7 @@ When the user asks which theory to use, consider:
 - **Data availability:** power meter → power-based theories; HR only → HR-based
 - **Training philosophy:** structured intervals → Coggan; strict 80/20 → Seiler
 - **Race goals:** specific race → critical_power prediction; general fitness → either
-- **Recovery data:** Oura Ring → composite recovery; HRV watch only → hrv_weighted
+- **Recovery data:** HRV data available → `hrv_based`; no HRV data → recovery unavailable
 
 Present the tradeoffs clearly and let the user decide. Reference the citations
 in the YAML files so they can read the original research.

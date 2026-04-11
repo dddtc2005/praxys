@@ -83,16 +83,13 @@ Format as a compact summary:
 - RHR: today's value vs baseline (if available)
 
 **Show the methodology.** The `science` object has the active theories. Include
-the recovery theory name in the header (e.g., "Recovery (Composite protocol)")
+the recovery theory name in the header (e.g., "Recovery (HRV-Based Recovery)")
 and after the recovery data, add a brief methodology note:
 
-- For `composite`: "Recovery status uses ln(RMSSD) compared to your personal
+- For `hrv_based`: "Recovery status uses ln(RMSSD) compared to your personal
   baseline. Fresh = above SWC (Plews et al, 2012). Fatigued = below baseline
-  minus 1 SD (Kiviniemi et al, 2007). Sleep, RHR, and TSB provide additional
-  context."
-- For `hrv_weighted`: "Recovery status based on Kiviniemi HRV-guided protocol.
-  HRV only — sleep and RHR signals are informational, not used in the status
-  determination."
+  minus 1 SD (Kiviniemi et al, 2007). Recovery requires HRV; if HRV data is
+  missing/insufficient, recovery status and suggestions are not provided."
 
 Include the citation from `science.recovery.citations` (title + year).
 This matters because the system's value proposition is scientific rigor —
