@@ -6,7 +6,7 @@ Trainsight is built for engineers who train seriously and prefer terminal-native
 
 Skills in CLI and the local web dashboard are both supported, so you can choose workflow-first interaction in the terminal and visual exploration in the browser.
 
-![Trainsight Dashboard](data/screenshots/desktop-today.png)
+![Trainsight Dashboard](data/screenshots/product-showcase.png)
 
 ## Who This Is For
 
