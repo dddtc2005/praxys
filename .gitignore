@@ -24,6 +24,11 @@ web/dist/
 .claude/*
 !.claude/commands/
 !.claude/commands/**
+!.claude/settings.json
+!.claude/agents/
+!.claude/agents/**
+!.claude/skills/
+!.claude/skills/**
 .playwright-mcp/
 
 # Git worktrees
