@@ -54,7 +54,69 @@ Then decide:
 Ask the user which approach they want if it's ambiguous. If the user said
 "update my plan" → update. If "generate a new plan" → regenerate.
 
-**If there is NO existing plan**, proceed to generate a fresh 4-week plan.
+**Regardless of which approach you choose** — update, extend, or regenerate —
+the new plan must connect logically to the athlete's recent training. Even a
+"regenerate" is not a blank slate. The athlete has training history, momentum,
+and a position in their training cycle. Step 2's "Continuity First" section
+explains how to determine where they are and what comes next.
+
+**If there is NO existing plan**, proceed to generate a plan — but still treat
+the athlete's recent training history as the "previous plan." They've been
+training; the new plan picks up from where their self-directed training left off.
+
+## Step 1.75: Validate Threshold Estimate
+
+Auto-calculated thresholds (Stryd auto-CP, Garmin threshold estimates) can be
+unreliable. A bad threshold cascades into wrong zone boundaries, misleading
+zone distribution diagnoses, and incorrectly targeted workouts. Before building
+the plan, cross-reference the reported threshold against actual performance.
+
+### Check for recalibration artifacts
+
+Look at `cp_estimate` (or equivalent threshold) across recent sessions. If the
+value drops >10W within a few days without a corresponding performance decline
+in the quality sessions, it's likely a device recalibration artifact — not a
+real fitness change. Signs of an artifact:
+- Sudden step-change in CP (e.g., 271→255→248 over a week)
+- Quality session power outputs remain consistent before and after the drop
+- Athlete reports no change in perceived effort on easy or hard runs
+
+### Estimate working threshold from performance data
+
+Scan recent sessions for sustained hard efforts (splits >230W held for 5+
+minutes). The best recent 20-minute sustained power is the gold standard:
+- **Working CP ≈ best 20-minute power × 0.95–1.00**
+- If no 20-minute effort exists, use the best 15-minute power × 0.97 or
+  10-minute power × 0.92
+
+Also consider: if the athlete holds X watts for a 30-minute block inside a
+long run, their CP is likely ≥ X.
+
+### Cross-check with subjective effort
+
+If the athlete provides feedback on how efforts feel:
+- Runs at 75-80% of reported CP "feel easy" → CP is probably understated
+- Threshold sessions at 95% CP feel moderate → CP is probably understated
+- Easy runs feel hard at 70% CP → CP might be overstated (or non-CP fatigue)
+
+### Decide which threshold to use
+
+Compare the reported threshold (`athlete_profile.threshold`) against your
+estimated working threshold:
+- **Within 5%**: Use the reported value. It's close enough.
+- **Working threshold is 5-15% higher**: Use the working threshold for all zone
+  calculations and power targets. Tell the athlete: "Your device CP (XXX W)
+  appears understated based on recent efforts. Using a working CP of YYY W for
+  this plan."
+- **Working threshold is >15% higher**: Something unusual is going on (device
+  issue, very stale CP, or the hard efforts were short enough to be above true
+  CP). Flag this to the athlete and ask for confirmation before proceeding.
+- **Working threshold is lower**: The reported value may be stale from a fitter
+  period. Use the working threshold.
+
+**Carry the validated working threshold forward into all subsequent steps.**
+Zone boundaries, power targets, and zone distribution analysis must use this
+value, not the raw device number.
 
 ## Step 2: Analyze and Generate Plan
 
@@ -62,8 +124,66 @@ Using the training context, generate or update the training plan. The context
 includes a `science` section with the user's active training theories — use these
 instead of assuming a specific framework.
 
+### Continuity First — This Is Not a Fresh Start
+
+The athlete is always mid-training. A new plan is a continuation of their
+existing training arc, not a reset. Before deciding structure:
+
+1. **Read the training arc.** Look at `recent_training.weekly_summary` (6-8
+   weeks back) and identify the pattern:
+   - Has volume been building, stable, or declining?
+   - Was the most recent full week a build week, a peak, or a recovery?
+   - Are there signs of an existing periodization rhythm (e.g., 3 hard weeks
+     then a lighter week)?
+
+2. **Determine where they are in the cycle.** Examples:
+   - Just finished a peak week (highest volume/load in the window) → next week
+     should be recovery or a slight step-back, then resume building
+   - In the middle of a build phase with stable volume → continue the build,
+     adding 5-10% per week
+   - Just had a recovery/light week → ready to build again
+   - Coming off illness/travel gap → re-entry week at ~80% of pre-gap volume
+
+3. **Continue the progression, don't restart it.** If the athlete has been
+   building from 55→60→65→70km, the plan should pick up from where that
+   leaves off (e.g., recovery week at 48km, then next build starting at 60km).
+   Don't drop them to 45km "Week 1" just because the plan is new.
+
+4. **Respect what's working.** If the athlete's current workout pattern is
+   producing good results (consistent sessions, hitting power targets, good
+   recovery), preserve it. Change what needs changing, not everything.
+
+### Volume Anchoring — Anchor to Recent History
+
+Extract the athlete's recent baselines from `recent_training.weekly_summary`
+and individual sessions:
+- **Recent weekly average** (last 4-6 full weeks of consistent training)
+- **Recent peak week** (highest volume in that window)
+- **Recent long run distances** (longest run each week from session data)
+- **Current week status** (partial week — how much has already been done?)
+
+These baselines anchor the plan. Never prescribe volumes dramatically different
+from what the athlete has been doing unless there's a specific reason (injury
+return, taper, overreaching recovery). Rules of thumb:
+- **First full week** should relate logically to the last full week — if the
+  last full week was a peak, this week is recovery; if it was moderate, this
+  week continues the build
+- **Peak build week** can exceed the recent peak by up to ~10%
+- **Recovery week** should be ~60-70% of the peak build week
+- **Long runs** should progress from the athlete's recent long run distance, not
+  start from scratch. If they've been doing 25-28km long runs, don't prescribe
+  18km. Continue from where they are.
+
+Show your reasoning: when presenting the plan, include a note like "You've been
+averaging 62km/week with a 70km peak in W14. Plan continues: 63→70→48→60km."
+This helps the athlete verify the plan connects to their training reality.
+
 ### Periodization
-- Use rolling 4-week mesocycles: 3 progressive build weeks + 1 recovery week
+- Use rolling 4-week mesocycles — but adapt the structure to where the athlete
+  is in their current cycle. Don't force "3 build + 1 recovery" if they just
+  finished 3 build weeks and need recovery first. The pattern might be
+  "1 recovery + 3 build" or "2 build + 1 recovery + 1 build" depending on
+  context.
 - Build weeks increase weekly load by 5-10% over the previous week
 - Recovery week reduces volume to ~60-70% of peak build week
 
@@ -96,6 +216,10 @@ using the zone names from `athlete_profile.zone_names`.
 Do NOT hardcode zone boundaries — always derive from the context.
 
 ### Key Considerations
+- **Use the validated working threshold from Step 1.75** for all zone boundaries
+  and power targets — never blindly trust auto-CP or device-reported thresholds.
+  A deflated CP leads to deflated targets, false zone distribution warnings, and
+  a plan that's too easy. An inflated CP leads to unachievable targets.
 - **Use split-level data** from recent sessions to assess if the athlete is
   actually hitting prescribed intensities (activity avg_power is diluted by
   warmup/cooldown)
@@ -141,11 +265,18 @@ This ensures the user knows which scientific framework is shaping their plan.
 ## Step 3: Generate Coaching Narrative
 
 Write a coaching narrative explaining:
-1. **Current Assessment** — where the athlete is right now (fitness, fatigue, CP trend)
-2. **4-Week Phase** — what this mesocycle focuses on and why
-3. **Key Sessions** — explain the 2-3 most important workouts and their purpose
-4. **Watch-For Signals** — when the athlete should modify the plan (signs of overreaching, illness, etc.)
-5. **Expected Outcomes** — what improvement to expect if the plan is followed
+1. **Current Assessment** — where the athlete is right now (fitness, fatigue, CP trend).
+   If the working threshold differs from the device-reported value, explain why and
+   what evidence supports the working estimate.
+2. **Volume & Structure Rationale** — explain _why_ each week has the volume it
+   does, anchored to recent history. Cover: why week 1 is build/transition/recovery,
+   how weekly km progresses and why, how long run distances progress, and what the
+   recovery week ratio is. The athlete should be able to see the logic connecting
+   their recent training to the prescribed volumes.
+3. **4-Week Phase** — what this mesocycle focuses on and why
+4. **Key Sessions** — explain the 2-3 most important workouts and their purpose
+5. **Watch-For Signals** — when the athlete should modify the plan (signs of overreaching, illness, etc.)
+6. **Expected Outcomes** — what improvement to expect if the plan is followed
 
 ## Step 4: Validate the Plan
 

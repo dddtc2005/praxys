@@ -131,11 +131,9 @@ def push_plan_to_stryd(request: PushStrydRequest) -> dict:
 
     # Get current CP for block building
     cp_watts = None
-    signal = data.get("signal", {})
-    if isinstance(signal, dict):
-        cp_data = signal.get("plan", {})
-        if isinstance(cp_data, dict) and cp_data.get("power_max"):
-            cp_watts = float(cp_data["power_max"])
+    latest_cp = data.get("latest_cp")
+    if latest_cp and float(latest_cp) > 0:
+        cp_watts = float(latest_cp)
     # Fallback: try from latest activities
     if not cp_watts:
         activities = data.get("activities", pd.DataFrame())

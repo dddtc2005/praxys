@@ -8,7 +8,7 @@ class TestComputeZones:
     def test_power_5zone_default(self):
         zones = compute_zones("power", 250)
         assert len(zones) == 5
-        assert zones[0]["name"] == "Easy"
+        assert zones[0]["name"] == "Recovery"
         assert zones[0]["lower"] == 0
         assert zones[0]["upper"] == 138  # round(0.55 * 250)
         assert zones[-1]["name"] == "VO2max"

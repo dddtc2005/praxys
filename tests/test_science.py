@@ -33,7 +33,7 @@ class TestLoadTheory:
         assert theory.zone_count == 5
         assert "power" in theory.zone_boundaries
         assert len(theory.zone_boundaries["power"]) == 4
-        assert theory.zone_names["power"] == ["Easy", "Tempo", "Threshold", "Supra-CP", "VO2max"]
+        assert theory.zone_names["power"] == ["Recovery", "Endurance", "Tempo", "Threshold", "VO2max"]
 
     def test_load_critical_power(self):
         theory = load_theory("prediction", "critical_power")

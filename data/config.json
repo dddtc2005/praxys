@@ -20,21 +20,15 @@
   },
   "zones": {
     "power": [
-      0.55,
-      0.75,
-      0.9,
-      1.05
+      0.82,
+      1.0
     ],
     "hr": [
-      0.72,
       0.82,
-      0.89,
-      0.96
+      0.89
     ],
     "pace": [
-      1.29,
       1.14,
-      1.06,
       1.0
     ]
   },
@@ -49,7 +43,7 @@
     "load": "banister_pmc",
     "recovery": "hrv_weighted",
     "prediction": "critical_power",
-    "zones": "coggan_5zone"
+    "zones": "polarized_3zone"
   },
   "zone_labels": "standard",
   "source_options": {

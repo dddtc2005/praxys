@@ -73,6 +73,13 @@ const ErrorIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const RefreshIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <path d="M2.5 8a5.5 5.5 0 019.3-4M13.5 8a5.5 5.5 0 01-9.3 4" strokeLinecap="round" />
+    <path d="M12 1.5v3h-3M4 11.5v3h3" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 function StrydStatusBadge({
   state,
   error,
@@ -98,16 +105,19 @@ function StrydStatusBadge({
     return (
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger className="inline-flex">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onPush}
-              className="w-6 h-6 shrink-0 text-destructive hover:text-destructive/80"
-            >
-              <ErrorIcon className="h-3.5 w-3.5" />
-            </Button>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={(
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onPush}
+                aria-label="Retry push to Stryd"
+                className="w-6 h-6 shrink-0 text-destructive hover:text-destructive/80"
+              >
+                <ErrorIcon className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          />
           <TooltipContent side="left">
             <p className="text-xs">{error || 'Push failed'} — click to retry</p>
           </TooltipContent>
@@ -120,13 +130,22 @@ function StrydStatusBadge({
     return (
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger className="inline-flex">
-            <div className="w-6 h-6 flex items-center justify-center shrink-0 text-primary">
-              <CheckIcon className="h-3.5 w-3.5" />
-            </div>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={(
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onPush}
+                aria-label="Re-push to Stryd"
+                className="w-6 h-6 shrink-0 text-primary [&>svg.check]:block [&>svg.refresh]:hidden hover:[&>svg.check]:hidden hover:[&>svg.refresh]:block hover:text-accent-amber"
+              >
+                <CheckIcon className="check h-3.5 w-3.5" />
+                <RefreshIcon className="refresh h-3.5 w-3.5" />
+              </Button>
+            )}
+          />
           <TooltipContent side="left">
-            <p className="text-xs">Synced to Stryd</p>
+            <p className="text-xs">Re-push to Stryd</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -137,16 +156,19 @@ function StrydStatusBadge({
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger className="inline-flex">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onPush}
-            className="w-6 h-6 shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground hover:!text-primary"
-          >
-            <UploadIcon className="h-3.5 w-3.5" />
-          </Button>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={(
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onPush}
+              aria-label="Push to Stryd"
+              className="w-6 h-6 shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground hover:!text-primary"
+            >
+              <UploadIcon className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        />
         <TooltipContent side="left">
           <p className="text-xs">Push to Stryd</p>
         </TooltipContent>
@@ -292,39 +314,63 @@ export default function UpcomingPlanCard() {
 
   const handlePushResults = useCallback(
     (results: StrydPushResult[], dates: string[]) => {
-      const newStatus = { ...pushStatus };
-      const newErrors = { ...pushErrors };
-
-      // Clear errors for dates we just retried
-      for (const d of dates) delete newErrors[d];
-
-      for (const r of results) {
-        if (r.status === 'success') {
-          newStatus[r.date] = {
-            workout_id: r.workout_id,
-            pushed_at: new Date().toISOString(),
-            status: 'pushed',
-          };
-          delete newErrors[r.date];
-        } else {
-          newErrors[r.date] = r.error;
+      setPushStatus((prev) => {
+        const next = { ...prev };
+        for (const r of results) {
+          if (r.status === 'success') {
+            next[r.date] = {
+              workout_id: r.workout_id,
+              pushed_at: new Date().toISOString(),
+              status: 'pushed',
+            };
+          }
         }
-      }
+        return next;
+      });
 
-      setPushStatus(newStatus);
-      setPushErrors(newErrors);
+      setPushErrors((prev) => {
+        const next = { ...prev };
+
+        // Clear errors for dates we just retried
+        for (const d of dates) delete next[d];
+
+        for (const r of results) {
+          if (r.status === 'success') {
+            delete next[r.date];
+          } else {
+            next[r.date] = r.error;
+          }
+        }
+
+        return next;
+      });
     },
-    [pushStatus, pushErrors],
+    [],
   );
 
-  // Push a single workout
+  // Push a single workout (or re-push by deleting old one first)
   const pushSingle = useCallback(
     async (date: string) => {
-      if (pushingDates.has(date) || pushStatus[date]) return;
+      if (pushingDates.has(date)) return;
 
       setPushingDates((prev) => new Set(prev).add(date));
 
       try {
+        // If already pushed, delete the old workout from Stryd first
+        const existing = pushStatus[date];
+        if (existing?.workout_id) {
+          const resp = await fetch(`/api/plan/stryd-workout/${existing.workout_id}`, { method: 'DELETE' });
+          if (!resp.ok) {
+            const err = await resp.json().catch(() => ({ detail: `HTTP ${resp.status}` }));
+            throw new Error(err.detail || `HTTP ${resp.status}`);
+          }
+          setPushStatus((prev) => {
+            const next = { ...prev };
+            delete next[date];
+            return next;
+          });
+        }
+
         const { results } = await pushDatesToStryd([date]);
         handlePushResults(results, [date]);
       } catch (e) {
