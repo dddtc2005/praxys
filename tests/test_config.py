@@ -3,8 +3,6 @@ import json
 import os
 import tempfile
 
-import pytest
-
 from analysis.config import (
     UserConfig,
     load_config,
@@ -65,12 +63,6 @@ class TestMigrateConfig:
         }
         migrated = _migrate_config(new)
         assert migrated == new
-
-    @pytest.mark.parametrize("legacy_id", ["composite", "hrv_weighted"])
-    def test_legacy_recovery_theory_ids_migrated(self, legacy_id):
-        data = {"science": {"recovery": legacy_id}}
-        migrated = _migrate_config(data)
-        assert migrated["science"]["recovery"] == "hrv_based"
 
     def test_empty_sources_handled(self):
         old = {"sources": {"activities": "", "health": "", "plan": ""}}

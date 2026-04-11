@@ -24,7 +24,7 @@ advanced_description: |
   | ln(RMSSD) > mean + 0.5 SD | Fresh | Plews SWC (smallest worthwhile change) |
   | mean − 1 SD ≤ ln(RMSSD) ≤ mean + 0.5 SD | Normal | Between thresholds |
   | ln(RMSSD) < mean − 1 SD | Fatigued | Kiviniemi threshold |
-  | < 5 HRV readings or no valid today value | Unavailable | Cannot classify |
+  | < 5 HRV readings or no valid today value | No Data | Cannot classify |
 
   **Trend monitoring (Plews et al, 2012):**
   - 7-day rolling mean of ln(RMSSD): declining trend signals maladaptation

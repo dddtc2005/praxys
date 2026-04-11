@@ -157,15 +157,6 @@ def _migrate_config(data: dict) -> dict:
     if prefs.get("activities") and "activity_routing" not in data:
         data["activity_routing"] = {"default": prefs["activities"]}
 
-    # Consolidate legacy recovery theory IDs to canonical HRV model
-    science = data.get("science")
-    if isinstance(science, dict):
-        recovery_id = science.get("recovery")
-        if recovery_id in {"composite", "hrv_weighted"}:
-            updated_science = dict(science)
-            updated_science["recovery"] = "hrv_based"
-            data["science"] = updated_science
-
     return data
 
 
