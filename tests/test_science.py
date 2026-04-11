@@ -41,9 +41,9 @@ class TestLoadTheory:
         assert theory.distance_power_fractions["marathon"] == 0.899
         assert theory.riegel_exponent == 1.06
 
-    def test_load_composite_recovery(self):
-        theory = load_theory("recovery", "composite")
-        assert theory.id == "composite"
+    def test_load_hrv_based_recovery(self):
+        theory = load_theory("recovery", "hrv_based")
+        assert theory.id == "hrv_based"
         assert theory.params["rolling_days"] == 7
         assert theory.params["baseline_days"] == 30
 
@@ -70,6 +70,11 @@ class TestListTheories:
         ids = [t.id for t in theories]
         assert "banister_pmc" in ids
         assert "banister_ultra" in ids
+
+    def test_recovery_has_single_theory(self):
+        theories = list_theories("recovery")
+        assert len(theories) == 1
+        assert theories[0].id == "hrv_based"
 
 
 class TestLabels:
@@ -110,7 +115,7 @@ class TestLoadActiveScience:
     def test_loads_all_pillars(self):
         choices = {
             "load": "banister_pmc",
-            "recovery": "composite",
+            "recovery": "hrv_based",
             "prediction": "critical_power",
             "zones": "coggan_5zone",
         }
@@ -147,3 +152,13 @@ class TestRecommendScience:
         )
         load_rec = next(r for r in recs if r.pillar == "load")
         assert load_rec.recommended_id == "banister_ultra"
+
+    def test_recovery_recommends_single_hrv_theory(self):
+        import pandas as pd
+
+        recovery_df = pd.DataFrame({"hrv_avg": [50.0] * 42})
+        recs = recommend_science(
+            pd.DataFrame(), recovery_df, None, ["garmin", "oura"], "power",
+        )
+        recovery_rec = next(r for r in recs if r.pillar == "recovery")
+        assert recovery_rec.recommended_id == "hrv_based"

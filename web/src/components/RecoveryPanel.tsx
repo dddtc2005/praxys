@@ -38,9 +38,10 @@ export default function RecoveryPanel({ recovery, theoryMeta, analysis }: Props)
     ? `Recovery \u00b7 ${theoryMeta.name}`
     : 'Recovery';
 
-  const status: RecoveryStatus = analysis?.status ?? 'normal';
+  const status: RecoveryStatus = analysis?.status ?? 'insufficient_data';
   const statusCfg = STATUS_CONFIG[status] ?? DEFAULT_STATUS;
   const hrv = analysis?.hrv;
+  const recoveryUnavailable = status === 'insufficient_data' || !hrv;
   const trendCfg = hrv ? (TREND_LABELS[hrv.trend] ?? TREND_LABELS.stable) : null;
 
   return (
@@ -64,8 +65,16 @@ export default function RecoveryPanel({ recovery, theoryMeta, analysis }: Props)
           <p className="text-sm text-muted-foreground">{statusCfg.desc}</p>
         </div>
 
+        {recoveryUnavailable && (
+          <div className="rounded-lg border border-border bg-card p-3">
+            <p className="text-sm text-muted-foreground">
+              Recovery requires HRV data. We do not provide recovery status or suggestions without sufficient HRV readings.
+            </p>
+          </div>
+        )}
+
         {/* HRV Analysis — Plews protocol */}
-        {hrv && (
+        {!recoveryUnavailable && hrv && (
           <div className="mb-3">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
               HRV Analysis
@@ -121,55 +130,59 @@ export default function RecoveryPanel({ recovery, theoryMeta, analysis }: Props)
         )}
 
         {/* Informational signals — not part of the HRV model */}
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-          Other Signals
-        </p>
-        <div className="grid grid-cols-3 gap-2 mb-3">
-          <div className="rounded-lg bg-muted p-3">
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">
-              Sleep
+        {!recoveryUnavailable && (
+          <>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+              Other Signals
             </p>
-            <span className={`text-lg font-bold font-data ${
-              (analysis?.sleep_score ?? recovery.sleep_score ?? 0) >= 80 ? 'text-primary' :
-              (analysis?.sleep_score ?? recovery.sleep_score ?? 0) >= 60 ? 'text-accent-amber' :
-              (analysis?.sleep_score ?? recovery.sleep_score) != null ? 'text-destructive' : 'text-muted-foreground'
-            }`}>
-              {analysis?.sleep_score ?? recovery.sleep_score ?? '--'}
-            </span>
-          </div>
-          <div className="rounded-lg bg-muted p-3">
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">
-              RHR
-            </p>
-            <div className="flex items-baseline gap-1">
-              <span className="text-lg font-bold font-data text-foreground">
-                {analysis?.resting_hr ?? '--'}
-              </span>
-              {analysis?.resting_hr != null && (
-                <span className="text-[9px] text-muted-foreground">bpm</span>
-              )}
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              <div className="rounded-lg bg-muted p-3">
+                <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">
+                  Sleep
+                </p>
+                <span className={`text-lg font-bold font-data ${
+                  (analysis?.sleep_score ?? recovery.sleep_score ?? 0) >= 80 ? 'text-primary' :
+                  (analysis?.sleep_score ?? recovery.sleep_score ?? 0) >= 60 ? 'text-accent-amber' :
+                  (analysis?.sleep_score ?? recovery.sleep_score) != null ? 'text-destructive' : 'text-muted-foreground'
+                }`}>
+                  {analysis?.sleep_score ?? recovery.sleep_score ?? '--'}
+                </span>
+              </div>
+              <div className="rounded-lg bg-muted p-3">
+                <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">
+                  RHR
+                </p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-lg font-bold font-data text-foreground">
+                    {analysis?.resting_hr ?? '--'}
+                  </span>
+                  {analysis?.resting_hr != null && (
+                    <span className="text-[9px] text-muted-foreground">bpm</span>
+                  )}
+                </div>
+                {analysis?.rhr_trend && RHR_LABELS[analysis.rhr_trend] && (
+                  <span className={`text-[9px] ${RHR_LABELS[analysis.rhr_trend].class}`}>
+                    {RHR_LABELS[analysis.rhr_trend].label}
+                  </span>
+                )}
+              </div>
+              <div className="rounded-lg bg-muted p-3">
+                <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1" style={{ color: tsbZone.color }}>
+                  TSB
+                </p>
+                <span className="text-lg font-bold font-data" style={{ color: tsbZone.color }}>
+                  {recovery.tsb.toFixed(1)}
+                </span>
+              </div>
             </div>
-            {analysis?.rhr_trend && RHR_LABELS[analysis.rhr_trend] && (
-              <span className={`text-[9px] ${RHR_LABELS[analysis.rhr_trend].class}`}>
-                {RHR_LABELS[analysis.rhr_trend].label}
-              </span>
-            )}
-          </div>
-          <div className="rounded-lg bg-muted p-3">
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1" style={{ color: tsbZone.color }}>
-              TSB
-            </p>
-            <span className="text-lg font-bold font-data" style={{ color: tsbZone.color }}>
-              {recovery.tsb.toFixed(1)}
-            </span>
-          </div>
-        </div>
 
-        <ScienceNote
-          text="Recovery status uses ln(RMSSD) compared to your personal baseline. 'Fatigued' = below baseline mean minus 1 SD (Kiviniemi et al, 2007 threshold). 'Fresh' = above baseline mean plus 0.5 SD (Plews et al, 2012 smallest worthwhile change). The 7-day trend and CV are monitored per Plews — declining trend or CV above 10% signals autonomic disturbance. Sleep, RHR, and TSB are shown as informational context."
-          sourceUrl="https://link.springer.com/article/10.1007/s00421-012-2354-4"
-          sourceLabel="Plews et al (2012)"
-        />
+            <ScienceNote
+              text="Recovery status uses ln(RMSSD) compared to your personal baseline. 'Fatigued' = below baseline mean minus 1 SD (Kiviniemi et al, 2007 threshold). 'Fresh' = above baseline mean plus 0.5 SD (Plews et al, 2012 smallest worthwhile change). The 7-day trend and CV are monitored per Plews — declining trend or CV above 10% signals autonomic disturbance. Sleep, RHR, and TSB are shown as informational context when HRV is available."
+              sourceUrl="https://link.springer.com/article/10.1007/s00421-012-2354-4"
+              sourceLabel="Plews et al (2012)"
+            />
+          </>
+        )}
       </CardContent>
     </Card>
   );

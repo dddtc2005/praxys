@@ -8,6 +8,10 @@ All endpoints are under the `/api/` prefix. The API server runs on `http://local
 
 Daily training brief.
 
+Recovery is HRV-based only. When HRV data is missing/insufficient, the API
+returns `recovery_analysis.status = "insufficient_data"` and does not provide
+recovery suggestions.
+
 **Response:**
 ```json
 {
@@ -19,7 +23,7 @@ Daily training brief.
     "plan": { "workout_type": "easy", "duration_min": "60", ... }
   },
   "recovery_analysis": {
-    "status": "fresh|normal|fatigued",
+    "status": "fresh|normal|fatigued|insufficient_data",
     "hrv": { "today_ms": 59.0, "baseline_mean_ln": 3.87, "trend": "improving" },
     "sleep_score": 82.0,
     "resting_hr": 49.5,
@@ -35,7 +39,7 @@ Daily training brief.
     "rss": 64.8
   },
   "tsb_sparkline": { "dates": [...], "values": [...], "projected_dates": [...], "projected_values": [...] },
-  "recovery_theory": { "id": "composite", "name": "Composite Recovery", "simple_description": "...", "params": {} },
+  "recovery_theory": { "id": "hrv_based", "name": "HRV-Based Recovery", "simple_description": "...", "params": {} },
   "upcoming": [
     { "date": "2026-04-11", "workout_type": "threshold", "duration_min": 65 }
   ],

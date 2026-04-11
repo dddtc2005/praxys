@@ -316,18 +316,14 @@ def recommend_science(
             hrv_valid = pd.to_numeric(recent_rec["hrv_avg"], errors="coerce").notna().sum()
             hrv_coverage = hrv_valid / max(len(recent_rec), 1)
 
-    if hrv_coverage >= 0.8:
-        recs.append(PillarRecommendation(
-            "recovery", "hrv_weighted",
-            f"Consistent HRV data ({hrv_coverage:.0%} coverage) — HRV-primary more accurate",
-            "moderate",
-        ))
-    else:
-        recs.append(PillarRecommendation(
-            "recovery", "composite",
-            "Balanced approach combining available signals",
-            "strong",
-        ))
+    reason = (
+        f"Use the canonical HRV-based recovery model ({hrv_coverage:.0%} recent HRV coverage)"
+        if hrv_coverage > 0
+        else "Use the canonical HRV-based recovery model (recovery unavailable until HRV data exists)"
+    )
+    recs.append(PillarRecommendation(
+        "recovery", "hrv_based", reason, "strong",
+    ))
 
     # ── Pillar 3: Prediction ───────────────────────────────────────────
     has_cp = False

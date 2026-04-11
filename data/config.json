@@ -41,7 +41,7 @@
   },
   "science": {
     "load": "banister_pmc",
-    "recovery": "hrv_weighted",
+    "recovery": "hrv_based",
     "prediction": "critical_power",
     "zones": "polarized_3zone"
   },

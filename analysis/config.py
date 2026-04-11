@@ -80,7 +80,7 @@ class UserConfig:
     # Science framework: one theory per pillar
     science: dict[str, str] = field(default_factory=lambda: {
         "load": "banister_pmc",
-        "recovery": "composite",
+        "recovery": "hrv_based",
         "prediction": "critical_power",
         "zones": "coggan_5zone",
     })
@@ -156,6 +156,13 @@ def _migrate_config(data: dict) -> dict:
     prefs = data.get("preferences", {})
     if prefs.get("activities") and "activity_routing" not in data:
         data["activity_routing"] = {"default": prefs["activities"]}
+
+    # Consolidate legacy recovery theory IDs to canonical HRV model
+    science = data.get("science", {})
+    if isinstance(science, dict):
+        recovery_id = science.get("recovery")
+        if recovery_id in {"composite", "hrv_weighted"}:
+            science["recovery"] = "hrv_based"
 
     return data
 

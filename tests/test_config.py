@@ -38,6 +38,7 @@ class TestUserConfigDefaults:
     def test_default_science_choices(self):
         config = UserConfig()
         assert config.science["load"] == "banister_pmc"
+        assert config.science["recovery"] == "hrv_based"
         assert config.science["zones"] == "coggan_5zone"
 
 
@@ -64,6 +65,12 @@ class TestMigrateConfig:
         }
         migrated = _migrate_config(new)
         assert migrated == new
+
+    @pytest.mark.parametrize("legacy_id", ["composite", "hrv_weighted"])
+    def test_legacy_recovery_theory_ids_migrated(self, legacy_id):
+        data = {"science": {"recovery": legacy_id}}
+        migrated = _migrate_config(data)
+        assert migrated["science"]["recovery"] == "hrv_based"
 
     def test_empty_sources_handled(self):
         old = {"sources": {"activities": "", "health": "", "plan": ""}}
