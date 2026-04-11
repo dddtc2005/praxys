@@ -1,8 +1,8 @@
 # Trainsight
 
-CLI-first training intelligence for technical athletes.
+CLI-first training insights for technical athletes.
 
-Trainsight is built for engineers who train seriously and prefer terminal-native workflows with tools like [Claude Code](https://claude.com/claude-code) and [GitHub Copilot CLI](https://githubnext.com/projects/copilot-cli/). It combines Garmin, Stryd, and Oura data into actionable coaching outputs through AI skills.
+Trainsight is built for engineers who train seriously and prefer terminal-native workflows with tools like [Claude Code](https://claude.com/claude-code) and [GitHub Copilot CLI](https://githubnext.com/projects/copilot-cli/). It combines Garmin, Stryd, and Oura data into training metrics, race predictions, and daily recommendations through AI skills.
 
 The local web dashboard is still supported, but now acts as a secondary visualization layer.
 
@@ -11,6 +11,7 @@ The local web dashboard is still supported, but now acts as a secondary visualiz
 - Endurance athletes comfortable with CLI workflows
 - Engineers who want reproducible, scriptable training analysis
 - Users who prefer skill-driven interaction over point-and-click UI
+- People comfortable managing Python dependencies and API credentials
 
 ## CLI Skills (Primary Interface)
 
@@ -30,18 +31,22 @@ See [docs/skills.md](docs/skills.md) for full installation and usage details.
 
 ## CLI Quickstart (Recommended)
 
+Choose one data path:
+- **Sample data path:** run step 2 and skip credential setup/sync steps.
+- **Real data path:** skip step 2 and run steps 3-4.
+
 ```bash
 # 1) Install Python deps
 pip install -r requirements.txt
 
-# 2) Optional: seed sample data (no credentials required)
+# 2) Sample data path (no credentials required)
 python scripts/seed_sample_data.py
 
-# 3) Set up credentials for real data (Garmin/Stryd/Oura)
+# 3) Real data path: set up credentials (Garmin/Stryd/Oura)
 cp sync/.env.example sync/.env
 # edit sync/.env
 
-# 4) Sync data
+# 4) Real data path: sync data
 python -m sync.sync_all --from-date 2025-12-01
 
 # 5) Use skills from Claude Code / Copilot CLI
@@ -57,7 +62,7 @@ python -m sync.sync_all --from-date 2025-12-01
 5. `/training-plan` when starting a new block
 6. `/race-forecast` as race goals approach
 
-## Optional Web Dashboard (Secondary)
+## Web Dashboard (Optional)
 
 If you want local visualization:
 
