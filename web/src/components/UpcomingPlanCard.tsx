@@ -112,7 +112,6 @@ function StrydStatusBadge({
                 size="icon"
                 onClick={onPush}
                 aria-label="Retry push to Stryd"
-                title="Retry push to Stryd"
                 className="w-6 h-6 shrink-0 text-destructive hover:text-destructive/80"
               >
                 <ErrorIcon className="h-3.5 w-3.5" />
@@ -138,7 +137,6 @@ function StrydStatusBadge({
                 size="icon"
                 onClick={onPush}
                 aria-label="Re-push to Stryd"
-                title="Re-push to Stryd"
                 className="w-6 h-6 shrink-0 text-primary [&>svg.check]:block [&>svg.refresh]:hidden hover:[&>svg.check]:hidden hover:[&>svg.refresh]:block hover:text-accent-amber"
               >
                 <CheckIcon className="check h-3.5 w-3.5" />
@@ -165,7 +163,6 @@ function StrydStatusBadge({
               size="icon"
               onClick={onPush}
               aria-label="Push to Stryd"
-              title="Push to Stryd"
               className="w-6 h-6 shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground hover:!text-primary"
             >
               <UploadIcon className="h-3.5 w-3.5" />
