@@ -20,7 +20,7 @@ needing the web dashboard.
 Run the daily brief script from the project root:
 
 ```bash
-python skills/daily-brief/scripts/daily_brief.py --pretty
+python scripts/daily_brief.py --pretty
 ```
 
 This outputs JSON with everything needed for the brief.
@@ -45,7 +45,7 @@ data source and whether any source is stale (no data from today). Example:
 **If `any_stale` is true**, sync data before presenting the brief:
 
 ```bash
-python skills/sync-data/scripts/sync_report.py --pretty
+python scripts/sync_report.py --pretty
 ```
 
 Then re-run the daily brief script to get fresh data. Tell the user you're

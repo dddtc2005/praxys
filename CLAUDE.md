@@ -29,8 +29,8 @@ Garmin/Stryd/Oura APIs → sync/*.py → data/**/*.csv
 | `web/src/` | React frontend | `pages/` (6 pages: Today, Training, Goal, History, Science, Settings), `components/` (UI + `charts/` sub-dir), `hooks/` (`useApi`, `useChartColors`, `useTheme`, `use-mobile`), `contexts/` (`ScienceContext`, `SettingsContext`), `types/` (API contracts), `lib/` (`chart-theme`, `format`, `utils`, `workout-parser`) |
 | `tests/` | pytest suite | `test_metrics.py`, `test_integration.py`, etc. |
 | `data/` | User CSV data | `garmin/`, `stryd/`, `oura/`, `ai/` (gitignored), `sample/` (tracked), `science/` (theory YAMLs: load, recovery, prediction, zones, labels) |
-| `skills/` | AI skills (CLI) | 7 skills for terminal-based training workflows |
-| `scripts/` | Utility scripts | `seed_sample_data.py`, `generate_sample_data.py`, `build_training_context.py` |
+| `.claude/skills/` | AI skill definitions | 8 skills (`.md` files, discovered by Claude Code and Copilot CLI) |
+| `scripts/` | Utility + skill helper scripts | `seed_sample_data.py`, `generate_sample_data.py`, `build_training_context.py`, `daily_brief.py`, `race_forecast.py`, `sync_report.py`, `run_diagnosis.py` |
 | `docs/` | Documentation | `docs/` (user guides), `docs/dev/` (developer docs) |
 
 ### Data Sources
@@ -189,11 +189,11 @@ python -m pytest tests/ -v
 
 Keep docs in sync with code — stale docs are worse than no docs. See `docs/dev/contributing.md` for which files to update when making changes.
 
-Key files: `README.md` (quick start), `docs/*.md` (user guides), `docs/dev/*.md` (architecture + API reference + contributing), `skills/*/SKILL.md` (skill instructions).
+Key files: `README.md` (quick start), `docs/*.md` (user guides), `docs/dev/*.md` (architecture + API reference + contributing), `.claude/skills/*.md` (skill instructions).
 
-## AI Skills (CLI)
+## AI Skills
 
-7 skills in `skills/` provide terminal-based access to all training features without the web UI:
+8 skills in `.claude/skills/` provide training features via Claude Code and Copilot CLI:
 
 | Skill | Purpose |
 |-------|---------|
@@ -204,8 +204,9 @@ Key files: `README.md` (quick start), `docs/*.md` (user guides), `docs/dev/*.md`
 | `training-review` | Multi-week training diagnosis and suggestions |
 | `training-plan` | Generate 4-week AI training plan |
 | `race-forecast` | Race time prediction and goal feasibility |
+| `add-metric` | Scaffold a new metric end-to-end (7-step guide) |
 
-Skills with helper scripts (`sync-data`, `daily-brief`, `training-review`, `race-forecast`) have a `scripts/` subdirectory with Python CLI tools that output JSON to stdout, following the same pattern as `scripts/build_training_context.py`.
+Skills with helper scripts (`sync-data`, `daily-brief`, `training-review`, `race-forecast`) have Python CLI tools in `scripts/` that output JSON to stdout, following the same pattern as `scripts/build_training_context.py`.
 
 ## AI Features
 

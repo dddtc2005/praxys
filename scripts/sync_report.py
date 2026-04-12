@@ -2,9 +2,9 @@
 """Sync training data and output a structured JSON report.
 
 Usage:
-    python skills/sync-data/scripts/sync_report.py --pretty
-    python skills/sync-data/scripts/sync_report.py --from-date 2025-01-01
-    python skills/sync-data/scripts/sync_report.py --skip oura --pretty
+    python scripts/sync_report.py --pretty
+    python scripts/sync_report.py --from-date 2025-01-01
+    python scripts/sync_report.py --skip oura --pretty
 """
 import argparse
 import json

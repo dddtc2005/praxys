@@ -20,7 +20,7 @@ into local CSV files.
 Run the sync report script from the project root:
 
 ```bash
-python skills/sync-data/scripts/sync_report.py --pretty
+python scripts/sync_report.py --pretty
 ```
 
 ### Options

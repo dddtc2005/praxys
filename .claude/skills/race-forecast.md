@@ -19,7 +19,7 @@ Provide race time predictions and goal feasibility analysis without the web dash
 Run the forecast script from the project root:
 
 ```bash
-python skills/race-forecast/scripts/race_forecast.py --pretty
+python scripts/race_forecast.py --pretty
 ```
 
 This outputs JSON with race countdown, threshold data, and fitness snapshot.

@@ -128,8 +128,8 @@ Skills that need data (daily-brief, training-review, race-forecast, sync-data) i
 You can also run the scripts directly:
 
 ```bash
-python skills/daily-brief/scripts/daily_brief.py --pretty
-python skills/training-review/scripts/run_diagnosis.py --pretty
-python skills/race-forecast/scripts/race_forecast.py --pretty
-python skills/sync-data/scripts/sync_report.py --pretty --skip oura
+python scripts/daily_brief.py --pretty
+python scripts/run_diagnosis.py --pretty
+python scripts/race_forecast.py --pretty
+python scripts/sync_report.py --pretty --skip oura
 ```

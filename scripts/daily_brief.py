@@ -5,7 +5,7 @@ Includes: training signal, recovery status, upcoming workouts,
 last activity summary, and weekly load comparison.
 
 Usage:
-    python skills/daily-brief/scripts/daily_brief.py --pretty
+    python scripts/daily_brief.py --pretty
 """
 import argparse
 import json
