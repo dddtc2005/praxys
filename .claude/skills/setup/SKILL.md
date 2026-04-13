@@ -156,8 +156,7 @@ Use `analysis/config.py` functions:
 
 Or edit `data/config.json` directly (simpler for targeted changes).
 
-After any config change, remind the user to restart the API server if it's running
-(the cache refreshes every 5 minutes, but a restart is instant).
+After any config change, remind the user that changes take effect on the next API request.
 
 ## First-Time Setup Checklist
 

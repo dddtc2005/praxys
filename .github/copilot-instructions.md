@@ -9,7 +9,7 @@ sync/*.py → data/**/*.csv → analysis/metrics.py → api/deps.py → api/rout
 - **sync/**: API sync scripts (Garmin, Stryd, Oura) → CSV files
 - **analysis/metrics.py**: Pure computation functions (no I/O, no side effects)
 - **analysis/data_loader.py**: All CSV I/O lives here
-- **api/deps.py**: Cached data layer — `get_dashboard_data()` is the central function
+- **api/deps.py**: Data layer — `get_dashboard_data()` is the central function
 - **api/routes/**: Thin wrappers calling deps, all under `/api/` prefix
 - **web/src/**: React + TypeScript + Tailwind v4 + Recharts
 
@@ -38,7 +38,7 @@ sync/*.py → data/**/*.csv → analysis/metrics.py → api/deps.py → api/rout
 
 - User config (goals, thresholds) in `data/config.json`, managed via Goal page UI
 - API credentials in `sync/.env` (see `sync/.env.example`)
-- Data cache: 5 minutes in `api/deps.py`
+- Data recomputed fresh per request in `api/deps.py`
 
 ## For Full Details
 
