@@ -17,7 +17,7 @@ Skills in CLI and the local web dashboard are both supported, so you can choose 
 
 ## CLI Skills
 
-Trainsight ships with 7 CLI skills:
+Trainsight ships with 8 AI skills:
 
 | Skill | Purpose |
 |-------|---------|
@@ -28,8 +28,9 @@ Trainsight ships with 7 CLI skills:
 | `/training-review` | Analyze multi-week trends and diagnosis |
 | `/training-plan` | Generate a 4-week plan |
 | `/race-forecast` | Predict race outcomes and goal feasibility |
+| `/add-metric` | Scaffold a new metric end-to-end |
 
-See [docs/skills.md](docs/skills.md) for full installation and usage details.
+See [docs/skills.md](docs/skills.md) for usage details.
 
 ## Quickstart (Skills + Optional Web)
 
@@ -83,7 +84,7 @@ analysis/metrics.py  -> pure computation
 api/deps.py          -> cached data layer used by API + skills
 api/routes/*.py      -> JSON endpoints
 web/                 -> optional local visualization UI
-skills/              -> CLI skill definitions + helper scripts
+.claude/skills/      -> AI skill definitions (auto-discovered)
 ```
 
 ## Validation

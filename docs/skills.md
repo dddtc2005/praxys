@@ -1,6 +1,6 @@
 # CLI Skills
 
-Trainsight includes 7 AI skills that provide terminal-based access to all training features. No web UI needed.
+Trainsight includes 8 AI skills that provide access to all training features via Claude Code and Copilot CLI. No web UI needed.
 
 ## Requirements
 
@@ -94,31 +94,22 @@ Race time prediction and goal feasibility.
 - "What's my predicted marathon time?"
 - "How much CP do I need for my goal?"
 
-## Installation
+### /add-metric
 
-Skills are installed by symlinking the `skills/` directory to your AI tool's skill location:
+Scaffold a new training metric end-to-end (7-step guide).
 
-### Claude Code
+**When to use:** Adding a new computed metric, prediction, or insight to the dashboard.
 
-```bash
-# Windows (admin terminal or Developer Mode)
-mklink /J "%USERPROFILE%\.claude\skills\daily-brief" "skills\daily-brief"
-# ... repeat for each skill
-
-# Or use the link-skills skill if available:
-# /link-skills
-```
-
-### GitHub Copilot CLI
-
-```bash
-# Same pattern, different target:
-mklink /J "%USERPROFILE%\.copilot\skills\daily-brief" "skills\daily-brief"
-```
+**Examples:**
+- "Add a new efficiency metric"
+- "Scaffold a pace decay metric"
+- "I want to add a new insight to the dashboard"
 
 ## How Skills Work
 
-Skills that need data (daily-brief, training-review, race-forecast, sync-data) include Python helper scripts in their `scripts/` directory. These scripts:
+Skills live in `.claude/skills/` and are auto-discovered by Claude Code and Copilot CLI — no installation or symlinking needed.
+
+Skills that need data (daily-brief, training-review, race-forecast, sync-data) use Python helper scripts in the top-level `scripts/` directory. These scripts:
 
 1. Import from the project's `api/deps.py` and `analysis/` modules
 2. Run the same computations as the web dashboard
@@ -128,8 +119,8 @@ Skills that need data (daily-brief, training-review, race-forecast, sync-data) i
 You can also run the scripts directly:
 
 ```bash
-python skills/daily-brief/scripts/daily_brief.py --pretty
-python skills/training-review/scripts/run_diagnosis.py --pretty
-python skills/race-forecast/scripts/race_forecast.py --pretty
-python skills/sync-data/scripts/sync_report.py --pretty --skip oura
+python scripts/daily_brief.py --pretty
+python scripts/run_diagnosis.py --pretty
+python scripts/race_forecast.py --pretty
+python scripts/sync_report.py --pretty --skip oura
 ```

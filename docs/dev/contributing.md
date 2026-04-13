@@ -47,7 +47,7 @@ How to extend Trainsight with new features.
 
 ## Adding a New Skill
 
-1. **Create skill directory** `skills/{skill-name}/`
+1. **Create skill directory** `.claude/skills/{skill-name}/`
 
 2. **Write `SKILL.md`** with frontmatter:
    ```yaml
@@ -58,18 +58,13 @@ How to extend Trainsight with new features.
    ---
    ```
 
-3. **Add helper script** (if needed) in `skills/{skill-name}/scripts/`:
+3. **Add helper script** (if needed) in `scripts/`:
    - Follow the `build_training_context.py` pattern
    - Set `sys.path` to project root
    - Output JSON to stdout
    - Accept `--pretty` flag
 
-4. **Symlink** to `~/.claude/skills/` (junctions on Windows):
-   ```bash
-   mklink /J "%USERPROFILE%\.claude\skills\skill-name" "skills\skill-name"
-   ```
-
-5. **Update docs**: `docs/skills.md`, `CLAUDE.md` skills table.
+4. **Update docs**: `docs/skills.md`, `CLAUDE.md` skills table.
 
 ## Adding a New Science Theory
 

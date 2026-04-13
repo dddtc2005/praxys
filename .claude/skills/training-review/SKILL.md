@@ -20,7 +20,7 @@ Provide a comprehensive analysis of recent training without the web dashboard.
 Run the diagnosis script from the project root:
 
 ```bash
-python skills/training-review/scripts/run_diagnosis.py --pretty
+python scripts/run_diagnosis.py --pretty
 ```
 
 This calls `get_dashboard_data()` and extracts the diagnosis, fitness summary,

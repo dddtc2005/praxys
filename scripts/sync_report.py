@@ -2,9 +2,9 @@
 """Sync training data and output a structured JSON report.
 
 Usage:
-    python skills/sync-data/scripts/sync_report.py --pretty
-    python skills/sync-data/scripts/sync_report.py --from-date 2025-01-01
-    python skills/sync-data/scripts/sync_report.py --skip oura --pretty
+    python scripts/sync_report.py --pretty
+    python scripts/sync_report.py --from-date 2025-01-01
+    python scripts/sync_report.py --skip oura --pretty
 """
 import argparse
 import json
@@ -14,8 +14,8 @@ import traceback
 from collections.abc import Callable
 from datetime import date, timedelta
 
-# Project root is three levels up from this script.
-_PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "..")
+# Project root is one level up from this script.
+_PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..")
 sys.path.insert(0, _PROJECT_ROOT)
 
 from dotenv import load_dotenv  # noqa: E402
