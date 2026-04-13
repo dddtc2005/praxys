@@ -22,8 +22,8 @@
 
 ### API Agent
 - **Focus:** `api/main.py`, `api/deps.py`, `api/routes/`
-- **Tasks:** Add endpoints, modify data layer, optimize caching
-- **Context needed:** `api/deps.py` `get_dashboard_data()` is the central data function — all routes read from its cached result
+- **Tasks:** Add endpoints, modify data layer
+- **Context needed:** `api/deps.py` `get_dashboard_data()` is the central data function — all routes call it fresh per request
 - **Key rule:** Routes are thin — computation belongs in `analysis/metrics.py`, not in route handlers
 
 ### AI Features Agent (Future)

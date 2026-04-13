@@ -236,7 +236,7 @@ Current configuration, platform capabilities, and detected thresholds.
 
 ### PUT /api/settings
 
-Update settings (partial update). Invalidates dashboard cache.
+Update settings (partial update).
 
 **Request body:** Any subset of config fields:
 ```json

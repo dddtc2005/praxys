@@ -81,7 +81,7 @@ Then open `http://localhost:5173`.
 ```
 sync/*.py            -> pulls source data into CSVs
 analysis/metrics.py  -> pure computation
-api/deps.py          -> cached data layer used by API + skills
+api/deps.py          -> data layer used by API + skills
 api/routes/*.py      -> JSON endpoints
 web/                 -> optional local visualization UI
 .claude/skills/      -> AI skill definitions (auto-discovered)

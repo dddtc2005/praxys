@@ -11,7 +11,7 @@ Garmin/Stryd/Oura APIs → sync/*.py → data/**/*.csv
                                           ↓
                                    analysis/metrics.py (pure computation)
                                           ↓
-                                   api/deps.py (cached data layer)
+                                   api/deps.py (data layer)
                                           ↓
                                    api/routes/*.py (JSON endpoints)
                                           ↓
@@ -25,7 +25,7 @@ Garmin/Stryd/Oura APIs → sync/*.py → data/**/*.csv
 | `sync/` | API sync scripts | `garmin_sync.py`, `stryd_sync.py`, `oura_sync.py`, `csv_utils.py`, `sync_all.py` (orchestrator), `bootstrap_garmin_tokens.py` |
 | `analysis/` | Metric computation | `metrics.py` (pure functions), `data_loader.py` (CSV I/O + merge), `science.py` (theory YAML loader), `config.py` (UserConfig dataclass), `zones.py`, `thresholds.py`, `training_base.py` |
 | `analysis/providers/` | Pluggable data sources | `base.py` (abstract provider ABCs), `garmin.py`, `stryd.py`, `oura.py`, `ai.py` (AI plan CSV loader), `models.py` |
-| `api/` | FastAPI backend | `main.py` (app), `deps.py` (cached data layer), `views.py` (shared view helpers), `routes/` (endpoints) |
+| `api/` | FastAPI backend | `main.py` (app), `deps.py` (data layer), `views.py` (shared view helpers), `routes/` (endpoints) |
 | `web/src/` | React frontend | `pages/` (6 pages: Today, Training, Goal, History, Science, Settings), `components/` (UI + `charts/` sub-dir), `hooks/` (`useApi`, `useChartColors`, `useTheme`, `use-mobile`), `contexts/` (`ScienceContext`, `SettingsContext`), `types/` (API contracts), `lib/` (`chart-theme`, `format`, `utils`, `workout-parser`) |
 | `tests/` | pytest suite | `test_metrics.py`, `test_integration.py`, etc. |
 | `data/` | User CSV data | `garmin/`, `stryd/`, `oura/`, `ai/` (gitignored), `sample/` (tracked), `science/` (theory YAMLs: load, recovery, prediction, zones, labels) |
