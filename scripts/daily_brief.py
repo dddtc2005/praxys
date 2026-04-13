@@ -16,8 +16,8 @@ from datetime import date
 
 import pandas as pd
 
-# Project root is three levels up from this script.
-_PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "..")
+# Project root is one level up from this script.
+_PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..")
 sys.path.insert(0, _PROJECT_ROOT)
 
 from api.deps import get_dashboard_data  # noqa: E402

@@ -23,9 +23,9 @@ Garmin/Stryd/Oura APIs
    └── routes/           Thin endpoint handlers
         |
    ┌────┴────┐
-   web/    skills/
-   React    CLI
-   SPA      skills
+   web/    .claude/skills/
+   React    AI skill
+   SPA      definitions
 ```
 
 ## Key Design Decisions
@@ -103,9 +103,9 @@ React SPA (Vite + TypeScript + Tailwind v4 + shadcn/ui):
 - **`types/api.ts`**: TypeScript interfaces matching API response shapes
 - **`lib/chart-theme.ts`**: Single source of truth for chart colors
 
-### skills/
+### .claude/skills/
 
-7 skill directories, each with a `SKILL.md` (instructions for AI tools) and optionally a `scripts/` directory with Python CLI tools that output JSON to stdout.
+8 skill directories, each with a `SKILL.md` (instructions for AI tools). Skills that need data have corresponding Python CLI tools in the top-level `scripts/` directory that output JSON to stdout.
 
 ## Data Flow Examples
 

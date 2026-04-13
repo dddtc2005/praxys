@@ -14,8 +14,8 @@ import traceback
 from collections.abc import Callable
 from datetime import date, timedelta
 
-# Project root is three levels up from this script.
-_PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "..")
+# Project root is one level up from this script.
+_PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..")
 sys.path.insert(0, _PROJECT_ROOT)
 
 from dotenv import load_dotenv  # noqa: E402

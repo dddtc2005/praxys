@@ -47,7 +47,7 @@ How to extend Trainsight with new features.
 
 ## Adding a New Skill
 
-1. **Create skill directory** `skills/{skill-name}/`
+1. **Create skill directory** `.claude/skills/{skill-name}/`
 
 2. **Write `SKILL.md`** with frontmatter:
    ```yaml
