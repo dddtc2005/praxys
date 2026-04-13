@@ -16,6 +16,22 @@ description: >-
 Guide the user through configuring their training system. Configuration is stored
 in `data/config.json` and credentials in `sync/.env`.
 
+## Credential Safety
+
+**Never ask the user to type passwords, tokens, or secrets in the conversation.**
+Credentials typed in chat are logged in API transcripts, stored in context, and
+visible in terminal scrollback. Instead:
+
+1. Create `sync/.env` from the template if it doesn't exist (`cp sync/.env.example sync/.env`)
+2. Tell the user to open `sync/.env` in their own editor and fill in credentials there
+3. After they confirm, verify credentials are set by checking env var presence (not values):
+   ```python
+   python -c "from dotenv import load_dotenv; import os; load_dotenv('sync/.env'); print('GARMIN_EMAIL:', 'set' if os.getenv('GARMIN_EMAIL') else 'missing')"
+   ```
+
+If the user pastes a credential into the conversation unprompted, do NOT echo it back
+or write it to any file. Ask them to put it in `sync/.env` directly instead.
+
 ## Before You Start
 
 Read these two files to understand current state:
@@ -44,10 +60,11 @@ Each platform requires credentials in `sync/.env`:
 | Oura | `OURA_TOKEN` | Generate at cloud.ouraring.com/personal-access-tokens |
 
 To add a connection:
-1. Check if `sync/.env` exists; if not, copy from `sync/.env.example`
-2. Add the credentials for the requested platform
-3. Update `data/config.json` → `connections` array to include the platform
-4. Set appropriate `preferences` (which platform provides activities, recovery, plan)
+1. If `sync/.env` doesn't exist, create it: `cp sync/.env.example sync/.env`
+2. Tell the user to open `sync/.env` in their editor and add credentials for the platform
+3. Wait for confirmation, then verify env vars are set (presence only, never echo values)
+4. Update `data/config.json` → `connections` array to include the platform
+5. Set appropriate `preferences` (which platform provides activities, recovery, plan)
 
 Platform capabilities determine valid preferences:
 - **activities**: garmin, stryd, coros
@@ -145,8 +162,8 @@ After any config change, remind the user to restart the API server if it's runni
 ## First-Time Setup Checklist
 
 For new users, guide through this order:
-1. Create `sync/.env` from `sync/.env.example` with their credentials
-2. Set `connections` in config to match their platforms
+1. Create `sync/.env` from template, then ask the user to fill in credentials in their editor
+2. Verify env vars are set (presence only), then set `connections` in config
 3. Set `training_base` based on available data (power if they have Stryd)
 4. Set `preferences` for each data category
 5. Set `goal` if they have a race target
