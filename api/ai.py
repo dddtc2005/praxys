@@ -166,10 +166,9 @@ def validate_plan(
     """Validate an AI-generated training plan before writing to CSV.
 
     Checks:
-    - Date range: all dates today or later, spanning ~28 days
+    - Date range: all dates today or later, max ~35 days span
     - Power targets: within 40-130% of current threshold
     - Required fields: date + workout_type present on every row
-    - Completeness: no missing days in the 4-week window
     - Distribution: at least 1 rest/off day per week, max 3 quality sessions/week
 
     Returns (is_valid, list_of_error_messages).
