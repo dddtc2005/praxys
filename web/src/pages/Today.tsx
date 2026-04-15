@@ -1,8 +1,8 @@
 import { useApi } from '@/hooks/useApi';
 import type { TodayResponse } from '@/types/api';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle } from 'lucide-react';
 import SignalHero from '@/components/SignalHero';
 import RecoveryPanel from '@/components/RecoveryPanel';
@@ -10,6 +10,7 @@ import WorkoutCard from '@/components/WorkoutCard';
 import FormSparkline from '@/components/charts/FormSparkline';
 import LastActivityCard from '@/components/LastActivityCard';
 import WeeklyLoadMini from '@/components/WeeklyLoadMini';
+import DataHint from '@/components/DataHint';
 
 function TodaySkeleton() {
   return (
@@ -75,7 +76,13 @@ export default function Today() {
       </div>
 
       {/* Form sparkline — full width */}
-      <FormSparkline data={tsb_sparkline} />
+      <DataHint
+        sufficient={data.data_meta?.pmc_sufficient ?? true}
+        message="Not enough data for accurate form tracking"
+        hint="Sync at least 6 weeks of activity data to see your training form trend."
+      >
+        <FormSparkline data={tsb_sparkline} />
+      </DataHint>
 
       {/* Context row: Last Activity + Weekly Load */}
       {(data.last_activity || data.week_load) && (

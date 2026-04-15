@@ -1,17 +1,29 @@
-"""Sync activities and daily metrics from Garmin Connect."""
-import argparse
-import os
-import time
-from datetime import date, timedelta
-
-from garminconnect import Garmin
-from dotenv import load_dotenv
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
-
-from sync.csv_utils import append_rows, read_csv
+"""Garmin Connect data parsing — fetch/parse layer for the sync API route."""
 
 RATE_LIMIT_DELAY = 0.5  # seconds between per-activity API calls
+
+
+def _garmin_speed_to_pace_sec_km(speed_value: float) -> float | None:
+    """Convert Garmin LT speed value to pace in sec/km.
+
+    Garmin API returns speed in a unit where typical threshold running
+    values are ~0.36-0.42. Based on real data analysis:
+    - 0.383 corresponds to roughly 4:21/km (261 sec/km)
+    - This matches 1000 / (speed * 10.2) approximately
+    - The value appears to be in 10*m/s or a similar Garmin-specific unit
+
+    We store the raw value and compute pace as: 1000 / (speed * factor).
+    Factor calibrated so 0.383 ≈ 4:21/km (261s): factor ≈ 10.0
+    i.e., speed is in dam/s (decameters per second): 0.383 dam/s = 3.83 m/s
+    pace = 1000 / 3.83 = 261 sec/km ≈ 4:21/km ✓
+    """
+    if not speed_value or speed_value <= 0:
+        return None
+    # Garmin speed appears to be in dam/s (×10 to get m/s)
+    speed_ms = speed_value * 10.0
+    if speed_ms <= 0:
+        return None
+    return round(1000.0 / speed_ms)
 
 
 def parse_activities(raw_activities: list[dict]) -> list[dict]:
@@ -161,29 +173,6 @@ def parse_daily_metrics(
     }]
 
 
-def _garmin_speed_to_pace_sec_km(speed_value: float) -> float | None:
-    """Convert Garmin LT speed value to pace in sec/km.
-
-    Garmin API returns speed in a unit where typical threshold running
-    values are ~0.36-0.42. Based on real data analysis:
-    - 0.383 corresponds to roughly 4:21/km (261 sec/km)
-    - This matches 1000 / (speed * 10.2) approximately
-    - The value appears to be in 10*m/s or a similar Garmin-specific unit
-
-    We store the raw value and compute pace as: 1000 / (speed * factor).
-    Factor calibrated so 0.383 ≈ 4:21/km (261s): factor ≈ 10.0
-    i.e., speed is in dam/s (decameters per second): 0.383 dam/s = 3.83 m/s
-    pace = 1000 / 3.83 = 261 sec/km ≈ 4:21/km ✓
-    """
-    if not speed_value or speed_value <= 0:
-        return None
-    # Garmin speed appears to be in dam/s (×10 to get m/s)
-    speed_ms = speed_value * 10.0
-    if speed_ms <= 0:
-        return None
-    return round(1000.0 / speed_ms)
-
-
 def parse_lactate_threshold(lt_data: dict) -> list[dict]:
     """Parse Garmin lactate threshold API response into CSV rows.
 
@@ -260,143 +249,3 @@ def parse_lactate_threshold(lt_data: dict) -> list[dict]:
                 })
 
     return rows
-
-
-def _get_existing_split_activity_ids(data_dir: str) -> set[str]:
-    """Get set of activity IDs already in activity_splits.csv."""
-    splits_path = os.path.join(data_dir, "garmin", "activity_splits.csv")
-    existing = read_csv(splits_path)
-    return {row["activity_id"] for row in existing if row.get("activity_id")}
-
-
-def _get_token_dir(data_dir: str) -> str:
-    """Get path for cached Garmin OAuth tokens (gitignored via .env pattern)."""
-    return os.path.join(os.path.dirname(data_dir), "sync", ".garmin_tokens")
-
-
-def _fetch_splits(client, activity_ids: list[str], data_dir: str) -> list[dict]:
-    """Fetch splits for activities not already in activity_splits.csv."""
-    existing_ids = _get_existing_split_activity_ids(data_dir)
-    all_split_rows = []
-
-    for aid in activity_ids:
-        if aid in existing_ids:
-            continue
-        try:
-            splits_data = client.get_activity_splits(aid) or {}
-            split_rows = parse_splits(aid, splits_data)
-            all_split_rows.extend(split_rows)
-            time.sleep(RATE_LIMIT_DELAY)
-        except Exception as e:
-            print(f"    Splits for {aid}: skipped ({e})")
-
-    return all_split_rows
-
-
-def sync(email: str, password: str, data_dir: str, from_date: str | None = None, is_cn: bool = False) -> None:
-    """Pull Garmin data and save to CSVs."""
-    token_dir = _get_token_dir(data_dir)
-    client = Garmin(email, password, is_cn=is_cn)
-
-    # Prevent urllib3 from retrying on 429 (default is 10 retries, which
-    # amplifies rate-limit hits).  Only retry on server errors.
-    retry = Retry(total=1, status_forcelist=[500, 502, 503])
-    adapter = HTTPAdapter(max_retries=retry)
-    client.garth.sess.mount("https://", adapter)
-    client.garth.sess.mount("http://", adapter)
-
-    # Single login call — the library tries cached tokens first, then falls
-    # back to credential-based login internally.  No double-attempt needed.
-    client.login(token_dir)
-
-    # Always dump tokens so the next run can skip the credential flow
-    client.garth.dump(token_dir)
-    print("Garmin: logged in (tokens cached)")
-
-    end = date.today().isoformat()
-    start = from_date or (date.today() - timedelta(days=7)).isoformat()
-    print(f"Garmin: syncing {start} to {end}")
-
-    # Fetch activity list (includes training effect + HR zones)
-    activities = client.get_activities_by_date(start, end, activitytype="running")
-    rows = parse_activities(activities)
-    activities_path = os.path.join(data_dir, "garmin", "activities.csv")
-    append_rows(activities_path, rows, key_column="activity_id")
-    print(f"  Activities: {len(rows)} records")
-
-    # Fetch per-activity splits (with rate limiting, only new activities)
-    activity_ids = [str(a.get("activityId", "")) for a in activities]
-    if activity_ids:
-        print(f"  Fetching splits for up to {len(activity_ids)} activities...")
-        all_split_rows = _fetch_splits(client, activity_ids, data_dir)
-        if all_split_rows:
-            splits_path = os.path.join(data_dir, "garmin", "activity_splits.csv")
-            append_rows(splits_path, all_split_rows, key_column=["activity_id", "split_num"])
-            print(f"  Splits: {len(all_split_rows)} records")
-        else:
-            print("  Splits: 0 new records")
-
-    # Lactate threshold data (HR, power, speed at threshold)
-    # Use a wider range (1 year) since LT updates are infrequent
-    try:
-        lt_start = (date.today() - timedelta(days=365)).isoformat()
-        lt_data = client.get_lactate_threshold(
-            latest=False,
-            start_date=lt_start,
-            end_date=end,
-        )
-        lt_rows = parse_lactate_threshold(lt_data)
-
-        # Fallback: try latest=True if range query returned nothing
-        if not lt_rows:
-            lt_latest = client.get_lactate_threshold(latest=True)
-            lt_rows = parse_lactate_threshold(lt_latest)
-
-        if lt_rows:
-            lt_path = os.path.join(data_dir, "garmin", "lactate_threshold.csv")
-            append_rows(lt_path, lt_rows, key_column="date")
-            print(f"  Lactate threshold: {len(lt_rows)} records")
-        else:
-            print("  Lactate threshold: no data available")
-    except Exception as e:
-        print(f"  Lactate threshold: skipped ({e})")
-
-    # Daily metrics (expanded)
-    try:
-        today_str = date.today().isoformat()
-        training_status = client.get_training_status(today_str) or {}
-
-        training_readiness = None
-        try:
-            training_readiness = client.get_training_readiness(today_str)
-        except Exception as e:
-            print(f"  Training readiness: skipped ({e})")
-
-        race_predictions = None
-        try:
-            race_predictions = client.get_race_predictions()
-        except Exception as e:
-            print(f"  Race predictions: skipped ({e})")
-
-        metrics_rows = parse_daily_metrics(
-            today_str, training_status,
-            training_readiness=training_readiness,
-            race_predictions=race_predictions,
-        )
-        metrics_path = os.path.join(data_dir, "garmin", "daily_metrics.csv")
-        append_rows(metrics_path, metrics_rows, key_column="date")
-        print(f"  Daily metrics: updated for {today_str}")
-    except Exception as e:
-        print(f"  Daily metrics: skipped ({e})")
-
-
-if __name__ == "__main__":
-    load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
-    parser = argparse.ArgumentParser(description="Sync Garmin Connect data")
-    parser.add_argument("--from-date", help="Start date (YYYY-MM-DD) for historical backfill")
-    args = parser.parse_args()
-
-    email = os.environ["GARMIN_EMAIL"]
-    password = os.environ["GARMIN_PASSWORD"]
-    data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
-    sync(email, password, data_dir, args.from_date)

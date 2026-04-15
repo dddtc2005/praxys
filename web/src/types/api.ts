@@ -52,6 +52,7 @@ export interface DisplayConfig {
 }
 
 export interface SettingsConfig {
+  display_name: string;
   connections: PlatformName[];
   preferences: Partial<Record<DataCategory, PlatformName | PlanSourceName>>;
   training_base: TrainingBase;
@@ -209,6 +210,7 @@ export interface TodayResponse {
   last_activity?: LastActivity;
   week_load?: WeekLoad;
   upcoming?: UpcomingWorkout[];
+  data_meta?: DataMeta;
 }
 
 export interface ZoneDistribution {
@@ -282,6 +284,15 @@ export interface WorkoutFlag {
   description: string;
 }
 
+export interface DataMeta {
+  activity_count: number;
+  data_days: number;
+  cp_points: number;
+  has_recovery: boolean;
+  pmc_sufficient: boolean;
+  cp_trend_sufficient: boolean;
+}
+
 export interface TrainingResponse {
   diagnosis: DiagnosisData;
   fitness_fatigue: TimeSeriesData;
@@ -291,6 +302,7 @@ export interface TrainingResponse {
   sleep_perf: [number, number][];
   training_base?: TrainingBase;
   display?: DisplayConfig;
+  data_meta?: DataMeta;
 }
 
 export interface Milestone {
@@ -347,6 +359,7 @@ export interface GoalResponse {
   latest_cp: number | null;
   training_base?: TrainingBase;
   display?: DisplayConfig;
+  data_meta?: DataMeta;
 }
 
 export interface SplitData {

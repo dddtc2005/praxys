@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "trainsight": {
+      "command": "python",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-server/server.py"],
+      "env": {}
+    }
+  }
+}

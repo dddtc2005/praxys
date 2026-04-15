@@ -170,7 +170,13 @@ Goal configuration is managed via the Goal page UI and stored in `data/config.js
 
 ## Running
 
+**Always use the project venv for Python commands.** The venv is at `.venv/`.
+
 ```bash
+# Activate venv first (all Python commands below assume venv is active)
+# Windows: .venv\Scripts\activate
+# Unix: source .venv/bin/activate
+
 # API server
 pip install -r requirements.txt
 python -m uvicorn api.main:app --reload
@@ -178,12 +184,11 @@ python -m uvicorn api.main:app --reload
 # Frontend dev server (separate terminal)
 cd web && npm install && npm run dev
 
-# Quick start with sample data (no API credentials needed)
-python scripts/seed_sample_data.py
-
 # Tests
 python -m pytest tests/ -v
 ```
+
+First-time setup: start the server, open the app, register. The first user on a fresh DB becomes admin (no invitation code needed). Admin can generate invitation codes for others via the `/api/admin/invitations` endpoint.
 
 ## Documentation
 
@@ -193,7 +198,7 @@ Key files: `README.md` (quick start), `docs/*.md` (user guides), `docs/dev/*.md`
 
 ## AI Skills
 
-8 skills in `.claude/skills/` provide training features via Claude Code and Copilot CLI:
+8 skills in `plugins/trainsight/skills/` provide training features via the Trainsight plugin (MCP server + skills):
 
 | Skill | Purpose |
 |-------|---------|
@@ -206,7 +211,7 @@ Key files: `README.md` (quick start), `docs/*.md` (user guides), `docs/dev/*.md`
 | `race-forecast` | Race time prediction and goal feasibility |
 | `add-metric` | Scaffold a new metric end-to-end (7-step guide) |
 
-Skills with helper scripts (`sync-data`, `daily-brief`, `training-review`, `race-forecast`) have Python CLI tools in `scripts/` that output JSON to stdout, following the same pattern as `scripts/build_training_context.py`.
+Skills use MCP tools provided by the Trainsight plugin MCP server (`plugins/trainsight/mcp-server/server.py`). The server runs in dual mode: local (direct DB access) or remote (HTTP API with JWT auth via `TRAINSIGHT_URL`).
 
 ## AI Features
 

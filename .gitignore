@@ -8,6 +8,13 @@ data/ai/
 analysis/dashboard.html
 analysis/reports/
 
+# SQLite database
+data/trainsight.db
+*.db-journal
+
+# Test artifacts
+test-screenshots/
+
 # Python
 __pycache__/
 *.pyc

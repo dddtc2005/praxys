@@ -1,4 +1,8 @@
-"""Load and merge CSV data from all sources."""
+"""Load and merge CSV data from all sources.
+
+Supports both file-based CSV loading (original) and database loading
+via SQLAlchemy for the multi-user deployable architecture.
+"""
 from __future__ import annotations
 
 import logging
@@ -12,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from analysis.config import UserConfig
+    from sqlalchemy.orm import Session
 
 
 # Required columns per CSV schema key.  Missing columns are logged as warnings
@@ -303,3 +308,92 @@ def _ensure_numeric_pace(df: pd.DataFrame) -> pd.DataFrame:
             df = df.copy()
             df["avg_pace_sec_km"] = (dur / dist).where(dist > 0)
     return df
+
+
+# ---------------------------------------------------------------------------
+# Database-based loading (multi-user deployable architecture)
+# ---------------------------------------------------------------------------
+
+
+def load_data_from_db(user_id: str, db: Session) -> dict[str, pd.DataFrame]:
+    """Load data from database for a specific user.
+
+    Returns the same dict structure as load_data():
+    {activities, splits, recovery, fitness, plan}.
+    """
+    activities = pd.read_sql(
+        "SELECT * FROM activities WHERE user_id = :uid ORDER BY date",
+        db.bind,
+        params={"uid": user_id},
+        parse_dates=["date"],
+    )
+    if "date" in activities.columns and not activities.empty:
+        activities["date"] = pd.to_datetime(activities["date"]).dt.date
+
+    splits = pd.read_sql(
+        "SELECT * FROM activity_splits WHERE user_id = :uid",
+        db.bind,
+        params={"uid": user_id},
+    )
+
+    # Recovery: reconstruct from recovery_data table
+    recovery = pd.read_sql(
+        "SELECT * FROM recovery_data WHERE user_id = :uid ORDER BY date",
+        db.bind,
+        params={"uid": user_id},
+        parse_dates=["date"],
+    )
+    if "date" in recovery.columns and not recovery.empty:
+        recovery["date"] = pd.to_datetime(recovery["date"]).dt.date
+
+    # Fitness: pivot fitness_data rows into wide columns
+    fitness_raw = pd.read_sql(
+        "SELECT date, metric_type, value, value_str "
+        "FROM fitness_data WHERE user_id = :uid ORDER BY date",
+        db.bind,
+        params={"uid": user_id},
+        parse_dates=["date"],
+    )
+    fitness = _pivot_fitness(fitness_raw)
+
+    # Plan
+    plan = pd.read_sql(
+        "SELECT * FROM training_plans WHERE user_id = :uid ORDER BY date",
+        db.bind,
+        params={"uid": user_id},
+        parse_dates=["date"],
+    )
+    if "date" in plan.columns and not plan.empty:
+        plan["date"] = pd.to_datetime(plan["date"]).dt.date
+
+    # Post-processing (same as CSV path)
+    activities = _clean_activities(activities)
+    activities = _ensure_numeric_pace(activities)
+    splits = _ensure_numeric_pace(splits)
+
+    return {
+        "activities": activities,
+        "splits": splits,
+        "recovery": recovery,
+        "fitness": fitness,
+        "plan": plan,
+    }
+
+
+def _pivot_fitness(raw: pd.DataFrame) -> pd.DataFrame:
+    """Pivot fitness_data rows into a wide DataFrame with one column per metric."""
+    if raw.empty:
+        return pd.DataFrame()
+    raw = raw.copy()
+    raw["date"] = pd.to_datetime(raw["date"]).dt.date
+    # Use value for numeric, value_str for string metrics
+    raw["final_value"] = raw["value"].fillna(raw["value_str"])
+    pivoted = raw.pivot_table(
+        index="date", columns="metric_type", values="final_value", aggfunc="first"
+    )
+    pivoted = pivoted.reset_index()
+    # Convert numeric columns
+    for col in pivoted.columns:
+        if col not in ("date", "training_status"):
+            pivoted[col] = pd.to_numeric(pivoted[col], errors="coerce")
+    return pivoted

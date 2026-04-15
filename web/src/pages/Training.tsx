@@ -12,6 +12,7 @@ import FitnessFatigueChart from '@/components/charts/FitnessFatigueChart';
 import CpTrendChart from '@/components/charts/CpTrendChart';
 import ComplianceChart from '@/components/charts/ComplianceChart';
 import SleepPerfChart from '@/components/charts/SleepPerfChart';
+import DataHint from '@/components/DataHint';
 
 function TrainingSkeleton() {
   return (
@@ -68,7 +69,7 @@ export default function Training() {
       </div>
 
       {/* Zone analysis card */}
-      {data.diagnosis.zone_ranges.length > 0 && (
+      {data.diagnosis.zone_ranges?.length > 0 && (
         <div className="mb-6">
           <ZoneAnalysisCard
             distribution={data.diagnosis.distribution}
@@ -87,13 +88,37 @@ export default function Training() {
       {/* Charts grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div className="lg:col-span-2">
-          <FitnessFatigueChart data={data.fitness_fatigue} />
+          <DataHint
+            sufficient={data.data_meta?.pmc_sufficient ?? true}
+            message="Not enough data for accurate fitness tracking"
+            hint="Sync at least 6 weeks of activity data to see meaningful fitness, fatigue, and form curves."
+          >
+            <FitnessFatigueChart data={data.fitness_fatigue} />
+          </DataHint>
         </div>
         <div className="lg:col-span-2">
-          <CpTrendChart data={data.cp_trend} label={activeDisplay?.trend_label} unit={activeDisplay?.threshold_unit} metricName={activeDisplay?.threshold_abbrev} />
+          <DataHint
+            sufficient={data.data_meta?.cp_trend_sufficient ?? true}
+            message="Not enough data to show CP trend"
+            hint="Need at least 3 activities with power data to plot a meaningful trend."
+          >
+            <CpTrendChart data={data.cp_trend} label={activeDisplay?.trend_label} unit={activeDisplay?.threshold_unit} metricName={activeDisplay?.threshold_abbrev} />
+          </DataHint>
         </div>
-        <ComplianceChart data={data.weekly_review} loadLabel={activeDisplay?.load_label} />
-        <SleepPerfChart data={data.sleep_perf} />
+        <DataHint
+          sufficient={(data.data_meta?.data_days ?? 0) >= 14}
+          message="Not enough data for weekly load comparison"
+          hint="Sync at least 2 weeks of data to compare planned vs actual training load."
+        >
+          <ComplianceChart data={data.weekly_review} loadLabel={activeDisplay?.load_label} />
+        </DataHint>
+        <DataHint
+          sufficient={data.data_meta?.has_recovery && (data.sleep_perf?.length ?? 0) >= 2}
+          message="Not enough data to show sleep vs performance"
+          hint="Connect a recovery source (like Oura Ring) and sync activities with power data."
+        >
+          <SleepPerfChart data={data.sleep_perf} />
+        </DataHint>
       </div>
 
       {/* Workout Flags */}

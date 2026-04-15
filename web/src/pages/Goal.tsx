@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import GoalEditor from '@/components/GoalEditor';
 import MilestoneTracker from '@/components/MilestoneTracker';
 import CpTrendChart from '@/components/charts/CpTrendChart';
+import DataHint from '@/components/DataHint';
 import ScienceNote from '@/components/ScienceNote';
 import { formatTime, formatPace } from '@/lib/format';
 
@@ -202,7 +203,7 @@ function RaceDateMode({ data }: { data: GoalResponse }) {
         </Card>
       )}
 
-      <CpTrendChart data={data.cp_trend} targetCp={rc.target_cp} label={d?.trend_label} unit={d?.threshold_unit} metricName={d?.threshold_abbrev} />
+      <DataHint sufficient={data.data_meta?.cp_trend_sufficient ?? true} message="Not enough data to show CP trend" hint="Need at least 3 activities with power data."><CpTrendChart data={data.cp_trend} targetCp={rc.target_cp} label={d?.trend_label} unit={d?.threshold_unit} metricName={d?.threshold_abbrev} /></DataHint>
     </div>
   );
 }
@@ -315,7 +316,7 @@ function CpMilestoneMode({ data }: { data: GoalResponse }) {
         </CardContent>
       </Card>
 
-      <CpTrendChart data={data.cp_trend} targetCp={targetCp} label={d?.trend_label} unit={d?.threshold_unit} metricName={d?.threshold_abbrev} />
+      <DataHint sufficient={data.data_meta?.cp_trend_sufficient ?? true} message="Not enough data to show CP trend" hint="Need at least 3 activities with power data."><CpTrendChart data={data.cp_trend} targetCp={targetCp} label={d?.trend_label} unit={d?.threshold_unit} metricName={d?.threshold_abbrev} /></DataHint>
     </div>
   );
 }
@@ -387,7 +388,7 @@ function ContinuousMode({ data }: { data: GoalResponse }) {
         </Card>
       )}
 
-      <CpTrendChart data={data.cp_trend} label={d?.trend_label} unit={d?.threshold_unit} metricName={d?.threshold_abbrev} />
+      <DataHint sufficient={data.data_meta?.cp_trend_sufficient ?? true} message="Not enough data to show CP trend" hint="Need at least 3 activities with power data."><CpTrendChart data={data.cp_trend} label={d?.trend_label} unit={d?.threshold_unit} metricName={d?.threshold_abbrev} /></DataHint>
     </div>
   );
 }

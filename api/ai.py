@@ -20,16 +20,14 @@ from analysis.config import load_config
 # ---------------------------------------------------------------------------
 
 
-def build_training_context() -> dict:
-    """Build a structured training context dict for LLM plan generation.
+def _build_context_from_data(data: dict) -> dict:
+    """Reshape pre-computed dashboard data into AI training context.
 
-    Calls ``get_dashboard_data()`` and reshapes the result into sections:
-    athlete_profile, current_fitness, recent_training (with individual
-    sessions + splits), recovery_state, and current_plan.
+    Accepts the dict returned by ``get_dashboard_data()`` and produces the
+    structured context used by LLM plan generation. This avoids calling
+    ``get_dashboard_data()`` a second time when the caller already has the data
+    (e.g. the ``/api/ai/context`` route).
     """
-    from api.deps import get_dashboard_data
-
-    data = get_dashboard_data()
     config = load_config()
     today = date.today()
 
@@ -152,6 +150,19 @@ def build_training_context() -> dict:
         "recovery_state": recovery_state,
         "current_plan": current_plan,
     }
+
+
+def build_training_context() -> dict:
+    """Build a structured training context dict for LLM plan generation.
+
+    Calls ``get_dashboard_data()`` and reshapes the result into sections:
+    athlete_profile, current_fitness, recent_training (with individual
+    sessions + splits), recovery_state, and current_plan.
+    """
+    from api.deps import get_dashboard_data
+
+    data = get_dashboard_data()
+    return _build_context_from_data(data)
 
 
 # ---------------------------------------------------------------------------

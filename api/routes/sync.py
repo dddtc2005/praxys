@@ -1,4 +1,9 @@
-"""Data sync endpoints — trigger sync per source with background task."""
+"""Data sync endpoints — per-user sync with encrypted credentials.
+
+Credentials are read from user_connections (encrypted in DB). Falls back to
+environment variables when auth is disabled (local dev).
+"""
+import json
 import logging
 import os
 import threading
@@ -6,11 +11,12 @@ from datetime import date, datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
-from fastapi import APIRouter, BackgroundTasks
-from dotenv import load_dotenv
+from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel, field_validator
+from sqlalchemy.orm import Session
 
-from analysis.config import load_config
+from api.auth import get_current_user_id
+from db.session import get_db
 
 router = APIRouter()
 
@@ -31,91 +37,376 @@ class SyncRequest(BaseModel):
         return v
 
 
-# Module-level sync status store
-_sync_status: dict[str, dict] = {
-    "garmin": {"status": "idle", "last_sync": None, "error": None},
-    "stryd": {"status": "idle", "last_sync": None, "error": None},
-    "oura": {"status": "idle", "last_sync": None, "error": None},
-}
+# Per-user sync status: {user_id: {source: {status, last_sync, error}}}
+_sync_status: dict[str, dict[str, dict]] = {}
 _sync_lock = threading.Lock()
 
+_DEFAULT_SOURCES = ["garmin", "stryd", "oura"]
 
-def _ensure_sync_env():
-    """Load sync environment variables."""
-    load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", "sync", ".env"))
+
+def _get_user_status(user_id: str) -> dict[str, dict]:
+    """Get or create sync status dict for a user."""
+    with _sync_lock:
+        if user_id not in _sync_status:
+            _sync_status[user_id] = {
+                s: {"status": "idle", "last_sync": None, "error": None}
+                for s in _DEFAULT_SOURCES
+            }
+        return _sync_status[user_id]
 
 
 def _get_data_dir() -> str:
-    return os.path.join(os.path.dirname(__file__), "..", "..", "data")
+    return os.environ.get(
+        "DATA_DIR",
+        os.path.join(os.path.dirname(__file__), "..", "..", "data"),
+    )
 
 
-def _run_sync(source: str, from_date: str | None = None) -> None:
+def _get_credentials(user_id: str, platform: str, db: Session) -> dict | None:
+    """Get decrypted credentials for a user's platform connection.
+
+    Returns credential dict or None if not connected. Falls back to env vars
+    when auth is disabled (dev mode).
+    """
+    from db.models import UserConnection
+
+    conn = db.query(UserConnection).filter(
+        UserConnection.user_id == user_id,
+        UserConnection.platform == platform,
+    ).first()
+
+    if conn and conn.encrypted_credentials and conn.wrapped_dek:
+        from db.crypto import get_vault
+        vault = get_vault()
+        try:
+            creds_json = vault.decrypt(conn.encrypted_credentials, conn.wrapped_dek)
+            return json.loads(creds_json)
+        except Exception as e:
+            logger.warning("Failed to decrypt credentials for %s/%s: %s",
+                           user_id, platform, e)
+
+    return None
+
+
+def _run_sync(user_id: str, source: str, creds: dict,
+              from_date: str | None = None) -> None:
     """Run sync for a single source. Called in a background thread.
 
+    Fetches data from platform APIs and writes directly to DB — no CSV
+    intermediate step. The sync scripts' parse functions produce row dicts
+    which are written to DB via db.sync_writer.
+
     Args:
-        source: Provider name (garmin, stryd, oura).
-        from_date: Optional start date (YYYY-MM-DD) for historical backfill.
-            If None, each source uses its default lookback (typically 7 days).
+        user_id: User to sync for.
+        source: Platform name (garmin, stryd, oura).
+        creds: Decrypted credentials dict.
+        from_date: Optional start date for backfill.
     """
-    _ensure_sync_env()
-    data_dir = _get_data_dir()
+    from db.session import init_db, SessionLocal
+    from db.models import UserConnection
+    from db import sync_writer
+
+    status = _get_user_status(user_id)
 
     with _sync_lock:
-        _sync_status[source] = {"status": "syncing", "last_sync": None, "error": None}
+        status[source] = {"status": "syncing", "last_sync": None, "error": None}
+
+    init_db()
+    db = SessionLocal()
 
     try:
+        counts = {}
+
         if source == "garmin":
-            from sync.garmin_sync import sync as garmin_sync
-            email = os.environ.get("GARMIN_EMAIL")
-            password = os.environ.get("GARMIN_PASSWORD")
-            if not email or not password:
-                raise ValueError("GARMIN_EMAIL / GARMIN_PASSWORD not set")
-            config = load_config()
-            is_cn = config.source_options.get("garmin_region") == "cn" or os.environ.get("GARMIN_IS_CN", "").lower() == "true"
-            garmin_sync(email, password, data_dir, from_date, is_cn=is_cn)
+            counts = _sync_garmin(user_id, creds, from_date, db)
 
         elif source == "stryd":
-            from sync.stryd_sync import sync as stryd_sync
-            email = os.environ.get("STRYD_EMAIL")
-            password = os.environ.get("STRYD_PASSWORD")
-            if not email or not password:
-                raise ValueError("STRYD_EMAIL / STRYD_PASSWORD not set")
-            # Default to 14-day lookback to catch late-synced activities
-            stryd_from = from_date or (date.today() - timedelta(days=14)).isoformat()
-            stryd_sync(data_dir, email=email, password=password, from_date=stryd_from)
+            counts = _sync_stryd(user_id, creds, from_date, db)
 
         elif source == "oura":
-            from sync.oura_sync import sync as oura_sync
-            token = os.environ.get("OURA_TOKEN")
-            if not token:
-                raise ValueError("OURA_TOKEN not set")
-            oura_sync(token, data_dir, from_date)
+            counts = _sync_oura(user_id, creds, from_date, db)
 
         else:
             raise ValueError(f"Unknown source: {source}")
 
+        db.commit()
+
+        # Update last_sync on the connection record
+        conn = db.query(UserConnection).filter(
+            UserConnection.user_id == user_id,
+            UserConnection.platform == source,
+        ).first()
+        if conn:
+            conn.last_sync = datetime.utcnow()
+            conn.status = "connected"
+            db.commit()
+
+        logger.info("Sync %s for user %s: %s", source, user_id, counts)
+
         with _sync_lock:
-            _sync_status[source] = {
+            status[source] = {
                 "status": "done",
                 "last_sync": datetime.now().isoformat(),
                 "error": None,
             }
 
     except Exception as e:
-        logger.exception("Sync failed for %s", source)
+        db.rollback()
+        logger.exception("Sync failed for %s (user %s)", source, user_id)
         with _sync_lock:
-            _sync_status[source] = {
+            status[source] = {
                 "status": "error",
                 "last_sync": None,
                 "error": str(e),
             }
+        # Update connection status to error
+        try:
+            conn = db.query(UserConnection).filter(
+                UserConnection.user_id == user_id,
+                UserConnection.platform == source,
+            ).first()
+            if conn:
+                conn.status = "error"
+                db.commit()
+        except Exception:
+            pass
+    finally:
+        db.close()
+
+
+def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
+                 db) -> dict:
+    """Fetch Garmin data and write directly to DB."""
+    from db import sync_writer
+    from garminconnect import Garmin
+    from sync.garmin_sync import (
+        parse_activities, parse_splits, parse_daily_metrics,
+        parse_lactate_threshold, RATE_LIMIT_DELAY,
+    )
+    import time
+
+    client = Garmin(creds["email"], creds["password"],
+                    is_cn=creds.get("is_cn", False))
+    data_dir = _get_data_dir()
+    token_dir = os.path.join(os.path.dirname(data_dir), "sync", ".garmin_tokens")
+    client.login(token_dir)
+    client.garth.dump(token_dir)
+
+    end = date.today().isoformat()
+    start = from_date or (date.today() - timedelta(days=7)).isoformat()
+
+    # Read configured activity types from user config (default: running only)
+    from analysis.config import load_config_from_db
+    user_config = load_config_from_db(user_id, db)
+    activity_types = user_config.source_options.get(
+        "garmin_activity_types", ["running"]
+    )
+
+    # Fetch activities for each configured type
+    raw_activities = []
+    for atype in activity_types:
+        try:
+            batch = client.get_activities_by_date(start, end, activitytype=atype)
+            raw_activities.extend(batch)
+        except Exception as e:
+            logger.debug("Garmin activities for type %s: %s", atype, e)
+    activity_rows = parse_activities(raw_activities)
+    act_count = sync_writer.write_activities(user_id, activity_rows, db)
+
+    # Splits (only for new activities)
+    activity_ids = [str(a.get("activityId", "")) for a in raw_activities]
+    all_splits = []
+    for aid in activity_ids:
+        try:
+            splits_data = client.get_activity_splits(aid) or {}
+            all_splits.extend(parse_splits(aid, splits_data))
+            time.sleep(RATE_LIMIT_DELAY)
+        except Exception as e:
+            logger.debug("Splits for %s: skipped (%s)", aid, e)
+    split_count = sync_writer.write_splits(user_id, all_splits, db)
+
+    # Lactate threshold
+    lt_count = 0
+    try:
+        lt_start = (date.today() - timedelta(days=365)).isoformat()
+        lt_data = client.get_lactate_threshold(latest=False, start_date=lt_start, end_date=end)
+        lt_rows = parse_lactate_threshold(lt_data)
+        if not lt_rows:
+            lt_rows = parse_lactate_threshold(client.get_lactate_threshold(latest=True))
+        lt_count = sync_writer.write_lactate_threshold(user_id, lt_rows, db)
+    except Exception as e:
+        logger.debug("Lactate threshold: skipped (%s)", e)
+
+    # Daily metrics
+    dm_count = 0
+    try:
+        today_str = date.today().isoformat()
+        ts = client.get_training_status(today_str) or {}
+        tr = None
+        try:
+            tr = client.get_training_readiness(today_str)
+        except Exception:
+            pass
+        rp = None
+        try:
+            rp = client.get_race_predictions()
+        except Exception:
+            pass
+        dm_rows = parse_daily_metrics(today_str, ts, training_readiness=tr, race_predictions=rp)
+        dm_count = sync_writer.write_daily_metrics(user_id, dm_rows, db)
+    except Exception as e:
+        logger.debug("Daily metrics: skipped (%s)", e)
+
+    return {"activities": act_count, "splits": split_count,
+            "lactate_threshold": lt_count, "daily_metrics": dm_count}
+
+
+def _sync_stryd(user_id: str, creds: dict, from_date: str | None,
+                db) -> dict:
+    """Fetch Stryd data and write directly to DB."""
+    from db import sync_writer
+    from sync.stryd_sync import (
+        _login_api, fetch_activities_api, fetch_training_plan_api,
+        fetch_current_cp,
+    )
+
+    stryd_user_id, token = _login_api(creds["email"], creds["password"])
+    start = from_date or (date.today() - timedelta(days=14)).isoformat()
+
+    # Fetch current CP from Stryd profile (rolling calculation, may differ from per-activity)
+    current_cp = fetch_current_cp(stryd_user_id, token)
+
+    # Activities (power data)
+    activity_rows, _raw = fetch_activities_api(stryd_user_id, token, start)
+    # Add activity_type and source for DB writer
+    for row in activity_rows:
+        row.setdefault("activity_type", "running")
+        row.setdefault("source", "stryd")
+        # Use date as a fallback activity_id for Stryd (they don't have unique IDs in calendar)
+        if not row.get("activity_id"):
+            row["activity_id"] = f"stryd_{row.get('date', '')}_{row.get('start_time', '')}"
+    act_count = sync_writer.write_activities(user_id, activity_rows, db)
+
+    # CP estimates → fitness_data table (for threshold auto-detection)
+    from db.models import FitnessData
+    cp_by_date: dict = {}
+    for row in activity_rows:
+        d = row.get("date")
+        cp = row.get("cp_estimate")
+        if d and cp and cp != "":
+            try:
+                cp_by_date[d] = float(cp)  # last per date wins
+            except (ValueError, TypeError):
+                pass
+    # Current profile CP for today (the authoritative rolling value from Stryd)
+    if current_cp:
+        cp_by_date[date.today().isoformat()] = current_cp
+    cp_count = 0
+    for d_str, cp_val in cp_by_date.items():
+        from datetime import datetime as dt_cls
+        try:
+            d = dt_cls.strptime(str(d_str)[:10], "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            continue
+        existing = db.query(FitnessData).filter(
+            FitnessData.user_id == user_id,
+            FitnessData.date == d,
+            FitnessData.metric_type == "cp_estimate",
+            FitnessData.source == "stryd",
+        ).first()
+        if existing:
+            if existing.value != cp_val:
+                existing.value = cp_val
+                cp_count += 1
+        else:
+            db.add(FitnessData(
+                user_id=user_id, date=d,
+                metric_type="cp_estimate", value=cp_val, source="stryd",
+            ))
+            cp_count += 1
+
+    # Training plan
+    plan_rows = fetch_training_plan_api(stryd_user_id, token)
+    plan_count = sync_writer.write_training_plan(user_id, plan_rows, "stryd", db)
+
+    return {"activities": act_count, "cp_estimates": cp_count, "plan": plan_count}
+
+
+def _sync_oura(user_id: str, creds: dict, from_date: str | None,
+               db) -> dict:
+    """Fetch Oura data and write directly to DB."""
+    from db import sync_writer
+    from sync.oura_sync import (
+        fetch_sleep_data, fetch_readiness_data,
+        parse_sleep_records, parse_readiness_records,
+    )
+
+    token = creds["token"]
+    end = date.today().isoformat()
+    start = from_date or (date.today() - timedelta(days=7)).isoformat()
+
+    # Fetch raw data
+    sleep_raw = fetch_sleep_data(token, start, end)
+    sleep_rows = parse_sleep_records(sleep_raw)
+
+    # Extract HRV + resting HR from sleep data (Oura readiness endpoint lacks these)
+    hrv_by_date = {}
+    for r in sleep_raw:
+        d = r.get("day", "")
+        hrv_by_date[d] = {
+            "hrv_avg": str(r.get("average_hrv", "")),
+            "resting_hr": str(r.get("average_heart_rate", "")),
+        }
+
+    readiness_raw = fetch_readiness_data(token, start, end)
+    readiness_rows = parse_readiness_records(readiness_raw)
+
+    # Write directly to DB
+    count = sync_writer.write_recovery(
+        user_id, readiness_rows, sleep_rows, hrv_by_date, db
+    )
+    return {"recovery": count}
 
 
 @router.get("/sync/status")
-def get_sync_status() -> dict:
-    """Return current sync status for all sources."""
-    with _sync_lock:
-        return dict(_sync_status)
+def get_sync_status(
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Return current sync status for this user's connected platforms."""
+    from db.models import UserConnection
+
+    status = _get_user_status(user_id)
+
+    # Merge with DB connection info (last_sync from DB is more reliable)
+    connections = db.query(UserConnection).filter(
+        UserConnection.user_id == user_id,
+    ).all()
+    result = {}
+    for conn in connections:
+        src = conn.platform
+        runtime = status.get(src, {})
+        result[src] = {
+            "status": runtime.get("status", "idle"),
+            "last_sync": conn.last_sync.isoformat() if conn.last_sync else runtime.get("last_sync"),
+            "error": runtime.get("error"),
+            "connected": conn.status in ("connected", "error"),
+        }
+
+    # Include platforms with env var creds but no DB connection (dev mode)
+    for src in _DEFAULT_SOURCES:
+        if src not in result:
+            creds = _get_credentials(user_id, src, db)
+            if creds:
+                runtime = status.get(src, {})
+                result[src] = {
+                    "status": runtime.get("status", "idle"),
+                    "last_sync": runtime.get("last_sync"),
+                    "error": runtime.get("error"),
+                    "connected": True,
+                }
+
+    return result
 
 
 @router.post("/sync/{source}")
@@ -123,18 +414,25 @@ def trigger_sync(
     source: str,
     background_tasks: BackgroundTasks,
     body: SyncRequest | None = None,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
 ) -> dict:
-    """Trigger sync for a single source. Optionally pass from_date for backfill."""
-    if source not in _sync_status:
+    """Trigger sync for a single source using the user's stored credentials."""
+    if source not in _DEFAULT_SOURCES:
         return {"status": "error", "message": f"Unknown source: {source}"}
 
+    creds = _get_credentials(user_id, source, db)
+    if not creds:
+        return {"status": "error", "message": f"No credentials for {source}. Connect it in Settings first."}
+
+    status = _get_user_status(user_id)
     with _sync_lock:
-        if _sync_status[source]["status"] == "syncing":
+        if status.get(source, {}).get("status") == "syncing":
             return {"status": "already_syncing", "source": source}
-        _sync_status[source] = {"status": "syncing", "last_sync": None, "error": None}
+        status[source] = {"status": "syncing", "last_sync": None, "error": None}
 
     from_date = body.from_date if body else None
-    background_tasks.add_task(_run_sync, source, from_date)
+    background_tasks.add_task(_run_sync, user_id, source, creds, from_date)
     return {"status": "started", "source": source}
 
 
@@ -142,15 +440,23 @@ def trigger_sync(
 def trigger_sync_all(
     background_tasks: BackgroundTasks,
     body: SyncRequest | None = None,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
 ) -> dict:
-    """Trigger sync for all configured sources. Optionally pass from_date for backfill."""
+    """Trigger sync for all connected sources."""
     from_date = body.from_date if body else None
     started = []
-    for source in _sync_status:
+    status = _get_user_status(user_id)
+
+    for source in _DEFAULT_SOURCES:
+        creds = _get_credentials(user_id, source, db)
+        if not creds:
+            continue
         with _sync_lock:
-            if _sync_status[source]["status"] == "syncing":
+            if status.get(source, {}).get("status") == "syncing":
                 continue
-            _sync_status[source] = {"status": "syncing", "last_sync": None, "error": None}
-        background_tasks.add_task(_run_sync, source, from_date)
+            status[source] = {"status": "syncing", "last_sync": None, "error": None}
+        background_tasks.add_task(_run_sync, user_id, source, creds, from_date)
         started.append(source)
+
     return {"status": "started", "sources": started}
