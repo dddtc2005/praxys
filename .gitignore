@@ -33,3 +33,10 @@ web/dist/
 
 # Git worktrees
 .worktrees/
+
+# Superpowers tooling artifacts
+.superpowers/
+docs/superpowers/
+
+# Screenshots
+web/screenshot-*.png
