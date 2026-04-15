@@ -1,0 +1,160 @@
+<h2>How should zone integration look on the Training page?</h2>
+<p class="subtitle">Two approaches for integrating zone ranges, dynamic distribution, and target comparison</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Integrated Enhancement</h3>
+      <p>Enhance the existing Training Diagnosis card — replace the hardcoded 4-zone bar with a dynamic bar that adapts to the selected theory's zones. Add a "target vs actual" comparison row below the bar, and show zone ranges in a compact table within the same card.</p>
+      <div class="mockup" style="margin-top: 12px;">
+        <div class="mockup-header">Training Diagnosis Card (Enhanced)</div>
+        <div class="mockup-body" style="padding: 16px; font-family: monospace; font-size: 12px; line-height: 1.6;">
+          <div style="color: #94a3b8; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Training Diagnosis · Coggan 5-Zone</div>
+
+          <div style="display: flex; gap: 24px; margin-bottom: 16px;">
+            <div><span style="color: #64748b;">Avg Power</span><br><span style="font-size: 18px; color: #e2e8f0;">52.3</span><span style="color: #64748b; font-size: 12px;"> kJ</span></div>
+            <div><span style="color: #64748b;">Peak Split</span><br><span style="font-size: 18px; color: #e2e8f0;">292</span><span style="color: #64748b; font-size: 12px;"> W</span></div>
+            <div><span style="color: #64748b;">CP Quality</span><br><span style="font-size: 18px; color: #e2e8f0;">6 / 13</span></div>
+          </div>
+
+          <!-- Distribution bar -->
+          <div style="display: flex; height: 24px; border-radius: 12px; overflow: hidden; margin-bottom: 4px;">
+            <div style="width: 8%; background: #ef4444; display: flex; align-items: center; justify-content: center; font-size: 10px; color: white;">8%</div>
+            <div style="width: 18%; background: #f59e0b; display: flex; align-items: center; justify-content: center; font-size: 10px;">18%</div>
+            <div style="width: 15%; background: #3b82f6; display: flex; align-items: center; justify-content: center; font-size: 10px; color: white;">15%</div>
+            <div style="width: 22%; background: #60a5fa; display: flex; align-items: center; justify-content: center; font-size: 10px;">22%</div>
+            <div style="width: 37%; background: #64748b; display: flex; align-items: center; justify-content: center; font-size: 10px; color: white;">37%</div>
+          </div>
+
+          <!-- Target comparison row -->
+          <div style="display: flex; height: 6px; border-radius: 3px; overflow: hidden; margin-bottom: 8px; opacity: 0.5;">
+            <div style="width: 5%; background: #ef4444;"></div>
+            <div style="width: 10%; background: #f59e0b;"></div>
+            <div style="width: 15%; background: #3b82f6;"></div>
+            <div style="width: 25%; background: #60a5fa;"></div>
+            <div style="width: 45%; background: #64748b;"></div>
+          </div>
+
+          <div style="display: flex; gap: 16px; font-size: 11px; color: #94a3b8; margin-bottom: 16px;">
+            <span>● <span style="color: #ef4444;">VO2max 8%</span> <span style="color: #475569;">(target 5%)</span></span>
+            <span>● <span style="color: #f59e0b;">Supra-CP 18%</span> <span style="color: #475569;">(target 10%)</span></span>
+            <span>● <span style="color: #3b82f6;">Threshold 15%</span></span>
+            <span>● <span style="color: #60a5fa;">Tempo 22%</span></span>
+            <span>● <span style="color: #64748b;">Easy 37%</span> <span style="color: #475569;">(target 45%)</span></span>
+          </div>
+
+          <!-- Zone ranges table -->
+          <div style="border-top: 1px solid #1e293b; padding-top: 12px;">
+            <div style="color: #64748b; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Your Zones (CP: 250W)</div>
+            <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; font-size: 11px;">
+              <div style="text-align: center;"><div style="color: #64748b;">Easy</div><div style="color: #e2e8f0;">&lt; 138W</div></div>
+              <div style="text-align: center;"><div style="color: #60a5fa;">Tempo</div><div style="color: #e2e8f0;">138–188W</div></div>
+              <div style="text-align: center;"><div style="color: #3b82f6;">Threshold</div><div style="color: #e2e8f0;">188–225W</div></div>
+              <div style="text-align: center;"><div style="color: #f59e0b;">Supra-CP</div><div style="color: #e2e8f0;">225–263W</div></div>
+              <div style="text-align: center;"><div style="color: #ef4444;">VO2max</div><div style="color: #e2e8f0;">&gt; 263W</div></div>
+            </div>
+          </div>
+
+          <div style="margin-top: 12px; padding: 8px 12px; background: #1e293b; border-radius: 8px; font-size: 11px; color: #fbbf24;">
+            ⚠ Too much high-intensity: 26% above threshold vs 15% target. Consider replacing one interval session with easy running.
+          </div>
+        </div>
+      </div>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Minimal layout change — enhances existing card</li><li>All zone info in one place</li><li>Target comparison is immediately visible</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Card gets taller/denser</li><li>Zone ranges might feel cramped with 5 zones</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Separate Zone Card</h3>
+      <p>Keep the existing diagnosis card focused on metrics + distribution bar. Add a new "Training Zones" card below it that shows zone ranges, target vs actual comparison chart, and diagnostic text. The distribution bar in the diagnosis card still adapts to the theory.</p>
+      <div class="mockup" style="margin-top: 12px;">
+        <div class="mockup-header">Two Cards Layout</div>
+        <div class="mockup-body" style="padding: 16px; font-family: monospace; font-size: 12px; line-height: 1.6;">
+          <!-- Card 1: Diagnosis (slimmer) -->
+          <div style="background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 16px; margin-bottom: 12px;">
+            <div style="color: #94a3b8; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Training Diagnosis</div>
+            <div style="display: flex; gap: 24px; margin-bottom: 12px;">
+              <div><span style="color: #64748b;">Volume</span><br><span style="font-size: 16px; color: #e2e8f0;">52.3 kJ</span></div>
+              <div><span style="color: #64748b;">Peak Split</span><br><span style="font-size: 16px; color: #e2e8f0;">292 W</span></div>
+            </div>
+            <div style="font-size: 11px; color: #94a3b8;">
+              • Volume is moderate at 52.3 kJ/week<br>
+              • 4 sessions with supra-CP intervals — good stimulus
+            </div>
+          </div>
+
+          <!-- Card 2: Zone Analysis -->
+          <div style="background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <div style="color: #94a3b8; font-size: 10px; text-transform: uppercase; letter-spacing: 1px;">Zone Analysis · Coggan 5-Zone</div>
+              <div style="color: #475569; font-size: 10px;">CP: 250W</div>
+            </div>
+
+            <!-- Zone ranges as horizontal bars -->
+            <div style="margin-bottom: 16px;">
+              <div style="display: flex; align-items: center; margin-bottom: 4px;">
+                <span style="width: 70px; font-size: 11px; color: #ef4444;">VO2max</span>
+                <div style="flex: 1; height: 20px; background: #1e293b; border-radius: 4px; position: relative; overflow: hidden;">
+                  <div style="position: absolute; right: 0; width: 30%; height: 100%; background: rgba(239,68,68,0.3);"></div>
+                  <span style="position: absolute; right: 8px; top: 2px; font-size: 10px; color: #e2e8f0;">&gt; 263W</span>
+                </div>
+                <span style="width: 50px; text-align: right; font-size: 11px; color: #e2e8f0;">8%</span>
+                <span style="width: 50px; text-align: right; font-size: 10px; color: #475569;">/ 5%</span>
+              </div>
+              <div style="display: flex; align-items: center; margin-bottom: 4px;">
+                <span style="width: 70px; font-size: 11px; color: #f59e0b;">Supra-CP</span>
+                <div style="flex: 1; height: 20px; background: #1e293b; border-radius: 4px; position: relative; overflow: hidden;">
+                  <div style="position: absolute; right: 0; width: 25%; height: 100%; background: rgba(245,158,11,0.3);"></div>
+                  <span style="position: absolute; right: 8px; top: 2px; font-size: 10px; color: #e2e8f0;">225–263W</span>
+                </div>
+                <span style="width: 50px; text-align: right; font-size: 11px; color: #e2e8f0;">18%</span>
+                <span style="width: 50px; text-align: right; font-size: 10px; color: #475569;">/ 10%</span>
+              </div>
+              <div style="display: flex; align-items: center; margin-bottom: 4px;">
+                <span style="width: 70px; font-size: 11px; color: #3b82f6;">Threshold</span>
+                <div style="flex: 1; height: 20px; background: #1e293b; border-radius: 4px; position: relative; overflow: hidden;">
+                  <div style="position: absolute; right: 0; width: 20%; height: 100%; background: rgba(59,130,246,0.3);"></div>
+                  <span style="position: absolute; right: 8px; top: 2px; font-size: 10px; color: #e2e8f0;">188–225W</span>
+                </div>
+                <span style="width: 50px; text-align: right; font-size: 11px; color: #e2e8f0;">15%</span>
+                <span style="width: 50px; text-align: right; font-size: 10px; color: #475569;">/ 15%</span>
+              </div>
+              <div style="display: flex; align-items: center; margin-bottom: 4px;">
+                <span style="width: 70px; font-size: 11px; color: #60a5fa;">Tempo</span>
+                <div style="flex: 1; height: 20px; background: #1e293b; border-radius: 4px; position: relative; overflow: hidden;">
+                  <div style="position: absolute; right: 0; width: 35%; height: 100%; background: rgba(96,165,250,0.3);"></div>
+                  <span style="position: absolute; right: 8px; top: 2px; font-size: 10px; color: #e2e8f0;">138–188W</span>
+                </div>
+                <span style="width: 50px; text-align: right; font-size: 11px; color: #e2e8f0;">22%</span>
+                <span style="width: 50px; text-align: right; font-size: 10px; color: #475569;">/ 25%</span>
+              </div>
+              <div style="display: flex; align-items: center;">
+                <span style="width: 70px; font-size: 11px; color: #64748b;">Easy</span>
+                <div style="flex: 1; height: 20px; background: #1e293b; border-radius: 4px; position: relative; overflow: hidden;">
+                  <div style="position: absolute; left: 0; width: 55%; height: 100%; background: rgba(100,116,139,0.3);"></div>
+                  <span style="position: absolute; left: 8px; top: 2px; font-size: 10px; color: #e2e8f0;">&lt; 138W</span>
+                </div>
+                <span style="width: 50px; text-align: right; font-size: 11px; color: #e2e8f0;">37%</span>
+                <span style="width: 50px; text-align: right; font-size: 10px; color: #475569;">/ 45%</span>
+              </div>
+            </div>
+
+            <div style="padding: 8px 12px; background: #1e293b; border-radius: 8px; font-size: 11px; color: #fbbf24;">
+              ⚠ Too much high-intensity: 26% above threshold vs 15% target
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Clean separation of concerns</li><li>Zone ranges + actual vs target in a rich visual</li><li>Easier to scan — each card has one job</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Takes more vertical space</li><li>Zone info separated from the metrics it relates to</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>
