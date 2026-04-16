@@ -47,11 +47,11 @@ async def register(
     is_first_user = user_count == 0
 
     # Check admin email override
-    is_admin_email = ADMIN_EMAIL and body.email.lower() == ADMIN_EMAIL.lower()
+    is_admin_email = bool(ADMIN_EMAIL) and body.email.lower() == ADMIN_EMAIL.lower()
 
     # Determine if invitation is required
     needs_invitation = not is_first_user and not is_admin_email
-    is_admin = is_first_user or is_admin_email
+    is_admin = bool(is_first_user or is_admin_email)
 
     # Validate invitation code if required
     invitation = None

@@ -577,7 +577,7 @@ export default function Settings() {
                       <div className="flex items-center justify-between">
                         <Label className="text-xs text-muted-foreground">Region</Label>
                         <Select
-                          value={config.source_options?.garmin_region || 'international'}
+                          value={String(config.source_options?.garmin_region || 'international')}
                           onValueChange={(v) => { if (v) handleRegionChange(v); }}
                           disabled={saving}
                         >
@@ -782,7 +782,7 @@ export default function Settings() {
               <div>
                 <p className="text-xs text-muted-foreground">Distance</p>
                 <p className="text-sm font-medium text-foreground">
-                  {DISTANCE_LABELS[config.goal.distance] || config.goal.distance || 'Marathon'}
+                  {DISTANCE_LABELS[config.goal.distance ?? ''] || config.goal.distance || 'Marathon'}
                 </p>
               </div>
               {config.goal.race_date && (
@@ -791,11 +791,11 @@ export default function Settings() {
                   <p className="text-sm font-medium font-data text-foreground">{config.goal.race_date}</p>
                 </div>
               )}
-              {config.goal.target_time_sec > 0 && (
+              {Number(config.goal.target_time_sec) > 0 && (
                 <div>
                   <p className="text-xs text-muted-foreground">Target Time</p>
                   <p className="text-sm font-medium font-data text-foreground">
-                    {formatTime(config.goal.target_time_sec)}
+                    {formatTime(Number(config.goal.target_time_sec))}
                   </p>
                 </div>
               )}
@@ -812,9 +812,9 @@ export default function Settings() {
         open={goalEditorOpen}
         onOpenChange={setGoalEditorOpen}
         initialType={config.goal?.race_date ? 'race' : 'continuous'}
-        initialRaceDate={config.goal?.race_date || ''}
-        initialDistance={config.goal?.distance || 'marathon'}
-        initialTargetTime={config.goal?.target_time_sec || null}
+        initialRaceDate={String(config.goal?.race_date || '')}
+        initialDistance={String(config.goal?.distance || 'marathon')}
+        initialTargetTime={Number(config.goal?.target_time_sec) || null}
         onSave={handleGoalSave}
       />
 

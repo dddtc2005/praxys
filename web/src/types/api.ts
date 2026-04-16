@@ -58,8 +58,8 @@ export interface SettingsConfig {
   training_base: TrainingBase;
   thresholds: Record<string, number | string | null>;
   zones: Record<string, number[]>;
-  goal: Record<string, string | number>;
-  source_options: Record<string, string>;
+  goal: { race_date?: string; distance?: string; target_time_sec?: number; [key: string]: unknown };
+  source_options: Record<string, unknown>;
 }
 
 export interface ThresholdValue {

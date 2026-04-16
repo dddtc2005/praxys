@@ -141,6 +141,35 @@ def list_users(
     }
 
 
+@router.patch("/users/{target_user_id}/role")
+def update_user_role(
+    target_user_id: str,
+    body: dict,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Toggle admin role for a user. Pass {"is_superuser": true/false}."""
+    _require_admin(user_id, db)
+    from db.models import User
+
+    if target_user_id == user_id:
+        raise HTTPException(400, "Cannot change your own role")
+
+    user = db.query(User).filter(User.id == target_user_id).first()
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    if "is_superuser" in body:
+        user.is_superuser = bool(body["is_superuser"])
+        db.commit()
+
+    return {
+        "id": user.id,
+        "email": user.email,
+        "is_superuser": user.is_superuser,
+    }
+
+
 @router.delete("/users/{target_user_id}")
 def delete_user(
     target_user_id: str,
@@ -171,9 +200,10 @@ def delete_user(
     db.query(TrainingPlan).filter(TrainingPlan.user_id == target_user_id).delete()
     db.query(UserConnection).filter(UserConnection.user_id == target_user_id).delete()
     db.query(UserConfig).filter(UserConfig.user_id == target_user_id).delete()
-    # Clear invitation usage (don't delete the invitation record)
+    # Mark invitation as consumed (keep the record, don't reactivate)
+    # Admin can generate a new code if needed
     db.query(Invitation).filter(Invitation.used_by == target_user_id).update(
-        {"used_by": None, "used_at": None}
+        {"is_active": False}
     )
     db.delete(user)
     db.commit()

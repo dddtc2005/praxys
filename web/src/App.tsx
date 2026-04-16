@@ -11,6 +11,7 @@ import History from './pages/History';
 import Science from './pages/Science';
 import Settings from './pages/Settings';
 import Setup from './pages/Setup';
+import Admin from './pages/Admin';
 import Login from './pages/Login';
 import { useSetupStatus } from './hooks/useSetupStatus';
 
@@ -55,6 +56,7 @@ export default function App() {
               <Route path="history" element={<History />} />
               <Route path="science" element={<Science />} />
               <Route path="settings" element={<Settings />} />
+              <Route path="admin" element={<Admin />} />
             </Route>
           </Routes>
         </BrowserRouter>

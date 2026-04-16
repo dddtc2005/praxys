@@ -136,7 +136,7 @@ export default function Login() {
                     className="font-data tracking-wider"
                   />
                   <p className="text-[10px] text-muted-foreground">
-                    Required for new accounts. Ask an admin for a code.
+                    Leave blank for the first account. Required after that.
                   </p>
                 </div>
                 <Button type="submit" className="w-full" disabled={submitting}>

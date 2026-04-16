@@ -496,7 +496,7 @@ export default function Setup() {
           icon={<Target className="h-4 w-4" />}
         >
           <div className="mt-4">
-            {config?.goal?.race_date || (config?.goal?.target_time_sec && config.goal.target_time_sec > 0) ? (
+            {config?.goal?.race_date || (config?.goal?.target_time_sec && Number(config.goal.target_time_sec) > 0) ? (
               <div className="flex items-center justify-between">
                 <p className="text-sm text-primary font-medium">
                   {config.goal.race_date ? 'Race goal' : 'Continuous improvement'} configured

@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 interface AuthState {
   token: string | null;
   email: string | null;
+  isAdmin: boolean;
   isAuthenticated: boolean;
   isLoading: boolean;
 }
@@ -16,6 +17,7 @@ interface AuthContextType extends AuthState {
 
 const TOKEN_KEY = 'trainsight-auth-token';
 const EMAIL_KEY = 'trainsight-auth-email';
+const ADMIN_KEY = 'trainsight-auth-admin';
 
 // The API base URL may be empty (same origin via SWA linked backend)
 // or set via import.meta.env.VITE_API_URL for development/non-SWA deployments.
@@ -24,6 +26,7 @@ const API_BASE = import.meta.env.VITE_API_URL || '';
 const AuthContext = createContext<AuthContextType>({
   token: null,
   email: null,
+  isAdmin: false,
   isAuthenticated: false,
   isLoading: true,
   login: async () => ({ ok: false }),
@@ -33,14 +36,29 @@ const AuthContext = createContext<AuthContextType>({
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // On mount, restore token from localStorage.
+  // On mount, restore token from localStorage and fetch user profile.
   useEffect(() => {
     const stored = localStorage.getItem(TOKEN_KEY);
     const storedEmail = localStorage.getItem(EMAIL_KEY);
-    if (stored) setToken(stored);
+    const storedAdmin = localStorage.getItem(ADMIN_KEY);
+    if (stored) {
+      setToken(stored);
+      if (storedAdmin === 'true') setIsAdmin(true);
+      // Fetch fresh admin status from API
+      fetch(`${API_BASE}/api/auth/me`, { headers: { Authorization: `Bearer ${stored}` } })
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => {
+          if (data) {
+            setIsAdmin(data.is_superuser);
+            localStorage.setItem(ADMIN_KEY, String(data.is_superuser));
+          }
+        })
+        .catch(() => {});
+    }
     if (storedEmail) setEmail(storedEmail);
     setIsLoading(false);
   }, []);
@@ -69,6 +87,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem(EMAIL_KEY, email);
         setToken(accessToken);
         setEmail(email);
+        // Fetch admin status
+        fetch(`${API_BASE}/api/auth/me`, { headers: { Authorization: `Bearer ${accessToken}` } })
+          .then((r) => r.ok ? r.json() : null)
+          .then((me) => {
+            if (me) {
+              setIsAdmin(me.is_superuser);
+              localStorage.setItem(ADMIN_KEY, String(me.is_superuser));
+            }
+          })
+          .catch(() => {});
       }
       return { ok: true };
     } catch {
@@ -109,15 +137,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(EMAIL_KEY);
+    localStorage.removeItem(ADMIN_KEY);
     setToken(null);
     setEmail(null);
+    setIsAdmin(false);
   }, []);
 
   const isAuthenticated = token !== null;
 
   return (
     <AuthContext.Provider
-      value={{ token, email, isAuthenticated, isLoading, login, register, logout }}
+      value={{ token, email, isAdmin, isAuthenticated, isLoading, login, register, logout }}
     >
       {children}
     </AuthContext.Provider>

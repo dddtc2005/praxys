@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Sun, Moon, Monitor, TrendingUp, Target, Clock, FlaskConical, Settings, LogOut, ListChecks } from 'lucide-react';
+import { Sun, Moon, Monitor, TrendingUp, Target, Clock, FlaskConical, Settings, LogOut, ListChecks, ShieldCheck } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -42,7 +42,7 @@ function UserInitials({ name, email }: { name?: string; email: string | null }) 
 export default function AppSidebar() {
   const location = useLocation();
   const { theme, setTheme } = useTheme();
-  const { logout, email } = useAuth();
+  const { logout, email, isAdmin } = useAuth();
   const { config } = useSettings();
   const setup = useSetupStatus();
   const displayName = config?.display_name || null;
@@ -59,6 +59,7 @@ export default function AppSidebar() {
     { to: '/history', icon: Clock, label: 'Activities' },
     { to: '/science', icon: FlaskConical, label: 'Science' },
     { to: '/settings', icon: Settings, label: 'Settings' },
+    ...(isAdmin ? [{ to: '/admin', icon: ShieldCheck, label: 'Admin' }] : []),
   ];
 
   const cycleTheme = () => {

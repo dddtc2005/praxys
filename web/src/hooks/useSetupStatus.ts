@@ -75,7 +75,7 @@ export function useSetupStatus(): SetupStatus {
 
   const goalConfigured = config?.goal
     ? (config.goal.race_date && config.goal.race_date !== '') ||
-      (config.goal.target_time_sec && config.goal.target_time_sec > 0)
+      (config.goal.target_time_sec && Number(config.goal.target_time_sec) > 0)
     : false;
 
   const steps: SetupStep[] = [
