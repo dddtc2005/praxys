@@ -214,7 +214,7 @@ def load_config_from_db(user_id: str, db) -> UserConfig:
 
     return UserConfig(
         display_name=row.display_name or "",
-        unit_system=row.unit_system or "metric",
+        unit_system=getattr(row, "unit_system", "metric") or "metric",
         connections=_get_connections_from_db(user_id, db),
         preferences=merged_prefs,
         training_base=row.training_base or "power",
