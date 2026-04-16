@@ -2,6 +2,11 @@
 import logging
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
+
+# Load .env from project root for local config (encryption key, JWT secret, etc.)
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware

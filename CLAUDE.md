@@ -177,6 +177,10 @@ Goal configuration is managed via the Goal page UI and stored in `data/config.js
 # Windows: .venv\Scripts\activate
 # Unix: source .venv/bin/activate
 
+# First-time setup: copy .env.example and generate encryption key
+cp .env.example .env
+python -c "from cryptography.fernet import Fernet; print(f'TRAINSIGHT_LOCAL_ENCRYPTION_KEY={Fernet.generate_key().decode()}')" >> .env
+
 # API server
 pip install -r requirements.txt
 python -m uvicorn api.main:app --reload
@@ -188,7 +192,12 @@ cd web && npm install && npm run dev
 python -m pytest tests/ -v
 ```
 
-First-time setup: start the server, open the app, register. The first user on a fresh DB becomes admin (no invitation code needed). Admin can generate invitation codes for others via the `/api/admin/invitations` endpoint.
+### First-time setup
+
+1. Copy `.env.example` to `.env` and generate an encryption key (see commands above)
+2. Start the server and frontend dev server
+3. Open the app, register — the first user on a fresh DB becomes admin (no invitation code needed)
+4. Admin can generate invitation codes for others via the Admin page (`/admin`)
 
 ## Documentation
 

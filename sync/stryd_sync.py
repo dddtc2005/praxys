@@ -74,6 +74,94 @@ def fetch_current_cp(user_id: str, token: str) -> float | None:
         return None
 
 
+def fetch_activity_splits(
+    activity_id: str,
+    token: str,
+) -> list[dict]:
+    """Fetch per-lap splits from a Stryd activity detail.
+
+    Uses the activity's lap_events timestamps and per-second time series
+    (total_power_list, heart_rate_list, speed_list, distance_list) to
+    compute per-lap averages.
+
+    Returns list of split dicts compatible with sync_writer.write_splits().
+    """
+    url = STRYD_ACTIVITY_API.format(activity_id=activity_id)
+    resp = requests.get(
+        url,
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+
+    power_list = data.get("total_power_list", [])
+    hr_list = data.get("heart_rate_list", [])
+    speed_list = data.get("speed_list", [])
+    distance_list = data.get("distance_list", [])
+    ts_list = data.get("timestamp_list", [])
+    lap_events = data.get("lap_events", [])
+    start_events = data.get("start_events", [])
+    stop_events = data.get("stop_events", [])
+
+    if not ts_list or not power_list:
+        return []
+
+    # Build lap boundaries: [start, lap1, lap2, ..., end]
+    start_ts = start_events[0] if start_events else ts_list[0]
+    end_ts = stop_events[0] if stop_events else ts_list[-1]
+    boundaries = [start_ts] + lap_events + [end_ts]
+
+    splits = []
+    for i in range(len(boundaries) - 1):
+        lap_start = boundaries[i]
+        lap_end = boundaries[i + 1]
+
+        # Find index range in time series
+        start_idx = None
+        end_idx = None
+        for j, t in enumerate(ts_list):
+            if t >= lap_start and start_idx is None:
+                start_idx = j
+            if t >= lap_end:
+                end_idx = j
+                break
+        if start_idx is None:
+            continue
+        if end_idx is None:
+            end_idx = len(ts_list)
+        if end_idx <= start_idx:
+            continue
+
+        lap_power = power_list[start_idx:end_idx]
+        lap_hr = hr_list[start_idx:end_idx]
+        lap_speed = speed_list[start_idx:end_idx]
+        lap_dist = distance_list[start_idx:end_idx]
+
+        n = len(lap_power)
+        if n == 0:
+            continue
+
+        duration_sec = lap_end - lap_start
+        avg_power = round(sum(lap_power) / n, 1)
+        avg_hr = round(sum(lap_hr) / n) if lap_hr else None
+        dist_m = (lap_dist[-1] - lap_dist[0]) if len(lap_dist) >= 2 else 0
+        dist_km = round(dist_m / 1000, 3)
+        avg_pace = round(duration_sec / dist_km, 1) if dist_km > 0.01 else None
+
+        splits.append({
+            "activity_id": str(activity_id),
+            "split_num": i + 1,
+            "distance_km": str(dist_km),
+            "duration_sec": str(duration_sec),
+            "avg_power": str(avg_power),
+            "avg_hr": str(avg_hr) if avg_hr else "",
+            "avg_pace_min_km": str(avg_pace) if avg_pace else "",
+        })
+
+    return splits
+
+
 def fetch_activities_api(
     user_id: str,
     token: str,
@@ -137,6 +225,7 @@ def fetch_activities_api(
         zones_str = str(zones_list) if zones_list else ""
 
         row = {
+            "activity_id": str(act.get("id", "")),
             "date": start_local.strftime("%Y-%m-%d"),
             "start_time": start_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "name": act.get("name", ""),

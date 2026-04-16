@@ -22,4 +22,5 @@ def get_goal(
         "latest_cp": data["latest_cp"],
         "training_base": data["training_base"],
         "display": data["display"],
+        "data_meta": data.get("data_meta"),
     }

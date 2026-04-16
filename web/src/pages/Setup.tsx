@@ -194,11 +194,12 @@ export default function Setup() {
     };
   }, [syncing, setup, refetchSettings]);
 
-  // Suggest training base
+  // Suggest training base — priority: stryd (power) > garmin (hr) > oura (hr)
   const suggestedBase: TrainingBase | null = (() => {
-    for (const p of setup.connectedPlatforms) {
-      if (BASE_SUGGEST[p]) return BASE_SUGGEST[p];
-    }
+    const platforms = setup.connectedPlatforms;
+    if (platforms.includes('stryd')) return 'power';
+    if (platforms.includes('garmin')) return 'hr';
+    if (platforms.includes('oura')) return 'hr';
     return null;
   })();
 

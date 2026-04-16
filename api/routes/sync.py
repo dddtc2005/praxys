@@ -282,10 +282,26 @@ def _sync_stryd(user_id: str, creds: dict, from_date: str | None,
     for row in activity_rows:
         row.setdefault("activity_type", "running")
         row.setdefault("source", "stryd")
-        # Use date as a fallback activity_id for Stryd (they don't have unique IDs in calendar)
+        # Fallback activity_id if not provided by API
         if not row.get("activity_id"):
             row["activity_id"] = f"stryd_{row.get('date', '')}_{row.get('start_time', '')}"
     act_count = sync_writer.write_activities(user_id, activity_rows, db)
+
+    # Fetch per-activity splits (lap-level power data from activity detail API)
+    import time as time_mod
+    from sync.stryd_sync import fetch_activity_splits
+    all_splits = []
+    for raw_act in _raw:
+        act_id = raw_act.get("id")
+        if not act_id:
+            continue
+        try:
+            splits = fetch_activity_splits(str(act_id), token)
+            all_splits.extend(splits)
+            time_mod.sleep(0.3)  # Rate limit
+        except Exception as e:
+            logger.debug("Stryd splits for %s: skipped (%s)", act_id, e)
+    split_count = sync_writer.write_splits(user_id, all_splits, db)
 
     # CP estimates → fitness_data table (for threshold auto-detection)
     from db.models import FitnessData
@@ -329,7 +345,7 @@ def _sync_stryd(user_id: str, creds: dict, from_date: str | None,
     plan_rows = fetch_training_plan_api(stryd_user_id, token)
     plan_count = sync_writer.write_training_plan(user_id, plan_rows, "stryd", db)
 
-    return {"activities": act_count, "cp_estimates": cp_count, "plan": plan_count}
+    return {"activities": act_count, "splits": split_count, "cp_estimates": cp_count, "plan": plan_count}
 
 
 def _sync_oura(user_id: str, creds: dict, from_date: str | None,

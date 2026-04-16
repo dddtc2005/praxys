@@ -24,4 +24,5 @@ def get_training(
         "sleep_perf": data["sleep_perf"],
         "training_base": data["training_base"],
         "display": data["display"],
+        "data_meta": data.get("data_meta"),
     }

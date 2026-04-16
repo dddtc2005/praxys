@@ -121,8 +121,8 @@ export default function Training() {
         </DataHint>
       </div>
 
-      {/* Workout Flags */}
-      {data.workout_flags.length > 0 && (
+      {/* Workout Flags — hidden until analysis is improved (currently just compares avg power which is misleading) */}
+      {false && data.workout_flags.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

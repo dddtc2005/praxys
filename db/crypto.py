@@ -50,10 +50,11 @@ class CredentialVault:
         local_key = os.environ.get("TRAINSIGHT_LOCAL_ENCRYPTION_KEY")
         if not local_key:
             local_key = Fernet.generate_key().decode()
-            logger.warning(
-                "No encryption key configured. Generated ephemeral key "
-                "(credentials will NOT survive restart). "
-                "Set TRAINSIGHT_LOCAL_ENCRYPTION_KEY for persistence."
+            logger.error(
+                "TRAINSIGHT_LOCAL_ENCRYPTION_KEY not set! Generated ephemeral key — "
+                "platform credentials will NOT survive restart. "
+                "Set TRAINSIGHT_LOCAL_ENCRYPTION_KEY=%s in your environment.",
+                local_key,
             )
         self._local_key = (
             local_key.encode() if isinstance(local_key, str) else local_key
