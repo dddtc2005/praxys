@@ -4,7 +4,8 @@ import type { TrainingResponse } from '@/types/api';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+// Card imports kept for future use
+// import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import DiagnosisCard from '@/components/DiagnosisCard';
 import ZoneAnalysisCard from '@/components/ZoneAnalysisCard';
 import UpcomingPlanCard from '@/components/UpcomingPlanCard';
@@ -121,37 +122,7 @@ export default function Training() {
         </DataHint>
       </div>
 
-      {/* Workout Flags — hidden until analysis is improved (currently just compares avg power which is misleading) */}
-      {false && data.workout_flags.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              What Worked / What Didn't
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {data.workout_flags.map((flag, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <span
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                      flag.type === 'good'
-                        ? 'bg-primary/20 text-primary'
-                        : 'bg-destructive/20 text-destructive'
-                    }`}
-                  >
-                    {flag.type === 'good' ? '+' : '\u2013'}
-                  </span>
-                  <div className="min-w-0">
-                    <span className="text-xs font-data text-muted-foreground">{flag.date}</span>
-                    <p className="text-sm text-muted-foreground">{flag.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Workout Flags — removed, needs better analysis than avg power comparison */}
     </div>
   );
 }

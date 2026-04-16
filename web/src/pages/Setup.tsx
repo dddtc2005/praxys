@@ -147,11 +147,6 @@ const PLATFORM_META: Record<string, {
   },
 };
 
-const BASE_SUGGEST: Record<string, TrainingBase> = {
-  stryd: 'power',
-  garmin: 'hr',
-  oura: 'hr',
-};
 
 const BASE_CONFIG: Record<TrainingBase, { label: string; desc: string }> = {
   power: { label: 'Power', desc: 'Zones & load from Critical Power (best with Stryd)' },
