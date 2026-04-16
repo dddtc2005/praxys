@@ -6,11 +6,32 @@ export function formatTime(seconds: number): string {
   return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-/** Format seconds as M:SS pace */
-export function formatPace(totalSec: number): string {
+const KM_TO_MILE = 1.60934;
+
+/**
+ * Format pace from sec/km to human-readable M:SS /km or /mi.
+ *
+ * @param secPerKm Pace in seconds per kilometer (internal storage format)
+ * @param unit "metric" for min/km, "imperial" for min/mile. Default: metric.
+ * @returns Formatted pace string like "5:30 /km" or "8:51 /mi"
+ */
+export function formatPace(secPerKm: number, unit: 'metric' | 'imperial' = 'metric'): string {
+  if (!secPerKm || secPerKm <= 0) return '—';
+  const totalSec = unit === 'imperial' ? secPerKm * KM_TO_MILE : secPerKm;
   const m = Math.floor(totalSec / 60);
   const s = Math.round(totalSec % 60);
-  return `${m}:${String(s).padStart(2, '0')}`;
+  const suffix = unit === 'imperial' ? '/mi' : '/km';
+  return `${m}:${String(s).padStart(2, '0')} ${suffix}`;
+}
+
+/**
+ * Format distance in km or miles.
+ */
+export function formatDistance(km: number, unit: 'metric' | 'imperial' = 'metric'): string {
+  if (unit === 'imperial') {
+    return `${(km / KM_TO_MILE).toFixed(1)} mi`;
+  }
+  return `${km.toFixed(1)} km`;
 }
 
 /** Parse H:MM:SS or H:MM or raw seconds to total seconds */

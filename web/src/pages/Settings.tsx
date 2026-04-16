@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Link2, Gauge, SlidersHorizontal, Target, Activity, User, Check } from 'lucide-react';
 import GoalEditor from '@/components/GoalEditor';
-import { formatTime } from '@/lib/format';
+import { formatTime, formatPace } from '@/lib/format';
 import { useAuth } from '@/hooks/useAuth';
 
 // --- Constants ---
@@ -110,7 +110,7 @@ const BASE_CONFIG: Record<TrainingBase, { label: string; desc: string; icon: Rea
 const THRESHOLD_FIELDS = [
   { key: 'cp_watts', label: 'Critical Power', unit: 'W' },
   { key: 'lthr_bpm', label: 'LTHR', unit: 'bpm' },
-  { key: 'threshold_pace_sec_km', label: 'Threshold Pace', unit: 'sec/km' },
+  { key: 'threshold_pace_sec_km', label: 'Threshold Pace', unit: '/km', isPace: true },
   { key: 'max_hr_bpm', label: 'Max HR', unit: 'bpm' },
   { key: 'rest_hr_bpm', label: 'Resting HR', unit: 'bpm' },
 ];
@@ -392,7 +392,7 @@ export default function Settings() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col sm:flex-row gap-4 sm:gap-8">
-              {/* Avatar */}
+              {/* Avatar + Name */}
               <div className="flex items-center gap-4">
                 <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-lg font-semibold tracking-wide text-primary ring-1 ring-primary/20">
                   {(() => {
@@ -434,6 +434,20 @@ export default function Settings() {
                     <p className="text-xs text-muted-foreground mt-0.5 truncate">{authEmail}</p>
                   )}
                 </div>
+              </div>
+
+              {/* Unit system */}
+              <div className="flex items-center gap-3 sm:ml-auto">
+                <Label className="text-xs text-muted-foreground">Units</Label>
+                <ToggleGroup
+                  value={[config.unit_system || 'metric']}
+                  onValueChange={(v) => {
+                    if (v.length) updateSettings({ unit_system: v[v.length - 1] as 'metric' | 'imperial' });
+                  }}
+                >
+                  <ToggleGroupItem value="metric" size="sm" disabled={saving}>km</ToggleGroupItem>
+                  <ToggleGroupItem value="imperial" size="sm" disabled={saving}>mi</ToggleGroupItem>
+                </ToggleGroup>
               </div>
             </div>
           </CardContent>
@@ -833,9 +847,12 @@ export default function Settings() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            {THRESHOLD_FIELDS.map(({ key, label, unit }) => {
+            {THRESHOLD_FIELDS.map(({ key, label, unit, isPace }) => {
               const effective = effectiveThresholds[key];
               const value = effective?.value;
+              const displayValue = isPace && value != null
+                ? formatPace(value, config.unit_system as 'metric' | 'imperial' || 'metric')
+                : value;
               const origin = effective?.origin ?? 'none';
               const isEditing = editingThreshold === key;
 
@@ -885,8 +902,8 @@ export default function Settings() {
                       className="text-left group flex-1 flex flex-col"
                     >
                       <p className="text-2xl font-bold font-data text-foreground group-hover:text-primary transition-colors">
-                        {value != null ? value : '—'}
-                        <span className="text-xs font-normal text-muted-foreground ml-1">{value != null ? unit : ''}</span>
+                        {value != null ? (isPace ? displayValue : value) : '—'}
+                        <span className="text-xs font-normal text-muted-foreground ml-1">{value != null && !isPace ? unit : ''}</span>
                       </p>
                       <Badge variant={badgeVariant} className="mt-auto self-start text-[10px]">
                         {badgeText}

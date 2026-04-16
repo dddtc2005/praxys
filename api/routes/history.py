@@ -13,11 +13,57 @@ router = APIRouter()
 def get_history(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    source: str = Query(None, description="Filter by source (garmin, stryd). Defaults to primary activities source."),
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
+    from analysis.config import load_config_from_db
+    config = load_config_from_db(user_id, db)
+
     data = get_dashboard_data(user_id=user_id, db=db)
     activities = data["activities"]
+
+    # Smart dedup: when multiple sources have the same activity (same date +
+    # similar duration), keep the primary source version. Activities that only
+    # exist in one source are always shown.
+    primary_source = source or config.preferences.get("activities")
+
+    if primary_source:
+        # Group by date
+        by_date: dict[str, list[dict]] = {}
+        for a in activities:
+            by_date.setdefault(a.get("date", ""), []).append(a)
+
+        deduped: list[dict] = []
+        for date_str, day_acts in by_date.items():
+            if len(day_acts) <= 1:
+                deduped.extend(day_acts)
+                continue
+
+            # Multiple activities on same date — check for duplicates
+            primary_acts = [a for a in day_acts if a.get("source") == primary_source]
+            other_acts = [a for a in day_acts if a.get("source") != primary_source]
+
+            deduped.extend(primary_acts)
+
+            # For each non-primary activity, check if a matching primary exists
+            # (same date + duration within 10%)
+            for other in other_acts:
+                other_dur = other.get("duration_sec") or 0
+                is_duplicate = False
+                for primary in primary_acts:
+                    primary_dur = primary.get("duration_sec") or 0
+                    if primary_dur > 0 and other_dur > 0:
+                        ratio = abs(primary_dur - other_dur) / max(primary_dur, other_dur)
+                        if ratio < 0.10:  # Within 10% duration = same activity
+                            is_duplicate = True
+                            break
+                if not is_duplicate:
+                    deduped.append(other)
+
+        # Re-sort by date descending
+        activities = sorted(deduped, key=lambda a: a.get("date", ""), reverse=True)
+
     total = len(activities)
     page = activities[offset : offset + limit]
     return {
@@ -25,6 +71,7 @@ def get_history(
         "total": total,
         "limit": limit,
         "offset": offset,
+        "source_filter": primary_source,
         "training_base": data["training_base"],
         "display": data["display"],
     }

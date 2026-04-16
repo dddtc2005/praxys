@@ -35,6 +35,7 @@ class SettingsUpdate(BaseModel):
     """Partial update for user settings."""
 
     display_name: str | None = None
+    unit_system: str | None = None
     connections: list[str] | None = None
     preferences: dict[str, str] | None = None
     training_base: TrainingBase | None = None
@@ -180,6 +181,8 @@ def update_settings(
 
     if body.display_name is not None:
         config.display_name = body.display_name
+    if body.unit_system is not None:
+        config.unit_system = body.unit_system
     if body.training_base is not None:
         config.training_base = body.training_base
     if body.connections is not None:

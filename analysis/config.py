@@ -46,6 +46,9 @@ class UserConfig:
     # User display name (shown in sidebar, optional)
     display_name: str = ""
 
+    # Unit system: "metric" (km, min/km) or "imperial" (miles, min/mile)
+    unit_system: str = "metric"
+
     # Which platforms the user has connected
     connections: list[str] = field(default_factory=lambda: [
         "garmin", "stryd", "oura",
@@ -211,6 +214,7 @@ def load_config_from_db(user_id: str, db) -> UserConfig:
 
     return UserConfig(
         display_name=row.display_name or "",
+        unit_system=row.unit_system or "metric",
         connections=_get_connections_from_db(user_id, db),
         preferences=merged_prefs,
         training_base=row.training_base or "power",
@@ -279,6 +283,7 @@ def save_config_to_db(user_id: str, config: UserConfig, db) -> None:
         db.add(row)
 
     row.display_name = config.display_name
+    row.unit_system = config.unit_system
     row.training_base = config.training_base
     row.preferences = config.preferences
     row.thresholds = config.thresholds

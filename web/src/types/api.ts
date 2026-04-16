@@ -51,8 +51,11 @@ export interface DisplayConfig {
   trend_label: string;
 }
 
+export type UnitSystem = 'metric' | 'imperial';
+
 export interface SettingsConfig {
   display_name: string;
+  unit_system: UnitSystem;
   connections: PlatformName[];
   preferences: Partial<Record<DataCategory, PlatformName | PlanSourceName>>;
   training_base: TrainingBase;
@@ -86,6 +89,7 @@ export interface SyncStatus {
   status: 'idle' | 'syncing' | 'done' | 'error';
   last_sync: string | null;
   error: string | null;
+  progress?: string | null;
 }
 
 export type SyncStatusResponse = Record<string, SyncStatus>;

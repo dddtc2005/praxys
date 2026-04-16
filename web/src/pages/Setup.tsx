@@ -61,15 +61,47 @@ function OuraWordmark({ className }: { className?: string }) {
   );
 }
 
-/** Garmin activity types that endurance athletes commonly train with. */
-const GARMIN_ACTIVITY_TYPES = [
-  { key: 'running', label: 'Running', default: true },
-  { key: 'trail_running', label: 'Trail Running', default: true },
-  { key: 'hiking', label: 'Hiking', default: false },
-  { key: 'cycling', label: 'Cycling', default: false },
-  { key: 'swimming', label: 'Swimming', default: false },
-  { key: 'walking', label: 'Walking', default: false },
-  { key: 'strength_training', label: 'Strength', default: false },
+/**
+ * Garmin activity type categories. Each category maps to multiple Garmin
+ * API activitytype values. Selecting "Running" syncs all running subtypes.
+ */
+const GARMIN_ACTIVITY_CATEGORIES = [
+  {
+    key: 'running',
+    label: 'Running',
+    default: true,
+    types: ['running', 'trail_running', 'treadmill_running', 'track_running', 'ultra_running', 'indoor_running'],
+  },
+  {
+    key: 'cycling',
+    label: 'Cycling',
+    default: false,
+    types: ['cycling', 'mountain_biking', 'indoor_cycling'],
+  },
+  {
+    key: 'swimming',
+    label: 'Swimming',
+    default: false,
+    types: ['swimming', 'open_water_swimming', 'lap_swimming'],
+  },
+  {
+    key: 'hiking',
+    label: 'Hiking',
+    default: false,
+    types: ['hiking'],
+  },
+  {
+    key: 'walking',
+    label: 'Walking',
+    default: false,
+    types: ['walking'],
+  },
+  {
+    key: 'strength',
+    label: 'Strength',
+    default: false,
+    types: ['strength_training'],
+  },
 ] as const;
 
 const PLATFORM_META: Record<string, {
@@ -146,9 +178,16 @@ export default function Setup() {
   const [connectCreds, setConnectCreds] = useState<Record<string, string>>({});
   const [connectError, setConnectError] = useState('');
   const [connecting, setConnecting] = useState(false);
-  const [selectedActivityTypes, setSelectedActivityTypes] = useState<string[]>(
-    GARMIN_ACTIVITY_TYPES.filter((t) => t.default).map((t) => t.key)
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(
+    GARMIN_ACTIVITY_CATEGORIES.filter((c) => c.default).map((c) => c.key)
   );
+  const [garminRegion, setGarminRegion] = useState<'international' | 'cn'>('international');
+
+  // Primary source prompt — shown when connecting a second source for same category
+  const [primaryPrompt, setPrimaryPrompt] = useState<{
+    category: string;
+    options: string[];
+  } | null>(null);
 
   // Sync state
   const [syncing, setSyncing] = useState(false);
@@ -222,25 +261,54 @@ export default function Setup() {
       const res = await fetch(`${API_BASE}/api/settings/connections/${connectPlatform}`, {
         method: 'POST',
         headers: { ...getAuthHeaders() as Record<string, string>, 'Content-Type': 'application/json' },
-        body: JSON.stringify(connectCreds),
+        body: JSON.stringify({
+          ...connectCreds,
+          ...(connectPlatform === 'garmin' ? { is_cn: garminRegion === 'cn' } : {}),
+        }),
       });
       const data = await res.json();
       if (!res.ok || data.status === 'error') {
         setConnectError(data.message || `Failed to connect (HTTP ${res.status})`);
       } else {
-        // Save activity types for Garmin
-        if (connectPlatform === 'garmin' && selectedActivityTypes.length > 0) {
+        // Save Garmin-specific options
+        if (connectPlatform === 'garmin') {
+          // Expand selected categories into individual Garmin API types
+          const activityTypes = GARMIN_ACTIVITY_CATEGORIES
+            .filter((c) => selectedCategories.includes(c.key))
+            .flatMap((c) => c.types as unknown as string[]);
           await updateSettings({
             source_options: {
               ...config?.source_options,
-              garmin_activity_types: selectedActivityTypes,
+              garmin_region: garminRegion,
+              garmin_activity_types: activityTypes,
+              garmin_activity_categories: selectedCategories,
             },
           });
         }
+        const justConnected = connectPlatform;
         setConnectPlatform(null);
         setConnectCreds({});
         setup.refetch();
         refetchSettings();
+
+        // Check if another platform provides the same category — prompt for primary
+        const newCategories = PLATFORM_META[justConnected]?.categories || [];
+        const overlapping: string[] = [];
+        for (const cat of newCategories) {
+          const otherProviders = setup.connectedPlatforms
+            .filter((p) => p !== justConnected && PLATFORM_META[p]?.categories.includes(cat));
+          if (otherProviders.length > 0) {
+            overlapping.push(cat);
+          }
+        }
+        if (overlapping.length > 0) {
+          // Show primary source prompt for the first overlapping category
+          const cat = overlapping[0];
+          const allProviders = [justConnected, ...setup.connectedPlatforms.filter(
+            (p) => p !== justConnected && PLATFORM_META[p]?.categories.includes(cat)
+          )];
+          setPrimaryPrompt({ category: cat.toLowerCase(), options: allProviders });
+        }
       }
     } catch {
       setConnectError('Network error');
@@ -425,7 +493,12 @@ export default function Setup() {
                         status.status === 'error' ? 'text-destructive' :
                         'text-muted-foreground'
                       }>
-                        {status.status === 'syncing' && '⟳ Syncing...'}
+                        {status.status === 'syncing' && (
+                          <span className="flex items-center gap-1.5">
+                            <span className="h-2.5 w-2.5 animate-spin rounded-full border border-primary border-t-transparent" />
+                            {status.progress || 'Syncing...'}
+                          </span>
+                        )}
                         {status.status === 'done' && '✓ Done'}
                         {status.status === 'error' && `✗ ${status.error || 'Error'}`}
                         {status.status === 'idle' && '—'}
@@ -581,22 +654,43 @@ export default function Setup() {
                 </div>
               ))}
 
-              {/* Activity type selection — Garmin only */}
+              {/* Garmin region + activity types */}
+              {connectPlatform === 'garmin' && (
+                <div className="space-y-2">
+                  <Label>Region</Label>
+                  <div className="flex gap-2">
+                    {([['international', 'International'], ['cn', 'China']] as const).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setGarminRegion(value)}
+                        className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all border ${
+                          garminRegion === value
+                            ? 'border-primary/40 bg-primary/10 text-primary'
+                            : 'border-border bg-muted text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {connectPlatform === 'garmin' && (
                 <div className="space-y-2">
                   <Label>Activity types to sync</Label>
                   <div className="flex flex-wrap gap-1.5">
-                    {GARMIN_ACTIVITY_TYPES.map((type) => {
-                      const selected = selectedActivityTypes.includes(type.key);
+                    {GARMIN_ACTIVITY_CATEGORIES.map((cat) => {
+                      const selected = selectedCategories.includes(cat.key);
                       return (
                         <button
-                          key={type.key}
+                          key={cat.key}
                           type="button"
                           onClick={() => {
-                            setSelectedActivityTypes((prev) =>
+                            setSelectedCategories((prev) =>
                               selected
-                                ? prev.filter((k) => k !== type.key)
-                                : [...prev, type.key]
+                                ? prev.filter((k) => k !== cat.key)
+                                : [...prev, cat.key]
                             );
                           }}
                           className={`rounded-md px-2.5 py-1 text-xs font-medium transition-all border ${
@@ -605,7 +699,7 @@ export default function Setup() {
                               : 'border-border bg-muted text-muted-foreground hover:text-foreground'
                           }`}
                         >
-                          {type.label}
+                          {cat.label}
                         </button>
                       );
                     })}
@@ -639,6 +733,42 @@ export default function Setup() {
         initialTargetTime={(config?.goal?.target_time_sec as number) || null}
         onSave={handleGoalSave}
       />
+
+      {/* Primary Source Prompt — shown when connecting a second source for same category */}
+      <Dialog open={!!primaryPrompt} onOpenChange={(open) => { if (!open) setPrimaryPrompt(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Choose primary source</DialogTitle>
+            <DialogDescription>
+              Multiple platforms provide <strong>{primaryPrompt?.category}</strong> data.
+              Which should be the primary source?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-wrap gap-2 py-2">
+            {primaryPrompt?.options.map((platform) => (
+              <Button
+                key={platform}
+                variant="outline"
+                className="flex-1"
+                onClick={async () => {
+                  if (primaryPrompt) {
+                    await updateSettings({
+                      preferences: {
+                        ...config?.preferences,
+                        [primaryPrompt.category]: platform,
+                      },
+                    } as Partial<import('@/types/api').SettingsConfig>);
+                    refetchSettings();
+                  }
+                  setPrimaryPrompt(null);
+                }}
+              >
+                {PLATFORM_META[platform]?.label || platform}
+              </Button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

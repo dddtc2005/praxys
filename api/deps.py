@@ -654,6 +654,7 @@ def _build_activities_list(
         act: dict = {
             "activity_id": str(row.get("activity_id", "")),
             "date": str(row["date"]),
+            "source": str(row.get("source", "")),
             "activity_type": row.get("activity_type", "running"),
             "distance_km": (
                 round(float(row.get("distance_km", 0)), 2)

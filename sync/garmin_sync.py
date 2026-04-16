@@ -173,6 +173,67 @@ def parse_daily_metrics(
     }]
 
 
+def parse_garmin_recovery(
+    date_str: str,
+    hrv_data: dict | None = None,
+    sleep_data: dict | None = None,
+    training_readiness: dict | None = None,
+) -> dict | None:
+    """Parse Garmin HRV, sleep, and readiness into a recovery_data row.
+
+    Maps Garmin data to the same schema as Oura recovery:
+    - readiness_score: from training readiness
+    - hrv_ms: from HRV data (overnight average)
+    - resting_hr: from sleep data (lowest HR during sleep)
+    - sleep_score: from sleep data (overall score)
+    - total_sleep_hours: from sleep data
+    """
+    result: dict = {"date": date_str, "source": "garmin"}
+    has_data = False
+
+    # Training readiness → readiness_score
+    if training_readiness:
+        entry = training_readiness
+        if isinstance(training_readiness, list) and training_readiness:
+            entry = training_readiness[0]
+        score = entry.get("score")
+        if score is not None:
+            result["readiness_score"] = str(round(float(score)))
+            has_data = True
+
+    # HRV → hrv_ms (use lastNightAvg or lastNight5MinHigh)
+    if hrv_data:
+        summary = hrv_data.get("hrvSummary", hrv_data)
+        last_night = summary.get("lastNightAvg") or summary.get("lastNight5MinHigh")
+        if last_night is not None:
+            result["hrv_ms"] = str(round(float(last_night)))
+            has_data = True
+
+    # Sleep → sleep_score, total_sleep_hours, resting_hr
+    if sleep_data:
+        daily_sleep = sleep_data.get("dailySleepDTO", sleep_data)
+        sleep_score = daily_sleep.get("sleepScores", {}).get("overall", {}).get("value")
+        if sleep_score is None:
+            sleep_score = daily_sleep.get("sleepScore")
+        if sleep_score is not None:
+            result["sleep_score"] = str(round(float(sleep_score)))
+            has_data = True
+
+        sleep_sec = daily_sleep.get("sleepTimeSeconds")
+        if sleep_sec is not None:
+            result["total_sleep_hours"] = str(round(float(sleep_sec) / 3600, 1))
+            has_data = True
+
+        # Resting HR from sleep data
+        if "resting_hr" not in result:
+            rhr = daily_sleep.get("restingHeartRate")
+            if rhr is not None and float(rhr) > 20:  # Sanity check
+                result["resting_hr"] = str(round(float(rhr)))
+                has_data = True
+
+    return result if has_data else None
+
+
 def parse_lactate_threshold(lt_data: dict) -> list[dict]:
     """Parse Garmin lactate threshold API response into CSV rows.
 

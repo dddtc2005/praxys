@@ -62,6 +62,7 @@ class UserConfig(Base):
 
     user_id = Column(String(36), ForeignKey("users.id"), primary_key=True)
     display_name = Column(String(100), default="")
+    unit_system = Column(String(10), default="metric")
     training_base = Column(String(10), default="power")
     preferences = Column(JSON, default=dict)
     thresholds = Column(JSON, default=dict)

@@ -3,11 +3,14 @@
 Provides login, activity fetch, training plan fetch, lap split computation,
 and workout upload/delete via the Stryd calendar and activity APIs.
 """
+import logging
 import re
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
 import requests
+
+logger = logging.getLogger(__name__)
 
 
 def _workout_type_from_name(name: str) -> str:
@@ -28,7 +31,7 @@ STRYD_USER_API = "https://api.stryd.com/b/api/v1/users/{user_id}"
 
 def _login_api(email: str, password: str) -> tuple[str, str]:
     """Login via Stryd API. Returns (user_id, token)."""
-    print("  Logging in via Stryd API...")
+    logger.debug("  Logging in via Stryd API...")
     resp = requests.post(
         STRYD_LOGIN_URL,
         json={"email": email, "password": password},
@@ -40,7 +43,7 @@ def _login_api(email: str, password: str) -> tuple[str, str]:
     token = data.get("token", "")
     if not token:
         raise RuntimeError("Login succeeded but no token in response")
-    print(f"  Login successful (user_id={user_id})")
+    logger.debug(f"  Login successful (user_id={user_id})")
     return user_id, token
 
 
@@ -65,12 +68,12 @@ def fetch_current_cp(user_id: str, token: str) -> float | None:
         cp = training_info.get("critical_power")
         if cp is not None:
             cp = round(float(cp), 1)
-            print(f"  Current CP from profile: {cp}W")
+            logger.debug(f"  Current CP from profile: {cp}W")
             return cp
-        print("  No CP found in user profile training_info")
+        logger.debug("  No CP found in user profile training_info")
         return None
     except Exception as e:
-        print(f"  Failed to fetch current CP: {e}")
+        logger.debug(f"  Failed to fetch current CP: {e}")
         return None
 
 
@@ -198,7 +201,7 @@ def fetch_activities_api(
     data = resp.json()
 
     activities = data.get("activities", [])
-    print(f"  API returned {len(activities)} activities")
+    logger.debug(f"  API returned {len(activities)} activities")
 
     rows = []
     raw_activities = []  # Keep raw API objects for detail fetching
@@ -251,7 +254,7 @@ def fetch_activities_api(
             "distance_km": str(distance_km),
             "duration_sec": str(moving_time) if moving_time is not None else "",
         }
-        print(f"    {row['date']} — {row['avg_power']}W, {row['distance_km']}km, RSS={row['rss']}")
+        logger.debug(f"    {row['date']} — {row['avg_power']}W, {row['distance_km']}km, RSS={row['rss']}")
         rows.append(row)
         raw_activities.append(act)  # Keep raw for detail fetch
 
@@ -291,7 +294,7 @@ def fetch_training_plan_api(
     data = resp.json()
 
     workouts = data.get("workouts") or []
-    print(f"  Plan API returned {len(workouts)} planned workouts")
+    logger.debug(f"  Plan API returned {len(workouts)} planned workouts")
 
     rows = []
     for item in workouts:
@@ -370,7 +373,7 @@ def fetch_training_plan_api(
             "target_power_max": power_max,
             "workout_description": description,
         }
-        print(f"    {workout_date} — {workout_type} ({duration_min}min, {distance_km}km)")
+        logger.debug(f"    {workout_date} — {workout_type} ({duration_min}min, {distance_km}km)")
         rows.append(row)
 
     return rows

@@ -195,16 +195,29 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
     end = date.today().isoformat()
     start = from_date or (date.today() - timedelta(days=7)).isoformat()
 
-    # Read configured activity types from user config (default: running only)
+    # Read configured activity categories from user config.
+    # Garmin's search API only accepts top-level types (running, cycling, etc.)
+    # not subtypes (trail_running, treadmill_running). We fetch by top-level
+    # category — all subtypes are returned automatically.
     from analysis.config import load_config_from_db
     user_config = load_config_from_db(user_id, db)
-    activity_types = user_config.source_options.get(
-        "garmin_activity_types", ["running"]
+    categories = user_config.source_options.get(
+        "garmin_activity_categories", ["running"]
     )
+    # Map category names to Garmin API activitytype parameter
+    CATEGORY_TO_API_TYPE = {
+        "running": "running",
+        "cycling": "cycling",
+        "swimming": "swimming",
+        "hiking": "hiking",
+        "walking": "walking",
+        "strength": "strength_training",
+    }
+    api_types = list({CATEGORY_TO_API_TYPE.get(c, c) for c in categories})
 
     # Fetch activities for each configured type
     raw_activities = []
-    for atype in activity_types:
+    for atype in api_types:
         try:
             batch = client.get_activities_by_date(start, end, activitytype=atype)
             raw_activities.extend(batch)
@@ -214,9 +227,13 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
     act_count = sync_writer.write_activities(user_id, activity_rows, db)
 
     # Splits (only for new activities)
+    status = _get_user_status(user_id)
     activity_ids = [str(a.get("activityId", "")) for a in raw_activities]
+    total = len(activity_ids)
     all_splits = []
-    for aid in activity_ids:
+    for idx, aid in enumerate(activity_ids):
+        with _sync_lock:
+            status["garmin"]["progress"] = f"Fetching splits: {idx + 1}/{total}"
         try:
             splits_data = client.get_activity_splits(aid) or {}
             all_splits.extend(parse_splits(aid, splits_data))
@@ -237,8 +254,9 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
     except Exception as e:
         logger.debug("Lactate threshold: skipped (%s)", e)
 
-    # Daily metrics
+    # Daily metrics + recovery (HRV, sleep, readiness)
     dm_count = 0
+    recovery_count = 0
     try:
         today_str = date.today().isoformat()
         ts = client.get_training_status(today_str) or {}
@@ -254,11 +272,40 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
             pass
         dm_rows = parse_daily_metrics(today_str, ts, training_readiness=tr, race_predictions=rp)
         dm_count = sync_writer.write_daily_metrics(user_id, dm_rows, db)
+
+        # Fetch HRV + sleep for recovery data (last 7 days for freshness)
+        from sync.garmin_sync import parse_garmin_recovery
+        from datetime import datetime as dt_cls
+        recovery_rows = []
+        for days_ago in range(7):
+            d = (date.today() - timedelta(days=days_ago)).isoformat()
+            hrv = None
+            sleep = None
+            try:
+                hrv = client.get_hrv_data(d)
+            except Exception:
+                pass
+            try:
+                sleep = client.get_sleep_data(d)
+            except Exception:
+                pass
+            row = parse_garmin_recovery(d, hrv_data=hrv, sleep_data=sleep, training_readiness=tr if days_ago == 0 else None)
+            if row:
+                recovery_rows.append(row)
+            time.sleep(RATE_LIMIT_DELAY)
+
+        if recovery_rows:
+            # Write as recovery_data (same table as Oura)
+            recovery_count = sync_writer.write_recovery(
+                user_id, [], [], {}, db,
+                garmin_recovery=recovery_rows,
+            )
     except Exception as e:
-        logger.debug("Daily metrics: skipped (%s)", e)
+        logger.debug("Daily metrics/recovery: skipped (%s)", e)
 
     return {"activities": act_count, "splits": split_count,
-            "lactate_threshold": lt_count, "daily_metrics": dm_count}
+            "lactate_threshold": lt_count, "daily_metrics": dm_count,
+            "recovery": recovery_count}
 
 
 def _sync_stryd(user_id: str, creds: dict, from_date: str | None,
@@ -277,7 +324,11 @@ def _sync_stryd(user_id: str, creds: dict, from_date: str | None,
     current_cp = fetch_current_cp(stryd_user_id, token)
 
     # Activities (power data)
+    status = _get_user_status(user_id)
     activity_rows, _raw = fetch_activities_api(stryd_user_id, token, start)
+    total = len(activity_rows)
+    with _sync_lock:
+        status["stryd"]["progress"] = f"Writing {total} activities..."
     # Add activity_type and source for DB writer
     for row in activity_rows:
         row.setdefault("activity_type", "running")
@@ -291,10 +342,12 @@ def _sync_stryd(user_id: str, creds: dict, from_date: str | None,
     import time as time_mod
     from sync.stryd_sync import fetch_activity_splits
     all_splits = []
-    for raw_act in _raw:
+    for idx, raw_act in enumerate(_raw):
         act_id = raw_act.get("id")
         if not act_id:
             continue
+        with _sync_lock:
+            status["stryd"]["progress"] = f"Fetching splits: {idx + 1}/{total}"
         try:
             splits = fetch_activity_splits(str(act_id), token)
             all_splits.extend(splits)
@@ -407,6 +460,7 @@ def get_sync_status(
             "last_sync": conn.last_sync.isoformat() if conn.last_sync else runtime.get("last_sync"),
             "error": runtime.get("error"),
             "connected": conn.status in ("connected", "error"),
+            "progress": runtime.get("progress"),
         }
 
     # Include platforms with env var creds but no DB connection (dev mode)
