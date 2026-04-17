@@ -2,17 +2,19 @@ name: Deploy Backend to Azure App Service
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/deployable-architecture]
     paths:
       - 'api/**'
       - 'analysis/**'
       - 'sync/**'
-      - 'scripts/**'
       - 'db/**'
       - 'data/science/**'
       - 'requirements.txt'
-      - 'alembic.ini'
       - '.github/workflows/deploy-backend.yml'
+
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   test:
@@ -25,19 +27,21 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Run tests
-        env:
-          TRAINSIGHT_AUTH_DISABLED: "true"
         run: python -m pytest tests/ -v
 
   deploy:
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
-      - uses: azure/login@v2
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-      - uses: azure/webapps-deploy@v3
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Deploy to App Service
+        uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ vars.AZURE_APP_SERVICE_NAME }}
+          app-name: trainsight-app
+          resource-group-name: rg-trainsight
