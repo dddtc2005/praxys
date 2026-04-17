@@ -59,7 +59,13 @@ def get_data_user_id(request: Request, db: Session = Depends(get_db)) -> str:
     user_id = get_current_user_id(request, db)
     from db.models import User
     user = db.query(User).filter(User.id == user_id).first()
-    if user and user.is_demo and user.demo_of:
+    if not user:
+        raise HTTPException(401, "User not found")
+    if user.is_demo and user.demo_of:
+        # Verify the source admin still exists
+        target = db.query(User).filter(User.id == user.demo_of, User.is_active == True).first()
+        if not target:
+            raise HTTPException(403, "Demo source account is no longer available")
         return user.demo_of
     return user_id
 
@@ -67,11 +73,14 @@ def get_data_user_id(request: Request, db: Session = Depends(get_db)) -> str:
 def require_write_access(request: Request, db: Session = Depends(get_db)) -> str:
     """Get current user_id and verify write access.
 
-    Raises 403 for demo accounts. Use this on WRITE endpoints.
+    Raises 403 for demo accounts. Fails closed — unknown users are rejected.
+    Use this on WRITE endpoints.
     """
     user_id = get_current_user_id(request, db)
     from db.models import User
     user = db.query(User).filter(User.id == user_id).first()
-    if user and user.is_demo:
+    if not user:
+        raise HTTPException(401, "User not found")
+    if user.is_demo:
         raise HTTPException(403, "Demo accounts cannot modify data")
     return user_id

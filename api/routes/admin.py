@@ -215,6 +215,8 @@ def delete_user(
     )
     from db.models import AiInsight
     db.query(AiInsight).filter(AiInsight.user_id == target_user_id).delete()
+    # Cascade-delete demo accounts that mirror this user's data
+    db.query(User).filter(User.demo_of == target_user_id).delete()
     db.delete(user)
     db.commit()
 
@@ -262,17 +264,19 @@ async def create_demo_account(
             is_active=True,
         )
         new_user = await user_manager.create(user_create)
+
+        # Set demo flags in the same async session to avoid race condition
+        from sqlalchemy import update
+        await async_session.execute(
+            update(User).where(User.id == new_user.id).values(
+                is_demo=True, demo_of=user_id
+            )
+        )
         await async_session.commit()
 
-    # Set demo flags (sync session)
-    demo_user = db.query(User).filter(User.id == new_user.id).first()
-    demo_user.is_demo = True
-    demo_user.demo_of = user_id
-    db.commit()
-
     return {
-        "id": demo_user.id,
-        "email": demo_user.email,
+        "id": new_user.id,
+        "email": body.email,
         "is_demo": True,
         "demo_of": user_id,
     }

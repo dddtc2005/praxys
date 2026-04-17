@@ -131,18 +131,22 @@ export default function Admin() {
     if (!demoEmail.trim() || !demoPassword.trim()) return;
     setCreatingDemo(true);
     setDemoError(null);
-    const res = await fetch(`${API_BASE}/api/admin/demo-accounts`, {
-      method: 'POST',
-      headers: { ...getAuthHeaders() as Record<string, string>, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: demoEmail, password: demoPassword }),
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      setDemoError(data?.detail || `Failed (HTTP ${res.status})`);
-    } else {
-      setDemoEmail('');
-      setDemoPassword('');
-      fetchData();
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/demo-accounts`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders() as Record<string, string>, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: demoEmail, password: demoPassword }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setDemoError(data?.detail || `Failed (HTTP ${res.status})`);
+      } else {
+        setDemoEmail('');
+        setDemoPassword('');
+        fetchData();
+      }
+    } catch {
+      setDemoError('Network error. Is the server running?');
     }
     setCreatingDemo(false);
   };
@@ -395,7 +399,7 @@ export default function Admin() {
             <div className="space-y-1 flex-1">
               <label className="text-xs text-muted-foreground">Password</label>
               <Input
-                type="text"
+                type="password"
                 placeholder="demo-password"
                 value={demoPassword}
                 onChange={(e) => setDemoPassword(e.target.value)}

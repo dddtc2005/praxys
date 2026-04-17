@@ -1,5 +1,6 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useAuth } from '@/hooks/useAuth';
 import { useScience } from '@/contexts/ScienceContext';
 import type { SciencePillar, TheorySummary } from '@/types/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -187,6 +188,7 @@ function PillarSection({
 /* ── Page ──────────────────────────────────────────────────────────────── */
 
 export default function Science() {
+  const { isDemo } = useAuth();
   const { science, loading, updateScience } = useScience();
 
   if (loading) {
@@ -236,7 +238,7 @@ export default function Science() {
             active={science.active[p.key]}
             alternatives={science.available[p.key] ?? []}
             recommendation={recs.find((r) => r.pillar === p.key)}
-            onSelect={(pillar, id) => updateScience({ science: { [pillar]: id } })}
+            onSelect={isDemo ? () => {} : (pillar, id) => updateScience({ science: { [pillar]: id } })}
           />
         ))}
       </div>
@@ -251,7 +253,7 @@ export default function Science() {
         </div>
         <ToggleGroup
           value={[science.active_labels]}
-          onValueChange={(v) => { if (v.length) updateScience({ zone_labels: v[v.length - 1] }); }}
+          onValueChange={(v) => { if (v.length && !isDemo) updateScience({ zone_labels: v[v.length - 1] }); }}
         >
           {(science.label_sets ?? []).map((ls) => (
             <ToggleGroupItem key={ls.id} value={ls.id} size="sm">
