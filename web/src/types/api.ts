@@ -215,6 +215,7 @@ export interface TodayResponse {
   week_load?: WeekLoad;
   upcoming?: UpcomingWorkout[];
   data_meta?: DataMeta;
+  science_notes?: ScienceNotes;
 }
 
 export interface ZoneDistribution {
@@ -297,6 +298,14 @@ export interface DataMeta {
   cp_trend_sufficient: boolean;
 }
 
+export interface ScienceNoteInfo {
+  name: string;
+  description: string;
+  citations: { label: string; url: string }[];
+}
+
+export type ScienceNotes = Record<string, ScienceNoteInfo>;
+
 export interface TrainingResponse {
   diagnosis: DiagnosisData;
   fitness_fatigue: TimeSeriesData;
@@ -307,6 +316,7 @@ export interface TrainingResponse {
   training_base?: TrainingBase;
   display?: DisplayConfig;
   data_meta?: DataMeta;
+  science_notes?: ScienceNotes;
 }
 
 export interface Milestone {
@@ -364,6 +374,7 @@ export interface GoalResponse {
   training_base?: TrainingBase;
   display?: DisplayConfig;
   data_meta?: DataMeta;
+  science_notes?: ScienceNotes;
 }
 
 export interface SplitData {

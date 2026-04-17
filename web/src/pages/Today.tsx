@@ -81,7 +81,7 @@ export default function Today() {
         message="Not enough data for accurate form tracking"
         hint="Sync at least 6 weeks of activity data to see your training form trend."
       >
-        <FormSparkline data={tsb_sparkline} />
+        <FormSparkline data={tsb_sparkline} scienceNote={data.science_notes?.load} />
       </DataHint>
 
       {/* Context row: Last Activity + Weekly Load */}

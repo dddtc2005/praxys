@@ -94,7 +94,7 @@ export default function Training() {
             message="Not enough data for accurate fitness tracking"
             hint="Sync at least 6 weeks of activity data to see meaningful fitness, fatigue, and form curves."
           >
-            <FitnessFatigueChart data={data.fitness_fatigue} />
+            <FitnessFatigueChart data={data.fitness_fatigue} scienceNote={data.science_notes?.load} />
           </DataHint>
         </div>
         <div className="lg:col-span-2">

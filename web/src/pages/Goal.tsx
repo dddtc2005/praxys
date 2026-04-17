@@ -60,7 +60,16 @@ const SCIENCE_ULTRA = 'Ultra distance power fractions (50K+) are estimates with 
   'strategy that dominate ultra performance but are not captured by power/pace models.';
 const SCIENCE_ULTRA_URL = 'https://runningwritings.com/2024/01/critical-speed-guide-for-runners.html';
 
-function predictionNote(base?: string) {
+function predictionNote(base?: string, scienceNotes?: Record<string, { name: string; description: string; citations: { label: string; url: string }[] }>) {
+  // Use active prediction theory description if available
+  if (scienceNotes?.prediction?.description) {
+    const pred = scienceNotes.prediction;
+    return {
+      text: pred.description,
+      url: pred.citations?.[0]?.url || (base === 'power' ? SCIENCE_POWER_URL : SCIENCE_PACE_URL),
+    };
+  }
+  // Fallback to hardcoded
   if (base === 'power') return { text: SCIENCE_POWER, url: SCIENCE_POWER_URL };
   return { text: SCIENCE_PACE, url: SCIENCE_PACE_URL };
 }
@@ -79,7 +88,7 @@ function RaceDateMode({ data }: { data: GoalResponse }) {
   const d = data.display;
   const unit = d?.threshold_unit || 'W';
   const abbrev = d?.threshold_abbrev || 'CP';
-  const note = predictionNote(data.training_base);
+  const note = predictionNote(data.training_base, data.science_notes);
 
   return (
     <div className="space-y-4">
@@ -218,7 +227,7 @@ function CpMilestoneMode({ data }: { data: GoalResponse }) {
   const d = data.display;
   const unit = d?.threshold_unit || 'W';
   const isPace = unit === '/km';
-  const note = predictionNote(data.training_base);
+  const note = predictionNote(data.training_base, data.science_notes);
 
   const progressPct = (() => {
     if (currentCp == null || targetCp == null || targetCp <= 0) return 0;
@@ -329,7 +338,7 @@ function ContinuousMode({ data }: { data: GoalResponse }) {
   const distLabel = rc.distance_label || 'Marathon';
   const d = data.display;
   const unit = d?.threshold_unit || 'W';
-  const note = predictionNote(data.training_base);
+  const note = predictionNote(data.training_base, data.science_notes);
 
   return (
     <div className="space-y-4">

@@ -47,4 +47,5 @@ def get_today(
         "week_load": week_load(weekly_review),
         "upcoming": upcoming_workouts(plan_df),
         "data_meta": data.get("data_meta"),
+        "science_notes": data.get("science_notes"),
     }

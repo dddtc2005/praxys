@@ -1220,6 +1220,19 @@ def get_dashboard_data(user_id: str = None, db=None) -> dict:
         "plan": plan,
         "recovery_analysis": recovery_analysis,
         "science": science,
+        "science_notes": {
+            pillar: {
+                "name": theory.name,
+                "description": getattr(theory, 'simple_description', '') or '',
+                "citations": [
+                    {"label": getattr(c, 'title', getattr(c, 'key', '')), "url": getattr(c, 'url', '')}
+                    for c in (getattr(theory, 'citations', None) or [])
+                    if getattr(c, 'url', None)
+                ],
+            }
+            for pillar, theory in science.items()
+            if theory and hasattr(theory, 'name')
+        },
         "data_meta": data_meta,
         "tsb_zones": [
             {"min": z.min, "max": z.max, "label": z.label, "color": z.color}

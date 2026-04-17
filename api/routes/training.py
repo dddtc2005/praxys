@@ -25,4 +25,5 @@ def get_training(
         "training_base": data["training_base"],
         "display": data["display"],
         "data_meta": data.get("data_meta"),
+        "science_notes": data.get("science_notes"),
     }
