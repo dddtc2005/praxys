@@ -1,0 +1,52 @@
+version: 2
+
+updates:
+  # Python dependencies (requirements.txt)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    reviewers:
+      - "dddtc2005"
+    labels:
+      - "dependencies"
+      - "python"
+    open-pull-requests-limit: 5
+    # Group minor/patch updates to reduce PR noise
+    groups:
+      python-minor:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Frontend npm dependencies
+  - package-ecosystem: "npm"
+    directory: "/web"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    reviewers:
+      - "dddtc2005"
+    labels:
+      - "dependencies"
+      - "javascript"
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    reviewers:
+      - "dddtc2005"
+    labels:
+      - "dependencies"
+      - "ci"
+    open-pull-requests-limit: 3
