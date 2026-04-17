@@ -1,7 +1,0 @@
-{
-  "name": "trainsight",
-  "version": "1.0.0",
-  "description": "Trainsight training dashboard — MCP tools for training data, daily briefs, race forecasts, and AI plan management",
-  "skills_directory": "skills",
-  "hooks_directory": "hooks"
-}
