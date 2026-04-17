@@ -453,55 +453,90 @@ def get_sync_status() -> str:
 
 
 @mcp.tool()
-def login(email: str, password: str) -> str:
-    """Authenticate with Trainsight and cache the JWT token.
+def login() -> str:
+    """Authenticate with Trainsight via browser login.
 
-    Required before using any other tool in remote mode. The token is
-    cached at ~/.trainsight/token and reused for subsequent requests.
-
-    IMPORTANT: Ask the user for their email and password. Never hardcode
-    credentials. The password is sent over HTTPS and is not stored.
+    Opens the Trainsight login page in your browser. After you log in,
+    the token is automatically captured and cached for CLI use.
+    No passwords are entered in the CLI.
     """
     if not IS_REMOTE:
         return json.dumps({"status": "skipped", "message": "Login not needed in local mode"})
 
-    import requests
-    res = requests.post(
-        f"{REMOTE_URL}/api/auth/login",
-        data={"username": email, "password": password},
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-        timeout=15,
-    )
-    if res.status_code == 400:
-        detail = res.json().get("detail", "")
-        if "BAD_CREDENTIALS" in detail:
-            return json.dumps({"status": "error", "message": "Invalid email or password."})
-        return json.dumps({"status": "error", "message": detail})
-    res.raise_for_status()
+    import threading
+    import webbrowser
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+    from urllib.parse import urlparse, parse_qs
 
-    token = res.json().get("access_token")
-    if not token:
-        return json.dumps({"status": "error", "message": "No token in response"})
+    CALLBACK_PORT = 9876
+    token_result = {"token": None, "error": None}
 
-    # Cache token
-    os.makedirs(os.path.dirname(_TOKEN_PATH), exist_ok=True)
-    with open(_TOKEN_PATH, "w") as f:
-        f.write(token)
+    class CallbackHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            parsed = urlparse(self.path)
+            params = parse_qs(parsed.query)
 
-    # Fetch user info
-    me_res = requests.get(
-        f"{REMOTE_URL}/api/auth/me",
-        headers={"Authorization": f"Bearer {token}"},
-        timeout=10,
-    )
-    user_info = me_res.json() if me_res.ok else {}
+            if parsed.path == "/callback" and "token" in params:
+                token_result["token"] = params["token"][0]
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.end_headers()
+                self.wfile.write(b"""<html><body style="font-family:system-ui;text-align:center;padding:60px;background:#0a0e17;color:#fff">
+                    <h1 style="color:#00ff87">Authenticated!</h1>
+                    <p>You can close this tab and return to the CLI.</p>
+                </body></html>""")
+            else:
+                token_result["error"] = "No token received"
+                self.send_response(400)
+                self.end_headers()
+                self.wfile.write(b"Authentication failed")
 
-    return json.dumps({
-        "status": "authenticated",
-        "email": user_info.get("email", email),
-        "is_admin": user_info.get("is_superuser", False),
-        "token_cached": _TOKEN_PATH,
-    })
+            # Shut down the server after handling
+            threading.Thread(target=self.server.shutdown, daemon=True).start()
+
+        def log_message(self, format, *args):
+            pass  # Suppress HTTP logs
+
+    # Start local callback server
+    server = HTTPServer(("127.0.0.1", CALLBACK_PORT), CallbackHandler)
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
+
+    # Open browser with callback URL
+    callback_url = f"http://localhost:{CALLBACK_PORT}/callback"
+    login_url = f"{REMOTE_URL}/login?cli_callback={callback_url}"
+    webbrowser.open(login_url)
+
+    # Wait for callback (timeout 120 seconds)
+    server_thread.join(timeout=120)
+    server.shutdown()
+
+    if token_result["token"]:
+        token = token_result["token"]
+        os.makedirs(os.path.dirname(_TOKEN_PATH), exist_ok=True)
+        with open(_TOKEN_PATH, "w") as f:
+            f.write(token)
+
+        # Fetch user info
+        import requests
+        me_res = requests.get(
+            f"{REMOTE_URL}/api/auth/me",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10,
+        )
+        user_info = me_res.json() if me_res.ok else {}
+
+        return json.dumps({
+            "status": "authenticated",
+            "email": user_info.get("email", ""),
+            "is_admin": user_info.get("is_superuser", False),
+            "token_cached": _TOKEN_PATH,
+        })
+    else:
+        return json.dumps({
+            "status": "error",
+            "message": token_result.get("error", "Login timed out. Please try again."),
+        })
 
 
 @mcp.tool()

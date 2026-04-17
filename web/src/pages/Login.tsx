@@ -20,6 +20,10 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
 
+  // Check for CLI callback URL (browser-based CLI login flow)
+  const searchParams = new URLSearchParams(window.location.search);
+  const cliCallback = searchParams.get('cli_callback');
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -38,6 +42,14 @@ export default function Login() {
     setSubmitting(false);
 
     if (result.ok) {
+      // If this was a CLI login flow, redirect token to the CLI's local server
+      if (cliCallback) {
+        const token = localStorage.getItem('trainsight-auth-token');
+        if (token) {
+          window.location.href = `${cliCallback}?token=${encodeURIComponent(token)}`;
+          return;
+        }
+      }
       navigate('/', { replace: true });
     } else {
       setError(result.error || 'An unexpected error occurred.');
@@ -49,7 +61,9 @@ export default function Login() {
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <CardTitle className="text-xl font-bold text-foreground">Trainsight</CardTitle>
-          <CardDescription>Power-based training dashboard</CardDescription>
+          <CardDescription>
+            {cliCallback ? 'Log in to connect your CLI plugin' : 'Power-based training dashboard'}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as string); setError(null); }}>
