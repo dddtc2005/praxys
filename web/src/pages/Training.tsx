@@ -14,6 +14,7 @@ import CpTrendChart from '@/components/charts/CpTrendChart';
 import ComplianceChart from '@/components/charts/ComplianceChart';
 import SleepPerfChart from '@/components/charts/SleepPerfChart';
 import DataHint from '@/components/DataHint';
+import CliHint from '@/components/CliHint';
 
 function TrainingSkeleton() {
   return (
@@ -123,6 +124,8 @@ export default function Training() {
       </div>
 
       {/* Workout Flags — removed, needs better analysis than avg power comparison */}
+
+      <CliHint skill="training-review" description="Get detailed AI training analysis and suggestions:" />
     </div>
   );
 }

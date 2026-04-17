@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import GoalEditor from '@/components/GoalEditor';
+import CliHint from '@/components/CliHint';
 import MilestoneTracker from '@/components/MilestoneTracker';
 import CpTrendChart from '@/components/charts/CpTrendChart';
 import DataHint from '@/components/DataHint';
@@ -482,6 +483,8 @@ export default function Goal() {
           {(mode === 'continuous' || mode === 'none') && <ContinuousMode data={data} />}
         </>
       )}
+
+      <CliHint skill="training-plan" description="Generate a 4-week AI training plan:" />
     </div>
   );
 }

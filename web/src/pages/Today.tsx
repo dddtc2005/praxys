@@ -11,6 +11,7 @@ import FormSparkline from '@/components/charts/FormSparkline';
 import LastActivityCard from '@/components/LastActivityCard';
 import WeeklyLoadMini from '@/components/WeeklyLoadMini';
 import DataHint from '@/components/DataHint';
+import CliHint from '@/components/CliHint';
 
 function TodaySkeleton() {
   return (
@@ -106,6 +107,8 @@ export default function Today() {
           ))}
         </div>
       )}
+
+      <CliHint skill="daily-brief" description="Get AI-powered training recommendations in the CLI:" />
     </div>
   );
 }
