@@ -23,27 +23,51 @@ claude plugin install trainsight
 /reload-plugins
 ```
 
-## Plugin Setup
+## Plugin Mode Configuration
+
+The plugin connects to either a **cloud deployment** or **local server**, controlled by the `env` section in `plugins/trainsight/.mcp.json`:
 
 ### Cloud Mode (Recommended)
 
-If Trainsight is deployed, the MCP server's `TRAINSIGHT_URL` env var (configured in `plugins/trainsight/.mcp.json`) points at the deployed backend. All requests route through the API with JWT authentication. Your token is cached at `~/.trainsight/token`.
+The default `.mcp.json` ships with cloud URLs pre-configured:
 
-To authenticate with the cloud backend:
-
-```bash
-# Login and cache token (done automatically by the MCP server auth helper)
-python plugins/trainsight/mcp-server/auth.py
+```json
+{
+  "mcpServers": {
+    "trainsight": {
+      "command": "python",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-server/server.py"],
+      "env": {
+        "TRAINSIGHT_URL": "https://trainsight-app.azurewebsites.net",
+        "TRAINSIGHT_FRONTEND_URL": "https://jolly-sand-0aeced900.7.azurestaticapps.net"
+      }
+    }
+  }
+}
 ```
+
+- `TRAINSIGHT_URL` — Backend API (required for remote mode)
+- `TRAINSIGHT_FRONTEND_URL` — Frontend SWA (used for browser-based login)
+
+**Authentication:** Use the `login` tool in Claude Code — it opens your browser, you log in normally, and the token is automatically cached at `~/.trainsight/token`. Use `whoami` to check which account is active.
 
 ### Local Mode
 
-If running locally, remove or leave blank the `TRAINSIGHT_URL` env var in `.mcp.json`. The MCP server uses direct database access:
+To use the plugin with a local server, clear the env vars in `.mcp.json`:
+
+```json
+{
+  "env": {}
+}
+```
+
+Then start your local server:
 
 ```bash
-# Start the backend server (needed for sync operations)
 python -m uvicorn api.main:app --reload
 ```
+
+In local mode, the MCP server imports project modules directly and uses the first registered user's data. No login needed.
 
 In local mode, the MCP server imports project modules directly and uses the first registered user's data.
 
