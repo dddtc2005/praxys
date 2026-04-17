@@ -5,14 +5,18 @@ Registration rules:
 2. TRAINSIGHT_ADMIN_EMAIL match → no invitation needed, becomes admin (optional safety net)
 3. All other users → must provide a valid, unused invitation code
 """
+import logging
 import os
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from db.session import get_db
+
+logger = logging.getLogger(__name__)
 
 register_router = APIRouter()
 
@@ -42,33 +46,22 @@ async def register(
     if existing:
         raise HTTPException(400, detail="REGISTER_USER_ALREADY_EXISTS")
 
-    # Check if this is the first user (fresh DB)
-    user_count = db.query(User).count()
-    is_first_user = user_count == 0
-
-    # Check admin email override
+    # Admin email override (optional env var — always bypasses invitation, always admin)
     is_admin_email = bool(ADMIN_EMAIL) and body.email.lower() == ADMIN_EMAIL.lower()
+    if is_admin_email:
+        logger.info("Admin email override used for registration: %s", body.email)
 
-    # Determine if invitation is required
-    needs_invitation = not is_first_user and not is_admin_email
-    is_admin = bool(is_first_user or is_admin_email)
-
-    # Validate invitation code if required
+    # Pre-check invitation for non-admin-email users (fast fail before async session).
+    # The actual first-user check is done inside the async session to prevent race conditions.
     invitation = None
-    if needs_invitation:
-        if not body.invitation_code:
-            raise HTTPException(400, detail="REGISTER_INVITATION_REQUIRED")
-
+    if not is_admin_email and body.invitation_code:
         invitation = db.query(Invitation).filter(
             Invitation.code == body.invitation_code.strip().upper(),
             Invitation.is_active == True,
             Invitation.used_by == None,
         ).first()
 
-        if not invitation:
-            raise HTTPException(400, detail="REGISTER_INVALID_INVITATION")
-
-    # Create user via FastAPI-Users' UserManager (proper password hashing)
+    # Create user inside async session — first-user check is atomic here
     from db.models import User as UserModel
     from db.session import AsyncSessionLocal
     from fastapi_users.db import SQLAlchemyUserDatabase
@@ -76,6 +69,22 @@ async def register(
     from api.users import UserManager
 
     async with AsyncSessionLocal() as async_session:
+        # Atomic first-user check inside the same session that creates the user
+        result = await async_session.execute(
+            select(func.count()).select_from(UserModel)
+        )
+        user_count = result.scalar() or 0
+        is_first_user = user_count == 0
+
+        is_admin = bool(is_first_user or is_admin_email)
+
+        # Require invitation if not first user and not admin email
+        if not is_first_user and not is_admin_email:
+            if not invitation:
+                if not body.invitation_code:
+                    raise HTTPException(400, detail="REGISTER_INVITATION_REQUIRED")
+                raise HTTPException(400, detail="REGISTER_INVALID_INVITATION")
+
         user_db = SQLAlchemyUserDatabase(async_session, UserModel)
         user_manager = UserManager(user_db)
 

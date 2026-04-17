@@ -4,8 +4,8 @@
       "command": "python",
       "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-server/server.py"],
       "env": {
-        "TRAINSIGHT_URL": "https://trainsight-app.azurewebsites.net",
-        "TRAINSIGHT_FRONTEND_URL": "https://jolly-sand-0aeced900.7.azurestaticapps.net"
+        "TRAINSIGHT_URL": "${TRAINSIGHT_URL}",
+        "TRAINSIGHT_FRONTEND_URL": "${TRAINSIGHT_FRONTEND_URL}"
       }
     }
   }

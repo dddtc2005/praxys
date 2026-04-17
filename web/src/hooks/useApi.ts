@@ -31,7 +31,9 @@ async function apiFetcher<T>(url: string): Promise<T> {
   if (res.status === 401) {
     localStorage.removeItem(TOKEN_KEY);
     window.location.href = '/login';
-    throw new Error('Unauthorized');
+    // Return a never-resolving promise to prevent React Query from
+    // retrying or surfacing an error flash during the redirect.
+    return new Promise<T>(() => {});
   }
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();

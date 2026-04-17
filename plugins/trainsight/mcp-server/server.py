@@ -409,15 +409,21 @@ def trigger_sync(sources: list[str] | None = None) -> str:
         import requests
         try:
             url = "http://localhost:8000/api/sync"
+            # Local sync still goes through the API (needs auth + background tasks)
+            local_headers = {}
+            if os.path.exists(_TOKEN_PATH):
+                with open(_TOKEN_PATH) as f:
+                    t = f.read().strip()
+                if t:
+                    local_headers["Authorization"] = f"Bearer {t}"
             if sources:
-                # Sync individual sources
                 results = []
                 for s in sources:
-                    res = requests.post(f"{url}/{s}", timeout=5)
+                    res = requests.post(f"{url}/{s}", headers=local_headers, timeout=5)
                     results.append({"source": s, "status": res.json().get("status", "error")})
                 data = {"results": results}
             else:
-                res = requests.post(url, timeout=5)
+                res = requests.post(url, headers=local_headers, timeout=5)
                 data = res.json()
         except requests.ConnectionError:
             data = {"status": "error", "message": "Backend server not running. Start it with: python -m uvicorn api.main:app --reload"}
@@ -465,13 +471,24 @@ def login() -> str:
     if not IS_REMOTE:
         return json.dumps({"status": "skipped", "message": "Login not needed in local mode"})
 
+    import socket
     import threading
     import webbrowser
     from http.server import HTTPServer, BaseHTTPRequestHandler
     from urllib.parse import urlparse, parse_qs
 
-    CALLBACK_PORT = 9876
     token_result = {"token": None, "error": None}
+
+    def _find_available_port(preferred: int = 9876) -> int:
+        """Try preferred port, fall back to OS-assigned port."""
+        for port in [preferred, 0]:
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.bind(("127.0.0.1", port))
+                    return s.getsockname()[1]
+            except OSError:
+                continue
+        raise RuntimeError("Cannot bind to any port for login callback")
 
     class CallbackHandler(BaseHTTPRequestHandler):
         def do_GET(self):
@@ -499,13 +516,16 @@ def login() -> str:
         def log_message(self, format, *args):
             pass  # Suppress HTTP logs
 
-    # Start local callback server
-    server = HTTPServer(("127.0.0.1", CALLBACK_PORT), CallbackHandler)
+    # Start local callback server (finds available port)
+    callback_port = _find_available_port()
+    server = HTTPServer(("127.0.0.1", callback_port), CallbackHandler)
     server_thread = threading.Thread(target=server.serve_forever, daemon=True)
     server_thread.start()
 
     # Open browser with callback URL
-    callback_url = f"http://localhost:{CALLBACK_PORT}/callback"
+    # Token is passed via URL query to localhost only — same pattern as
+    # gh auth login, gcloud auth login. Never leaves the local machine.
+    callback_url = f"http://localhost:{callback_port}/callback"
     login_url = f"{FRONTEND_URL}/login?cli_callback={callback_url}"
     webbrowser.open(login_url)
 
@@ -518,6 +538,11 @@ def login() -> str:
         os.makedirs(os.path.dirname(_TOKEN_PATH), exist_ok=True)
         with open(_TOKEN_PATH, "w") as f:
             f.write(token)
+        # Restrict file permissions to owner only (0o600)
+        try:
+            os.chmod(_TOKEN_PATH, 0o600)
+        except OSError:
+            pass  # Windows doesn't support Unix permissions
 
         # Fetch user info
         import requests

@@ -21,8 +21,11 @@ export default function Login() {
   const [activeTab, setActiveTab] = useState('login');
 
   // Check for CLI callback URL (browser-based CLI login flow)
+  // SECURITY: Only allow localhost callbacks to prevent open redirect token theft
   const searchParams = new URLSearchParams(window.location.search);
-  const cliCallback = searchParams.get('cli_callback');
+  const rawCallback = searchParams.get('cli_callback');
+  const CLI_CALLBACK_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/callback/;
+  const cliCallback = rawCallback && CLI_CALLBACK_RE.test(rawCallback) ? rawCallback : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

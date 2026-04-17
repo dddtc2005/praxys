@@ -56,9 +56,6 @@ export default function Admin() {
   const [roleChangeUser, setRoleChangeUser] = useState<UserInfo | null>(null);
   const [changingRole, setChangingRole] = useState(false);
 
-  // Redirect non-admins
-  if (!isAdmin) return <Navigate to="/" replace />;
-
   const fetchData = () => {
     setLoading(true);
     Promise.all([
@@ -73,8 +70,10 @@ export default function Admin() {
       .finally(() => setLoading(false));
   };
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => { fetchData(); }, []);
+
+  // Redirect non-admins (after all hooks to satisfy Rules of Hooks)
+  if (!isAdmin) return <Navigate to="/" replace />;
 
   const handleGenerateInvite = async () => {
     const res = await fetch(`${API_BASE}/api/admin/invitations`, {

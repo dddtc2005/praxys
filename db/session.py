@@ -69,7 +69,11 @@ def init_db():
     # Lightweight schema migration: add missing columns to existing tables.
     # SQLAlchemy's create_all doesn't ALTER existing tables, so we handle
     # new columns here to avoid needing a full Alembic setup.
+    import logging
     from sqlalchemy import text, inspect
+    from sqlalchemy.exc import OperationalError
+
+    _log = logging.getLogger(__name__)
     insp = inspect(engine)
     _migrations = [
         ("user_config", "unit_system", "VARCHAR(10) DEFAULT 'metric'"),
@@ -80,8 +84,13 @@ def init_db():
             if table in insp.get_table_names():
                 existing_cols = {c["name"] for c in insp.get_columns(table)}
                 if column not in existing_cols:
-                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
-                    conn.commit()
+                    try:
+                        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
+                        conn.commit()
+                    except OperationalError:
+                        # Column may already exist (concurrent worker startup)
+                        conn.rollback()
+                        _log.debug("Column %s.%s already exists, skipping", table, column)
 
 
 def get_db():

@@ -37,6 +37,10 @@ def _generate_code() -> str:
 # ---------------------------------------------------------------------------
 
 
+class RoleChangeRequest(BaseModel):
+    is_superuser: bool
+
+
 class CreateInvitationRequest(BaseModel):
     note: str = ""
 
@@ -144,11 +148,11 @@ def list_users(
 @router.patch("/users/{target_user_id}/role")
 def update_user_role(
     target_user_id: str,
-    body: dict,
+    body: RoleChangeRequest,
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Toggle admin role for a user. Pass {"is_superuser": true/false}."""
+    """Toggle admin role for a user."""
     _require_admin(user_id, db)
     from db.models import User
 
@@ -159,9 +163,8 @@ def update_user_role(
     if not user:
         raise HTTPException(404, "User not found")
 
-    if "is_superuser" in body:
-        user.is_superuser = bool(body["is_superuser"])
-        db.commit()
+    user.is_superuser = body.is_superuser
+    db.commit()
 
     return {
         "id": user.id,

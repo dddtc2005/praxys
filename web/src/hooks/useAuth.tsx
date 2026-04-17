@@ -40,27 +40,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [email, setEmail] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // On mount, restore token from localStorage and fetch user profile.
+  // On mount, restore token from localStorage and verify it with the server.
   useEffect(() => {
     const stored = localStorage.getItem(TOKEN_KEY);
     const storedEmail = localStorage.getItem(EMAIL_KEY);
-    const storedAdmin = localStorage.getItem(ADMIN_KEY);
-    if (stored) {
-      setToken(stored);
-      if (storedAdmin === 'true') setIsAdmin(true);
-      // Fetch fresh admin status from API
-      fetch(`${API_BASE}/api/auth/me`, { headers: { Authorization: `Bearer ${stored}` } })
-        .then((r) => r.ok ? r.json() : null)
-        .then((data) => {
-          if (data) {
-            setIsAdmin(data.is_superuser);
-            localStorage.setItem(ADMIN_KEY, String(data.is_superuser));
-          }
-        })
-        .catch(() => {});
-    }
     if (storedEmail) setEmail(storedEmail);
-    setIsLoading(false);
+
+    if (!stored) {
+      setIsLoading(false);
+      return;
+    }
+
+    setToken(stored);
+
+    // Verify token and fetch fresh profile (admin status, active status)
+    fetch(`${API_BASE}/api/auth/me`, { headers: { Authorization: `Bearer ${stored}` } })
+      .then((r) => {
+        if (r.status === 401) {
+          // Token expired or user deactivated — clear auth state
+          localStorage.removeItem(TOKEN_KEY);
+          localStorage.removeItem(EMAIL_KEY);
+          localStorage.removeItem(ADMIN_KEY);
+          setToken(null);
+          setEmail(null);
+          setIsAdmin(false);
+          return null;
+        }
+        return r.ok ? r.json() : null;
+      })
+      .then((data) => {
+        if (data) {
+          setIsAdmin(data.is_superuser);
+          localStorage.setItem(ADMIN_KEY, String(data.is_superuser));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
   }, []);
 
   const login = useCallback(async (email: string, password: string): Promise<{ ok: boolean; error?: string }> => {

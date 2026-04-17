@@ -950,7 +950,7 @@ def diagnose_training(
     recent = recent[recent["_date"] >= cutoff]
 
     if recent.empty:
-        result["diagnosis"].append({"type": "warning", "message": "No activities in the last {lookback_weeks} weeks."})
+        result["diagnosis"].append({"type": "warning", "message": f"No activities in the last {lookback_weeks} weeks."})
         return result
 
     # --- Volume analysis ---
@@ -1033,10 +1033,11 @@ def diagnose_training(
                     if pd.isna(val) or pd.isna(dur) or dur <= 0:
                         continue
                     total_time += dur
-                    # For pace, lower = harder (reverse comparison)
+                    # For pace, lower value = faster = harder zone
+                    # Iterate bounds from highest (slowest) to lowest (fastest)
                     if base == "pace":
                         zone_idx = n_zones - 1
-                        for j, b in enumerate(abs_bounds):
+                        for j, b in enumerate(reversed(abs_bounds)):
                             if val > b:
                                 zone_idx = j
                                 break

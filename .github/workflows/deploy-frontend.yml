@@ -2,10 +2,13 @@ name: Deploy Frontend to Azure Static Web Apps
 
 on:
   push:
-    branches: [main, feature/deployable-architecture]
+    branches: [main]
     paths:
       - 'web/**'
       - '.github/workflows/deploy-frontend.yml'
+
+permissions:
+  contents: read
 
 jobs:
   build_and_deploy:
@@ -22,4 +25,4 @@ jobs:
           app_location: "web"
           output_location: "dist"
         env:
-          VITE_API_URL: https://trainsight-app.azurewebsites.net
+          VITE_API_URL: ${{ vars.VITE_API_URL }}

@@ -93,7 +93,9 @@ def _save_push_status(status: dict) -> None:
 
 
 @router.get("/plan/stryd-status")
-def get_stryd_push_status() -> dict:
+def get_stryd_push_status(
+    user_id: str = Depends(get_current_user_id),
+) -> dict:
     """Return push status for all workouts synced to Stryd."""
     return _load_push_status()
 

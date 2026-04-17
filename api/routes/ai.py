@@ -47,28 +47,33 @@ def upload_plan(
     if not rows:
         return {"status": "error", "message": "No rows in CSV"}
 
-    # Delete future AI plan entries for this user
+    # Validate all rows first (before deleting existing plan)
+    parsed_rows = []
+    for i, row in enumerate(rows):
+        try:
+            parsed_rows.append(TrainingPlan(
+                user_id=user_id,
+                date=datetime.strptime(row.get("date", ""), "%Y-%m-%d").date() if row.get("date") else None,
+                workout_type=row.get("workout_type", ""),
+                planned_duration_min=float(row.get("planned_duration_min", 0)) if row.get("planned_duration_min") else None,
+                target_power_min=float(row.get("target_power_min", 0)) if row.get("target_power_min") else None,
+                target_power_max=float(row.get("target_power_max", 0)) if row.get("target_power_max") else None,
+                workout_description=row.get("workout_description", ""),
+                source="ai",
+                meta={"uploaded_at": datetime.utcnow().isoformat()},
+            ))
+        except (ValueError, TypeError) as e:
+            raise HTTPException(400, f"Invalid data in row {i + 1}: {e}")
+
+    # Delete future AI plan entries only after validation succeeds
     db.query(TrainingPlan).filter(
         TrainingPlan.user_id == user_id,
         TrainingPlan.source == "ai",
         TrainingPlan.date >= date.today(),
     ).delete()
 
-    count = 0
-    for row in rows:
-        plan = TrainingPlan(
-            user_id=user_id,
-            date=datetime.strptime(row.get("date", ""), "%Y-%m-%d").date() if row.get("date") else None,
-            workout_type=row.get("workout_type", ""),
-            planned_duration_min=float(row["planned_duration_min"]) if row.get("planned_duration_min") else None,
-            target_power_min=float(row["target_power_min"]) if row.get("target_power_min") else None,
-            target_power_max=float(row["target_power_max"]) if row.get("target_power_max") else None,
-            workout_description=row.get("workout_description", ""),
-            source="ai",
-            meta={"uploaded_at": datetime.utcnow().isoformat()},
-        )
+    for plan in parsed_rows:
         db.add(plan)
-        count += 1
 
     db.commit()
-    return {"status": "saved", "rows": count}
+    return {"status": "saved", "rows": len(parsed_rows)}

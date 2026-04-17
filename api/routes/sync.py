@@ -448,7 +448,10 @@ def get_sync_status(
     """Return current sync status for this user's connected platforms."""
     from db.models import UserConnection
 
-    status = _get_user_status(user_id)
+    # Snapshot runtime status under lock to avoid reading partial updates
+    with _sync_lock:
+        status = _get_user_status(user_id)
+        runtime_snapshot = {src: dict(info) for src, info in status.items()}
 
     # Merge with DB connection info (last_sync from DB is more reliable)
     connections = db.query(UserConnection).filter(
@@ -457,7 +460,7 @@ def get_sync_status(
     result = {}
     for conn in connections:
         src = conn.platform
-        runtime = status.get(src, {})
+        runtime = runtime_snapshot.get(src, {})
         result[src] = {
             "status": runtime.get("status", "idle"),
             "last_sync": conn.last_sync.isoformat() if conn.last_sync else runtime.get("last_sync"),
@@ -471,7 +474,7 @@ def get_sync_status(
         if src not in result:
             creds = _get_credentials(user_id, src, db)
             if creds:
-                runtime = status.get(src, {})
+                runtime = runtime_snapshot.get(src, {})
                 result[src] = {
                     "status": runtime.get("status", "idle"),
                     "last_sync": runtime.get("last_sync"),

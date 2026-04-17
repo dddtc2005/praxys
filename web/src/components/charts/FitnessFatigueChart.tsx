@@ -133,9 +133,9 @@ export default function FitnessFatigueChart({ data, scienceNote }: Props) {
       ...(data.projected_ctl ?? []),
       ...(data.projected_atl ?? []),
       ...(data.projected_tsb ?? []),
-    ];
-    const min = Math.min(...allVals);
-    const max = Math.max(...allVals);
+    ].filter((v) => Number.isFinite(v));
+    const min = allVals.length > 0 ? Math.min(...allVals) : -20;
+    const max = allVals.length > 0 ? Math.max(...allVals) : 80;
 
     return {
       chartData: deduped,

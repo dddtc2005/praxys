@@ -34,14 +34,15 @@ export function formatDistance(km: number, unit: 'metric' | 'imperial' = 'metric
   return `${km.toFixed(1)} km`;
 }
 
-/** Parse H:MM:SS or H:MM or raw seconds to total seconds */
+/** Parse H:MM:SS or MM:SS or raw seconds to total seconds.
+ * 3-part = H:MM:SS, 2-part = MM:SS, 1-part = raw seconds. */
 export function parseTimeToSeconds(input: string): number | null {
   const trimmed = input.trim();
   if (!trimmed) return null;
   const parts = trimmed.split(':').map(Number);
   if (parts.some(isNaN)) return null;
   if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  if (parts.length === 2) return parts[0] * 3600 + parts[1] * 60;
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
   if (parts.length === 1 && parts[0] > 0) return parts[0];
   return null;
 }

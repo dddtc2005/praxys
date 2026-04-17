@@ -82,12 +82,14 @@ function LoginGuard() {
 
   if (isAuthenticated) {
     // CLI login flow: if already logged in, redirect token to CLI callback immediately
+    // SECURITY: Only allow localhost callbacks to prevent open redirect token theft
     const params = new URLSearchParams(window.location.search);
-    const cliCallback = params.get('cli_callback');
-    if (cliCallback) {
+    const rawCallback = params.get('cli_callback');
+    const CLI_CALLBACK_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/callback/;
+    if (rawCallback && CLI_CALLBACK_RE.test(rawCallback)) {
       const token = localStorage.getItem('trainsight-auth-token');
       if (token) {
-        window.location.href = `${cliCallback}?token=${encodeURIComponent(token)}`;
+        window.location.href = `${rawCallback}?token=${encodeURIComponent(token)}`;
         return null;
       }
     }

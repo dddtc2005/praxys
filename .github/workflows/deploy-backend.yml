@@ -2,7 +2,7 @@ name: Deploy Backend to Azure App Service
 
 on:
   push:
-    branches: [main, feature/deployable-architecture]
+    branches: [main]
     paths:
       - 'api/**'
       - 'analysis/**'

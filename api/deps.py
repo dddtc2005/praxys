@@ -299,6 +299,7 @@ def _build_compliance(
     # Compute planned weekly RSS from training plan
     planned_weekly: list[float] = []
     planned_estimated = False
+    plan_copy = pd.DataFrame()
     if not plan.empty and "date" in plan.columns:
         plan_copy = plan.copy()
         plan_copy["_date"] = pd.to_datetime(plan_copy["date"], errors="coerce")
@@ -346,7 +347,7 @@ def _build_compliance(
 
     # Align planned to actual weeks
     aligned_planned: list[float] = []
-    if not weekly_actual.empty and not plan.empty and "_load" in plan_copy.columns:
+    if not weekly_actual.empty and not plan_copy.empty and "_load" in plan_copy.columns:
         weekly_planned_series = plan_copy.groupby(["_year", "_week"])["_load"].sum()
         for idx in weekly_actual.index:
             if idx in weekly_planned_series.index:
@@ -504,8 +505,13 @@ def _build_race_countdown(
         "prediction_theory": prediction_theory_name,
     }
 
+    days_left = None
     if race_date_str:
-        days_left = (date.fromisoformat(race_date_str) - today).days
+        try:
+            days_left = (date.fromisoformat(race_date_str) - today).days
+        except ValueError:
+            pass
+    if days_left is not None:
         race_status = "unknown"
         if predicted_time and target_time_sec:
             if predicted_time <= target_time_sec:
@@ -625,7 +631,10 @@ def _get_latest_readiness(
     if readiness.empty or "readiness_score" not in readiness.columns:
         return None, None
     latest_row = readiness.sort_values("date").iloc[-1]
-    latest_readiness = float(latest_row["readiness_score"])
+    readiness_val = pd.to_numeric(
+        pd.Series([latest_row["readiness_score"]]), errors="coerce"
+    ).iloc[0]
+    latest_readiness = float(readiness_val) if pd.notna(readiness_val) else None
     latest_hrv = None
     if "hrv_avg" in readiness.columns:
         hrv_val = pd.to_numeric(
@@ -1012,7 +1021,6 @@ def get_dashboard_data(user_id: str = None, db=None) -> dict:
     # keep the primary source version to avoid double-counting in metrics.
     primary_source = config.preferences.get("activities")
     if primary_source and not merged.empty and "source" in merged.columns:
-        import pandas as pd
         merged = merged.copy()
         merged["_date"] = pd.to_datetime(merged["date"]).dt.date
         merged["_dur"] = pd.to_numeric(merged.get("duration_sec", 0), errors="coerce").fillna(0)

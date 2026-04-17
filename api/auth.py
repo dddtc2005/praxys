@@ -33,6 +33,15 @@ def get_current_user_id(request: Request, db: Session = Depends(get_db)) -> str:
         user_id = payload.get("sub")
         if not user_id:
             raise HTTPException(401, "Invalid token: no subject")
+
+        # Verify user still exists and is active
+        from db.models import User
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(401, "User not found")
+        if not user.is_active:
+            raise HTTPException(401, "User account is deactivated")
+
         return user_id
     except jwt.ExpiredSignatureError:
         raise HTTPException(401, "Token expired")
