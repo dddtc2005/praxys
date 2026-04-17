@@ -29,20 +29,35 @@ IS_REMOTE = bool(REMOTE_URL)
 # Remote helpers (HTTP API)
 # ---------------------------------------------------------------------------
 
+_TOKEN_PATH = os.path.expanduser("~/.trainsight/token")
+
+_NOT_AUTHENTICATED_MSG = (
+    "Not authenticated. Please run the `login` tool first with your "
+    "Trainsight email and password, or manually cache a token at ~/.trainsight/token"
+)
+
+
 def _get_remote_headers():
     """Get auth headers for remote API calls."""
-    token_path = os.path.expanduser("~/.trainsight/token")
-    if os.path.exists(token_path):
-        with open(token_path) as f:
+    if os.path.exists(_TOKEN_PATH):
+        with open(_TOKEN_PATH) as f:
             token = f.read().strip()
-        return {"Authorization": f"Bearer {token}"}
+        if token:
+            return {"Authorization": f"Bearer {token}"}
     return {}
+
+
+def _check_auth_error(res):
+    """Check for auth errors and return a helpful message."""
+    if res.status_code == 401:
+        raise RuntimeError(_NOT_AUTHENTICATED_MSG)
+    res.raise_for_status()
 
 
 def _remote_get(path: str) -> dict:
     import requests
     res = requests.get(f"{REMOTE_URL}{path}", headers=_get_remote_headers(), timeout=30)
-    res.raise_for_status()
+    _check_auth_error(res)
     return res.json()
 
 
@@ -51,7 +66,7 @@ def _remote_post(path: str, data: dict = None) -> dict:
     headers = _get_remote_headers()
     headers["Content-Type"] = "application/json"
     res = requests.post(f"{REMOTE_URL}{path}", headers=headers, json=data, timeout=60)
-    res.raise_for_status()
+    _check_auth_error(res)
     return res.json()
 
 
@@ -60,14 +75,14 @@ def _remote_put(path: str, data: dict = None) -> dict:
     headers = _get_remote_headers()
     headers["Content-Type"] = "application/json"
     res = requests.put(f"{REMOTE_URL}{path}", headers=headers, json=data, timeout=30)
-    res.raise_for_status()
+    _check_auth_error(res)
     return res.json()
 
 
 def _remote_delete(path: str) -> dict:
     import requests
     res = requests.delete(f"{REMOTE_URL}{path}", headers=_get_remote_headers(), timeout=30)
-    res.raise_for_status()
+    _check_auth_error(res)
     return res.json()
 
 
@@ -435,6 +450,93 @@ def get_sync_status() -> str:
             finally:
                 db.close()
     return json.dumps(data, indent=2, default=str)
+
+
+@mcp.tool()
+def login(email: str, password: str) -> str:
+    """Authenticate with Trainsight and cache the JWT token.
+
+    Required before using any other tool in remote mode. The token is
+    cached at ~/.trainsight/token and reused for subsequent requests.
+
+    IMPORTANT: Ask the user for their email and password. Never hardcode
+    credentials. The password is sent over HTTPS and is not stored.
+    """
+    if not IS_REMOTE:
+        return json.dumps({"status": "skipped", "message": "Login not needed in local mode"})
+
+    import requests
+    res = requests.post(
+        f"{REMOTE_URL}/api/auth/login",
+        data={"username": email, "password": password},
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        timeout=15,
+    )
+    if res.status_code == 400:
+        detail = res.json().get("detail", "")
+        if "BAD_CREDENTIALS" in detail:
+            return json.dumps({"status": "error", "message": "Invalid email or password."})
+        return json.dumps({"status": "error", "message": detail})
+    res.raise_for_status()
+
+    token = res.json().get("access_token")
+    if not token:
+        return json.dumps({"status": "error", "message": "No token in response"})
+
+    # Cache token
+    os.makedirs(os.path.dirname(_TOKEN_PATH), exist_ok=True)
+    with open(_TOKEN_PATH, "w") as f:
+        f.write(token)
+
+    # Fetch user info
+    me_res = requests.get(
+        f"{REMOTE_URL}/api/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=10,
+    )
+    user_info = me_res.json() if me_res.ok else {}
+
+    return json.dumps({
+        "status": "authenticated",
+        "email": user_info.get("email", email),
+        "is_admin": user_info.get("is_superuser", False),
+        "token_cached": _TOKEN_PATH,
+    })
+
+
+@mcp.tool()
+def whoami() -> str:
+    """Show which Trainsight account is currently authenticated."""
+    if not IS_REMOTE:
+        uid = _local_user_id()
+        db = _local_db()
+        try:
+            from db.models import User
+            user = db.query(User).filter(User.id == uid).first()
+            return json.dumps({
+                "mode": "local",
+                "email": user.email if user else "unknown",
+                "user_id": uid,
+            })
+        finally:
+            db.close()
+
+    if not os.path.exists(_TOKEN_PATH):
+        return json.dumps({"status": "not_authenticated", "message": _NOT_AUTHENTICATED_MSG})
+
+    import requests
+    headers = _get_remote_headers()
+    res = requests.get(f"{REMOTE_URL}/api/auth/me", headers=headers, timeout=10)
+    if res.status_code == 401:
+        return json.dumps({"status": "token_expired", "message": "Token expired. Please run `login` again."})
+    res.raise_for_status()
+    data = res.json()
+    return json.dumps({
+        "mode": "remote",
+        "url": REMOTE_URL,
+        "email": data.get("email"),
+        "is_admin": data.get("is_superuser", False),
+    })
 
 
 if __name__ == "__main__":

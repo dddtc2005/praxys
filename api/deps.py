@@ -997,6 +997,33 @@ def get_dashboard_data(user_id: str = None, db=None) -> dict:
         data = load_data(config, data_dir)
 
     merged = data["activities"]
+
+    # Deduplicate activities by primary source preference.
+    # When multiple sources (e.g., Garmin + Stryd) sync the same run,
+    # keep the primary source version to avoid double-counting in metrics.
+    primary_source = config.preferences.get("activities")
+    if primary_source and not merged.empty and "source" in merged.columns:
+        import pandas as pd
+        merged = merged.copy()
+        merged["_date"] = pd.to_datetime(merged["date"]).dt.date
+        merged["_dur"] = pd.to_numeric(merged.get("duration_sec", 0), errors="coerce").fillna(0)
+        merged["_is_primary"] = merged["source"] == primary_source
+
+        keep_mask = pd.Series(True, index=merged.index)
+        for dt, group in merged.groupby("_date"):
+            if len(group) <= 1:
+                continue
+            primary = group[group["_is_primary"]]
+            others = group[~group["_is_primary"]]
+            for oidx, orow in others.iterrows():
+                for _, prow in primary.iterrows():
+                    if prow["_dur"] > 0 and orow["_dur"] > 0:
+                        ratio = abs(prow["_dur"] - orow["_dur"]) / max(prow["_dur"], orow["_dur"])
+                        if ratio < 0.10:  # Same activity (duration within 10%)
+                            keep_mask[oidx] = False
+                            break
+        merged = merged[keep_mask].drop(columns=["_date", "_dur", "_is_primary"], errors="ignore")
+
     thresholds = _resolve_thresholds(config, data_dir=data_dir, user_id=user_id, db=db)
 
     # Science framework
