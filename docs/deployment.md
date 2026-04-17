@@ -263,13 +263,14 @@ Background sync is handled by the backend scheduler (per-user, opt-in via `TRAIN
 After deploying, users connect their CLI tools to the deployed backend:
 
 ```bash
-# Set the deployed backend URL
-export TRAINSIGHT_URL=https://trainsight-app.azurewebsites.net
+# Register the local marketplace (one-time)
+claude plugin marketplace add ./plugins/marketplace.json
 
 # Install the plugin
-claude plugin add ./plugins/trainsight
+claude plugin install trainsight
 
-# The MCP tools auto-detect remote mode and use the deployed API
+# The MCP server's TRAINSIGHT_URL env var (in .mcp.json) routes
+# requests to the deployed API with JWT authentication.
 ```
 
 Users authenticate via `~/.trainsight/token` (cached JWT from login).

@@ -6,7 +6,7 @@ test case that can be executed in Claude Code or Copilot CLI.
 ## Prerequisites
 
 - Backend running: `python -m uvicorn api.main:app --reload`
-- Plugin installed: `claude plugin add ./plugins/trainsight`
+- Plugin installed: `claude plugin marketplace add ./plugins/marketplace.json && claude plugin install trainsight`
 - At least one platform connected and synced
 
 ## How to Run

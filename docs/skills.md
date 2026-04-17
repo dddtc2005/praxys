@@ -8,34 +8,41 @@ Trainsight includes 8 AI skills that provide access to all training features via
 - Python 3.11+ with project dependencies installed (`pip install -r requirements.txt`)
 - A running Trainsight backend (cloud or local) with at least one connected platform
 
-## Plugin Setup
+## Plugin Installation
 
-Skills are packaged as a Claude Code / Copilot CLI plugin in `plugins/trainsight/`.
+Skills are packaged as a Claude Code plugin in `plugins/trainsight/`.
+
+```bash
+# Register the local marketplace (one-time)
+claude plugin marketplace add ./plugins/marketplace.json
+
+# Install the plugin
+claude plugin install trainsight
+
+# Reload plugins (in Claude Code)
+/reload-plugins
+```
+
+## Plugin Setup
 
 ### Cloud Mode (Recommended)
 
-If Trainsight is deployed, point the plugin at the deployed backend:
+If Trainsight is deployed, the MCP server's `TRAINSIGHT_URL` env var (configured in `plugins/trainsight/.mcp.json`) points at the deployed backend. All requests route through the API with JWT authentication. Your token is cached at `~/.trainsight/token`.
+
+To authenticate with the cloud backend:
 
 ```bash
-# Set the deployed backend URL
-export TRAINSIGHT_URL=https://<your-app-service>.azurewebsites.net
-
-# Install the plugin
-claude plugin add ./plugins/trainsight
+# Login and cache token (done automatically by the MCP server auth helper)
+python plugins/trainsight/mcp-server/auth.py
 ```
-
-The MCP tools auto-detect remote mode and route all requests through the deployed API with JWT authentication. Your token is cached at `~/.trainsight/token`.
 
 ### Local Mode
 
-If running locally, the plugin uses direct database access (no `TRAINSIGHT_URL` needed):
+If running locally, remove or leave blank the `TRAINSIGHT_URL` env var in `.mcp.json`. The MCP server uses direct database access:
 
 ```bash
 # Start the backend server (needed for sync operations)
 python -m uvicorn api.main:app --reload
-
-# Install the plugin
-claude plugin add ./plugins/trainsight
 ```
 
 In local mode, the MCP server imports project modules directly and uses the first registered user's data.
