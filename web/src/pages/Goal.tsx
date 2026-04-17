@@ -484,7 +484,11 @@ export default function Goal() {
         </>
       )}
 
-      <CliHint skill="training-plan" description="Generate a 4-week AI training plan:" />
+      <CliHint
+        skill="race-forecast"
+        title="AI Race Forecast"
+        description="Get a detailed race prediction, goal feasibility analysis, and what you need to improve."
+      />
     </div>
   );
 }

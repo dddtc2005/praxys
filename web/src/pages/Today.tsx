@@ -108,7 +108,11 @@ export default function Today() {
         </div>
       )}
 
-      <CliHint skill="daily-brief" description="Get AI-powered training recommendations in the CLI:" />
+      <CliHint
+        skill="daily-brief"
+        title="AI Daily Brief"
+        description="Get personalized training recommendations, recovery assessment, and today's training signal with the Claude Code plugin."
+      />
     </div>
   );
 }
