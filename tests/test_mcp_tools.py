@@ -4,11 +4,15 @@ Run with: python -m pytest tests/test_mcp_tools.py -v
 
 These tests call the MCP tool functions directly (no MCP protocol),
 verifying they return valid JSON with expected structure.
+Requires the `mcp` package — skipped in CI if not installed.
 """
 import json
 import os
 import sys
 import pytest
+
+# Skip entire module if mcp is not installed (e.g., CI without mcp in requirements)
+mcp = pytest.importorskip("mcp", reason="MCP SDK not installed")
 
 # Add project root and MCP server to path
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
