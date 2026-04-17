@@ -15,13 +15,65 @@
 - First registered user becomes admin automatically
 - Useful for development, personal training, or trying out the app
 
-## Prerequisites
+## Local Development Setup
+
+### 1. Create `.env` from the example
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and set at minimum:
+
+```bash
+# Required: encryption key for platform credentials
+# Generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+TRAINSIGHT_LOCAL_ENCRYPTION_KEY=<your-generated-key>
+
+# Optional: JWT secret (tokens won't survive restarts without this)
+# Generate: python -c "import secrets; print(secrets.token_urlsafe(48))"
+TRAINSIGHT_JWT_SECRET=<your-generated-secret>
+
+# Optional: admin email (registers without invitation, always admin)
+# TRAINSIGHT_ADMIN_EMAIL=you@example.com
+```
+
+### 2. Install dependencies and start servers
+
+```bash
+# Backend
+pip install -r requirements.txt
+python -m uvicorn api.main:app --reload
+
+# Frontend (separate terminal)
+cd web && npm install && npm run dev
+```
+
+The database (`data/trainsight.db`) is created automatically on first startup. New columns are added automatically via auto-migration — no manual migration steps needed.
+
+### 3. Register and configure
+
+1. Open the frontend (default: `http://localhost:5173`)
+2. Register — the first user becomes admin automatically
+3. Connect platforms via the Settings page
+4. Trigger a sync
+
+## Prerequisites (Azure)
 
 - Azure subscription
 - GitHub repository (dddtc2005/trainsight)
 - Azure CLI installed locally
 
 ## Azure Setup (One-Time)
+
+### Resource Names
+
+| Resource | Name |
+|----------|------|
+| Resource group | `rg-trainsight` |
+| App Service | `trainsight-app` |
+| Key Vault | `kv-trainsight` |
+| Static Web App | `swa-trainsight` |
 
 ### 1. Resource Group
 
@@ -43,7 +95,7 @@ az appservice plan create \
 
 ```bash
 az webapp create \
-  --name <app-service-name> \
+  --name trainsight-app \
   --resource-group rg-trainsight \
   --plan plan-trainsight \
   --runtime "PYTHON:3.12"
@@ -53,7 +105,7 @@ az webapp create \
 
 ```bash
 az webapp identity assign \
-  --name <app-service-name> \
+  --name trainsight-app \
   --resource-group rg-trainsight
 ```
 
@@ -106,23 +158,59 @@ az staticwebapp create \
 az staticwebapp backends link \
   --name swa-trainsight \
   --resource-group rg-trainsight \
-  --backend-resource-id $(az webapp show --name <app-service-name> --resource-group rg-trainsight --query id -o tsv)
+  --backend-resource-id $(az webapp show --name trainsight-app --resource-group rg-trainsight --query id -o tsv)
 ```
+
+### 10. Configure CORS on App Service
+
+CORS is handled at the Azure platform level, not via FastAPI middleware. The backend detects when it is running on Azure App Service (via the `WEBSITE_SITE_NAME` environment variable) and skips adding CORS middleware, deferring to the platform configuration.
+
+```bash
+az webapp cors add \
+  --name trainsight-app \
+  --resource-group rg-trainsight \
+  --allowed-origins "https://swa-trainsight.azurestaticapps.net"
+```
+
+For local development, FastAPI's `CORSMiddleware` is added automatically (allowing `localhost:5173`). This can be customized via the `TRAINSIGHT_CORS_ORIGINS` environment variable.
 
 ## GitHub Configuration
 
-### Secrets
+### Secrets (OIDC Authentication)
+
+The CI/CD workflows use OIDC (OpenID Connect) for passwordless Azure authentication. This requires a federated credential on an Azure AD app registration.
 
 | Secret | Value |
 |--------|-------|
-| `AZURE_CREDENTIALS` | Service principal JSON (`az ad sp create-for-rbac --sdk-auth`) |
+| `AZURE_CLIENT_ID` | App registration client ID |
+| `AZURE_TENANT_ID` | Azure AD tenant ID |
+| `AZURE_SUBSCRIPTION_ID` | Azure subscription ID |
 | `AZURE_SWA_TOKEN` | Static Web App deployment token (from Azure Portal > SWA > Manage deployment token) |
 
-### Variables
+**Setting up OIDC:**
 
-| Variable | Value |
-|----------|-------|
-| `AZURE_APP_SERVICE_NAME` | App Service name (e.g., `app-trainsight`) |
+```bash
+# Create app registration
+az ad app create --display-name trainsight-ci
+
+# Create federated credential for GitHub Actions
+az ad app federated-credential create \
+  --id <app-object-id> \
+  --parameters '{
+    "name": "github-main",
+    "issuer": "https://token.actions.githubusercontent.com",
+    "subject": "repo:dddtc2005/trainsight:ref:refs/heads/main",
+    "audiences": ["api://AzureADTokenExchange"]
+  }'
+
+# Grant Contributor role on the resource group
+az role assignment create \
+  --role Contributor \
+  --assignee <app-client-id> \
+  --scope /subscriptions/<sub-id>/resourceGroups/rg-trainsight
+```
+
+The backend workflow (`.github/workflows/deploy-backend.yml`) requests `id-token: write` permission for OIDC and uses `azure/login@v2` with the three OIDC secrets.
 
 ## App Service Environment Variables
 
@@ -134,25 +222,29 @@ Set via Azure Portal > App Service > Configuration > Application settings:
 | `TRAINSIGHT_JWT_SECRET` | (random 32+ char string) | JWT signing key |
 | `KEY_VAULT_URL` | `https://kv-trainsight.vault.azure.net/` | Key Vault URI |
 | `KEY_VAULT_KEY_NAME` | `credential-encryption-key` | RSA key name |
-| `GARMIN_EMAIL` | (email) | Migration only -- later stored encrypted in DB |
-| `GARMIN_PASSWORD` | (password) | Migration only -- later stored encrypted in DB |
-| `STRYD_EMAIL` | (email) | Migration only |
-| `STRYD_PASSWORD` | (password) | Migration only |
-| `OURA_PAT` | (token) | Migration only |
+
+Platform credentials (Garmin, Stryd, Oura) are entered by each user via the Settings page and stored encrypted in the database — no environment variables needed for those.
+
+## Auto-Migration
+
+The database schema is managed by `db/session.py:init_db()`. On every startup:
+1. `Base.metadata.create_all()` creates any new tables
+2. A lightweight migration step inspects existing tables for missing columns and runs `ALTER TABLE ... ADD COLUMN` as needed
+
+This means deploying a new version with additional model columns just works — no manual migration steps required. The migration list is maintained in `init_db()`.
 
 ## Post-Deploy Steps
 
-1. **Register first user** -- `POST /api/auth/register` with email + password
-2. **Run data migration** -- if migrating from local CSVs, use the migration endpoint or script
-3. **Connect platforms** -- via Settings page (credentials stored encrypted in DB via Key Vault)
-4. **Trigger first sync** -- via Settings page or `POST /api/sync` (authenticated)
+1. **Register first user** — `POST /api/auth/register` with email + password (becomes admin)
+2. **Connect platforms** — via Settings page (credentials stored encrypted in DB via Key Vault)
+3. **Trigger first sync** — via Settings page or `POST /api/sync` (authenticated)
 
 ## CI/CD Workflows
 
-- **Backend** (`.github/workflows/deploy-backend.yml`) -- triggers on changes to `api/`, `analysis/`, `sync/`, `scripts/`, `db/`, `data/science/`, `requirements.txt`, `alembic.ini`
-- **Frontend** (`.github/workflows/deploy-frontend.yml`) -- triggers on changes to `web/`; PR builds create staging environments
+- **Backend** (`.github/workflows/deploy-backend.yml`) — triggers on changes to `api/`, `analysis/`, `sync/`, `db/`, `data/science/`, `tests/`, `requirements.txt`. Runs tests first, then deploys via OIDC to `trainsight-app`.
+- **Frontend** (`.github/workflows/deploy-frontend.yml`) — triggers on changes to `web/`; PR builds create staging environments.
 
-Background sync is handled by the backend scheduler (per-user, every 6 hours) -- no CI job needed.
+Background sync is handled by the backend scheduler (per-user, opt-in via `TRAINSIGHT_SYNC_SCHEDULER=true` env var) — no CI job needed.
 
 ## CLI Plugin Setup
 
@@ -160,7 +252,7 @@ After deploying, users connect their CLI tools to the deployed backend:
 
 ```bash
 # Set the deployed backend URL
-export TRAINSIGHT_URL=https://<app-service-name>.azurewebsites.net
+export TRAINSIGHT_URL=https://trainsight-app.azurewebsites.net
 
 # Install the plugin
 claude plugin add ./plugins/trainsight

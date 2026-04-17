@@ -1,93 +1,107 @@
 # Trainsight
 
-Skills-based training insights for technical athletes.
-
-Trainsight is built for engineers who train seriously and prefer terminal-native workflows with tools like [Claude Code](https://claude.com/claude-code) and [GitHub Copilot CLI](https://githubnext.com/projects/copilot-cli/). It combines Garmin, Stryd, and Oura data into training metrics, race predictions, and daily recommendations through AI skills.
-
-Skills in CLI and the local web dashboard are both supported, so you can choose workflow-first interaction in the terminal and visual exploration in the browser.
+Power-based scientific training system for self-coached endurance athletes. Trainsight syncs data from Garmin, Stryd, and Oura Ring, computes training metrics (fitness/fatigue/form, zone analysis, CP trend, race predictions), and serves a modern web dashboard with AI-powered coaching skills.
 
 ![Trainsight Dashboard](data/screenshots/product-showcase.png)
 
-## Who This Is For
+## Usage Modes
 
-- Endurance athletes comfortable with CLI workflows
-- Engineers who want reproducible, scriptable training analysis
-- Users who prefer skill-driven interaction over point-and-click UI
-- People comfortable managing Python dependencies and API credentials
+**Cloud app (recommended):** Deployed on Azure at [jolly-sand-0aeced900.7.azurestaticapps.net](https://jolly-sand-0aeced900.7.azurestaticapps.net). Register, connect your platforms, sync data, and view the dashboard from anywhere. AI features available via the CLI plugin in remote mode.
+
+**Local development:** Same codebase runs locally. Start the backend and frontend dev servers, register as the first user (becomes admin), and you are up and running.
+
+## Architecture
+
+```
+Garmin / Stryd / Oura APIs
+        |
+        v
+  sync/*.py  -->  SQLite (per-user data, encrypted credentials)
+                          |
+                   analysis/metrics.py  (pure computation)
+                          |
+                   api/deps.py  (data layer)
+                          |
+                   api/routes/*.py  (JSON endpoints, JWT auth)
+                          |
+              +-----------+-----------+
+              |                       |
+        web/ (React SPA)    plugins/trainsight/
+        Vite + shadcn/ui     MCP server (12 tools)
+                              CLI skills (8)
+```
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Backend | Python 3.12, FastAPI, SQLAlchemy, FastAPI-Users |
+| Frontend | React, TypeScript, Vite, Tailwind CSS v4, shadcn/ui, Recharts |
+| Database | SQLite with SQLAlchemy ORM, per-user data isolation |
+| Auth | JWT with invitation-based registration (first user = admin) |
+| Encryption | Envelope encryption (Azure Key Vault in prod, Fernet locally) |
+| Infrastructure | Azure App Service B1, Static Web Apps, Key Vault |
+| CI/CD | GitHub Actions with OIDC authentication |
+| AI Integration | Claude Code / Copilot CLI plugin with MCP server |
+
+## Data Sources
+
+- **Garmin Connect** -- activities, splits, daily metrics, HRV, sleep, training status
+- **Stryd** -- power metrics, critical power, lap splits, training plans
+- **Oura Ring** -- sleep scores and stages, HRV, readiness
+
+## Features
+
+- **Fitness/Fatigue/Form tracking** -- Banister impulse-response model with configurable time constants
+- **Zone analysis** -- power and heart rate zone distribution using split-level data
+- **Critical power trend** -- CP history with change detection
+- **Race predictions** -- Riegel formula with power-based adjustments, goal feasibility analysis
+- **Training load management** -- acute/chronic load ratio, recovery monitoring
+- **AI training plans** -- 4-week periodized plans generated via CLI skill
+- **Daily briefs** -- train/modify/rest guidance based on fitness, fatigue, and recovery
+- **Science framework** -- pluggable training theories loaded from YAML (10 theories, 4 pillars)
+- **Multi-platform dashboard** -- responsive design, light/dark themes, mobile-friendly
+
+## Quick Start (Local Development)
+
+```bash
+# 1. Install Python dependencies
+pip install -r requirements.txt
+
+# 2. Configure environment
+cp .env.example .env
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# Add the generated key as ENCRYPTION_KEY in .env
+
+# 3. Start the API server
+python -m uvicorn api.main:app --reload
+
+# 4. Start the frontend dev server (separate terminal)
+cd web && npm install && npm run dev
+
+# 5. Open http://localhost:5173 and register as the first user (becomes admin)
+```
+
+For sample data without API credentials: `python scripts/seed_sample_data.py`
 
 ## CLI Skills
 
-Trainsight ships with 8 AI skills:
+Trainsight ships with 8 AI skills accessible through Claude Code and Copilot CLI:
 
 | Skill | Purpose |
 |-------|---------|
 | `/setup` | Configure connections, thresholds, and goals |
 | `/science` | Select training science theories |
 | `/sync-data` | Sync Garmin / Stryd / Oura data |
-| `/daily-brief` | Get today's training + recovery signal |
+| `/daily-brief` | Get today's training and recovery signal |
 | `/training-review` | Analyze multi-week trends and diagnosis |
-| `/training-plan` | Generate a 4-week plan |
+| `/training-plan` | Generate a 4-week periodized plan |
 | `/race-forecast` | Predict race outcomes and goal feasibility |
 | `/add-metric` | Scaffold a new metric end-to-end |
 
-See [docs/skills.md](docs/skills.md) for usage details.
+Skills are defined in `plugins/trainsight/skills/` and backed by an MCP server with 12 tools in `plugins/trainsight/mcp-server/`.
 
-## Quickstart (Skills + Optional Web)
-
-Choose one data path:
-- **Sample data path:** run step 2 and skip credential setup/sync steps.
-- **Real data path:** skip step 2 and run steps 3-4.
-
-```bash
-# 1) Install Python deps
-pip install -r requirements.txt
-
-# 2) Sample data path (no credentials required)
-python scripts/seed_sample_data.py
-
-# 3) Real data path: set up credentials (Garmin/Stryd/Oura)
-cp sync/.env.example sync/.env
-# edit sync/.env
-
-# 4) Real data path: sync data
-python -m sync.sync_all --from-date 2025-12-01
-
-# 5) Use skills from Claude Code / Copilot CLI
-# e.g. run /setup, /sync-data, /daily-brief, /training-review
-```
-
-## Typical CLI Workflow
-
-1. `/setup` once to configure sources and training settings
-2. `/sync-data` to refresh training and recovery data
-3. `/daily-brief` each morning for train/modify/rest guidance
-4. `/training-review` weekly for diagnosis and adjustments
-5. `/training-plan` when starting a new block
-6. `/race-forecast` as race goals approach
-
-## Web Dashboard (Optional)
-
-If you want local visualization:
-
-```bash
-python -m uvicorn api.main:app --reload
-cd web && npm install && npm run dev
-```
-
-Then open `http://localhost:5173`.
-
-## Architecture (High-Level)
-
-```
-sync/*.py            -> pulls source data into CSVs
-analysis/metrics.py  -> pure computation
-api/deps.py          -> data layer used by API + skills
-api/routes/*.py      -> JSON endpoints
-web/                 -> optional local visualization UI
-.claude/skills/      -> AI skill definitions (auto-discovered)
-```
-
-## Validation
+## Tests
 
 ```bash
 python -m pytest tests/ -v
@@ -96,11 +110,14 @@ cd web && npm run build
 
 ## Documentation
 
-- [CLI Skills](docs/skills.md) — primary usage guide
 - [Getting Started](docs/getting-started.md)
 - [Features](docs/features.md)
+- [CLI Skills](docs/skills.md)
+- [Deployment](docs/deployment.md)
 - [Architecture](docs/dev/architecture.md)
 - [API Reference](docs/dev/api-reference.md)
 - [Contributing](docs/dev/contributing.md)
 
-For detailed architecture and conventions, see [CLAUDE.md](CLAUDE.md).
+## Repository
+
+[github.com/dddtc2005/trainsight](https://github.com/dddtc2005/trainsight)

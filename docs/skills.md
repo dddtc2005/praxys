@@ -6,7 +6,60 @@ Trainsight includes 8 AI skills that provide access to all training features via
 
 - [Claude Code](https://claude.com/claude-code) or [GitHub Copilot CLI](https://githubnext.com/projects/copilot-cli/)
 - Python 3.11+ with project dependencies installed (`pip install -r requirements.txt`)
-- Data synced to `data/` (via credentials in `sync/.env`)
+- A running Trainsight backend (cloud or local) with at least one connected platform
+
+## Plugin Setup
+
+Skills are packaged as a Claude Code / Copilot CLI plugin in `plugins/trainsight/`.
+
+### Cloud Mode (Recommended)
+
+If Trainsight is deployed, point the plugin at the deployed backend:
+
+```bash
+# Set the deployed backend URL
+export TRAINSIGHT_URL=https://<your-app-service>.azurewebsites.net
+
+# Install the plugin
+claude plugin add ./plugins/trainsight
+```
+
+The MCP tools auto-detect remote mode and route all requests through the deployed API with JWT authentication. Your token is cached at `~/.trainsight/token`.
+
+### Local Mode
+
+If running locally, the plugin uses direct database access (no `TRAINSIGHT_URL` needed):
+
+```bash
+# Start the backend server (needed for sync operations)
+python -m uvicorn api.main:app --reload
+
+# Install the plugin
+claude plugin add ./plugins/trainsight
+```
+
+In local mode, the MCP server imports project modules directly and uses the first registered user's data.
+
+## MCP Tools
+
+The plugin provides an MCP server (`plugins/trainsight/mcp-server/server.py`) that exposes these tools to the AI agent:
+
+| Tool | Description |
+|------|-------------|
+| `get_daily_brief` | Today's training signal, recovery, upcoming workouts |
+| `get_training_review` | Zone distribution, fitness/fatigue, diagnosis, suggestions |
+| `get_race_forecast` | Race prediction, goal feasibility, threshold trend |
+| `get_training_context` | Full training context for AI plan generation |
+| `get_settings` | Current user settings and display config |
+| `update_settings` | Update training base, thresholds, zones, goal, science |
+| `get_connections` | Connected platforms and their status |
+| `connect_platform` | Store encrypted credentials for a platform |
+| `disconnect_platform` | Remove a platform connection |
+| `push_training_plan` | Save an AI-generated training plan |
+| `trigger_sync` | Sync data from connected platforms |
+| `get_sync_status` | Check sync status per platform |
+
+Each tool works in both remote mode (HTTP to the deployed API) and local mode (direct Python imports). The mode is determined by the `TRAINSIGHT_URL` environment variable.
 
 ## Available Skills
 
@@ -81,7 +134,7 @@ Generate a personalized 4-week AI training plan.
 - "Plan my next 4 weeks"
 - "My plan is stale, regenerate it"
 
-The skill generates the plan, validates it, shows it for review, and saves to `data/ai/` on approval.
+The skill generates the plan, validates it, shows it for review, and saves to the database on approval.
 
 ### /race-forecast
 
@@ -107,20 +160,40 @@ Scaffold a new training metric end-to-end (7-step guide).
 
 ## How Skills Work
 
-Skills live in `.claude/skills/` and are auto-discovered by Claude Code and Copilot CLI — no installation or symlinking needed.
+Skills are defined in `plugins/trainsight/skills/` — each skill has a `SKILL.md` file with instructions that Claude Code and Copilot CLI auto-discover when the plugin is installed.
 
-Skills that need data (daily-brief, training-review, race-forecast, sync-data) use Python helper scripts in the top-level `scripts/` directory. These scripts:
+Skills that need training data call the MCP tools listed above. The MCP server handles mode detection (remote vs local) transparently, so the same skill works whether you are connected to a cloud deployment or running locally.
 
-1. Import from the project's `api/deps.py` and `analysis/` modules
-2. Run the same computations as the web dashboard
-3. Output structured JSON to stdout
-4. The AI reads the JSON and formats it as a readable brief
+### Architecture
 
-You can also run the scripts directly:
+```
+User invokes /daily-brief
+    → Claude Code reads plugins/trainsight/skills/daily-brief/SKILL.md
+    → Skill instructions tell the AI to call get_daily_brief MCP tool
+    → MCP server (plugins/trainsight/mcp-server/server.py) handles the call:
+        Remote mode: GET /api/today (with JWT auth)
+        Local mode:  Direct Python import → get_dashboard_data()
+    → JSON response returned to the AI
+    → AI formats the data as a readable brief
+```
 
-```bash
-python scripts/daily_brief.py --pretty
-python scripts/run_diagnosis.py --pretty
-python scripts/race_forecast.py --pretty
-python scripts/sync_report.py --pretty --skip oura
+### Plugin Structure
+
+```
+plugins/trainsight/
+  plugin.json          Plugin manifest (name, version, component directories)
+  .mcp.json            MCP server configuration
+  skills/              8 skill directories (auto-discovered)
+    setup/SKILL.md
+    science/SKILL.md
+    sync-data/SKILL.md
+    daily-brief/SKILL.md
+    training-review/SKILL.md
+    training-plan/SKILL.md
+    race-forecast/SKILL.md
+    add-metric/SKILL.md
+  hooks/               Event hooks (e.g., session-start)
+  mcp-server/          MCP server implementation
+    server.py          Dual-mode tool handlers
+    auth.py            JWT token management
 ```
