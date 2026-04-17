@@ -23,6 +23,8 @@ mcp = FastMCP("trainsight", instructions="Training data tools for Trainsight das
 # Mode detection
 REMOTE_URL = os.environ.get("TRAINSIGHT_URL", "")
 IS_REMOTE = bool(REMOTE_URL)
+# Frontend URL for browser-based login (defaults to same as backend for local dev)
+FRONTEND_URL = os.environ.get("TRAINSIGHT_FRONTEND_URL", REMOTE_URL)
 
 
 # ---------------------------------------------------------------------------
@@ -504,7 +506,7 @@ def login() -> str:
 
     # Open browser with callback URL
     callback_url = f"http://localhost:{CALLBACK_PORT}/callback"
-    login_url = f"{REMOTE_URL}/login?cli_callback={callback_url}"
+    login_url = f"{FRONTEND_URL}/login?cli_callback={callback_url}"
     webbrowser.open(login_url)
 
     # Wait for callback (timeout 120 seconds)
