@@ -270,6 +270,53 @@ async function pushDatesToStryd(dates: string[]): Promise<{
   return resp.json();
 }
 
+function ExpandableWorkoutList({
+  workouts,
+  getPushState,
+  pushErrors,
+  hasStryd,
+  pushSingle,
+}: {
+  workouts: PlannedWorkout[];
+  getPushState: (date: string) => PushState;
+  pushErrors: Record<string, string>;
+  hasStryd: boolean;
+  pushSingle: (date: string) => void;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const INITIAL_COUNT = 7; // Show 1 week by default
+
+  const visible = showAll ? workouts : workouts.slice(0, INITIAL_COUNT);
+  const hasMore = workouts.length > INITIAL_COUNT;
+
+  return (
+    <div>
+      <div className="space-y-0.5">
+        {visible.map((w) => (
+          <WorkoutRow
+            key={w.date}
+            workout={w}
+            pushState={getPushState(w.date)}
+            pushError={pushErrors[w.date]}
+            showStryd={hasStryd}
+            onPushSingle={pushSingle}
+          />
+        ))}
+      </div>
+      {hasMore && (
+        <button
+          onClick={() => setShowAll(!showAll)}
+          className="mt-3 w-full text-center text-xs text-muted-foreground hover:text-primary transition-colors py-2"
+        >
+          {showAll
+            ? 'Show less'
+            : `Show ${workouts.length - INITIAL_COUNT} more workouts`}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function UpcomingPlanCard() {
   const { data, loading, error, refetch } = useApi<PlanResponse>('/api/plan');
   const [pushStatus, setPushStatus] = useState<StrydPushStatus>({});
@@ -496,18 +543,13 @@ export default function UpcomingPlanCard() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-0.5">
-          {data.workouts.map((w) => (
-            <WorkoutRow
-              key={w.date}
-              workout={w}
-              pushState={getPushState(w.date)}
-              pushError={pushErrors[w.date]}
-              showStryd={hasStryd}
-              onPushSingle={pushSingle}
-            />
-          ))}
-        </div>
+        <ExpandableWorkoutList
+          workouts={data.workouts}
+          getPushState={getPushState}
+          pushErrors={pushErrors}
+          hasStryd={hasStryd}
+          pushSingle={pushSingle}
+        />
       </CardContent>
     </Card>
   );

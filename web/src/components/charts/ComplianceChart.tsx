@@ -7,6 +7,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
+  Cell,
 } from 'recharts';
 import type { WeeklyReview } from '@/types/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,11 +20,14 @@ interface Props {
 
 export default function ComplianceChart({ data, loadLabel }: Props) {
   const chartColors = useChartColors();
-  const chartData = data.weeks.map((week, i) => ({
-    week,
-    planned: data.planned_rss[i],
-    actual: data.actual_rss[i],
-  }));
+  const label = loadLabel || 'RSS';
+
+  const chartData = data.weeks.map((week, i) => {
+    const planned = data.planned_rss[i] ?? 0;
+    const actual = data.actual_rss[i] ?? 0;
+    const compliance = planned > 0 ? Math.round((actual / planned) * 100) : null;
+    return { week, planned, actual, compliance };
+  });
 
   return (
     <Card>
@@ -34,7 +38,12 @@ export default function ComplianceChart({ data, loadLabel }: Props) {
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+          <BarChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }} barGap={-30}>
+            <defs>
+              <pattern id="planned-pattern" patternUnits="userSpaceOnUse" width="6" height="6">
+                <path d="M0 6L6 0" stroke={chartColors.tick} strokeWidth="1" strokeOpacity="0.4" />
+              </pattern>
+            </defs>
             <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
             <XAxis
               dataKey="week"
@@ -49,10 +58,50 @@ export default function ComplianceChart({ data, loadLabel }: Props) {
                 borderRadius: 8,
               }}
               labelStyle={{ color: chartColors.tickLight }}
+              formatter={(value: number, name: string, entry) => {
+                const item = entry.payload;
+                if (name === `Actual ${label}`) {
+                  const pct = item.compliance != null ? ` (${item.compliance}%)` : '';
+                  return [`${Math.round(value)}${pct}`, name];
+                }
+                return [Math.round(value), name];
+              }}
             />
-            <Legend wrapperStyle={{ fontSize: 12, color: chartColors.tickLight }} />
-            <Bar dataKey="planned" name={`Planned ${loadLabel || 'RSS'}`} fill={chartColors.tick} radius={[3, 3, 0, 0]} />
-            <Bar dataKey="actual" name={`Actual ${loadLabel || 'RSS'}`} fill={chartColors.form} radius={[3, 3, 0, 0]} />
+            <Legend
+              wrapperStyle={{ fontSize: 12, color: chartColors.tickLight }}
+              payload={[
+                { value: `Actual ${label}`, type: 'rect', color: chartColors.fitness },
+                { value: `Planned ${label}`, type: 'rect', color: chartColors.tick },
+              ]}
+            />
+            {/* Planned bar — wider, behind, with diagonal pattern fill */}
+            <Bar
+              dataKey="planned"
+              name={`Planned ${label}`}
+              fill="url(#planned-pattern)"
+              stroke={chartColors.tick}
+              strokeWidth={1}
+              strokeOpacity={0.3}
+              radius={[3, 3, 0, 0]}
+              barSize={32}
+            />
+            {/* Actual bar — narrower, in front, solid fill with compliance coloring */}
+            <Bar
+              dataKey="actual"
+              name={`Actual ${label}`}
+              radius={[3, 3, 0, 0]}
+              barSize={22}
+            >
+              {chartData.map((entry, i) => {
+                const pct = entry.compliance;
+                let fill = chartColors.fitness; // green = on target
+                if (pct != null) {
+                  if (pct < 80) fill = chartColors.warning; // amber = under
+                  else if (pct > 120) fill = chartColors.negative; // red = over
+                }
+                return <Cell key={i} fill={fill} fillOpacity={0.85} />;
+              })}
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </CardContent>

@@ -28,7 +28,7 @@ def get_plan(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Return upcoming planned workouts (today + next 14 days)."""
+    """Return all upcoming planned workouts (today onwards)."""
     data = get_dashboard_data(user_id=user_id, db=db)
     plan_df: pd.DataFrame = data.get("plan", pd.DataFrame())
     today = date.today()
@@ -36,8 +36,8 @@ def get_plan(
     if plan_df.empty:
         return {"workouts": [], "cp_current": None}
 
-    # Filter for today onwards
-    upcoming = plan_df[plan_df["date"] >= today].sort_values("date").head(14)
+    # Filter for today onwards — return all (frontend handles pagination)
+    upcoming = plan_df[plan_df["date"] >= today].sort_values("date")
 
     workouts = []
     for _, row in upcoming.iterrows():
