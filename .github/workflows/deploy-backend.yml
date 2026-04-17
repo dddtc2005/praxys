@@ -9,6 +9,7 @@ on:
       - 'sync/**'
       - 'db/**'
       - 'data/science/**'
+      - 'tests/**'
       - 'requirements.txt'
       - '.github/workflows/deploy-backend.yml'
 
