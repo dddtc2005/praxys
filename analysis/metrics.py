@@ -656,15 +656,17 @@ def required_cp_for_time(
 def predict_time_from_pace(
     threshold_pace_sec_km: float,
     distance_km: float = 42.195,
+    riegel_exponent: float | None = None,
 ) -> float:
     """Predict race time using Riegel's formula from threshold pace.
 
     Threshold pace is treated as ~10K race pace (1-hour effort).
-    Riegel: T2 = T1 * (D2/D1)^1.06
+    Riegel: T2 = T1 * (D2/D1)^exponent
     Source: https://runningwritings.com/2024/01/critical-speed-guide-for-runners.html
     """
+    exponent = riegel_exponent or RIEGEL_EXPONENT
     reference_time = threshold_pace_sec_km * THRESHOLD_REFERENCE_KM
-    return reference_time * (distance_km / THRESHOLD_REFERENCE_KM) ** RIEGEL_EXPONENT
+    return reference_time * (distance_km / THRESHOLD_REFERENCE_KM) ** exponent
 
 
 def required_pace_for_time(

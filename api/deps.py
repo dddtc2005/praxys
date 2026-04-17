@@ -476,24 +476,33 @@ def _build_race_countdown(
     distance_key: str = "marathon",
     training_base: str = "power",
     threshold_pace: float | None = None,
+    riegel_exponent: float | None = None,
+    prediction_theory_name: str | None = None,
 ) -> dict:
     """Build race countdown / CP milestone payload depending on config.
 
     For power base: uses power-pace model for predictions.
     For HR/pace bases: uses Riegel formula from threshold pace.
+    The prediction method is determined by the user's science theory selection.
     """
+    is_inverted = training_base == "pace"
+
+    # Predicted time — uses prediction theory selection
+    predicted_time: float | None = None
+    prediction_method = "none"
+    if training_base == "power" and latest_cp:
+        predicted_time = predict_marathon_time(latest_cp, power_pace_pairs, power_fraction, distance_km)
+        prediction_method = "critical_power"
+    elif threshold_pace:
+        predicted_time = predict_time_from_pace(threshold_pace, distance_km, riegel_exponent)
+        prediction_method = "riegel"
+
     common = {
         "distance": distance_key,
         "distance_label": distance_label,
+        "prediction_method": prediction_method,
+        "prediction_theory": prediction_theory_name,
     }
-    is_inverted = training_base == "pace"
-
-    # Predicted time — base-aware
-    predicted_time: float | None = None
-    if training_base == "power" and latest_cp:
-        predicted_time = predict_marathon_time(latest_cp, power_pace_pairs, power_fraction, distance_km)
-    elif threshold_pace:
-        predicted_time = predict_time_from_pace(threshold_pace, distance_km)
 
     if race_date_str:
         days_left = (date.fromisoformat(race_date_str) - today).days
@@ -1077,6 +1086,23 @@ def get_dashboard_data(user_id: str = None, db=None) -> dict:
     dist_config = get_distance_config(distance_key)
     threshold_pace = thresholds.threshold_pace_sec_km if config.training_base in ("hr", "pace") else None
 
+    # Use prediction theory params if available (from science framework)
+    prediction_theory = science.get("prediction")
+    if prediction_theory and prediction_theory.params:
+        theory_fractions = prediction_theory.params.get("distance_power_fractions", {})
+        # Override power fraction from theory if available for this distance
+        theory_fraction = theory_fractions.get(distance_key)
+        if theory_fraction:
+            dist_config = {**dist_config, "power_fraction": theory_fraction}
+        theory_exponent = prediction_theory.params.get("riegel_exponent")
+    else:
+        theory_exponent = None
+
+    # Determine prediction method based on science theory selection
+    # If user selected Riegel and has pace data, use Riegel even if power is available
+    prediction_theory_id = config.science.get("prediction", "critical_power")
+    use_riegel = prediction_theory_id == "riegel" and threshold_pace is not None
+
     race_countdown = _build_race_countdown(
         race_date_str, target_time_sec, latest_cp, power_pace_pairs,
         cp_trend_data, today,
@@ -1084,8 +1110,10 @@ def get_dashboard_data(user_id: str = None, db=None) -> dict:
         power_fraction=dist_config["power_fraction"],
         distance_label=dist_config["label"],
         distance_key=distance_key,
-        training_base=config.training_base,
+        training_base="pace" if use_riegel else config.training_base,
         threshold_pace=threshold_pace,
+        riegel_exponent=theory_exponent,
+        prediction_theory_name=prediction_theory.name if prediction_theory else None,
     )
 
     # Recovery
