@@ -1022,7 +1022,7 @@ def get_dashboard_data(user_id: str = None, db=None) -> dict:
                         if ratio < 0.10:  # Same activity (duration within 10%)
                             keep_mask[oidx] = False
                             break
-        merged = merged[keep_mask].drop(columns=["_date", "_dur", "_is_primary"], errors="ignore")
+        merged = merged[keep_mask].drop(columns=["_date", "_dur", "_is_primary"], errors="ignore").reset_index(drop=True)
 
     thresholds = _resolve_thresholds(config, data_dir=data_dir, user_id=user_id, db=db)
 
