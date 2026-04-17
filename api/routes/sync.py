@@ -190,7 +190,10 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
     data_dir = _get_data_dir()
     token_dir = os.path.join(os.path.dirname(data_dir), "sync", ".garmin_tokens")
     client.login(token_dir)
-    client.garth.dump(token_dir)
+    try:
+        client.garth.dump(token_dir)
+    except AttributeError:
+        pass  # garth not available in all garminconnect versions
 
     end = date.today().isoformat()
     start = from_date or (date.today() - timedelta(days=7)).isoformat()

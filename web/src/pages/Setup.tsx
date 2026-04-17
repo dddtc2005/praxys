@@ -675,6 +675,22 @@ export default function Setup() {
                 <div className="space-y-2">
                   <Label>Activity types to sync</Label>
                   <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allKeys = GARMIN_ACTIVITY_CATEGORIES.map((c) => c.key);
+                        setSelectedCategories((prev) =>
+                          prev.length === allKeys.length ? ['running'] : allKeys
+                        );
+                      }}
+                      className={`rounded-md px-2.5 py-1 text-xs font-medium transition-all border ${
+                        selectedCategories.length === GARMIN_ACTIVITY_CATEGORIES.length
+                          ? 'border-primary/40 bg-primary/10 text-primary'
+                          : 'border-border bg-muted text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      All
+                    </button>
                     {GARMIN_ACTIVITY_CATEGORIES.map((cat) => {
                       const selected = selectedCategories.includes(cat.key);
                       return (

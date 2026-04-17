@@ -539,7 +539,10 @@ export default function Settings() {
                           disabled={isSyncing}
                         >
                           {isSyncing ? (
-                            <span className="h-3 w-3 animate-spin rounded-full border border-primary border-t-transparent" />
+                            <span className="flex items-center gap-1.5">
+                              <span className="h-3 w-3 animate-spin rounded-full border border-primary border-t-transparent" />
+                              <span className="text-xs">{status?.progress || 'Syncing'}</span>
+                            </span>
                           ) : status?.status === 'done' ? (
                             <span className="text-primary">Synced</span>
                           ) : status?.status === 'error' ? (

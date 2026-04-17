@@ -59,7 +59,7 @@ if not os.environ.get("WEBSITE_SITE_NAME"):
 from api.users import fastapi_users, auth_backend
 
 app.include_router(
-    fastapi_users.get_auth_router(auth_backend),
+    fastapi_users.get_auth_router(auth_backend, requires_verification=False),
     prefix="/api/auth",
     tags=["auth"],
 )
