@@ -47,3 +47,40 @@ def get_current_user_id(request: Request, db: Session = Depends(get_db)) -> str:
         raise HTTPException(401, "Token expired")
     except jwt.InvalidTokenError as e:
         raise HTTPException(401, f"Invalid token: {e}")
+
+
+def get_data_user_id(request: Request, db: Session = Depends(get_db)) -> str:
+    """Get the user_id whose data should be displayed.
+
+    For demo users, returns the source admin's user_id (demo_of).
+    For normal users, returns their own user_id.
+    Use this on READ endpoints so demo users transparently see admin's data.
+    """
+    user_id = get_current_user_id(request, db)
+    from db.models import User
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(401, "User not found")
+    if user.is_demo and user.demo_of:
+        # Verify the source admin still exists
+        target = db.query(User).filter(User.id == user.demo_of, User.is_active == True).first()
+        if not target:
+            raise HTTPException(403, "Demo source account is no longer available")
+        return user.demo_of
+    return user_id
+
+
+def require_write_access(request: Request, db: Session = Depends(get_db)) -> str:
+    """Get current user_id and verify write access.
+
+    Raises 403 for demo accounts. Fails closed — unknown users are rejected.
+    Use this on WRITE endpoints.
+    """
+    user_id = get_current_user_id(request, db)
+    from db.models import User
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(401, "User not found")
+    if user.is_demo:
+        raise HTTPException(403, "Demo accounts cannot modify data")
+    return user_id

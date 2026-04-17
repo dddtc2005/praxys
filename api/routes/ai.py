@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from api.auth import get_current_user_id
+from api.auth import get_data_user_id, require_write_access
 from api.deps import get_dashboard_data
 from db.session import get_db
 
@@ -16,7 +16,7 @@ router = APIRouter()
 
 @router.get("/ai/context")
 def get_ai_context(
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_data_user_id),
     db: Session = Depends(get_db),
 ):
     """Return full training context for AI plan generation."""
@@ -32,7 +32,7 @@ class PlanUpload(BaseModel):
 @router.post("/plan/upload")
 def upload_plan(
     payload: PlanUpload,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_write_access),
     db: Session = Depends(get_db),
 ):
     """Upload an AI-generated training plan as CSV text.

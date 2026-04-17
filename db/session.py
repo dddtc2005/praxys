@@ -78,6 +78,8 @@ def init_db():
     _migrations = [
         ("user_config", "unit_system", "VARCHAR(10) DEFAULT 'metric'"),
         ("user_config", "display_name", "VARCHAR(100) DEFAULT ''"),
+        ("users", "is_demo", "BOOLEAN NOT NULL DEFAULT 0"),
+        ("users", "demo_of", "VARCHAR(36) DEFAULT NULL"),
     ]
     with engine.connect() as conn:
         for table, column, col_type in _migrations:

@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from api.auth import get_current_user_id
+from api.auth import get_data_user_id
 from api.deps import get_dashboard_data
 from db.session import get_db
 
@@ -14,7 +14,7 @@ def get_history(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     source: str = Query(None, description="Filter by source (garmin, stryd). Defaults to primary activities source."),
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_data_user_id),
     db: Session = Depends(get_db),
 ):
     from analysis.config import load_config_from_db

@@ -25,7 +25,7 @@ from analysis.config import (
 from analysis.providers import available_providers
 from analysis.thresholds import detect_thresholds
 from analysis.training_base import get_display_config
-from api.auth import get_current_user_id
+from api.auth import get_data_user_id, require_write_access
 from db.session import get_db
 
 router = APIRouter()
@@ -145,7 +145,7 @@ def resolve_thresholds(config_thresholds: dict, detected: dict) -> dict:
 
 @router.get("/settings")
 def get_settings(
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_data_user_id),
     db: Session = Depends(get_db),
 ) -> dict:
     """Return current user config, platform capabilities, detected thresholds, and display config."""
@@ -173,7 +173,7 @@ def get_settings(
 @router.put("/settings")
 def update_settings(
     body: SettingsUpdate,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_write_access),
     db: Session = Depends(get_db),
 ) -> dict:
     """Update user settings and persist to database."""
@@ -225,7 +225,7 @@ class ConnectPlatformRequest(BaseModel):
 
 @router.get("/settings/connections")
 def get_connections(
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_data_user_id),
     db: Session = Depends(get_db),
 ) -> dict:
     """Return connected platforms and their status (credentials are never returned)."""
@@ -249,7 +249,7 @@ def get_connections(
 def connect_platform(
     platform: str,
     body: ConnectPlatformRequest,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_write_access),
     db: Session = Depends(get_db),
 ) -> dict:
     """Connect a platform by storing encrypted credentials."""
@@ -311,7 +311,7 @@ def connect_platform(
 @router.delete("/settings/connections/{platform}")
 def disconnect_platform(
     platform: str,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_write_access),
     db: Session = Depends(get_db),
 ) -> dict:
     """Disconnect a platform — deletes stored credentials."""

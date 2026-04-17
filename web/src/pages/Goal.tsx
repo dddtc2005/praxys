@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useApi } from '@/hooks/useApi';
+import { useAuth } from '@/hooks/useAuth';
 import { useSettings } from '@/contexts/SettingsContext';
 import type { GoalResponse } from '@/types/api';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -423,6 +424,7 @@ function GoalSkeleton() {
 
 export default function Goal() {
   const { data, loading, error, refetch } = useApi<GoalResponse>('/api/goal');
+  const { isDemo } = useAuth();
   const { config, updateSettings } = useSettings();
   const [isEditing, setIsEditing] = useState(false);
 
@@ -448,7 +450,7 @@ export default function Goal() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Goal Tracker</h1>
         {data && (
-          <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+          <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} disabled={isDemo}>
             Change Goal
           </Button>
         )}

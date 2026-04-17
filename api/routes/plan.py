@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
-from api.auth import get_current_user_id
+from api.auth import get_data_user_id, require_write_access
 from api.deps import get_dashboard_data
 from db.session import get_db
 
@@ -25,7 +25,7 @@ _STRYD_PUSH_STATUS_PATH = os.path.join(_DATA_DIR, "ai", "stryd_push_status.json"
 
 @router.get("/plan")
 def get_plan(
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_data_user_id),
     db: Session = Depends(get_db),
 ) -> dict:
     """Return all upcoming planned workouts (today onwards)."""
@@ -94,7 +94,7 @@ def _save_push_status(status: dict) -> None:
 
 @router.get("/plan/stryd-status")
 def get_stryd_push_status(
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_data_user_id),
 ) -> dict:
     """Return push status for all workouts synced to Stryd."""
     return _load_push_status()
@@ -107,7 +107,7 @@ class PushStrydRequest(BaseModel):
 @router.post("/plan/push-stryd")
 def push_plan_to_stryd(
     request: PushStrydRequest,
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(require_write_access),
     db: Session = Depends(get_db),
 ) -> dict:
     """Push selected AI plan workouts to Stryd calendar.
@@ -234,7 +234,7 @@ def push_plan_to_stryd(
 @router.delete("/plan/stryd-workout/{workout_id}")
 def delete_stryd_workout(
     workout_id: str,
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(require_write_access),
     db: Session = Depends(get_db),
 ) -> dict:
     """Delete a previously pushed workout from Stryd."""

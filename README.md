@@ -2,7 +2,7 @@
 
 Power-based scientific training system for self-coached endurance athletes. Trainsight syncs data from Garmin, Stryd, and Oura Ring, computes training metrics (fitness/fatigue/form, zone analysis, CP trend, race predictions), and serves a modern web dashboard with AI-powered coaching skills.
 
-![Trainsight Dashboard](data/screenshots/product-showcase.png)
+![Trainsight — Train like it's a science.](data/screenshots/hero-showcase.png)
 
 ## Usage Modes
 

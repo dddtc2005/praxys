@@ -117,6 +117,31 @@ Admin endpoints (`api/routes/admin.py`) are gated by `is_superuser=True` on the 
 - **User management:** List all users, delete a user (cascades all their data), toggle admin role
 - **Invitation codes:** Generate (`TS-XXXX-XXXX` format), list with usage status, revoke
 - Self-modification safeguards: admins cannot delete themselves or change their own role
+- **Demo accounts:** Read-only accounts that mirror an admin's data (see below)
+
+### Demo Accounts
+
+Demo accounts let admins share a live, read-only view of their dashboard with others.
+
+**Data model:** Two columns on `User`: `is_demo: bool` and `demo_of: FK → users.id`. When `is_demo` is true, all data queries resolve to `demo_of` (the admin's user_id) instead of the demo user's own id.
+
+**Auth dependencies (`api/auth.py`):**
+- `get_current_user_id` — resolves the authenticated user (unchanged)
+- `get_data_user_id` — returns `demo_of` for demo users, own `user_id` for normal users. Used on all READ endpoints.
+- `require_write_access` — raises 403 for demo users. Used on all WRITE endpoints.
+
+**How it works:**
+1. Admin creates a demo account via `POST /api/admin/demo-accounts` (email + password)
+2. The demo user is created with `is_demo=True, demo_of=<admin's user_id>`
+3. Demo user logs in normally (JWT auth) but all data reads are scoped to the admin's data
+4. All write operations (settings, sync, plans, connections) return 403
+5. Frontend shows a persistent amber banner: "Live demo with real training data — read-only mode"
+6. Settings page is visually dimmed with pointer-events disabled
+
+**Key design decisions:**
+- No data duplication — demo users see live data that updates when the admin syncs
+- Each admin's demo accounts only see that admin's data (supports multiple admins)
+- Server-side enforcement — even direct API calls get 403, not just UI hiding
 
 ### Pluggable Science Framework
 
