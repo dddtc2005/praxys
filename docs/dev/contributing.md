@@ -30,12 +30,12 @@ How to extend Trainsight with new features.
 
 1. **Create sync script** `sync/{source}_sync.py`:
    - Follow the pattern in `garmin_sync.py`
-   - Use `csv_utils.append_rows()` for idempotent writes
-   - Accept `data_dir` and `from_date` parameters
+   - Use `db/sync_writer.py` for writing synced data to the database
+   - Accept `user_id` and `from_date` parameters
 
-2. **Define CSV schema** in `data/{source}/` and add sample data to `data/sample/{source}/`
+2. **Define database models** in `db/models.py` — add SQLAlchemy models for the new source's tables
 
-3. **Register in `data_loader.py`** — add to both `load_all_data()` (raw CSV paths) and `load_data()` (provider-based loading)
+3. **Register in `data_loader.py`** — add to both `load_all_data()` and `load_data()` (provider-based loading)
 
 4. **Add credentials** to `sync/.env.example`
 
@@ -47,7 +47,7 @@ How to extend Trainsight with new features.
 
 ## Adding a New Skill
 
-1. **Create skill directory** `.claude/skills/{skill-name}/`
+1. **Create skill directory** `plugins/trainsight/skills/{skill-name}/`
 
 2. **Write `SKILL.md`** with frontmatter:
    ```yaml
@@ -58,13 +58,17 @@ How to extend Trainsight with new features.
    ---
    ```
 
-3. **Add helper script** (if needed) in `scripts/`:
+3. **Add MCP tool** (if needed) in `plugins/trainsight/mcp-server/`:
+   - Define the tool handler following existing MCP tool patterns
+   - The tool will be available to both Claude Code and Copilot CLI via the plugin's MCP server
+
+4. **Add helper script** (if needed) in `scripts/`:
    - Follow the `build_training_context.py` pattern
    - Set `sys.path` to project root
    - Output JSON to stdout
    - Accept `--pretty` flag
 
-4. **Update docs**: `docs/skills.md`, `CLAUDE.md` skills table.
+5. **Update docs**: `docs/skills.md`, `CLAUDE.md` skills table.
 
 ## Adding a New Science Theory
 
@@ -150,4 +154,4 @@ When making changes, update the relevant docs:
 | New user feature | `docs/features.md` |
 | Setup changes | `README.md`, `docs/getting-started.md` |
 | Convention changes | `CLAUDE.md` |
-| CSV schema changes | `CLAUDE.md` data sources |
+| DB model changes | `CLAUDE.md` data sources |

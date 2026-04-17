@@ -15,6 +15,18 @@
 - First registered user becomes admin automatically
 - Useful for development, personal training, or trying out the app
 
+## Joining an Existing Deployment
+
+If a Trainsight instance is already deployed and you want to contribute as a developer, you do not need to deploy your own. Ask the project admin for:
+
+1. **Access to the Azure resource group** (`rg-trainsight`) — Contributor role is sufficient for most development tasks
+2. **An invitation code** — to register an account on the deployed instance
+3. **Repository access** — clone the repo and follow [Local Development Setup](#local-development-setup) below for backend/frontend development
+
+The deployed cloud instance and your local dev instance use the same codebase. You can develop locally and deploy via the existing CI/CD pipeline.
+
+---
+
 ## Local Development Setup
 
 ### 1. Create `.env` from the example
