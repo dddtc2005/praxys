@@ -79,7 +79,20 @@ function LoginGuard() {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) return null;
-  if (isAuthenticated) return <Navigate to="/" replace />;
+
+  if (isAuthenticated) {
+    // CLI login flow: if already logged in, redirect token to CLI callback immediately
+    const params = new URLSearchParams(window.location.search);
+    const cliCallback = params.get('cli_callback');
+    if (cliCallback) {
+      const token = localStorage.getItem('trainsight-auth-token');
+      if (token) {
+        window.location.href = `${cliCallback}?token=${encodeURIComponent(token)}`;
+        return null;
+      }
+    }
+    return <Navigate to="/" replace />;
+  }
 
   return <Login />;
 }
