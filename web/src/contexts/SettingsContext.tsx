@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { DisplayConfig, SettingsConfig, SettingsResponse, TrainingBase, ThresholdValue } from '../types/api';
+import { API_BASE, getAuthHeaders } from '../hooks/useApi';
 
 interface SettingsContextValue {
   config: SettingsConfig | null;
@@ -53,8 +54,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetch('/api/settings')
+    fetch(`${API_BASE}/api/settings`, { headers: getAuthHeaders() })
       .then((r) => {
+        if (r.status === 401) {
+          window.location.href = '/login';
+          throw new Error('Unauthorized');
+        }
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json() as Promise<SettingsResponse>;
       })
@@ -77,11 +82,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, [fetchKey]);
 
   const updateSettings = async (update: Partial<SettingsConfig>) => {
-    const res = await fetch('/api/settings', {
+    const res = await fetch(`${API_BASE}/api/settings`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify(update),
     });
+    if (res.status === 401) {
+      window.location.href = '/login';
+      throw new Error('Unauthorized');
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     setConfig(data.config);

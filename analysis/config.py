@@ -43,6 +43,12 @@ PLATFORM_CAPABILITIES: dict[str, PlatformCaps] = {
 class UserConfig:
     """Top-level user configuration stored as JSON."""
 
+    # User display name (shown in sidebar, optional)
+    display_name: str = ""
+
+    # Unit system: "metric" (km, min/km) or "imperial" (miles, min/mile)
+    unit_system: str = "metric"
+
     # Which platforms the user has connected
     connections: list[str] = field(default_factory=lambda: [
         "garmin", "stryd", "oura",
@@ -177,3 +183,114 @@ def save_config(config: UserConfig, config_path: str | None = None) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(asdict(config), f, indent=2)
+
+
+# ---------------------------------------------------------------------------
+# Database-based config (multi-user deployable architecture)
+# ---------------------------------------------------------------------------
+
+
+def load_config_from_db(user_id: str, db) -> UserConfig:
+    """Load user config from database.
+
+    Args:
+        user_id: The user's ID.
+        db: A SQLAlchemy sync Session.
+
+    Returns:
+        A UserConfig dataclass populated from the DB, or defaults if not found.
+    """
+    from db.models import UserConfig as UserConfigModel
+
+    row = db.query(UserConfigModel).filter(UserConfigModel.user_id == user_id).first()
+    if not row:
+        return UserConfig()
+
+    # Preferences: use stored preferences if set, otherwise derive from connections
+    stored_prefs = row.preferences if row.preferences else {}
+    derived_prefs = _get_preferences_from_db(user_id, db)
+    # Merge: stored prefs take priority, fill gaps from derived
+    merged_prefs = {**derived_prefs, **stored_prefs}
+
+    return UserConfig(
+        display_name=row.display_name or "",
+        unit_system=getattr(row, "unit_system", "metric") or "metric",
+        connections=_get_connections_from_db(user_id, db),
+        preferences=merged_prefs,
+        training_base=row.training_base or "power",
+        thresholds=row.thresholds or {},
+        zones=row.zones or {k: list(v) for k, v in DEFAULT_ZONES.items()},
+        goal=row.goal or {},
+        science=row.science or {},
+        zone_labels=row.zone_labels or "standard",
+        activity_routing=row.activity_routing or {"default": "garmin"},
+        source_options=row.source_options or {},
+    )
+
+
+def _get_connections_from_db(user_id: str, db) -> list[str]:
+    """Get connected platform names from user_connections table."""
+    from db.models import UserConnection
+
+    rows = (
+        db.query(UserConnection.platform)
+        .filter(
+            UserConnection.user_id == user_id,
+            UserConnection.status.in_(["connected", "error"]),
+        )
+        .all()
+    )
+    return [r[0] for r in rows]
+
+
+def _get_preferences_from_db(user_id: str, db) -> dict:
+    """Derive preferences from user_connections.
+
+    Builds a category -> platform mapping from connection preferences.
+    """
+    from db.models import UserConnection
+
+    prefs = {}
+    rows = (
+        db.query(UserConnection)
+        .filter(
+            UserConnection.user_id == user_id,
+            UserConnection.status.in_(["connected", "error"]),
+        )
+        .all()
+    )
+    for row in rows:
+        conn_prefs = row.preferences or {}
+        for category, enabled in conn_prefs.items():
+            if enabled and category not in prefs:
+                prefs[category] = row.platform
+    return prefs
+
+
+def save_config_to_db(user_id: str, config: UserConfig, db) -> None:
+    """Save user config to database.
+
+    Args:
+        user_id: The user's ID.
+        config: The UserConfig dataclass to persist.
+        db: A SQLAlchemy sync Session.
+    """
+    from db.models import UserConfig as UserConfigModel
+
+    row = db.query(UserConfigModel).filter(UserConfigModel.user_id == user_id).first()
+    if not row:
+        row = UserConfigModel(user_id=user_id)
+        db.add(row)
+
+    row.display_name = config.display_name
+    row.unit_system = config.unit_system
+    row.training_base = config.training_base
+    row.preferences = config.preferences
+    row.thresholds = config.thresholds
+    row.zones = config.zones
+    row.goal = config.goal
+    row.science = config.science
+    row.zone_labels = config.zone_labels
+    row.activity_routing = config.activity_routing
+    row.source_options = config.source_options
+    db.commit()

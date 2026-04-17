@@ -18,8 +18,11 @@ import { useScience, tsbZoneFromConfig } from '@/contexts/ScienceContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useChartColors } from '@/hooks/useChartColors';
 
+import type { ScienceNoteInfo } from '@/types/api';
+
 interface Props {
   data: TimeSeriesData;
+  scienceNote?: ScienceNoteInfo;
 }
 
 const ZONE_OPACITIES = [0.04, 0.07, 0.06, 0.04, 0.05];
@@ -77,7 +80,7 @@ function CustomTooltip({ active, payload, label, tsbZones, chartColors }: any) {
   );
 }
 
-export default function FitnessFatigueChart({ data }: Props) {
+export default function FitnessFatigueChart({ data, scienceNote }: Props) {
   const chartColors = useChartColors();
   const { tsbZones } = useScience();
   const { chartData, yMin, yMax, hasProjection } = useMemo(() => {
@@ -130,9 +133,9 @@ export default function FitnessFatigueChart({ data }: Props) {
       ...(data.projected_ctl ?? []),
       ...(data.projected_atl ?? []),
       ...(data.projected_tsb ?? []),
-    ];
-    const min = Math.min(...allVals);
-    const max = Math.max(...allVals);
+    ].filter((v) => Number.isFinite(v));
+    const min = allVals.length > 0 ? Math.min(...allVals) : -20;
+    const max = allVals.length > 0 ? Math.max(...allVals) : 80;
 
     return {
       chartData: deduped,
@@ -252,9 +255,9 @@ export default function FitnessFatigueChart({ data }: Props) {
 
 
         <ScienceNote
-          text="Fitness (CTL) is an exponentially weighted moving average of daily training load over 42 days. Fatigue (ATL) uses a 7-day window. Form (TSB) = CTL \u2212 ATL. Zones aligned with Stryd RSB: Performance (5\u201325) for race readiness, Optimal (-10\u20135) the sweet spot between stress and recovery, Productive (-25\u2013-10) building fitness with manageable fatigue, Overreaching (<-25) signals recovery needed. Projected values are estimated from your training plan. Uses the standard PMC model (Banister, 1975) with \u03B1 = 1/\u03C4, matching TrainingPeaks, Stryd, and Intervals.icu."
-          sourceUrl="https://help.trainingpeaks.com/hc/en-us/articles/204071944"
-          sourceLabel="TrainingPeaks PMC"
+          text={scienceNote?.description || "Fitness (CTL) is an exponentially weighted moving average of daily training load. Fatigue (ATL) uses a shorter window. Form (TSB) = CTL \u2212 ATL."}
+          sourceUrl={scienceNote?.citations?.[0]?.url || "https://help.trainingpeaks.com/hc/en-us/articles/204071944"}
+          sourceLabel={scienceNote?.citations?.[0]?.label || "TrainingPeaks PMC"}
         />
       </CardContent>
     </Card>

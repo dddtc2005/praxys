@@ -9,8 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import GoalEditor from '@/components/GoalEditor';
+import CliHint from '@/components/CliHint';
 import MilestoneTracker from '@/components/MilestoneTracker';
 import CpTrendChart from '@/components/charts/CpTrendChart';
+import DataHint from '@/components/DataHint';
 import ScienceNote from '@/components/ScienceNote';
 import { formatTime, formatPace } from '@/lib/format';
 
@@ -59,7 +61,16 @@ const SCIENCE_ULTRA = 'Ultra distance power fractions (50K+) are estimates with 
   'strategy that dominate ultra performance but are not captured by power/pace models.';
 const SCIENCE_ULTRA_URL = 'https://runningwritings.com/2024/01/critical-speed-guide-for-runners.html';
 
-function predictionNote(base?: string) {
+function predictionNote(base?: string, scienceNotes?: Record<string, { name: string; description: string; citations: { label: string; url: string }[] }>) {
+  // Use active prediction theory description if available
+  if (scienceNotes?.prediction?.description) {
+    const pred = scienceNotes.prediction;
+    return {
+      text: pred.description,
+      url: pred.citations?.[0]?.url || (base === 'power' ? SCIENCE_POWER_URL : SCIENCE_PACE_URL),
+    };
+  }
+  // Fallback to hardcoded
   if (base === 'power') return { text: SCIENCE_POWER, url: SCIENCE_POWER_URL };
   return { text: SCIENCE_PACE, url: SCIENCE_PACE_URL };
 }
@@ -78,7 +89,7 @@ function RaceDateMode({ data }: { data: GoalResponse }) {
   const d = data.display;
   const unit = d?.threshold_unit || 'W';
   const abbrev = d?.threshold_abbrev || 'CP';
-  const note = predictionNote(data.training_base);
+  const note = predictionNote(data.training_base, data.science_notes);
 
   return (
     <div className="space-y-4">
@@ -202,7 +213,7 @@ function RaceDateMode({ data }: { data: GoalResponse }) {
         </Card>
       )}
 
-      <CpTrendChart data={data.cp_trend} targetCp={rc.target_cp} label={d?.trend_label} unit={d?.threshold_unit} metricName={d?.threshold_abbrev} />
+      <DataHint sufficient={data.data_meta?.cp_trend_sufficient ?? true} message="Not enough data to show CP trend" hint="Need at least 3 activities with power data."><CpTrendChart data={data.cp_trend} targetCp={rc.target_cp} label={d?.trend_label} unit={d?.threshold_unit} metricName={d?.threshold_abbrev} /></DataHint>
     </div>
   );
 }
@@ -217,7 +228,7 @@ function CpMilestoneMode({ data }: { data: GoalResponse }) {
   const d = data.display;
   const unit = d?.threshold_unit || 'W';
   const isPace = unit === '/km';
-  const note = predictionNote(data.training_base);
+  const note = predictionNote(data.training_base, data.science_notes);
 
   const progressPct = (() => {
     if (currentCp == null || targetCp == null || targetCp <= 0) return 0;
@@ -315,7 +326,7 @@ function CpMilestoneMode({ data }: { data: GoalResponse }) {
         </CardContent>
       </Card>
 
-      <CpTrendChart data={data.cp_trend} targetCp={targetCp} label={d?.trend_label} unit={d?.threshold_unit} metricName={d?.threshold_abbrev} />
+      <DataHint sufficient={data.data_meta?.cp_trend_sufficient ?? true} message="Not enough data to show CP trend" hint="Need at least 3 activities with power data."><CpTrendChart data={data.cp_trend} targetCp={targetCp} label={d?.trend_label} unit={d?.threshold_unit} metricName={d?.threshold_abbrev} /></DataHint>
     </div>
   );
 }
@@ -328,7 +339,7 @@ function ContinuousMode({ data }: { data: GoalResponse }) {
   const distLabel = rc.distance_label || 'Marathon';
   const d = data.display;
   const unit = d?.threshold_unit || 'W';
-  const note = predictionNote(data.training_base);
+  const note = predictionNote(data.training_base, data.science_notes);
 
   return (
     <div className="space-y-4">
@@ -387,7 +398,7 @@ function ContinuousMode({ data }: { data: GoalResponse }) {
         </Card>
       )}
 
-      <CpTrendChart data={data.cp_trend} label={d?.trend_label} unit={d?.threshold_unit} metricName={d?.threshold_abbrev} />
+      <DataHint sufficient={data.data_meta?.cp_trend_sufficient ?? true} message="Not enough data to show CP trend" hint="Need at least 3 activities with power data."><CpTrendChart data={data.cp_trend} label={d?.trend_label} unit={d?.threshold_unit} metricName={d?.threshold_abbrev} /></DataHint>
     </div>
   );
 }
@@ -472,6 +483,12 @@ export default function Goal() {
           {(mode === 'continuous' || mode === 'none') && <ContinuousMode data={data} />}
         </>
       )}
+
+      <CliHint
+        skill="race-forecast"
+        title="AI Race Forecast"
+        description="Get a detailed race prediction, goal feasibility analysis, and what you need to improve."
+      />
     </div>
   );
 }

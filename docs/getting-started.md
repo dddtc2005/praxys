@@ -1,99 +1,122 @@
 # Getting Started
 
-Full setup guide for Trainsight.
+Full setup guide for Trainsight. Choose cloud mode (hosted) or local mode (your machine).
 
-## Prerequisites
+## Cloud Mode (Recommended)
+
+If Trainsight is deployed to the cloud, you just need a browser. The CLI plugin ([Claude Code](https://claude.com/claude-code) or [GitHub Copilot CLI](https://githubnext.com/projects/copilot-cli/)) is optional but recommended for AI features like training plan generation, daily briefs, and race forecasts.
+
+### 1. Register
+
+1. Visit the app URL provided by your admin
+2. Click **Register** and create an account with email + password
+   - The **first user** to register becomes the admin automatically — no invitation code needed
+   - All subsequent users must provide an **invitation code** to register
+3. After registering, you are logged in and taken to the dashboard
+
+**Invitation codes:** Admins generate invitation codes via the Settings page or `POST /api/auth/invite` API endpoint. Share the code with the person you want to invite. Each code is single-use. This prevents unauthorized registrations on publicly accessible deployments.
+
+### 2. Connect Platforms
+
+Navigate to the **Settings** page and add your data sources:
+
+| Platform | Credentials | How to Get |
+|----------|-------------|------------|
+| Garmin | Email + password | Your [Garmin Connect](https://connect.garmin.com/) account |
+| Stryd | Email + password | Your [Stryd](https://www.stryd.com/) account |
+| Oura | Personal access token | Generate at [cloud.ouraring.com/personal-access-tokens](https://cloud.ouraring.com/personal-access-tokens) |
+
+You only need to connect the platforms you use. Unconfigured sources are skipped automatically.
+
+**Garmin options:**
+- **Region:** Select Global (connect.garmin.com) or China (connect.garmin.cn)
+- **Activity types:** Choose which activity types to sync (running, trail running, etc.)
+
+Credentials are encrypted before storage and never returned to the frontend. See [security.md](security.md) for details.
+
+### 3. First Sync
+
+After connecting at least one platform:
+
+1. Go to the **Settings** page and click **Sync**
+2. Choose a backfill period — **6 months** is recommended for meaningful trend analysis
+3. Sync progress is shown per platform (Garmin, Stryd, Oura)
+4. Once complete, data appears on the dashboard automatically
+
+Subsequent syncs happen automatically every 6 hours. You can also trigger a manual sync at any time from Settings.
+
+### 4. Configure Training
+
+Complete these steps on the **Settings** page to get personalized analysis:
+
+1. **Choose your training base:**
+   - **Power** (recommended if you have Stryd) — uses Critical Power (CP) for zones and load
+   - **Heart rate** — uses Lactate Threshold HR (LTHR) for zones, TRIMP for load
+   - **Pace** — uses threshold pace for zones, rTSS for load
+
+2. **Set your goal (optional):**
+   - **Race goal:** Pick a distance (5K through 100 Mile), set a target time and race date
+   - **Continuous improvement:** Pick a distance for predictions, no deadline pressure
+
+3. **Verify thresholds:** The system auto-detects your CP, LTHR, or threshold pace from connected platforms. You can override with manual values if needed.
+
+### Setup Checklist
+
+- [ ] Register and log in
+- [ ] Connect at least one platform (Garmin, Stryd, or Oura)
+- [ ] Run first sync with 6-month backfill
+- [ ] Choose your training base (power / HR / pace)
+- [ ] Set a goal distance and optional target time
+
+---
+
+## Local Mode (Development / Personal Use)
+
+Run everything on your machine. Same features, same auth flow.
+
+### Prerequisites
 
 - Python 3.11+
 - Node.js 18+ (for the web dashboard)
 - At least one of: Garmin Connect account, Stryd account, Oura Ring
 
-## 1. Install Dependencies
+### 1. Clone and Install
 
 ```bash
-# Python
+git clone https://github.com/dddtc2005/trainsight.git
+cd trainsight
+
+# Python dependencies
 pip install -r requirements.txt
 
-# Frontend (optional, only if using the web dashboard)
-cd web && npm install
+# Frontend dependencies
+cd web && npm install && cd ..
 ```
 
-## 2. Configure Credentials
-
-Copy the example env file and fill in your credentials:
+### 2. Configure Environment
 
 ```bash
-cp sync/.env.example sync/.env
+cp .env.example .env
 ```
 
-Edit `sync/.env`:
-
-| Variable | Required | How to Get |
-|----------|----------|------------|
-| `GARMIN_EMAIL` | If using Garmin | Your Garmin Connect email |
-| `GARMIN_PASSWORD` | If using Garmin | Your Garmin Connect password |
-| `GARMIN_IS_CN` | China users only | Set to `true` for connect.garmin.cn |
-| `STRYD_EMAIL` | If using Stryd | Your Stryd account email |
-| `STRYD_PASSWORD` | If using Stryd | Your Stryd account password |
-| `OURA_TOKEN` | If using Oura | Generate at [cloud.ouraring.com/personal-access-tokens](https://cloud.ouraring.com/personal-access-tokens) |
-
-You only need credentials for the platforms you use. Unconfigured sources are skipped automatically.
-
-### Garmin Token Bootstrap (first time only)
-
-Garmin uses OAuth tokens that need to be bootstrapped once:
+Edit `.env` and generate the required encryption key:
 
 ```bash
-python -m sync.bootstrap_garmin_tokens
+# Generate a Fernet encryption key
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-This caches tokens in `.garmin_tokens/` (gitignored). If you get rate-limited, the script will prompt for manual token import.
+Paste the key as the value for `TRAINSIGHT_LOCAL_ENCRYPTION_KEY` in `.env`. This key encrypts platform credentials (Garmin/Stryd/Oura passwords) at rest.
 
-## 3. Initial Configuration
+`.env` settings:
 
-Edit `data/config.json` (created automatically on first run, or copy defaults):
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `TRAINSIGHT_LOCAL_ENCRYPTION_KEY` | Yes | Fernet key for credential encryption. Without this, credentials won't survive restarts. |
+| `TRAINSIGHT_JWT_SECRET` | No | JWT signing key. Auto-generated if not set, but tokens won't survive restarts. |
+| `TRAINSIGHT_ADMIN_EMAIL` | No | This email can register without an invitation code. Not needed if you're the first user. |
 
-```json
-{
-  "connections": ["garmin", "stryd", "oura"],
-  "preferences": {
-    "activities": "garmin",
-    "recovery": "oura",
-    "plan": "ai"
-  },
-  "training_base": "power",
-  "goal": {
-    "distance": "marathon",
-    "target_time_sec": 10800
-  }
-}
-```
-
-Key settings:
-- **`connections`**: Which platforms you have (only include ones with credentials)
-- **`training_base`**: `"power"` (requires Stryd), `"hr"` (requires HR monitor), or `"pace"` (GPS only)
-- **`goal.distance`**: `5k`, `10k`, `half_marathon`, `marathon`, `50k`, `50_mile`, `100k`, `100_mile`
-- **`goal.target_time_sec`**: Your target finish time in seconds (e.g., 10800 = 3:00:00)
-
-Or use the CLI: if you have Claude Code, run `/setup` for guided configuration.
-
-## 4. Sync Your Data
-
-```bash
-# Sync last 7 days from all sources
-python -m sync.sync_all
-
-# Backfill historical data
-python -m sync.sync_all --from-date 2025-01-01
-
-# Sync specific source only
-python -m sync.garmin_sync --from-date 2025-01-01
-
-# Or use the skill script (outputs structured JSON report)
-python scripts/sync_report.py --pretty
-```
-
-## 5. Run the Dashboard
+### 3. Start the Servers
 
 ```bash
 # Terminal 1: API server
@@ -103,34 +126,36 @@ python -m uvicorn api.main:app --reload
 cd web && npm run dev
 ```
 
-Open http://localhost:5173.
+### 4. Register and Set Up
 
-## 6. Or Use CLI Skills
+1. Open http://localhost:5173
+2. Click **Register** — the first user becomes admin automatically
+3. Navigate to **Settings** to connect platforms, sync data, and configure training
+4. Follow the same setup steps as cloud mode above (connect, sync, configure)
 
-If you have Claude Code or GitHub Copilot CLI installed, you can use all features from the terminal without the web dashboard. See [skills.md](skills.md) for the full guide.
+### Try With Sample Data
 
-## Try With Sample Data
-
-If you want to explore without setting up real credentials:
+To explore the dashboard without real credentials:
 
 ```bash
 python scripts/seed_sample_data.py
 ```
 
-This populates `data/` with 60 days of synthetic training data across all sources.
+This populates the database with 60 days of synthetic training data across all sources.
 
-## Folder Structure
+---
 
-```
-data/
-  garmin/          Synced Garmin data (gitignored)
-  stryd/           Synced Stryd data (gitignored)
-  oura/            Synced Oura data (gitignored)
-  ai/              AI-generated plans (gitignored)
-  sample/          Sample data (tracked in git)
-  config.json      User configuration
-  science/         Training science theory definitions (YAML)
-sync/
-  .env             Your API credentials (gitignored)
-  .env.example     Credential template
-```
+## CLI Skills (Optional)
+
+If you have [Claude Code](https://claude.com/claude-code) or [GitHub Copilot CLI](https://githubnext.com/projects/copilot-cli/) installed, you can use all features from the terminal. See [skills.md](skills.md) for the full guide.
+
+The CLI plugin connects to the same backend (cloud or local) and provides skills like `/daily-brief`, `/training-plan`, and `/race-forecast`.
+
+---
+
+## What's Next
+
+- [features.md](features.md) — Overview of all dashboard pages and metrics
+- [skills.md](skills.md) — CLI skills reference
+- [security.md](security.md) — How your data and credentials are protected
+- [deployment.md](deployment.md) — Azure deployment guide (for admins)

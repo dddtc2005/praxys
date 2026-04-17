@@ -1,21 +1,16 @@
-"""Sync power and training plan data from Stryd via their calendar API.
+"""Stryd API integration — fetch/parse layer for the sync API route.
 
-To set up:
-1. Add STRYD_EMAIL and STRYD_PASSWORD to .env
-2. Run: python -m sync.stryd_sync
-
-The user ID is automatically derived from the Stryd login API response.
+Provides login, activity fetch, training plan fetch, lap split computation,
+and workout upload/delete via the Stryd calendar and activity APIs.
 """
-import argparse
-import os
+import logging
 import re
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
 import requests
-from dotenv import load_dotenv
 
-from sync.csv_utils import append_rows
+logger = logging.getLogger(__name__)
 
 
 def _workout_type_from_name(name: str) -> str:
@@ -31,11 +26,12 @@ STRYD_CALENDAR_API = "https://api.stryd.com/b/api/v1/users/{user_id}/calendar"
 STRYD_ACTIVITY_API = "https://api.stryd.com/b/api/v1/activities/{activity_id}"
 STRYD_WORKOUT_API = "https://api.stryd.com/b/api/v1/users/{user_id}/workouts"
 STRYD_ESTIMATE_API = "https://api.stryd.com/b/api/v1/users/workouts/estimate"
+STRYD_USER_API = "https://api.stryd.com/b/api/v1/users/{user_id}"
 
 
 def _login_api(email: str, password: str) -> tuple[str, str]:
     """Login via Stryd API. Returns (user_id, token)."""
-    print("  Logging in via Stryd API...")
+    logger.debug("  Logging in via Stryd API...")
     resp = requests.post(
         STRYD_LOGIN_URL,
         json={"email": email, "password": password},
@@ -47,8 +43,126 @@ def _login_api(email: str, password: str) -> tuple[str, str]:
     token = data.get("token", "")
     if not token:
         raise RuntimeError("Login succeeded but no token in response")
-    print(f"  Login successful (user_id={user_id})")
+    logger.debug(f"  Login successful (user_id={user_id})")
     return user_id, token
+
+
+def fetch_current_cp(user_id: str, token: str) -> float | None:
+    """Fetch the user's current Critical Power from their Stryd profile.
+
+    The profile's training_info.critical_power is the rolling CP calculated
+    by Stryd (typically over 90 days). This is the authoritative current value
+    shown on Stryd's Power Center. Per-activity ftp is a snapshot at activity
+    time and may lag behind the profile value.
+    """
+    url = STRYD_USER_API.format(user_id=user_id)
+    try:
+        resp = requests.get(
+            url,
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        training_info = data.get("training_info") or {}
+        cp = training_info.get("critical_power")
+        if cp is not None:
+            cp = round(float(cp), 1)
+            logger.debug(f"  Current CP from profile: {cp}W")
+            return cp
+        logger.debug("  No CP found in user profile training_info")
+        return None
+    except Exception as e:
+        logger.debug(f"  Failed to fetch current CP: {e}")
+        return None
+
+
+def fetch_activity_splits(
+    activity_id: str,
+    token: str,
+) -> list[dict]:
+    """Fetch per-lap splits from a Stryd activity detail.
+
+    Uses the activity's lap_events timestamps and per-second time series
+    (total_power_list, heart_rate_list, speed_list, distance_list) to
+    compute per-lap averages.
+
+    Returns list of split dicts compatible with sync_writer.write_splits().
+    """
+    url = STRYD_ACTIVITY_API.format(activity_id=activity_id)
+    resp = requests.get(
+        url,
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+
+    power_list = data.get("total_power_list", [])
+    hr_list = data.get("heart_rate_list", [])
+    speed_list = data.get("speed_list", [])
+    distance_list = data.get("distance_list", [])
+    ts_list = data.get("timestamp_list", [])
+    lap_events = data.get("lap_events", [])
+    start_events = data.get("start_events", [])
+    stop_events = data.get("stop_events", [])
+
+    if not ts_list or not power_list:
+        return []
+
+    # Build lap boundaries: [start, lap1, lap2, ..., end]
+    start_ts = start_events[0] if start_events else ts_list[0]
+    end_ts = stop_events[0] if stop_events else ts_list[-1]
+    boundaries = [start_ts] + lap_events + [end_ts]
+
+    splits = []
+    for i in range(len(boundaries) - 1):
+        lap_start = boundaries[i]
+        lap_end = boundaries[i + 1]
+
+        # Find index range in time series
+        start_idx = None
+        end_idx = None
+        for j, t in enumerate(ts_list):
+            if t >= lap_start and start_idx is None:
+                start_idx = j
+            if t >= lap_end:
+                end_idx = j
+                break
+        if start_idx is None:
+            continue
+        if end_idx is None:
+            end_idx = len(ts_list)
+        if end_idx <= start_idx:
+            continue
+
+        lap_power = power_list[start_idx:end_idx]
+        lap_hr = hr_list[start_idx:end_idx]
+        lap_speed = speed_list[start_idx:end_idx]
+        lap_dist = distance_list[start_idx:end_idx]
+
+        n = len(lap_power)
+        if n == 0:
+            continue
+
+        duration_sec = lap_end - lap_start
+        avg_power = round(sum(lap_power) / n, 1)
+        avg_hr = round(sum(lap_hr) / n) if lap_hr else None
+        dist_m = (lap_dist[-1] - lap_dist[0]) if len(lap_dist) >= 2 else 0
+        dist_km = round(dist_m / 1000, 3)
+        avg_pace = round(duration_sec / dist_km, 1) if dist_km > 0.01 else None
+
+        splits.append({
+            "activity_id": str(activity_id),
+            "split_num": i + 1,
+            "distance_km": str(dist_km),
+            "duration_sec": str(duration_sec),
+            "avg_power": str(avg_power),
+            "avg_hr": str(avg_hr) if avg_hr else "",
+            "avg_pace_min_km": str(avg_pace) if avg_pace else "",
+        })
+
+    return splits
 
 
 def fetch_activities_api(
@@ -87,7 +201,7 @@ def fetch_activities_api(
     data = resp.json()
 
     activities = data.get("activities", [])
-    print(f"  API returned {len(activities)} activities")
+    logger.debug(f"  API returned {len(activities)} activities")
 
     rows = []
     raw_activities = []  # Keep raw API objects for detail fetching
@@ -114,6 +228,7 @@ def fetch_activities_api(
         zones_str = str(zones_list) if zones_list else ""
 
         row = {
+            "activity_id": str(act.get("id", "")),
             "date": start_local.strftime("%Y-%m-%d"),
             "start_time": start_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "name": act.get("name", ""),
@@ -139,7 +254,7 @@ def fetch_activities_api(
             "distance_km": str(distance_km),
             "duration_sec": str(moving_time) if moving_time is not None else "",
         }
-        print(f"    {row['date']} — {row['avg_power']}W, {row['distance_km']}km, RSS={row['rss']}")
+        logger.debug(f"    {row['date']} — {row['avg_power']}W, {row['distance_km']}km, RSS={row['rss']}")
         rows.append(row)
         raw_activities.append(act)  # Keep raw for detail fetch
 
@@ -178,8 +293,8 @@ def fetch_training_plan_api(
     resp.raise_for_status()
     data = resp.json()
 
-    workouts = data.get("workouts", [])
-    print(f"  Plan API returned {len(workouts)} planned workouts")
+    workouts = data.get("workouts") or []
+    logger.debug(f"  Plan API returned {len(workouts)} planned workouts")
 
     rows = []
     for item in workouts:
@@ -258,7 +373,7 @@ def fetch_training_plan_api(
             "target_power_max": power_max,
             "workout_description": description,
         }
-        print(f"    {workout_date} — {workout_type} ({duration_min}min, {distance_km}km)")
+        logger.debug(f"    {workout_date} — {workout_type} ({duration_min}min, {distance_km}km)")
         rows.append(row)
 
     return rows
@@ -392,110 +507,6 @@ def compute_lap_splits(activity: dict, activity_id: str) -> list[dict]:
         })
 
     return rows
-
-
-def _get_existing_split_activity_ids(data_dir: str) -> set[str]:
-    """Get set of activity IDs already in Stryd activity_splits.csv."""
-    from sync.csv_utils import read_csv
-    splits_path = os.path.join(data_dir, "stryd", "activity_splits.csv")
-    existing = read_csv(splits_path)
-    return {row["activity_id"] for row in existing if row.get("activity_id")}
-
-
-def _fetch_stryd_splits(
-    activity_rows: list[dict],
-    token: str,
-    email: str,
-    password: str,
-    data_dir: str,
-) -> list[dict]:
-    """Fetch per-lap splits for activities not already in splits CSV.
-
-    Rate limits at 1 second between API calls. Handles 429 with exponential
-    backoff and 401 with re-login.
-    """
-    import time
-
-    existing_ids = _get_existing_split_activity_ids(data_dir)
-
-    # activity_rows are raw calendar API objects with 'id' field for detail API
-    all_splits: list[dict] = []
-    new_activities = [a for a in activity_rows if str(a.get("id", "")) not in existing_ids]
-
-    if not new_activities:
-        return []
-
-    print(f"  Fetching per-lap detail for {len(new_activities)} new activities...")
-    current_token = token
-
-    for i, act in enumerate(new_activities):
-        act_id = act.get("id")
-        if not act_id:
-            continue
-
-        act_id_str = str(act_id)
-        if act_id_str in existing_ids:
-            continue
-
-        # Rate limit: 1 second between calls
-        if i > 0:
-            time.sleep(1)
-
-        print(f"    [{i + 1}/{len(new_activities)}] Fetching detail for activity {act_id}...")
-
-        retries = 0
-        max_retries = 3
-        backoff = 2
-
-        while retries <= max_retries:
-            try:
-                detail = fetch_activity_detail_api(act_id, current_token)
-                if detail:
-                    splits = compute_lap_splits(detail, act_id_str)
-                    if splits:
-                        all_splits.extend(splits)
-                        print(f"      {len(splits)} laps extracted")
-                    else:
-                        print(f"      No lap data available")
-                break  # Success or no data — move to next activity
-
-            except requests.HTTPError as e:
-                status = e.response.status_code
-                if status == 401:
-                    # Re-login and retry
-                    print(f"      Token expired, re-logging in...")
-                    try:
-                        _, current_token = _login_api(email, password)
-                        retries += 1
-                        continue
-                    except Exception as e2:
-                        print(f"      Re-login failed ({e2}), skipping remaining")
-                        return all_splits
-                elif status == 429:
-                    # Rate limited — exponential backoff
-                    wait = backoff ** (retries + 1)
-                    print(f"      Rate limited (429), waiting {wait}s...")
-                    time.sleep(wait)
-                    retries += 1
-                    if retries > max_retries:
-                        print(f"      Max retries reached, saving {len(all_splits)} splits so far")
-                        return all_splits
-                    continue
-                else:
-                    print(f"      HTTP {status} for activity {act_id}, skipping")
-                    break
-
-            except requests.RequestException as e:
-                print(f"      Network error for activity {act_id}: {e}, skipping")
-                break
-
-            except Exception as e:
-                import traceback as tb
-                print(f"      Error processing activity {act_id}: {e}")
-                tb.print_exc()
-                break
-
-    return all_splits
 
 
 def _round_or_empty(val: float | int | None, decimals: int = 1) -> str:
@@ -776,109 +787,3 @@ def delete_workout_api(user_id: str, token: str, workout_id: str) -> bool:
     )
     resp.raise_for_status()
     return True
-
-
-# --- Sync entry point ---
-
-
-def sync(
-    data_dir: str,
-    email: str | None = None,
-    password: str | None = None,
-    from_date: str | None = None,
-) -> None:
-    """Pull Stryd data and save to CSVs.
-
-    Auth strategy: login via Stryd API with email/password to get a bearer token
-    and user ID, then use both for API calls. If the token expires (401), re-login
-    and retry.
-    """
-    if not email or not password:
-        print("Stryd: skipped (STRYD_EMAIL / STRYD_PASSWORD not set)")
-        return
-
-    start = from_date or (date.today() - timedelta(days=7)).isoformat()
-    print(f"Stryd: syncing from {start}")
-
-    # Login to get bearer token and user ID
-    try:
-        user_id, token = _login_api(email, password)
-    except Exception as e:
-        print(f"  Stryd API login failed ({e})")
-        return
-
-    # Fetch activities
-    activity_rows = []
-    raw_activities = []
-    try:
-        activity_rows, raw_activities = fetch_activities_api(user_id, token, from_date=start)
-    except requests.HTTPError as e:
-        status = e.response.status_code
-        print(f"  Stryd API failed (HTTP {status})")
-        # If 401, try re-login
-        if status == 401:
-            try:
-                print("  Re-acquiring token...")
-                user_id, token = _login_api(email, password)
-                activity_rows, raw_activities = fetch_activities_api(user_id, token, from_date=start)
-            except Exception as e2:
-                print(f"  Re-login failed ({e2})")
-    except Exception as e:
-        print(f"  Stryd API failed ({e})")
-
-    # Fetch training plan
-    plan_rows = []
-    try:
-        # Get CP from the most recent activity for power target conversion
-        cp_watts = None
-        if activity_rows:
-            for row in activity_rows:
-                cp_val = row.get("cp_estimate", "")
-                if cp_val:
-                    cp_watts = float(cp_val)
-                    break
-        plan_rows = fetch_training_plan_api(user_id, token, cp_watts=cp_watts)
-    except requests.HTTPError as e:
-        status = e.response.status_code
-        print(f"  Training plan API failed (HTTP {status})")
-        if status == 401:
-            try:
-                print("  Re-acquiring token for training plan...")
-                user_id, token = _login_api(email, password)
-                plan_rows = fetch_training_plan_api(user_id, token, cp_watts=cp_watts)
-            except Exception as e2:
-                print(f"  Training plan re-login failed ({e2})")
-    except Exception as e:
-        print(f"  Training plan API failed ({e})")
-
-    if activity_rows:
-        power_path = os.path.join(data_dir, "stryd", "power_data.csv")
-        append_rows(power_path, activity_rows, key_column="start_time")
-        print(f"  Saved {len(activity_rows)} activities to power_data.csv")
-
-    if plan_rows:
-        plan_path = os.path.join(data_dir, "stryd", "training_plan.csv")
-        append_rows(plan_path, plan_rows, key_column="date")
-        print(f"  Saved {len(plan_rows)} planned workouts to training_plan.csv")
-
-    # Fetch per-lap splits for new activities via activity detail API
-    if raw_activities:
-        split_rows = _fetch_stryd_splits(
-            raw_activities, token, email, password, data_dir,
-        )
-        if split_rows:
-            splits_path = os.path.join(data_dir, "stryd", "activity_splits.csv")
-            append_rows(splits_path, split_rows, key_column=["activity_id", "split_num"])
-            print(f"  Saved {len(split_rows)} splits to activity_splits.csv")
-
-
-if __name__ == "__main__":
-    load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
-    parser = argparse.ArgumentParser(description="Sync Stryd data")
-    parser.add_argument("--from-date", help="Start date (YYYY-MM-DD) for historical backfill")
-    args = parser.parse_args()
-
-    email = os.environ.get("STRYD_EMAIL")
-    password = os.environ.get("STRYD_PASSWORD")
-    data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
-    sync(data_dir, email=email, password=password, from_date=args.from_date)

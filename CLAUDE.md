@@ -2,20 +2,20 @@
 
 ## What This Is
 
-Power-based scientific training system for self-coached endurance athletes. Syncs data from Garmin, Stryd, and Oura Ring into CSVs, computes training metrics, and serves a modern web dashboard (FastAPI + React) with weekly reports.
+Power-based scientific training system for self-coached endurance athletes. Syncs data from Garmin, Stryd, and Oura Ring, computes training metrics, and serves a modern web dashboard (FastAPI + React + SQLite) with weekly reports. Multi-user with JWT auth and invitation-based registration.
 
 ## Architecture
 
 ```
-Garmin/Stryd/Oura APIs → sync/*.py → data/**/*.csv
-                                          ↓
-                                   analysis/metrics.py (pure computation)
-                                          ↓
-                                   api/deps.py (data layer)
-                                          ↓
-                                   api/routes/*.py (JSON endpoints)
-                                          ↓
-                                   web/ (React SPA)
+Garmin/Stryd/Oura APIs → sync/*.py → db/sync_writer.py → SQLite (trainsight.db)
+                                                              ↓
+                                                       analysis/metrics.py (pure computation)
+                                                              ↓
+                                                       api/deps.py (data layer)
+                                                              ↓
+                                                       api/routes/*.py (JSON endpoints, JWT auth)
+                                                              ↓
+                                                       web/ (React SPA)
 ```
 
 ### Module Map
@@ -25,11 +25,12 @@ Garmin/Stryd/Oura APIs → sync/*.py → data/**/*.csv
 | `sync/` | API sync scripts | `garmin_sync.py`, `stryd_sync.py`, `oura_sync.py`, `csv_utils.py`, `sync_all.py` (orchestrator), `bootstrap_garmin_tokens.py` |
 | `analysis/` | Metric computation | `metrics.py` (pure functions), `data_loader.py` (CSV I/O + merge), `science.py` (theory YAML loader), `config.py` (UserConfig dataclass), `zones.py`, `thresholds.py`, `training_base.py` |
 | `analysis/providers/` | Pluggable data sources | `base.py` (abstract provider ABCs), `garmin.py`, `stryd.py`, `oura.py`, `ai.py` (AI plan CSV loader), `models.py` |
-| `api/` | FastAPI backend | `main.py` (app), `deps.py` (data layer), `views.py` (shared view helpers), `routes/` (endpoints) |
+| `db/` | Database layer (SQLite) | `models.py` (SQLAlchemy models), `session.py` (engine + session factory), `crypto.py` (Fernet credential encryption), `sync_writer.py` (upsert sync data), `csv_import.py` (one-time CSV migration), `sync_scheduler.py` (background sync jobs) |
+| `api/` | FastAPI backend | `main.py` (app), `deps.py` (data layer), `auth.py` (JWT auth), `users.py`, `views.py` (shared view helpers), `routes/` (endpoints incl. `admin.py`, `register.py`) |
 | `web/src/` | React frontend | `pages/` (6 pages: Today, Training, Goal, History, Science, Settings), `components/` (UI + `charts/` sub-dir), `hooks/` (`useApi`, `useChartColors`, `useTheme`, `use-mobile`), `contexts/` (`ScienceContext`, `SettingsContext`), `types/` (API contracts), `lib/` (`chart-theme`, `format`, `utils`, `workout-parser`) |
+| `plugins/` | Trainsight plugin | `trainsight/skills/` (8 SKILL.md files), `trainsight/mcp-server/` (MCP server: `server.py`, `auth.py`) |
 | `tests/` | pytest suite | `test_metrics.py`, `test_integration.py`, etc. |
-| `data/` | User CSV data | `garmin/`, `stryd/`, `oura/`, `ai/` (gitignored), `sample/` (tracked), `science/` (theory YAMLs: load, recovery, prediction, zones, labels) |
-| `.claude/skills/` | AI skill definitions | 8 skills (`SKILL.md` files in subdirectories, discovered by Claude Code and Copilot CLI) |
+| `data/` | Sample + science data | `sample/` (tracked synthetic CSVs), `science/` (theory YAMLs: load, recovery, prediction, zones, labels) |
 | `scripts/` | Utility + skill helper scripts | `seed_sample_data.py`, `generate_sample_data.py`, `build_training_context.py`, `daily_brief.py`, `race_forecast.py`, `sync_report.py`, `run_diagnosis.py` |
 | `docs/` | Documentation | `docs/` (user guides), `docs/dev/` (developer docs) |
 
@@ -134,8 +135,10 @@ All training metrics, predictions, and insights must be grounded in exercise sci
 
 ### API
 - All endpoints under `/api/` prefix
+- **All API endpoints require JWT auth** (`Authorization: Bearer <token>` header) except `/api/register` and `/api/token`
 - `api/deps.py` recomputes all data fresh on each request (`get_dashboard_data()`)
-- User config (goal, thresholds, sources) stored in `data/config.json`, API credentials in `sync/.env`
+- User config (goal, thresholds, sources) stored in the database, managed via Settings/Goal page UI
+- Platform credentials (Garmin/Stryd/Oura) encrypted at rest via `db/crypto.py` (Fernet)
 
 ## Critical: Split-Level Power Analysis
 
@@ -145,7 +148,7 @@ All training metrics, predictions, and insights must be grounded in exercise sci
 
 ## Dashboard Modes
 
-Goal configuration is managed via the Goal page UI and stored in `data/config.json`:
+Goal configuration is managed via the Goal page UI and stored in the database:
 - **Race Goal:** race date + optional target time + distance — shows countdown, predicted time, CP gap
 - **Continuous Improvement (default):** optional target time + distance — shows CP progress, milestones, trend
 - Distance options: 5K, 10K, Half Marathon, Marathon, 50K, 50 Mile, 100K, 100 Mile
@@ -163,14 +166,24 @@ Goal configuration is managed via the Goal page UI and stored in `data/config.js
 ## How to Add a New Data Source
 
 1. Create `sync/{source}_sync.py` following the pattern in `garmin_sync.py`
-2. Add CSV schema to `data/{source}/` and update `data/sample/{source}/` with synthetic data
+2. Add SQLAlchemy model to `db/models.py` and upsert logic to `db/sync_writer.py`
 3. Register in `data_loader.py` `load_all_data()` dict
-4. Add credentials to `sync/.env.example`
+4. Update `data/sample/{source}/` with synthetic CSVs for testing
 5. Update `scripts/generate_sample_data.py` with the new source
 
 ## Running
 
+**Always use the project venv for Python commands.** The venv is at `.venv/`.
+
 ```bash
+# Activate venv first (all Python commands below assume venv is active)
+# Windows: .venv\Scripts\activate
+# Unix: source .venv/bin/activate
+
+# First-time setup: copy .env.example and generate encryption key
+cp .env.example .env
+python -c "from cryptography.fernet import Fernet; print(f'TRAINSIGHT_LOCAL_ENCRYPTION_KEY={Fernet.generate_key().decode()}')" >> .env
+
 # API server
 pip install -r requirements.txt
 python -m uvicorn api.main:app --reload
@@ -178,22 +191,32 @@ python -m uvicorn api.main:app --reload
 # Frontend dev server (separate terminal)
 cd web && npm install && npm run dev
 
-# Quick start with sample data (no API credentials needed)
-python scripts/seed_sample_data.py
-
 # Tests
 python -m pytest tests/ -v
 ```
+
+### First-time setup
+
+1. Copy `.env.example` to `.env` and generate an encryption key (see commands above)
+2. Start the server and frontend dev server
+3. Open the app, register -- the first user on a fresh DB becomes admin (no invitation code needed)
+4. Admin can generate invitation codes for others via the Admin page (`/admin`)
+
+### Invitation system and admin
+
+- Registration requires a valid invitation code (except for the first user and `TRAINSIGHT_ADMIN_EMAIL`)
+- Admin page (`/admin`) lets admins generate invitation codes and manage users
+- Admin status is granted to: the first registered user, and any user matching `TRAINSIGHT_ADMIN_EMAIL`
 
 ## Documentation
 
 Keep docs in sync with code — stale docs are worse than no docs. See `docs/dev/contributing.md` for which files to update when making changes.
 
-Key files: `README.md` (quick start), `docs/*.md` (user guides), `docs/dev/*.md` (architecture + API reference + contributing), `.claude/skills/*/SKILL.md` (skill instructions).
+Key files: `README.md` (quick start), `docs/*.md` (user guides), `docs/dev/*.md` (architecture + API reference + contributing), `plugins/trainsight/skills/*/SKILL.md` (skill instructions).
 
 ## AI Skills
 
-8 skills in `.claude/skills/` provide training features via Claude Code and Copilot CLI:
+8 skills in `plugins/trainsight/skills/` provide training features via the Trainsight plugin (MCP server + skills):
 
 | Skill | Purpose |
 |-------|---------|
@@ -206,7 +229,7 @@ Key files: `README.md` (quick start), `docs/*.md` (user guides), `docs/dev/*.md`
 | `race-forecast` | Race time prediction and goal feasibility |
 | `add-metric` | Scaffold a new metric end-to-end (7-step guide) |
 
-Skills with helper scripts (`sync-data`, `daily-brief`, `training-review`, `race-forecast`) have Python CLI tools in `scripts/` that output JSON to stdout, following the same pattern as `scripts/build_training_context.py`.
+Skills use MCP tools provided by the Trainsight plugin MCP server (`plugins/trainsight/mcp-server/server.py`). The server runs in dual mode: local (direct DB access) or remote (HTTP API with JWT auth via `TRAINSIGHT_URL`).
 
 ## AI Features
 
@@ -217,6 +240,5 @@ Skills with helper scripts (`sync-data`, `daily-brief`, `training-review`, `race
 - **Design principle:** AI is always optional. The app must function fully without `ANTHROPIC_API_KEY`
 
 ### Not yet built
-- **Endpoints:** `GET /api/ai/status`, `POST /api/coach`, `POST /api/ask` — no routes registered yet
 - **Frontend:** `useAiStatus()` hook to gate AI UI — not implemented yet
 - **Possible features:** AI coaching narratives, natural language training queries, AI-enhanced weekly summaries

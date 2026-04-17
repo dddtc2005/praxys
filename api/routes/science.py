@@ -1,8 +1,15 @@
 """Science framework endpoint — active theories, available options, recommendations."""
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 
+from api.auth import get_current_user_id
 from api.deps import get_dashboard_data
-from analysis.config import load_config, save_config
+from analysis.config import (
+    load_config,
+    save_config,
+    load_config_from_db,
+    save_config_to_db,
+)
 from analysis.science import (
     PILLARS,
     list_theories,
@@ -11,6 +18,7 @@ from analysis.science import (
     load_theory,
     recommend_science,
 )
+from db.session import get_db
 
 router = APIRouter()
 
@@ -33,10 +41,13 @@ def _theory_summary(theory) -> dict:
 
 
 @router.get("/science")
-def get_science() -> dict:
+def get_science(
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict:
     """Return active theories, all available options, and recommendations."""
-    data = get_dashboard_data()
-    config = load_config()
+    data = get_dashboard_data(user_id=user_id, db=db)
+    config = load_config_from_db(user_id, db)
     science = data.get("science", {})
 
     # Active theories
@@ -96,9 +107,13 @@ def get_science() -> dict:
 
 
 @router.put("/science")
-def update_science(body: dict) -> dict:
+def update_science(
+    body: dict,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict:
     """Update science theory selections and/or label preference."""
-    config = load_config()
+    config = load_config_from_db(user_id, db)
 
     if "science" in body:
         for pillar, theory_id in body["science"].items():
@@ -119,6 +134,6 @@ def update_science(body: dict) -> dict:
     if "zone_labels" in body:
         config.zone_labels = str(body["zone_labels"])
 
-    save_config(config)
+    save_config_to_db(user_id, config, db)
 
     return {"status": "ok"}

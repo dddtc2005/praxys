@@ -3,14 +3,16 @@
 ## Architecture
 
 ```
-sync/*.py → data/**/*.csv → analysis/metrics.py → api/deps.py → api/routes/*.py → web/ (React SPA)
+sync/*.py → db/sync_writer.py → SQLite → analysis/metrics.py → api/deps.py → api/routes/*.py → web/ (React SPA)
 ```
 
-- **sync/**: API sync scripts (Garmin, Stryd, Oura) → CSV files
+- **sync/**: API sync scripts (Garmin, Stryd, Oura) → database via `db/sync_writer.py`
+- **db/**: SQLAlchemy models, session factory, credential encryption (`crypto.py`), sync writer, CSV import, scheduler
 - **analysis/metrics.py**: Pure computation functions (no I/O, no side effects)
-- **analysis/data_loader.py**: All CSV I/O lives here
+- **analysis/data_loader.py**: All data loading lives here
 - **api/deps.py**: Data layer — `get_dashboard_data()` is the central function
-- **api/routes/**: Thin wrappers calling deps, all under `/api/` prefix
+- **api/routes/**: Thin wrappers calling deps, all under `/api/` prefix; **all endpoints require JWT auth** except `/api/register` and `/api/token`
+- **plugins/trainsight/**: Skills (8 SKILL.md files) and MCP server
 - **web/src/**: React + TypeScript + Tailwind v4 + Recharts
 
 ## Critical Rule: Split-Level Power Analysis
@@ -36,8 +38,8 @@ sync/*.py → data/**/*.csv → analysis/metrics.py → api/deps.py → api/rout
 
 ## Config
 
-- User config (goals, thresholds) in `data/config.json`, managed via Goal page UI
-- API credentials in `sync/.env` (see `sync/.env.example`)
+- User config (goals, thresholds) stored in the database, managed via Settings/Goal page UI
+- Server config in `.env` (see `.env.example` for encryption key, JWT secret, admin email)
 - Data recomputed fresh per request in `api/deps.py`
 
 ## For Full Details

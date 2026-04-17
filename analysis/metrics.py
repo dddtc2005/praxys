@@ -656,15 +656,17 @@ def required_cp_for_time(
 def predict_time_from_pace(
     threshold_pace_sec_km: float,
     distance_km: float = 42.195,
+    riegel_exponent: float | None = None,
 ) -> float:
     """Predict race time using Riegel's formula from threshold pace.
 
     Threshold pace is treated as ~10K race pace (1-hour effort).
-    Riegel: T2 = T1 * (D2/D1)^1.06
+    Riegel: T2 = T1 * (D2/D1)^exponent
     Source: https://runningwritings.com/2024/01/critical-speed-guide-for-runners.html
     """
+    exponent = riegel_exponent or RIEGEL_EXPONENT
     reference_time = threshold_pace_sec_km * THRESHOLD_REFERENCE_KM
-    return reference_time * (distance_km / THRESHOLD_REFERENCE_KM) ** RIEGEL_EXPONENT
+    return reference_time * (distance_km / THRESHOLD_REFERENCE_KM) ** exponent
 
 
 def required_pace_for_time(
@@ -948,7 +950,7 @@ def diagnose_training(
     recent = recent[recent["_date"] >= cutoff]
 
     if recent.empty:
-        result["diagnosis"].append({"type": "warning", "message": "No activities in the last {lookback_weeks} weeks."})
+        result["diagnosis"].append({"type": "warning", "message": f"No activities in the last {lookback_weeks} weeks."})
         return result
 
     # --- Volume analysis ---
@@ -1013,18 +1015,55 @@ def diagnose_training(
         if "avg_power" in splits.columns if not splits.empty else False:
             metric_col = "avg_power"
         else:
-            result["diagnosis"].append({"type": "warning", "message": "No split data available — interval analysis skipped."})
             result["interval_power"] = {"max": None, "avg_work": None, "supra_cp_sessions": 0, "total_quality_sessions": 0}
             bounds = zone_boundaries or DEFAULT_ZONES.get(base, DEFAULT_ZONES["power"])
             n_zones = len(bounds) + 1
             names = zone_names if (zone_names and len(zone_names) == n_zones) else _ZONE_DEFAULT_NAMES.get(base, [f"Zone {i+1}" for i in range(n_zones)])
             targets = [round(t * 100) for t in target_distribution] if target_distribution and len(target_distribution) == n_zones else [None] * n_zones
-            result["distribution"] = [
-                {"name": names[i], "actual_pct": 100 if i == 0 else 0, "target_pct": targets[i]}
-                for i in range(n_zones)
-            ]
+
+            # Use activity-level avg metric for zone distribution (less accurate than splits but better than nothing)
+            abs_bounds = [round(current_cp * f) for f in bounds]
+            zone_time = [0.0] * n_zones
+            total_time = 0.0
+            act_metric_col = metric_col if metric_col in recent.columns else "avg_power"
+            if act_metric_col in recent.columns and "duration_sec" in recent.columns:
+                for _, row in recent.iterrows():
+                    val = pd.to_numeric(row.get(act_metric_col), errors="coerce")
+                    dur = pd.to_numeric(row.get("duration_sec"), errors="coerce")
+                    if pd.isna(val) or pd.isna(dur) or dur <= 0:
+                        continue
+                    total_time += dur
+                    # For pace, lower value = faster = harder zone
+                    # Iterate bounds from highest (slowest) to lowest (fastest)
+                    if base == "pace":
+                        zone_idx = n_zones - 1
+                        for j, b in enumerate(reversed(abs_bounds)):
+                            if val > b:
+                                zone_idx = j
+                                break
+                    else:
+                        zone_idx = 0
+                        for j, b in enumerate(abs_bounds):
+                            if val >= b:
+                                zone_idx = j + 1
+                            else:
+                                break
+                    zone_time[min(zone_idx, n_zones - 1)] += dur
+
+            if total_time > 0:
+                result["distribution"] = [
+                    {"name": names[i], "actual_pct": round(zone_time[i] / total_time * 100), "target_pct": targets[i]}
+                    for i in range(n_zones)
+                ]
+            else:
+                result["distribution"] = [
+                    {"name": names[i], "actual_pct": 0, "target_pct": targets[i]}
+                    for i in range(n_zones)
+                ]
+
             result["zone_ranges"] = compute_zones(base, current_cp, bounds, names if zone_names else None)
             result["theory_name"] = theory_name or ("Coggan 5-Zone" if len(bounds) == 4 else f"{n_zones}-Zone")
+            result["diagnosis"].append({"type": "neutral", "message": "Zone distribution based on activity averages (no split data). Connect Garmin for more accurate per-interval analysis."})
             _add_diagnosis_items(result, current_cp, base)
             return result
 

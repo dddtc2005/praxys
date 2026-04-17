@@ -51,14 +51,18 @@ export interface DisplayConfig {
   trend_label: string;
 }
 
+export type UnitSystem = 'metric' | 'imperial';
+
 export interface SettingsConfig {
+  display_name: string;
+  unit_system: UnitSystem;
   connections: PlatformName[];
   preferences: Partial<Record<DataCategory, PlatformName | PlanSourceName>>;
   training_base: TrainingBase;
   thresholds: Record<string, number | string | null>;
   zones: Record<string, number[]>;
-  goal: Record<string, string | number>;
-  source_options: Record<string, string>;
+  goal: { race_date?: string; distance?: string; target_time_sec?: number; [key: string]: unknown };
+  source_options: Record<string, unknown>;
 }
 
 export interface ThresholdValue {
@@ -85,6 +89,7 @@ export interface SyncStatus {
   status: 'idle' | 'syncing' | 'done' | 'error';
   last_sync: string | null;
   error: string | null;
+  progress?: string | null;
 }
 
 export type SyncStatusResponse = Record<string, SyncStatus>;
@@ -209,6 +214,8 @@ export interface TodayResponse {
   last_activity?: LastActivity;
   week_load?: WeekLoad;
   upcoming?: UpcomingWorkout[];
+  data_meta?: DataMeta;
+  science_notes?: ScienceNotes;
 }
 
 export interface ZoneDistribution {
@@ -282,6 +289,23 @@ export interface WorkoutFlag {
   description: string;
 }
 
+export interface DataMeta {
+  activity_count: number;
+  data_days: number;
+  cp_points: number;
+  has_recovery: boolean;
+  pmc_sufficient: boolean;
+  cp_trend_sufficient: boolean;
+}
+
+export interface ScienceNoteInfo {
+  name: string;
+  description: string;
+  citations: { label: string; url: string }[];
+}
+
+export type ScienceNotes = Record<string, ScienceNoteInfo>;
+
 export interface TrainingResponse {
   diagnosis: DiagnosisData;
   fitness_fatigue: TimeSeriesData;
@@ -291,6 +315,8 @@ export interface TrainingResponse {
   sleep_perf: [number, number][];
   training_base?: TrainingBase;
   display?: DisplayConfig;
+  data_meta?: DataMeta;
+  science_notes?: ScienceNotes;
 }
 
 export interface Milestone {
@@ -347,6 +373,8 @@ export interface GoalResponse {
   latest_cp: number | null;
   training_base?: TrainingBase;
   display?: DisplayConfig;
+  data_meta?: DataMeta;
+  science_notes?: ScienceNotes;
 }
 
 export interface SplitData {
@@ -372,6 +400,24 @@ export interface Activity {
   cp_estimate: number | null;
   splits: SplitData[];
 }
+
+export interface AiInsightFinding {
+  type: 'positive' | 'warning' | 'neutral';
+  text: string;
+}
+
+export interface AiInsight {
+  headline: string;
+  summary: string;
+  findings: AiInsightFinding[];
+  recommendations: string[];
+  meta: Record<string, unknown>;
+  generated_at: string | null;
+}
+
+export type AiInsightsResponse = {
+  insights: Partial<Record<string, AiInsight>>;
+};
 
 export interface HistoryResponse {
   activities: Activity[];

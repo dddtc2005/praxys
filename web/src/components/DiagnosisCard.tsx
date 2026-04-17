@@ -22,7 +22,8 @@ export default function DiagnosisCard({ diagnosis, display }: Props) {
 
   const intensityLabel = display?.intensity_metric ?? 'Power';
   const unit = display?.threshold_unit ?? 'W';
-  const topZoneName = distribution.length > 0 ? distribution[distribution.length - 1].name : 'VO2max';
+  const distArr = Array.isArray(distribution) ? distribution : [];
+  const topZoneName = distArr.length > 0 ? distArr[distArr.length - 1].name : 'VO2max';
 
   return (
     <Card>
@@ -36,7 +37,7 @@ export default function DiagnosisCard({ diagnosis, display }: Props) {
         <div>
           <p className="text-xs text-muted-foreground mb-1">Weekly Volume</p>
           <p className="text-xl font-bold font-data text-foreground">
-            {volume.weekly_avg_km.toFixed(1)}<span className="text-sm text-muted-foreground ml-1">km</span>
+            {volume?.weekly_avg_km != null ? volume.weekly_avg_km.toFixed(1) : '—'}<span className="text-sm text-muted-foreground ml-1">km</span>
           </p>
         </div>
         <div>
@@ -54,16 +55,16 @@ export default function DiagnosisCard({ diagnosis, display }: Props) {
         <div>
           <p className="text-xs text-muted-foreground mb-1">{topZoneName} / Quality</p>
           <p className="text-xl font-bold font-data text-foreground">
-            <span className="text-destructive">{interval_power.supra_cp_sessions}</span>
+            <span className="text-destructive">{interval_power?.supra_cp_sessions ?? '—'}</span>
             <span className="text-muted-foreground mx-1">/</span>
-            {interval_power.total_quality_sessions}
+            {interval_power?.total_quality_sessions ?? '—'}
           </p>
         </div>
       </div>
 
       {/* Distribution bar */}
       <div className="mb-6">
-        <DistributionBar distribution={distribution} />
+        <DistributionBar distribution={distArr} />
       </div>
 
       {/* Findings */}

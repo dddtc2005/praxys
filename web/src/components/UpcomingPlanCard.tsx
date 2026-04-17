@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useApi } from '@/hooks/useApi';
+import { useApi, API_BASE, getAuthHeaders } from '@/hooks/useApi';
 import type { PlanResponse, PlannedWorkout, StrydPushStatus, StrydPushResult } from '@/types/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -258,9 +258,9 @@ function WorkoutRow({
 async function pushDatesToStryd(dates: string[]): Promise<{
   results: StrydPushResult[];
 }> {
-  const resp = await fetch('/api/plan/push-stryd', {
+  const resp = await fetch(`${API_BASE}/api/plan/push-stryd`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() as Record<string, string> },
     body: JSON.stringify({ workout_dates: dates }),
   });
   if (!resp.ok) {
@@ -268,6 +268,53 @@ async function pushDatesToStryd(dates: string[]): Promise<{
     throw new Error(err.detail || `HTTP ${resp.status}`);
   }
   return resp.json();
+}
+
+function ExpandableWorkoutList({
+  workouts,
+  getPushState,
+  pushErrors,
+  hasStryd,
+  pushSingle,
+}: {
+  workouts: PlannedWorkout[];
+  getPushState: (date: string) => PushState;
+  pushErrors: Record<string, string>;
+  hasStryd: boolean;
+  pushSingle: (date: string) => void;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const INITIAL_COUNT = 7; // Show 1 week by default
+
+  const visible = showAll ? workouts : workouts.slice(0, INITIAL_COUNT);
+  const hasMore = workouts.length > INITIAL_COUNT;
+
+  return (
+    <div>
+      <div className="space-y-0.5">
+        {visible.map((w) => (
+          <WorkoutRow
+            key={w.date}
+            workout={w}
+            pushState={getPushState(w.date)}
+            pushError={pushErrors[w.date]}
+            showStryd={hasStryd}
+            onPushSingle={pushSingle}
+          />
+        ))}
+      </div>
+      {hasMore && (
+        <button
+          onClick={() => setShowAll(!showAll)}
+          className="mt-3 w-full text-center text-xs text-muted-foreground hover:text-primary transition-colors py-2"
+        >
+          {showAll
+            ? 'Show less'
+            : `Show ${workouts.length - INITIAL_COUNT} more workouts`}
+        </button>
+      )}
+    </div>
+  );
 }
 
 export default function UpcomingPlanCard() {
@@ -280,7 +327,7 @@ export default function UpcomingPlanCard() {
 
   // Check if Stryd is connected
   useEffect(() => {
-    fetch('/api/settings')
+    fetch(`${API_BASE}/api/settings`, { headers: getAuthHeaders() })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
@@ -293,7 +340,7 @@ export default function UpcomingPlanCard() {
 
   // Load push status
   useEffect(() => {
-    fetch('/api/plan/stryd-status')
+    fetch(`${API_BASE}/api/plan/stryd-status`, { headers: getAuthHeaders() })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
@@ -359,7 +406,7 @@ export default function UpcomingPlanCard() {
         // If already pushed, delete the old workout from Stryd first
         const existing = pushStatus[date];
         if (existing?.workout_id) {
-          const resp = await fetch(`/api/plan/stryd-workout/${existing.workout_id}`, { method: 'DELETE' });
+          const resp = await fetch(`${API_BASE}/api/plan/stryd-workout/${existing.workout_id}`, { method: 'DELETE', headers: getAuthHeaders() });
           if (!resp.ok) {
             const err = await resp.json().catch(() => ({ detail: `HTTP ${resp.status}` }));
             throw new Error(err.detail || `HTTP ${resp.status}`);
@@ -496,18 +543,13 @@ export default function UpcomingPlanCard() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-0.5">
-          {data.workouts.map((w) => (
-            <WorkoutRow
-              key={w.date}
-              workout={w}
-              pushState={getPushState(w.date)}
-              pushError={pushErrors[w.date]}
-              showStryd={hasStryd}
-              onPushSingle={pushSingle}
-            />
-          ))}
-        </div>
+        <ExpandableWorkoutList
+          workouts={data.workouts}
+          getPushState={getPushState}
+          pushErrors={pushErrors}
+          hasStryd={hasStryd}
+          pushSingle={pushSingle}
+        />
       </CardContent>
     </Card>
   );

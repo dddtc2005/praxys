@@ -1,5 +1,7 @@
 # Trainsight — Architectural Review
 
+> **Historical snapshot (2026-04-10).** This review was conducted before the database migration (CSV → SQLite), auth system, and multi-user architecture were implemented. Many issues identified here (CSV race conditions, no auth, single-user) have been resolved. Kept for historical context.
+
 **Date:** 2026-04-10  
 **Test suite:** 116 / 116 passing
 

@@ -1,5 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 
+const API_BASE = import.meta.env.VITE_API_URL || '';
+const TOKEN_KEY = 'trainsight-auth-token';
+
 interface UseApiResult<T> {
   data: T | null;
   loading: boolean;
@@ -12,11 +15,31 @@ interface UseApiOptions {
   refetchInterval?: number;
 }
 
+function getAuthHeaders(): HeadersInit {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (token) {
+    return { 'Authorization': `Bearer ${token}` };
+  }
+  return {};
+}
+
 async function apiFetcher<T>(url: string): Promise<T> {
-  const res = await fetch(url);
+  const fullUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
+  const res = await fetch(fullUrl, {
+    headers: getAuthHeaders(),
+  });
+  if (res.status === 401) {
+    localStorage.removeItem(TOKEN_KEY);
+    window.location.href = '/login';
+    // Return a never-resolving promise to prevent React Query from
+    // retrying or surfacing an error flash during the redirect.
+    return new Promise<T>(() => {});
+  }
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
+
+export { API_BASE, getAuthHeaders, apiFetcher };
 
 export function useApi<T>(url: string, options?: UseApiOptions): UseApiResult<T> {
   const { data, isLoading, error, refetch } = useQuery<T, Error>({

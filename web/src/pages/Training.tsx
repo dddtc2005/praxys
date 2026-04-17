@@ -4,7 +4,9 @@ import type { TrainingResponse } from '@/types/api';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+// Card imports kept for future use
+// import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import AiInsightsCard from '@/components/AiInsightsCard';
 import DiagnosisCard from '@/components/DiagnosisCard';
 import ZoneAnalysisCard from '@/components/ZoneAnalysisCard';
 import UpcomingPlanCard from '@/components/UpcomingPlanCard';
@@ -12,6 +14,8 @@ import FitnessFatigueChart from '@/components/charts/FitnessFatigueChart';
 import CpTrendChart from '@/components/charts/CpTrendChart';
 import ComplianceChart from '@/components/charts/ComplianceChart';
 import SleepPerfChart from '@/components/charts/SleepPerfChart';
+import DataHint from '@/components/DataHint';
+import CliHint from '@/components/CliHint';
 
 function TrainingSkeleton() {
   return (
@@ -62,13 +66,18 @@ export default function Training() {
         <p className="text-sm text-muted-foreground mt-1">Weekly Review</p>
       </div>
 
+      {/* AI insights — shown when available from CLI analysis */}
+      <div className="mb-6">
+        <AiInsightsCard insightType="training_review" />
+      </div>
+
       {/* Diagnosis card — full width */}
       <div className="mb-6">
         <DiagnosisCard diagnosis={data.diagnosis} display={activeDisplay ?? undefined} />
       </div>
 
       {/* Zone analysis card */}
-      {data.diagnosis.zone_ranges.length > 0 && (
+      {data.diagnosis.zone_ranges?.length > 0 && (
         <div className="mb-6">
           <ZoneAnalysisCard
             distribution={data.diagnosis.distribution}
@@ -87,46 +96,51 @@ export default function Training() {
       {/* Charts grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div className="lg:col-span-2">
-          <FitnessFatigueChart data={data.fitness_fatigue} />
+          <DataHint
+            sufficient={data.data_meta?.pmc_sufficient ?? true}
+            message="Not enough data for accurate fitness tracking"
+            hint="Sync at least 6 weeks of activity data to see meaningful fitness, fatigue, and form curves."
+          >
+            <FitnessFatigueChart data={data.fitness_fatigue} scienceNote={data.science_notes?.load} />
+          </DataHint>
         </div>
         <div className="lg:col-span-2">
-          <CpTrendChart data={data.cp_trend} label={activeDisplay?.trend_label} unit={activeDisplay?.threshold_unit} metricName={activeDisplay?.threshold_abbrev} />
+          <DataHint
+            sufficient={data.data_meta?.cp_trend_sufficient ?? true}
+            message="Not enough data to show CP trend"
+            hint="Need at least 3 activities with power data to plot a meaningful trend."
+          >
+            <CpTrendChart data={data.cp_trend} label={activeDisplay?.trend_label} unit={activeDisplay?.threshold_unit} metricName={activeDisplay?.threshold_abbrev} />
+          </DataHint>
         </div>
-        <ComplianceChart data={data.weekly_review} loadLabel={activeDisplay?.load_label} />
-        <SleepPerfChart data={data.sleep_perf} />
+        <DataHint
+          sufficient={(data.data_meta?.data_days ?? 0) >= 14}
+          message="Not enough data for weekly load comparison"
+          hint="Sync at least 2 weeks of data to compare planned vs actual training load."
+        >
+          <ComplianceChart data={data.weekly_review} loadLabel={activeDisplay?.load_label} />
+        </DataHint>
+        <DataHint
+          sufficient={!!(data.data_meta?.has_recovery && (data.sleep_perf?.length ?? 0) >= 2)}
+          message="Not enough data to show sleep vs performance"
+          hint="Connect a recovery source (like Oura Ring) and sync activities with power data."
+        >
+          <SleepPerfChart data={data.sleep_perf} />
+        </DataHint>
       </div>
 
-      {/* Workout Flags */}
-      {data.workout_flags.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              What Worked / What Didn't
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {data.workout_flags.map((flag, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <span
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                      flag.type === 'good'
-                        ? 'bg-primary/20 text-primary'
-                        : 'bg-destructive/20 text-destructive'
-                    }`}
-                  >
-                    {flag.type === 'good' ? '+' : '\u2013'}
-                  </span>
-                  <div className="min-w-0">
-                    <span className="text-xs font-data text-muted-foreground">{flag.date}</span>
-                    <p className="text-sm text-muted-foreground">{flag.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Workout Flags — removed, needs better analysis than avg power comparison */}
+
+      <CliHint
+        skill="training-review"
+        title="AI Training Analysis"
+        description="Get in-depth zone distribution analysis, training suggestions, and a personalized plan generated by AI."
+      />
+      <CliHint
+        skill="training-plan"
+        title="Generate Training Plan"
+        description="Create a science-based 4-week training plan tailored to your fitness, recovery, and goals."
+      />
     </div>
   );
 }

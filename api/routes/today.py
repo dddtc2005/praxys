@@ -1,9 +1,12 @@
 """Today's training signal endpoint."""
 import pandas as pd
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 
+from api.auth import get_current_user_id
 from api.deps import get_dashboard_data
 from api.views import last_activity, upcoming_workouts, week_load
+from db.session import get_db
 
 router = APIRouter()
 
@@ -22,8 +25,11 @@ def _recovery_theory_meta(science: dict) -> dict | None:
 
 
 @router.get("/today")
-def get_today():
-    data = get_dashboard_data()
+def get_today(
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    data = get_dashboard_data(user_id=user_id, db=db)
     science = data.get("science", {})
     activities = data.get("activities", [])
     weekly_review = data.get("weekly_review", {})
@@ -40,4 +46,6 @@ def get_today():
         "last_activity": last_activity(activities),
         "week_load": week_load(weekly_review),
         "upcoming": upcoming_workouts(plan_df),
+        "data_meta": data.get("data_meta"),
+        "science_notes": data.get("science_notes"),
     }

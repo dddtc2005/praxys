@@ -1,12 +1,5 @@
-"""Sync sleep and readiness data from Oura Ring API v2."""
-import argparse
-import os
-from datetime import date, timedelta
-
+"""Oura Ring API v2 integration — fetch/parse layer for the sync API route."""
 import requests
-from dotenv import load_dotenv
-
-from sync.csv_utils import append_rows
 
 OURA_BASE = "https://api.ouraring.com/v2/usercollection"
 
@@ -76,47 +69,3 @@ def parse_readiness_records(raw_records: list[dict]) -> list[dict]:
             "body_temperature_delta": str(r.get("temperature_deviation", "")),
         })
     return rows
-
-
-def sync(token: str, data_dir: str, from_date: str | None = None) -> None:
-    """Pull Oura data and save to CSVs."""
-    end = date.today().isoformat()
-    start = from_date or (date.today() - timedelta(days=7)).isoformat()
-
-    print(f"Oura: syncing {start} to {end}")
-
-    sleep_raw = fetch_sleep_data(token, start, end)
-    sleep_rows = parse_sleep_records(sleep_raw)
-    sleep_path = os.path.join(data_dir, "oura", "sleep.csv")
-    append_rows(sleep_path, sleep_rows, key_column="date")
-    print(f"  Sleep: {len(sleep_rows)} records")
-
-    hrv_by_date = {}
-    for r in sleep_raw:
-        d = r.get("day", "")
-        hrv_by_date[d] = {
-            "hrv_avg": str(r.get("average_hrv", "")),
-            "resting_hr": str(r.get("average_heart_rate", "")),
-        }
-
-    readiness_raw = fetch_readiness_data(token, start, end)
-    readiness_rows = parse_readiness_records(readiness_raw)
-    for row in readiness_rows:
-        extra = hrv_by_date.get(row["date"], {})
-        row["hrv_avg"] = extra.get("hrv_avg", row["hrv_avg"])
-        row["resting_hr"] = extra.get("resting_hr", row["resting_hr"])
-
-    readiness_path = os.path.join(data_dir, "oura", "readiness.csv")
-    append_rows(readiness_path, readiness_rows, key_column="date")
-    print(f"  Readiness: {len(readiness_rows)} records")
-
-
-if __name__ == "__main__":
-    load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
-    parser = argparse.ArgumentParser(description="Sync Oura Ring data")
-    parser.add_argument("--from-date", help="Start date (YYYY-MM-DD) for historical backfill")
-    args = parser.parse_args()
-
-    token = os.environ["OURA_TOKEN"]
-    data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
-    sync(token, data_dir, args.from_date)

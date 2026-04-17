@@ -7,12 +7,15 @@ from datetime import date, datetime, timezone
 import pandas as pd
 import requests
 from dotenv import load_dotenv
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
+from api.auth import get_current_user_id
 from api.deps import get_dashboard_data
+from db.session import get_db
 
 router = APIRouter()
 
@@ -21,17 +24,20 @@ _STRYD_PUSH_STATUS_PATH = os.path.join(_DATA_DIR, "ai", "stryd_push_status.json"
 
 
 @router.get("/plan")
-def get_plan() -> dict:
-    """Return upcoming planned workouts (today + next 14 days)."""
-    data = get_dashboard_data()
+def get_plan(
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Return all upcoming planned workouts (today onwards)."""
+    data = get_dashboard_data(user_id=user_id, db=db)
     plan_df: pd.DataFrame = data.get("plan", pd.DataFrame())
     today = date.today()
 
     if plan_df.empty:
         return {"workouts": [], "cp_current": None}
 
-    # Filter for today onwards
-    upcoming = plan_df[plan_df["date"] >= today].sort_values("date").head(14)
+    # Filter for today onwards — return all (frontend handles pagination)
+    upcoming = plan_df[plan_df["date"] >= today].sort_values("date")
 
     workouts = []
     for _, row in upcoming.iterrows():
@@ -87,7 +93,9 @@ def _save_push_status(status: dict) -> None:
 
 
 @router.get("/plan/stryd-status")
-def get_stryd_push_status() -> dict:
+def get_stryd_push_status(
+    user_id: str = Depends(get_current_user_id),
+) -> dict:
     """Return push status for all workouts synced to Stryd."""
     return _load_push_status()
 
@@ -97,7 +105,11 @@ class PushStrydRequest(BaseModel):
 
 
 @router.post("/plan/push-stryd")
-def push_plan_to_stryd(request: PushStrydRequest) -> dict:
+def push_plan_to_stryd(
+    request: PushStrydRequest,
+    current_user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict:
     """Push selected AI plan workouts to Stryd calendar.
 
     Converts AI plan workouts to Stryd structured format and uploads them.
@@ -118,13 +130,13 @@ def push_plan_to_stryd(request: PushStrydRequest) -> dict:
 
     # Login to Stryd
     try:
-        user_id, token = _login_api(email, password)
+        stryd_user_id, token = _login_api(email, password)
     except Exception as e:
         logger.error("Stryd login failed: %s", e)
         raise HTTPException(status_code=502, detail="Stryd login failed. Check your credentials in sync/.env")
 
     # Load AI plan data
-    data = get_dashboard_data()
+    data = get_dashboard_data(user_id=current_user_id, db=db)
     plan_df: pd.DataFrame = data.get("plan", pd.DataFrame())
     if plan_df.empty:
         raise HTTPException(status_code=404, detail="No training plan found")
@@ -182,7 +194,7 @@ def push_plan_to_stryd(request: PushStrydRequest) -> dict:
             description = str(row.get("workout_description", ""))
 
             result = create_workout_api(
-                user_id=user_id,
+                user_id=stryd_user_id,
                 token=token,
                 workout_date=workout_date,
                 title=title,
@@ -220,7 +232,11 @@ def push_plan_to_stryd(request: PushStrydRequest) -> dict:
 
 
 @router.delete("/plan/stryd-workout/{workout_id}")
-def delete_stryd_workout(workout_id: str) -> dict:
+def delete_stryd_workout(
+    workout_id: str,
+    current_user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict:
     """Delete a previously pushed workout from Stryd."""
     from sync.stryd_sync import _login_api, delete_workout_api
 
@@ -231,13 +247,13 @@ def delete_stryd_workout(workout_id: str) -> dict:
         raise HTTPException(status_code=400, detail="STRYD_EMAIL / STRYD_PASSWORD not configured")
 
     try:
-        user_id, token = _login_api(email, password)
+        stryd_user_id, token = _login_api(email, password)
     except Exception as e:
         logger.error("Stryd login failed: %s", e)
         raise HTTPException(status_code=502, detail="Stryd login failed. Check your credentials in sync/.env")
 
     try:
-        delete_workout_api(user_id, token, workout_id)
+        delete_workout_api(stryd_user_id, token, workout_id)
     except requests.HTTPError as e:
         if e.response is not None and e.response.status_code == 404:
             pass  # Already deleted on Stryd — proceed to clean local status

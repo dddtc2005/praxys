@@ -1,0 +1,98 @@
+# Security
+
+How Trainsight protects your data and credentials.
+
+## Credential Encryption
+
+Platform credentials (Garmin password, Stryd password, Oura token) are encrypted at rest using envelope encryption. They are **never stored in plaintext**, **never returned to the frontend**, and **never logged**.
+
+### How It Works
+
+Each user's credentials are encrypted with a unique Data Encryption Key (DEK). The DEK itself is wrapped (encrypted) by a Key Encryption Key (KEK):
+
+```
+Plaintext credentials
+    → encrypt with per-user DEK (AES/Fernet)
+    → DEK wrapped by KEK
+    → only the encrypted blob + wrapped DEK are stored in the database
+```
+
+To decrypt, the system unwraps the DEK using the KEK, then decrypts the credentials. The plaintext DEK exists only in memory during the sync operation.
+
+### Azure (Cloud Mode)
+
+The KEK is an RSA key managed by **Azure Key Vault**. The App Service accesses Key Vault via **managed identity** — no secrets are stored in environment variables or code. Key Vault handles key rotation, access auditing, and HSM-backed storage.
+
+### Local Mode
+
+The KEK is a **Fernet key** stored in your `.env` file (which is gitignored). Generate it during setup:
+
+```bash
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Set as `TRAINSIGHT_LOCAL_ENCRYPTION_KEY` in `.env`. Without this key, encrypted credentials cannot be decrypted and syncs will fail after a restart.
+
+## Authentication
+
+### JWT Tokens
+
+User sessions use JSON Web Tokens (JWT) with a 7-day lifetime. Tokens are signed with a server-side secret (`TRAINSIGHT_JWT_SECRET`). Expired tokens are rejected and the user must log in again.
+
+### Two Types of Passwords
+
+Trainsight handles two distinct categories of passwords differently:
+
+**Your Trainsight account password** — hashed with **Argon2id** (winner of the Password Hashing Competition, resistant to GPU and side-channel attacks). The raw password is never stored in plaintext. Used for JWT login only.
+
+**Platform credentials** (Garmin email+password, Stryd email+password, Oura personal access token) — encrypted with **envelope encryption** (per-user AES/Fernet DEK, wrapped by a KEK). These are never returned to the frontend, never logged, only decrypted in memory at sync time, and discarded immediately after the sync API call completes. See [Credential Encryption](#credential-encryption) above for the full scheme.
+
+## Data Isolation
+
+All data is scoped to the authenticated user:
+
+- Every database query filters by `user_id`
+- There is no admin "view all users' data" feature
+- API endpoints only return data belonging to the requesting user
+- Sync operations only access the authenticated user's platform credentials
+
+## Azure Security (Cloud Mode)
+
+When deployed to Azure:
+
+- **Managed identity** — the App Service authenticates to Key Vault without stored secrets
+- **HTTPS everywhere** — both the Static Web App (frontend) and App Service (backend) enforce HTTPS
+- **CORS restricted** — the backend only accepts requests from the Static Web App domain
+- **Key Vault access policy** — only the App Service's managed identity has "Key Vault Crypto User" permissions on the encryption key
+- **No shared secrets** — JWT secret and encryption keys are App Service configuration, not in code or CI/CD
+
+## Local Security
+
+When running locally:
+
+- **Encryption key** — stored in `.env`, which is gitignored and never committed
+- **Database** — SQLite file stored in `data/`, also gitignored
+- **Network** — runs on `localhost` only by default; not exposed to the network unless you configure it
+- **Same auth flow** — local mode uses the same registration, JWT, and encryption as cloud mode
+
+## What We Don't Do
+
+- **We don't sell your data.** Trainsight is a personal training tool, not an ad platform.
+- **We don't share data with third parties.** Your training data stays in your Trainsight instance.
+- **We don't store more than needed.** We store platform credentials only to sync your data. Activity data stays in your instance's database.
+- **We don't send data to AI services without your action.** AI features (training plans, insights) are triggered explicitly by you via the CLI plugin. No background AI processing.
+- **We don't track you.** No analytics, no telemetry, no usage tracking in the app.
+
+## Credential Lifecycle
+
+| Event | What Happens |
+|-------|--------------|
+| Connect a platform | Credentials encrypted with per-user DEK, wrapped DEK + encrypted blob stored in DB |
+| Sync runs | Credentials decrypted in memory, used for API call, discarded after sync |
+| Disconnect a platform | Encrypted credentials deleted from DB |
+| View connections (API/UI) | Only connection status returned — credentials are never sent to the frontend |
+| Server logs | Credential values are never logged, even at debug level |
+
+## Reporting Security Issues
+
+If you discover a security vulnerability, please report it privately rather than opening a public issue. Contact the repository owner directly.

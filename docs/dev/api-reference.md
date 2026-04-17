@@ -2,6 +2,164 @@
 
 All endpoints are under the `/api/` prefix. The API server runs on `http://localhost:8000` by default.
 
+**Authentication:** All data endpoints require `Authorization: Bearer <token>` in the request header. Tokens are obtained via `POST /api/auth/login`.
+
+## Auth
+
+### POST /api/auth/register
+
+Register a new user. First user on a fresh database becomes admin without an invitation code. Subsequent users must provide a valid invitation code.
+
+**Request body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "securepassword",
+  "invitation_code": "TS-ABCD-1234"
+}
+```
+
+- `invitation_code` is optional for the first user (auto-admin) or if the email matches `TRAINSIGHT_ADMIN_EMAIL`
+
+**Response:**
+```json
+{
+  "id": "uuid-string",
+  "email": "user@example.com",
+  "is_superuser": false
+}
+```
+
+**Error codes:**
+- `400 REGISTER_USER_ALREADY_EXISTS` — email already registered
+- `400 REGISTER_INVITATION_REQUIRED` — not first user and no code provided
+- `400 REGISTER_INVALID_INVITATION` — code is invalid, used, or revoked
+
+### POST /api/auth/login
+
+Obtain a JWT access token. Uses FastAPI-Users auth backend.
+
+**Request body** (form-encoded):
+```
+username=user@example.com&password=securepassword
+```
+
+**Response:**
+```json
+{
+  "access_token": "eyJ...",
+  "token_type": "bearer"
+}
+```
+
+### GET /api/auth/me
+
+Return the authenticated user's profile.
+
+**Response:**
+```json
+{
+  "id": "uuid-string",
+  "email": "user@example.com",
+  "is_superuser": true,
+  "created_at": "2026-04-01T12:00:00"
+}
+```
+
+## Admin
+
+All admin endpoints require `is_superuser=True` on the authenticated user. Returns `403` otherwise.
+
+### GET /api/admin/users
+
+List all registered users.
+
+**Response:**
+```json
+{
+  "users": [
+    {
+      "id": "uuid-string",
+      "email": "user@example.com",
+      "is_active": true,
+      "is_superuser": true,
+      "created_at": "2026-04-01T12:00:00"
+    }
+  ]
+}
+```
+
+### DELETE /api/admin/users/{id}
+
+Delete a user and cascade-delete all their data (activities, splits, recovery, fitness, plans, connections, config). Cannot delete yourself.
+
+**Response:**
+```json
+{ "status": "deleted", "email": "user@example.com" }
+```
+
+### PATCH /api/admin/users/{id}/role
+
+Toggle admin role for a user. Cannot change your own role.
+
+**Request body:**
+```json
+{ "is_superuser": true }
+```
+
+**Response:**
+```json
+{
+  "id": "uuid-string",
+  "email": "user@example.com",
+  "is_superuser": true
+}
+```
+
+### POST /api/admin/invitations
+
+Generate a one-time invitation code (format: `TS-XXXX-XXXX`).
+
+**Request body (optional):**
+```json
+{ "note": "For teammate Alice" }
+```
+
+**Response:**
+```json
+{ "code": "TS-A1B2-C3D4", "note": "For teammate Alice" }
+```
+
+### GET /api/admin/invitations
+
+List all invitation codes with usage status.
+
+**Response:**
+```json
+{
+  "invitations": [
+    {
+      "id": 1,
+      "code": "TS-A1B2-C3D4",
+      "note": "For teammate Alice",
+      "is_active": true,
+      "created_at": "2026-04-01T12:00:00",
+      "used_by": null,
+      "used_at": null
+    }
+  ]
+}
+```
+
+### DELETE /api/admin/invitations/{id}
+
+Revoke an invitation code (cannot be used after this).
+
+**Response:**
+```json
+{ "status": "revoked", "code": "TS-A1B2-C3D4" }
+```
+
 ## Today
 
 ### GET /api/today
@@ -20,7 +178,7 @@ recovery suggestions.
     "reason": "string",
     "alternatives": [],
     "recovery": { "tsb": 0.6, "hrv_ms": 59.0, "sleep_score": 82.0 },
-    "plan": { "workout_type": "easy", "duration_min": "60", ... }
+    "plan": { "workout_type": "easy", "duration_min": "60", "..." : "..." }
   },
   "recovery_analysis": {
     "status": "fresh|normal|fatigued|insufficient_data",
@@ -38,7 +196,7 @@ recovery suggestions.
     "avg_pace_min_km": "5:42",
     "rss": 64.8
   },
-  "tsb_sparkline": { "dates": [...], "values": [...], "projected_dates": [...], "projected_values": [...] },
+  "tsb_sparkline": { "dates": ["..."], "values": ["..."], "projected_dates": ["..."], "projected_values": ["..."] },
   "recovery_theory": { "id": "hrv_based", "name": "HRV-Based Recovery", "simple_description": "...", "params": {} },
   "upcoming": [
     { "date": "2026-04-11", "workout_type": "threshold", "duration_min": 65 }
@@ -75,20 +233,20 @@ Training analysis and diagnosis.
     "suggestions": ["string"]
   },
   "fitness_fatigue": {
-    "dates": ["2026-02-10", ...],
-    "ctl": [45.2, ...],
-    "atl": [52.1, ...],
-    "tsb": [-6.9, ...],
-    "projected_dates": [...],
-    "projected_ctl": [...],
-    "projected_tsb": [...]
+    "dates": ["2026-02-10", "..."],
+    "ctl": [45.2, "..."],
+    "atl": [52.1, "..."],
+    "tsb": [-6.9, "..."],
+    "projected_dates": ["..."],
+    "projected_ctl": ["..."],
+    "projected_tsb": ["..."]
   },
-  "cp_trend": { "dates": [...], "values": [...] },
-  "weekly_review": { "weeks": ["W10", ...], "actual_rss": [...], "planned_rss": [...] },
+  "cp_trend": { "dates": ["..."], "values": ["..."] },
+  "weekly_review": { "weeks": ["W10", "..."], "actual_rss": ["..."], "planned_rss": ["..."] },
   "workout_flags": [{ "date": "...", "flag": "good|bad", "reason": "..." }],
-  "sleep_perf": { ... },
+  "sleep_perf": { "..." : "..." },
   "training_base": "power",
-  "display": { ... }
+  "display": { "..." : "..." }
 }
 ```
 
@@ -112,11 +270,11 @@ Race prediction and goal tracking.
     "status": "on_track|behind|unlikely",
     "milestones": [{ "cp": 270, "marathon": "~3:50", "reached": false }]
   },
-  "cp_trend": { "dates": [...], "values": [...] },
+  "cp_trend": { "dates": ["..."], "values": ["..."] },
   "cp_trend_data": { "direction": "improving|stable|falling", "slope_per_month": -3.9 },
   "latest_cp": 247.8,
   "training_base": "power",
-  "display": { ... }
+  "display": { "..." : "..." }
 }
 ```
 
@@ -149,7 +307,7 @@ Paginated activity history.
   "limit": 20,
   "offset": 0,
   "training_base": "power",
-  "display": { ... }
+  "display": { "..." : "..." }
 }
 ```
 
@@ -230,7 +388,7 @@ Current configuration, platform capabilities, and detected thresholds.
   "effective_thresholds": {
     "cp_watts": { "value": 247.8, "origin": "auto (stryd)" }
   },
-  "display": { ... }
+  "display": { "..." : "..." }
 }
 ```
 
@@ -246,6 +404,62 @@ Update settings (partial update).
 }
 ```
 
+### GET /api/settings/connections
+
+Return connected platforms and their status. Credentials are never exposed.
+
+**Response:**
+```json
+{
+  "connections": {
+    "garmin": {
+      "status": "connected",
+      "last_sync": "2026-04-10T08:30:00",
+      "has_credentials": true
+    },
+    "stryd": {
+      "status": "disconnected",
+      "last_sync": null,
+      "has_credentials": false
+    }
+  }
+}
+```
+
+### POST /api/settings/connections/{platform}
+
+Connect a platform by storing encrypted credentials. Platform must be one of: `garmin`, `stryd`, `oura`.
+
+**Request body (Garmin/Stryd):**
+```json
+{
+  "email": "user@example.com",
+  "password": "platform-password",
+  "is_cn": false
+}
+```
+
+**Request body (Oura):**
+```json
+{
+  "token": "oura-personal-access-token"
+}
+```
+
+**Response:**
+```json
+{ "status": "connected", "platform": "garmin" }
+```
+
+### DELETE /api/settings/connections/{platform}
+
+Disconnect a platform and delete stored credentials.
+
+**Response:**
+```json
+{ "status": "disconnected", "platform": "garmin" }
+```
+
 ## Science
 
 ### GET /api/science
@@ -256,12 +470,12 @@ Active theories, available options, and recommendations.
 ```json
 {
   "active": {
-    "load": { "id": "banister_pmc", "name": "Banister PMC", ... },
-    "zones": { "id": "coggan_5zone", "name": "Coggan 5-Zone", ... }
+    "load": { "id": "banister_pmc", "name": "Banister PMC", "..." : "..." },
+    "zones": { "id": "coggan_5zone", "name": "Coggan 5-Zone", "..." : "..." }
   },
   "available": {
-    "load": [{ "id": "banister_pmc", ... }, { "id": "banister_ultra", ... }],
-    "zones": [{ "id": "coggan_5zone", ... }, { "id": "polarized_3zone", ... }]
+    "load": [{ "id": "banister_pmc", "..." : "..." }, { "id": "banister_ultra", "..." : "..." }],
+    "zones": [{ "id": "coggan_5zone", "..." : "..." }, { "id": "polarized_3zone", "..." : "..." }]
   },
   "label_sets": [{ "id": "standard", "name": "Standard" }],
   "recommendations": [
@@ -292,8 +506,8 @@ Current sync status for all sources.
 ```json
 {
   "garmin": { "status": "idle|syncing|done|error", "last_sync": "ISO timestamp", "error": null },
-  "stryd": { ... },
-  "oura": { ... }
+  "stryd": { "..." : "..." },
+  "oura": { "..." : "..." }
 }
 ```
 
@@ -309,6 +523,17 @@ Trigger sync for a single source (garmin, stryd, oura). Runs in background.
 ### POST /api/sync
 
 Trigger sync for all configured sources.
+
+## Health
+
+### GET /api/health
+
+Unauthenticated health check.
+
+**Response:**
+```json
+{ "status": "ok" }
+```
 
 ## Common Response Fields
 

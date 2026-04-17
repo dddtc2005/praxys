@@ -51,10 +51,72 @@ def _ensure_env():
 # ---------------------------------------------------------------------------
 
 
-def _resolve_thresholds(config, data_dir: str) -> ThresholdEstimate:
-    """Build ThresholdEstimate from config + auto-detect from fitness providers."""
+def _resolve_thresholds(
+    config, data_dir: str = None, user_id: str = None, db=None,
+) -> ThresholdEstimate:
+    """Build ThresholdEstimate from config + auto-detect from fitness providers.
+
+    When user_id and db are provided, extracts thresholds from the DB fitness
+    data. Otherwise falls back to file-based provider detection.
+    """
+    if user_id and db:
+        # DB path: extract latest thresholds from fitness_data table
+        result = ThresholdEstimate()
+        from db.models import FitnessData
+        _METRIC_MAP = {
+            "cp_estimate": "cp_watts",
+            "lthr_bpm": "lthr_bpm",
+            "lt_pace_sec_km": "threshold_pace_sec_km",
+        }
+        for db_metric, est_attr in _METRIC_MAP.items():
+            row = (
+                db.query(FitnessData)
+                .filter(
+                    FitnessData.user_id == user_id,
+                    FitnessData.metric_type == db_metric,
+                    FitnessData.value.isnot(None),
+                )
+                .order_by(FitnessData.date.desc())
+                .first()
+            )
+            if row and row.value:
+                setattr(result, est_attr, float(row.value))
+
+        # Also look for max_hr and resting_hr
+        for db_metric, est_attr in [("max_hr_bpm", "max_hr_bpm"), ("rest_hr_bpm", "rest_hr_bpm")]:
+            row = (
+                db.query(FitnessData)
+                .filter(
+                    FitnessData.user_id == user_id,
+                    FitnessData.metric_type == db_metric,
+                    FitnessData.value.isnot(None),
+                )
+                .order_by(FitnessData.date.desc())
+                .first()
+            )
+            if row and row.value:
+                setattr(result, est_attr, float(row.value))
+
+        # Apply manual overrides from config
+        t = config.thresholds
+        if t.get("cp_watts"):
+            result.cp_watts = float(t["cp_watts"])
+        if t.get("lthr_bpm"):
+            result.lthr_bpm = float(t["lthr_bpm"])
+        if t.get("threshold_pace_sec_km"):
+            result.threshold_pace_sec_km = float(t["threshold_pace_sec_km"])
+        if t.get("max_hr_bpm"):
+            result.max_hr_bpm = float(t["max_hr_bpm"])
+        if t.get("rest_hr_bpm"):
+            result.rest_hr_bpm = float(t["rest_hr_bpm"])
+
+        return result
+
+    # File-based path (backward compatibility)
     from analysis.thresholds import resolve_thresholds_to_estimate
-    return resolve_thresholds_to_estimate(config.thresholds, config.connections, data_dir)
+    return resolve_thresholds_to_estimate(
+        config.thresholds, config.connections, data_dir
+    )
 
 
 def _compute_daily_load(
@@ -237,6 +299,7 @@ def _build_compliance(
     # Compute planned weekly RSS from training plan
     planned_weekly: list[float] = []
     planned_estimated = False
+    plan_copy = pd.DataFrame()
     if not plan.empty and "date" in plan.columns:
         plan_copy = plan.copy()
         plan_copy["_date"] = pd.to_datetime(plan_copy["date"], errors="coerce")
@@ -284,7 +347,7 @@ def _build_compliance(
 
     # Align planned to actual weeks
     aligned_planned: list[float] = []
-    if not weekly_actual.empty and not plan.empty and "_load" in plan_copy.columns:
+    if not weekly_actual.empty and not plan_copy.empty and "_load" in plan_copy.columns:
         weekly_planned_series = plan_copy.groupby(["_year", "_week"])["_load"].sum()
         for idx in weekly_actual.index:
             if idx in weekly_planned_series.index:
@@ -414,27 +477,41 @@ def _build_race_countdown(
     distance_key: str = "marathon",
     training_base: str = "power",
     threshold_pace: float | None = None,
+    riegel_exponent: float | None = None,
+    prediction_theory_name: str | None = None,
 ) -> dict:
     """Build race countdown / CP milestone payload depending on config.
 
     For power base: uses power-pace model for predictions.
     For HR/pace bases: uses Riegel formula from threshold pace.
+    The prediction method is determined by the user's science theory selection.
     """
+    is_inverted = training_base == "pace"
+
+    # Predicted time — uses prediction theory selection
+    predicted_time: float | None = None
+    prediction_method = "none"
+    if training_base == "power" and latest_cp:
+        predicted_time = predict_marathon_time(latest_cp, power_pace_pairs, power_fraction, distance_km)
+        prediction_method = "critical_power"
+    elif threshold_pace:
+        predicted_time = predict_time_from_pace(threshold_pace, distance_km, riegel_exponent)
+        prediction_method = "riegel"
+
     common = {
         "distance": distance_key,
         "distance_label": distance_label,
+        "prediction_method": prediction_method,
+        "prediction_theory": prediction_theory_name,
     }
-    is_inverted = training_base == "pace"
 
-    # Predicted time — base-aware
-    predicted_time: float | None = None
-    if training_base == "power" and latest_cp:
-        predicted_time = predict_marathon_time(latest_cp, power_pace_pairs, power_fraction, distance_km)
-    elif threshold_pace:
-        predicted_time = predict_time_from_pace(threshold_pace, distance_km)
-
+    days_left = None
     if race_date_str:
-        days_left = (date.fromisoformat(race_date_str) - today).days
+        try:
+            days_left = (date.fromisoformat(race_date_str) - today).days
+        except ValueError:
+            pass
+    if days_left is not None:
         race_status = "unknown"
         if predicted_time and target_time_sec:
             if predicted_time <= target_time_sec:
@@ -554,7 +631,10 @@ def _get_latest_readiness(
     if readiness.empty or "readiness_score" not in readiness.columns:
         return None, None
     latest_row = readiness.sort_values("date").iloc[-1]
-    latest_readiness = float(latest_row["readiness_score"])
+    readiness_val = pd.to_numeric(
+        pd.Series([latest_row["readiness_score"]]), errors="coerce"
+    ).iloc[0]
+    latest_readiness = float(readiness_val) if pd.notna(readiness_val) else None
     latest_hrv = None
     if "hrv_avg" in readiness.columns:
         hrv_val = pd.to_numeric(
@@ -592,6 +672,7 @@ def _build_activities_list(
         act: dict = {
             "activity_id": str(row.get("activity_id", "")),
             "date": str(row["date"]),
+            "source": str(row.get("source", "")),
             "activity_type": row.get("activity_type", "running"),
             "distance_km": (
                 round(float(row.get("distance_km", 0)), 2)
@@ -684,11 +765,13 @@ def _build_activities_list(
 
 
 def _compute_threshold_data(
-    merged: pd.DataFrame, config, data_dir: str,
+    merged: pd.DataFrame, config, data_dir: str = None,
+    user_id: str = None, db=None,
 ) -> tuple[float | None, dict, pd.Series, list[tuple[float, float]]]:
     """Compute active threshold value, trend data, CP values, and power-pace pairs.
 
     Returns (latest_threshold, trend_data, cp_values, power_pace_pairs).
+    When user_id and db are provided, uses DB-based fitness data for HR/pace trends.
     """
     cp_values = (
         pd.to_numeric(merged["cp_estimate"], errors="coerce")
@@ -696,6 +779,32 @@ def _compute_threshold_data(
         else pd.Series(dtype=float)
     )
     cp_values = cp_values[cp_values > 0].dropna()
+
+    # Supplement with fitness_data CP estimates (includes profile CP from Stryd sync)
+    if user_id and db:
+        from db.models import FitnessData as FDModel
+        fd_rows = db.query(FDModel.date, FDModel.value).filter(
+            FDModel.user_id == user_id,
+            FDModel.metric_type == "cp_estimate",
+            FDModel.value.isnot(None),
+        ).all()
+        if fd_rows:
+            fd_series = pd.Series(
+                {r.date: r.value for r in fd_rows if r.value and r.value > 0}
+            )
+            # Merge: fitness_data values fill gaps and override activity-based CP
+            if not fd_series.empty:
+                act_cp = pd.Series(
+                    dict(zip(
+                        merged["date"].iloc[cp_values.index] if not cp_values.empty else [],
+                        cp_values.values if not cp_values.empty else [],
+                    ))
+                )
+                combined = pd.concat([act_cp, fd_series])
+                combined = combined[~combined.index.duplicated(keep="last")]
+                combined = combined.sort_index()
+                cp_values = combined[combined > 0].dropna()
+
     power_pace_pairs = _get_power_pace_pairs(merged)
 
     if config.training_base == "power":
@@ -709,10 +818,15 @@ def _compute_threshold_data(
             else {"direction": "unknown"}
         )
     elif config.training_base in ("hr", "pace"):
-        from analysis.data_loader import _read_csv_safe
         from analysis.metrics import compute_threshold_trend
-        lt_df = _read_csv_safe(os.path.join(data_dir, "garmin", "lactate_threshold.csv"))
         col = "lthr_bpm" if config.training_base == "hr" else "lt_pace_sec_km"
+
+        lt_df = pd.DataFrame()
+        if user_id and db:
+            from analysis.data_loader import load_data_from_db
+            db_data = load_data_from_db(user_id, db)
+            lt_df = db_data.get("fitness", pd.DataFrame())
+
         if not lt_df.empty and col in lt_df.columns:
             lt_df = lt_df.sort_values("date")
             vals = pd.to_numeric(lt_df[col], errors="coerce").dropna()
@@ -783,9 +897,13 @@ def _compute_recovery_analysis(recovery: pd.DataFrame) -> tuple[dict, float | No
 
 
 def _build_threshold_trend_chart(
-    merged: pd.DataFrame, config, data_dir: str,
+    merged: pd.DataFrame, config, data_dir: str = None,
+    user_id: str = None, db=None,
 ) -> dict:
-    """Build threshold trend chart data based on training base."""
+    """Build threshold trend chart data based on training base.
+
+    When user_id and db are provided, uses DB-based fitness data.
+    """
     chart: dict = {"dates": [], "values": []}
     if config.training_base == "power":
         if not merged.empty and "cp_estimate" in merged.columns:
@@ -795,8 +913,12 @@ def _build_threshold_trend_chart(
                 "values": [round(float(v), 1) for v in cp_data["cp_estimate"].values],
             }
     elif config.training_base in ("hr", "pace"):
-        from analysis.data_loader import _read_csv_safe
-        lt_df = _read_csv_safe(os.path.join(data_dir, "garmin", "lactate_threshold.csv"))
+        lt_df = pd.DataFrame()
+        if user_id and db:
+            from analysis.data_loader import load_data_from_db
+            db_data = load_data_from_db(user_id, db)
+            lt_df = db_data.get("fitness", pd.DataFrame())
+
         if not lt_df.empty:
             lt_df = lt_df.sort_values("date")
             col = "lthr_bpm" if config.training_base == "hr" else "lt_pace_sec_km"
@@ -813,7 +935,7 @@ def _build_threshold_trend_chart(
 
 def _build_warnings(
     recovery_analysis: dict, current_tsb: float,
-    config, data_dir: str, latest_cp: float | None,
+    config, data_dir: str = None, latest_cp: float | None = None,
 ) -> list[str]:
     """Collect health/training warnings."""
     warnings: list[str] = []
@@ -824,7 +946,7 @@ def _build_warnings(
         warnings.append(f"HRV variability high (CV {hrv_info['rolling_cv']:.0f}%) — autonomic disturbance")
     if current_tsb < -25:
         warnings.append(f"High fatigue (TSB = {current_tsb:.0f})")
-    if config.preferences.get("plan") == "ai":
+    if config.preferences.get("plan") == "ai" and data_dir:
         from api.ai import check_plan_staleness
         warnings.extend(check_plan_staleness(data_dir, latest_cp))
     return warnings
@@ -872,16 +994,54 @@ def _compute_diagnosis(
 # ---------------------------------------------------------------------------
 
 
-def get_dashboard_data() -> dict:
-    """Load all data and compute all metrics."""
-    _ensure_env()
-    config = load_config()
-    base_dir = os.path.join(os.path.dirname(__file__), "..")
-    data_dir = os.path.join(base_dir, "data")
+def get_dashboard_data(user_id: str = None, db=None) -> dict:
+    """Load all data and compute all metrics.
 
-    data = load_data(config, data_dir)
+    If user_id and db are provided, loads from database.
+    Otherwise falls back to file-based loading (backward compatibility).
+    """
+    _ensure_env()
+
+    if user_id and db:
+        from analysis.data_loader import load_data_from_db
+        from analysis.config import load_config_from_db
+        config = load_config_from_db(user_id, db)
+        data = load_data_from_db(user_id, db)
+        data_dir = None  # Signal to helpers that we're in DB mode
+    else:
+        config = load_config()
+        base_dir = os.path.join(os.path.dirname(__file__), "..")
+        data_dir = os.path.join(base_dir, "data")
+        data = load_data(config, data_dir)
+
     merged = data["activities"]
-    thresholds = _resolve_thresholds(config, data_dir)
+
+    # Deduplicate activities by primary source preference.
+    # When multiple sources (e.g., Garmin + Stryd) sync the same run,
+    # keep the primary source version to avoid double-counting in metrics.
+    primary_source = config.preferences.get("activities")
+    if primary_source and not merged.empty and "source" in merged.columns:
+        merged = merged.copy()
+        merged["_date"] = pd.to_datetime(merged["date"]).dt.date
+        merged["_dur"] = pd.to_numeric(merged.get("duration_sec", 0), errors="coerce").fillna(0)
+        merged["_is_primary"] = merged["source"] == primary_source
+
+        keep_mask = pd.Series(True, index=merged.index)
+        for dt, group in merged.groupby("_date"):
+            if len(group) <= 1:
+                continue
+            primary = group[group["_is_primary"]]
+            others = group[~group["_is_primary"]]
+            for oidx, orow in others.iterrows():
+                for _, prow in primary.iterrows():
+                    if prow["_dur"] > 0 and orow["_dur"] > 0:
+                        ratio = abs(prow["_dur"] - orow["_dur"]) / max(prow["_dur"], orow["_dur"])
+                        if ratio < 0.10:  # Same activity (duration within 10%)
+                            keep_mask[oidx] = False
+                            break
+        merged = merged[keep_mask].drop(columns=["_date", "_dur", "_is_primary"], errors="ignore").reset_index(drop=True)
+
+    thresholds = _resolve_thresholds(config, data_dir=data_dir, user_id=user_id, db=db)
 
     # Science framework
     science = load_active_science(config.science, config.zone_labels)
@@ -923,7 +1083,7 @@ def get_dashboard_data() -> dict:
 
     # Threshold data (CP / LTHR / pace trend)
     latest_cp, cp_trend_data, cp_values, power_pace_pairs = _compute_threshold_data(
-        merged, config, data_dir,
+        merged, config, data_dir=data_dir, user_id=user_id, db=db,
     )
 
     # Goal + race prediction
@@ -932,7 +1092,37 @@ def get_dashboard_data() -> dict:
     target_time_sec = int(raw_target) if raw_target else None
     distance_key = str(config.goal.get("distance", "marathon")).strip() or "marathon"
     dist_config = get_distance_config(distance_key)
-    threshold_pace = thresholds.threshold_pace_sec_km if config.training_base in ("hr", "pace") else None
+    # Threshold pace — always resolve if available (needed for Riegel prediction)
+    threshold_pace = thresholds.threshold_pace_sec_km
+
+    # Use prediction theory params if available (from science framework)
+    prediction_theory = science.get("prediction")
+    prediction_theory_id = config.science.get("prediction", "critical_power")
+    theory_exponent = None
+    if prediction_theory and prediction_theory.params:
+        theory_fractions = prediction_theory.params.get("distance_power_fractions", {})
+        theory_fraction = theory_fractions.get(distance_key)
+        if theory_fraction:
+            dist_config = {**dist_config, "power_fraction": theory_fraction}
+        theory_exponent = prediction_theory.params.get("riegel_exponent")
+
+    # Determine prediction method based on science theory selection.
+    # The prediction theory is independent of training base:
+    # - "critical_power" theory → uses CP + power-pace model (requires power data)
+    # - "riegel" theory → uses threshold pace + Riegel formula (requires pace data)
+    # Falls back to the other model if the selected one lacks data.
+    if prediction_theory_id == "critical_power" and latest_cp:
+        prediction_base = "power"
+    elif prediction_theory_id == "riegel" and threshold_pace:
+        prediction_base = "pace"
+    elif latest_cp:
+        # Fallback: user selected Riegel but no pace data, use CP if available
+        prediction_base = "power"
+    elif threshold_pace:
+        # Fallback: user selected CP but no power data, use Riegel if pace available
+        prediction_base = "pace"
+    else:
+        prediction_base = config.training_base
 
     race_countdown = _build_race_countdown(
         race_date_str, target_time_sec, latest_cp, power_pace_pairs,
@@ -941,8 +1131,10 @@ def get_dashboard_data() -> dict:
         power_fraction=dist_config["power_fraction"],
         distance_label=dist_config["label"],
         distance_key=distance_key,
-        training_base=config.training_base,
+        training_base=prediction_base,
         threshold_pace=threshold_pace,
+        riegel_exponent=theory_exponent,
+        prediction_theory_name=prediction_theory.name if prediction_theory else None,
     )
 
     # Recovery
@@ -985,13 +1177,15 @@ def get_dashboard_data() -> dict:
         "projected_dates": proj_dates[:7],
         "projected_values": proj_tsb[:7],
     }
-    cp_trend_chart = _build_threshold_trend_chart(merged, config, data_dir)
+    cp_trend_chart = _build_threshold_trend_chart(
+        merged, config, data_dir=data_dir, user_id=user_id, db=db,
+    )
 
     # Supplementary data
     weekly_review = _build_compliance(merged, plan, config.training_base, daily_load, thresholds)
     workout_flags = _build_workout_flags(merged, recovery, config.training_base)
     sleep_perf = _build_sleep_perf(merged, recovery)
-    warnings = _build_warnings(recovery_analysis, current_tsb, config, data_dir, latest_cp)
+    warnings = _build_warnings(recovery_analysis, current_tsb, config, data_dir=data_dir, latest_cp=latest_cp)
 
     # Diagnosis
     splits = data["splits"]
@@ -999,6 +1193,21 @@ def get_dashboard_data() -> dict:
 
     # Activities for history
     activities_list = _build_activities_list(merged, splits)
+
+    # Data sufficiency metadata — helps frontend decide what to show
+    activity_count = len(merged) if not merged.empty else 0
+    data_days = (today - earliest).days if not merged.empty else 0
+    cp_point_count = len(cp_trend_data.get("dates", [])) if cp_trend_data else 0
+    has_recovery = not recovery.empty if hasattr(recovery, 'empty') else bool(recovery)
+
+    data_meta = {
+        "activity_count": activity_count,
+        "data_days": data_days,
+        "cp_points": cp_point_count,
+        "has_recovery": has_recovery,
+        "pmc_sufficient": data_days >= 42,
+        "cp_trend_sufficient": cp_point_count >= 3,
+    }
 
     result = {
         "signal": signal,
@@ -1019,6 +1228,20 @@ def get_dashboard_data() -> dict:
         "plan": plan,
         "recovery_analysis": recovery_analysis,
         "science": science,
+        "science_notes": {
+            pillar: {
+                "name": theory.name,
+                "description": getattr(theory, 'simple_description', '') or '',
+                "citations": [
+                    {"label": getattr(c, 'title', getattr(c, 'key', '')), "url": getattr(c, 'url', '')}
+                    for c in (getattr(theory, 'citations', None) or [])
+                    if getattr(c, 'url', None)
+                ],
+            }
+            for pillar, theory in science.items()
+            if theory and hasattr(theory, 'name')
+        },
+        "data_meta": data_meta,
         "tsb_zones": [
             {"min": z.min, "max": z.max, "label": z.label, "color": z.color}
             for z in (load_theory.tsb_zones_labeled if load_theory else [])

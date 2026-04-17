@@ -23,8 +23,11 @@ const ZONE_INSIGHTS: Record<string, string> = {
   Detraining: 'Extended rest period. Fitness declining.',
 };
 
+import type { ScienceNoteInfo } from '@/types/api';
+
 interface Props {
   data: TsbSparkline;
+  scienceNote?: ScienceNoteInfo;
 }
 
 function SparkTooltip({ active, payload, label, tsbZones }: any) {
@@ -55,7 +58,7 @@ function SparkTooltip({ active, payload, label, tsbZones }: any) {
   );
 }
 
-export default function FormSparkline({ data }: Props) {
+export default function FormSparkline({ data, scienceNote }: Props) {
   const chartColors = useChartColors();
   const { tsbZones } = useScience();
   const { chartData, yMin, yMax, hasProjection, latestTsb } = useMemo(() => {
@@ -233,9 +236,9 @@ export default function FormSparkline({ data }: Props) {
         <ZoneLegend zones={tsbZones} />
 
         <ScienceNote
-          text="Form (TSB) = Fitness (CTL) \u2212 Fatigue (ATL). CTL tracks long-term training load (42-day average), ATL tracks short-term load (7-day). Positive TSB means you're fresh; negative means fatigued. Zones based on the standard PMC model (Banister, 1975)."
-          sourceUrl="https://help.trainingpeaks.com/hc/en-us/articles/204071944"
-          sourceLabel="TrainingPeaks PMC"
+          text={scienceNote?.description || "Form (TSB) = Fitness (CTL) \u2212 Fatigue (ATL). Positive TSB means you're fresh; negative means fatigued."}
+          sourceUrl={scienceNote?.citations?.[0]?.url}
+          sourceLabel={scienceNote?.citations?.[0]?.label || scienceNote?.name}
         />
       </CardContent>
     </Card>
