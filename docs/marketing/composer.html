@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Trainsight — Marketing Composer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: oklch(0.11 0.02 264);
+    --bg-deep: oklch(0.07 0.015 264);
+    --fg: oklch(0.97 0.005 264);
+    --fg-muted: oklch(0.72 0.02 264);
+    --fg-dim: oklch(0.55 0.02 264);
+    --primary: oklch(0.85 0.22 155);
+    --primary-deep: oklch(0.45 0.18 155);
+    --bezel: #0c0e12;
+    --bezel-edge: #1a1d24;
+    --screen-shadow: 0 60px 120px -30px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+
+    /* Stage dims — overwritten by JS for og mode */
+    --stage-w: 2400px;
+    --stage-h: 1500px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--bg-deep);
+    font-family: 'DM Sans', system-ui, sans-serif;
+    color: var(--fg);
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  .stage {
+    width: var(--stage-w);
+    height: var(--stage-h);
+    position: relative;
+    overflow: hidden;
+    background:
+      radial-gradient(ellipse 1200px 800px at 58% 42%, oklch(0.45 0.18 155 / 0.32), transparent 65%),
+      radial-gradient(ellipse 900px 600px at 20% 90%, oklch(0.35 0.15 264 / 0.40), transparent 70%),
+      linear-gradient(180deg, oklch(0.09 0.02 264), oklch(0.13 0.02 264));
+  }
+
+  /* Subtle grain overlay to avoid flat gradient look */
+  .stage::before {
+    content: "";
+    position: absolute; inset: 0;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.35 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.45'/></svg>");
+    opacity: 0.06;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+  }
+
+
+  /* ————————————————— Typography ————————————————— */
+
+  .wordmark {
+    position: absolute;
+    top: 72px;
+    left: 80px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--fg);
+  }
+  .wordmark .mark {
+    display: inline-block;
+    width: 18px; height: 18px;
+    border-radius: 5px;
+    background: linear-gradient(135deg, var(--primary), var(--primary-deep));
+    box-shadow: 0 0 20px oklch(0.85 0.22 155 / 0.45);
+  }
+
+  .chip {
+    position: absolute;
+    top: 82px;
+    right: 80px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    color: var(--fg-muted);
+    letter-spacing: 0.02em;
+    opacity: 0.75;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .chip::before {
+    content: "";
+    width: 6px; height: 6px; border-radius: 999px;
+    background: var(--primary);
+    box-shadow: 0 0 10px var(--primary);
+  }
+
+  .headline {
+    position: absolute;
+    top: 180px;
+    left: 80px;
+    right: 80px;
+    max-width: 1600px;
+  }
+  .tagline {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600;
+    font-size: 112px;
+    line-height: 1.02;
+    letter-spacing: -0.035em;
+    color: var(--fg);
+  }
+  .tagline em {
+    font-style: normal;
+    background: linear-gradient(135deg, oklch(0.92 0.22 155), oklch(0.72 0.20 155));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .subtagline {
+    margin-top: 32px;
+    font-size: 26px;
+    line-height: 1.5;
+    color: var(--fg-muted);
+    max-width: 720px;
+    font-weight: 400;
+  }
+
+  /* ————————————————— Devices ————————————————— */
+
+  .devices {
+    position: absolute;
+    left: 50%;
+    top: 640px;
+    transform: translateX(-50%);
+    width: 2100px;
+    height: 780px;
+    perspective: 2400px;
+  }
+
+  /* Laptop */
+  .laptop {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    width: 1440px;
+    transform: translateX(-50%) perspective(2800px) rotateX(6deg) rotateY(-12deg);
+    transform-origin: 50% 60%;
+    filter: drop-shadow(0 80px 70px rgba(0, 0, 0, 0.55));
+  }
+  .laptop .screen {
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    background: var(--bezel);
+    border-radius: 20px;
+    padding: 18px;
+    box-shadow: var(--screen-shadow);
+    position: relative;
+    overflow: hidden;
+  }
+  .laptop .screen::before {
+    /* bezel shine */
+    content: "";
+    position: absolute; inset: 0;
+    border-radius: 20px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.08), transparent 40%);
+    pointer-events: none;
+  }
+  .laptop .screen img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: left top;
+    border-radius: 6px;
+    display: block;
+  }
+  .laptop .notch {
+    position: absolute;
+    top: 6px; left: 50%; transform: translateX(-50%);
+    width: 110px; height: 6px;
+    background: #000;
+    border-radius: 0 0 8px 8px;
+  }
+  .laptop .hinge {
+    width: 100%;
+    height: 14px;
+    margin-top: -2px;
+    background: linear-gradient(180deg, #0e1116, #1a1d24 50%, #0a0c10);
+    border-radius: 0 0 12px 12px;
+    box-shadow: 0 2px 0 rgba(255,255,255,0.03) inset;
+    position: relative;
+  }
+  .laptop .hinge::after {
+    content: "";
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    width: 120px; height: 4px;
+    background: #05070a;
+    border-radius: 2px;
+  }
+
+  /* Phones */
+  .phone {
+    position: absolute;
+    width: 320px;
+    aspect-ratio: 9 / 19.5;
+    background: #05070a;
+    border-radius: 38px;
+    padding: 9px;
+    box-shadow:
+      0 40px 60px -20px rgba(0, 0, 0, 0.7),
+      0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+      0 0 0 2px #1a1d24;
+  }
+  .phone .inner {
+    width: 100%; height: 100%;
+    border-radius: 30px;
+    overflow: hidden;
+    background: #000;
+    position: relative;
+  }
+  .phone .inner img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    object-position: top;
+    display: block;
+  }
+  .phone .notch {
+    position: absolute;
+    top: 18px; left: 50%; transform: translateX(-50%);
+    width: 96px; height: 24px;
+    background: #000;
+    border-radius: 14px;
+    z-index: 2;
+  }
+
+  .phone {
+    width: 300px;
+  }
+  .phone-left {
+    left: 80px;
+    top: 80px;
+    transform: rotate(-7deg) translateZ(60px);
+    z-index: 3;
+  }
+  .phone-right {
+    right: 80px;
+    top: 60px;
+    transform: rotate(7deg) translateZ(80px);
+    z-index: 3;
+  }
+
+  /* ————————————————— Footer ————————————————— */
+
+  /* "Supports" row — inline credibility claim beneath the sub-tagline */
+  .supports {
+    margin-top: 44px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  .supports .label {
+    color: var(--fg-dim);
+    opacity: 0.7;
+  }
+  .supports .rule {
+    width: 28px;
+    height: 1px;
+    background: var(--fg-dim);
+    opacity: 0.35;
+  }
+  .supports .platforms {
+    display: inline-flex;
+    align-items: center;
+    gap: 22px;
+  }
+  .supports .platform {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    color: var(--fg-muted);
+    letter-spacing: 0.14em;
+    font-weight: 500;
+  }
+  .supports .platform::before {
+    content: "";
+    width: 6px; height: 6px;
+    border-radius: 999px;
+    background: var(--primary);
+    box-shadow: 0 0 10px oklch(0.85 0.22 155 / 0.7);
+  }
+
+  /* ————————————————— OG mode ————————————————— */
+
+  .stage[data-mode="og"] { --stage-w: 1200px; --stage-h: 630px; }
+  .stage[data-mode="og"] .wordmark { top: 44px; left: 48px; font-size: 22px; }
+  .stage[data-mode="og"] .wordmark .mark { width: 14px; height: 14px; border-radius: 4px; }
+  .stage[data-mode="og"] .chip { display: none; }
+  .stage[data-mode="og"] .headline { top: 108px; left: 48px; right: 48px; }
+  .stage[data-mode="og"] .tagline { font-size: 72px; letter-spacing: -0.03em; }
+  .stage[data-mode="og"] .subtagline { margin-top: 18px; font-size: 18px; max-width: 520px; }
+  .stage[data-mode="og"] .devices {
+    top: 370px;
+    width: 900px;
+    height: 340px;
+    perspective: 1600px;
+  }
+  .stage[data-mode="og"] .laptop { width: 720px; transform: translateX(-50%) perspective(1800px) rotateX(5deg) rotateY(-10deg); }
+  .stage[data-mode="og"] .phone-left, .stage[data-mode="og"] .phone-right { display: none; }
+  .stage[data-mode="og"] .phone-label { display: none; }
+  .stage[data-mode="og"] .supports {
+    margin-top: 22px;
+    font-size: 10px;
+    gap: 12px;
+    letter-spacing: 0.2em;
+  }
+  .stage[data-mode="og"] .supports .rule { width: 20px; }
+  .stage[data-mode="og"] .supports .platforms { gap: 14px; }
+  .stage[data-mode="og"] .supports .platform::before { width: 5px; height: 5px; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="wordmark">
+    <span class="mark"></span>
+    <span>Trainsight</span>
+  </div>
+
+  <div class="chip">10 peer-reviewed theories · AI coaching</div>
+
+  <div class="headline">
+    <h1 class="tagline">Train like<br />it's a <em>science.</em></h1>
+    <p class="subtagline">A training dashboard for self-coached endurance athletes — grounded in peer-reviewed sports science, guided by an AI coach that understands your data.</p>
+    <div class="supports">
+      <span class="label">Supports</span>
+      <span class="rule" aria-hidden="true"></span>
+      <div class="platforms">
+        <span class="platform">Garmin</span>
+        <span class="platform">Stryd</span>
+        <span class="platform">Oura</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="devices">
+    <div class="phone phone-left">
+      <div class="notch"></div>
+      <div class="inner"><img src="screenshots/mobile-science.png" alt="Science page" /></div>
+    </div>
+
+    <div class="laptop">
+      <div class="screen">
+        <div class="notch"></div>
+        <img src="screenshots/desktop-training.png" alt="Training dashboard" />
+      </div>
+      <div class="hinge"></div>
+    </div>
+
+    <div class="phone phone-right">
+      <div class="notch"></div>
+      <div class="inner"><img src="screenshots/mobile-today.png" alt="Today brief" /></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ?mode=og switches to the 1200x630 social card layout
+  const mode = new URLSearchParams(location.search).get('mode');
+  if (mode === 'og') {
+    document.getElementById('stage').dataset.mode = 'og';
+  }
+</script>
+</body>
+</html>
