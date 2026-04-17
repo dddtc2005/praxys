@@ -58,22 +58,11 @@ export default function ComplianceChart({ data, loadLabel }: Props) {
                 borderRadius: 8,
               }}
               labelStyle={{ color: chartColors.tickLight }}
-              formatter={(value: number, name: string, entry) => {
-                const item = entry.payload;
-                if (name === `Actual ${label}`) {
-                  const pct = item.compliance != null ? ` (${item.compliance}%)` : '';
-                  return [`${Math.round(value)}${pct}`, name];
-                }
-                return [Math.round(value), name];
+              formatter={(value, name) => {
+                return [Math.round(Number(value)), String(name)];
               }}
             />
-            <Legend
-              wrapperStyle={{ fontSize: 12, color: chartColors.tickLight }}
-              payload={[
-                { value: `Actual ${label}`, type: 'rect', color: chartColors.fitness },
-                { value: `Planned ${label}`, type: 'rect', color: chartColors.tick },
-              ]}
-            />
+            <Legend wrapperStyle={{ fontSize: 12, color: chartColors.tickLight }} />
             {/* Planned bar — wider, behind, with diagonal pattern fill */}
             <Bar
               dataKey="planned"
