@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from api.auth import get_current_user_id
+from api.auth import get_data_user_id, require_write_access
 from api.deps import get_dashboard_data
 from analysis.config import (
     load_config,
@@ -42,7 +42,7 @@ def _theory_summary(theory) -> dict:
 
 @router.get("/science")
 def get_science(
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_data_user_id),
     db: Session = Depends(get_db),
 ) -> dict:
     """Return active theories, all available options, and recommendations."""
@@ -109,7 +109,7 @@ def get_science(
 @router.put("/science")
 def update_science(
     body: dict,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_write_access),
     db: Session = Depends(get_db),
 ) -> dict:
     """Update science theory selections and/or label preference."""

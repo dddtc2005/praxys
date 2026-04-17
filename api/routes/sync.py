@@ -15,7 +15,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
-from api.auth import get_current_user_id
+from api.auth import get_data_user_id, require_write_access
 from db.session import get_db
 
 router = APIRouter()
@@ -442,7 +442,7 @@ def _sync_oura(user_id: str, creds: dict, from_date: str | None,
 
 @router.get("/sync/status")
 def get_sync_status(
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_data_user_id),
     db: Session = Depends(get_db),
 ) -> dict:
     """Return current sync status for this user's connected platforms."""
@@ -492,7 +492,7 @@ def trigger_sync(
     source: str,
     background_tasks: BackgroundTasks,
     body: SyncRequest | None = None,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_write_access),
     db: Session = Depends(get_db),
 ) -> dict:
     """Trigger sync for a single source using the user's stored credentials."""
@@ -518,7 +518,7 @@ def trigger_sync(
 def trigger_sync_all(
     background_tasks: BackgroundTasks,
     body: SyncRequest | None = None,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_write_access),
     db: Session = Depends(get_db),
 ) -> dict:
     """Trigger sync for all connected sources."""

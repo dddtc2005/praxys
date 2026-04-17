@@ -168,7 +168,7 @@ export default function Settings() {
     config, platformCapabilities, availableProviders, availableBases,
     effectiveThresholds, loading, error, updateSettings, refetch,
   } = useSettings();
-  const { email: authEmail } = useAuth();
+  const { email: authEmail, isDemo } = useAuth();
 
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
@@ -369,13 +369,18 @@ export default function Settings() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-foreground">Settings</h1>
-        <p className="text-sm text-muted-foreground mt-1">Configure your training system</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          {isDemo ? 'Viewing configuration (read-only demo)' : 'Configure your training system'}
+        </p>
         {saveMsg && (
           <p className={`text-xs mt-2 font-medium ${saveMsg === 'Saved' ? 'text-primary' : 'text-destructive'}`}>
             {saveMsg}
           </p>
         )}
       </div>
+
+      {/* Read-only overlay for demo accounts */}
+      <div className={isDemo ? 'opacity-60 pointer-events-none select-none' : ''}>
 
       {/* ===== SECTION 0: Profile ===== */}
       <Card className="mb-8">
@@ -919,6 +924,8 @@ export default function Settings() {
           </div>
         </CardContent>
       </Card>
+
+      </div>{/* end read-only overlay */}
     </div>
   );
 }

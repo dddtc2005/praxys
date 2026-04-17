@@ -7,7 +7,7 @@ import string
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
 from api.auth import get_current_user_id
@@ -131,6 +131,8 @@ def list_users(
     from db.models import User
 
     users = db.query(User).order_by(User.created_at).all()
+    # Resolve demo_of emails for display
+    user_emails = {u.id: u.email for u in users}
     return {
         "users": [
             {
@@ -138,6 +140,9 @@ def list_users(
                 "email": u.email,
                 "is_active": u.is_active,
                 "is_superuser": u.is_superuser,
+                "is_demo": u.is_demo,
+                "demo_of": u.demo_of,
+                "demo_of_email": user_emails.get(u.demo_of) if u.demo_of else None,
                 "created_at": u.created_at.isoformat() if u.created_at else None,
             }
             for u in users
@@ -208,7 +213,66 @@ def delete_user(
     db.query(Invitation).filter(Invitation.used_by == target_user_id).update(
         {"is_active": False}
     )
+    from db.models import AiInsight
+    db.query(AiInsight).filter(AiInsight.user_id == target_user_id).delete()
     db.delete(user)
     db.commit()
 
     return {"status": "deleted", "email": email}
+
+
+# ---------------------------------------------------------------------------
+# Demo accounts
+# ---------------------------------------------------------------------------
+
+
+class CreateDemoAccountRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+@router.post("/demo-accounts")
+async def create_demo_account(
+    body: CreateDemoAccountRequest,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Create a read-only demo account that mirrors the creating admin's data."""
+    _require_admin(user_id, db)
+    from db.models import User
+
+    existing = db.query(User).filter(User.email == body.email).first()
+    if existing:
+        raise HTTPException(400, "Email already registered")
+
+    # Create user via FastAPI-Users async path (handles password hashing)
+    from db.session import AsyncSessionLocal
+    from fastapi_users.db import SQLAlchemyUserDatabase
+    from fastapi_users.schemas import BaseUserCreate
+    from api.users import UserManager
+
+    async with AsyncSessionLocal() as async_session:
+        user_db = SQLAlchemyUserDatabase(async_session, User)
+        user_manager = UserManager(user_db)
+        user_create = BaseUserCreate(
+            email=body.email,
+            password=body.password,
+            is_superuser=False,
+            is_verified=True,
+            is_active=True,
+        )
+        new_user = await user_manager.create(user_create)
+        await async_session.commit()
+
+    # Set demo flags (sync session)
+    demo_user = db.query(User).filter(User.id == new_user.id).first()
+    demo_user.is_demo = True
+    demo_user.demo_of = user_id
+    db.commit()
+
+    return {
+        "id": demo_user.id,
+        "email": demo_user.email,
+        "is_demo": True,
+        "demo_of": user_id,
+    }

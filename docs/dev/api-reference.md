@@ -160,6 +160,25 @@ Revoke an invitation code (cannot be used after this).
 { "status": "revoked", "code": "TS-A1B2-C3D4" }
 ```
 
+### POST /api/admin/demo-accounts
+
+Create a read-only demo account that mirrors the creating admin's data. Demo users can browse all pages but cannot modify anything (403 on all write endpoints).
+
+**Request:**
+```json
+{ "email": "demo@example.com", "password": "demo-pass" }
+```
+
+**Response:**
+```json
+{
+  "id": "uuid",
+  "email": "demo@example.com",
+  "is_demo": true,
+  "demo_of": "admin-user-id"
+}
+```
+
 ## Today
 
 ### GET /api/today

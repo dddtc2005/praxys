@@ -5,6 +5,7 @@ interface AuthState {
   token: string | null;
   email: string | null;
   isAdmin: boolean;
+  isDemo: boolean;
   isAuthenticated: boolean;
   isLoading: boolean;
 }
@@ -27,6 +28,7 @@ const AuthContext = createContext<AuthContextType>({
   token: null,
   email: null,
   isAdmin: false,
+  isDemo: false,
   isAuthenticated: false,
   isLoading: true,
   login: async () => ({ ok: false }),
@@ -37,6 +39,7 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isDemo, setIsDemo] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -64,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setToken(null);
           setEmail(null);
           setIsAdmin(false);
+          setIsDemo(false);
           return null;
         }
         return r.ok ? r.json() : null;
@@ -71,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then((data) => {
         if (data) {
           setIsAdmin(data.is_superuser);
+          setIsDemo(data.is_demo ?? false);
           localStorage.setItem(ADMIN_KEY, String(data.is_superuser));
         }
       })
@@ -108,6 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .then((me) => {
             if (me) {
               setIsAdmin(me.is_superuser);
+              setIsDemo(me.is_demo ?? false);
               localStorage.setItem(ADMIN_KEY, String(me.is_superuser));
             }
           })
@@ -156,13 +162,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null);
     setEmail(null);
     setIsAdmin(false);
+    setIsDemo(false);
   }, []);
 
   const isAuthenticated = token !== null;
 
   return (
     <AuthContext.Provider
-      value={{ token, email, isAdmin, isAuthenticated, isLoading, login, register, logout }}
+      value={{ token, email, isAdmin, isDemo, isAuthenticated, isLoading, login, register, logout }}
     >
       {children}
     </AuthContext.Provider>

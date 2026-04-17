@@ -23,13 +23,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Users, Ticket, Copy, Check, Trash2, Plus, ShieldCheck, ChevronUp, ChevronDown } from 'lucide-react';
+import { Users, Ticket, Copy, Check, Trash2, Plus, ShieldCheck, ChevronUp, ChevronDown, Eye } from 'lucide-react';
 
 interface UserInfo {
   id: string;
   email: string;
   is_active: boolean;
   is_superuser: boolean;
+  is_demo: boolean;
+  demo_of: string | null;
+  demo_of_email: string | null;
   created_at: string | null;
 }
 
@@ -55,6 +58,10 @@ export default function Admin() {
   const [deleting, setDeleting] = useState(false);
   const [roleChangeUser, setRoleChangeUser] = useState<UserInfo | null>(null);
   const [changingRole, setChangingRole] = useState(false);
+  const [demoEmail, setDemoEmail] = useState('');
+  const [demoPassword, setDemoPassword] = useState('');
+  const [creatingDemo, setCreatingDemo] = useState(false);
+  const [demoError, setDemoError] = useState<string | null>(null);
 
   const fetchData = () => {
     setLoading(true);
@@ -120,6 +127,26 @@ export default function Admin() {
     fetchData();
   };
 
+  const handleCreateDemo = async () => {
+    if (!demoEmail.trim() || !demoPassword.trim()) return;
+    setCreatingDemo(true);
+    setDemoError(null);
+    const res = await fetch(`${API_BASE}/api/admin/demo-accounts`, {
+      method: 'POST',
+      headers: { ...getAuthHeaders() as Record<string, string>, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: demoEmail, password: demoPassword }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      setDemoError(data?.detail || `Failed (HTTP ${res.status})`);
+    } else {
+      setDemoEmail('');
+      setDemoPassword('');
+      fetchData();
+    }
+    setCreatingDemo(false);
+  };
+
   const copyCode = (code: string) => {
     navigator.clipboard.writeText(code);
     setCopied(true);
@@ -178,7 +205,14 @@ export default function Admin() {
                     )}
                   </TableCell>
                   <TableCell>
-                    {u.is_superuser ? (
+                    {u.is_demo ? (
+                      <div>
+                        <Badge variant="outline" className="text-xs text-amber-600 border-amber-500/40">Demo</Badge>
+                        {u.demo_of_email && (
+                          <span className="text-[10px] text-muted-foreground ml-1.5">mirrors {u.demo_of_email}</span>
+                        )}
+                      </div>
+                    ) : u.is_superuser ? (
                       <Badge className="text-xs"><ShieldCheck className="h-3 w-3 mr-1" />Admin</Badge>
                     ) : (
                       <Badge variant="secondary" className="text-xs">User</Badge>
@@ -190,19 +224,21 @@ export default function Admin() {
                   <TableCell className="text-right">
                     {u.email !== currentEmail && (
                       <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs text-muted-foreground hover:text-foreground"
-                          onClick={() => setRoleChangeUser(u)}
-                          title={u.is_superuser ? 'Demote to User' : 'Promote to Admin'}
-                        >
-                          {u.is_superuser ? (
-                            <><ChevronDown className="h-3 w-3 mr-1" />Demote</>
-                          ) : (
-                            <><ChevronUp className="h-3 w-3 mr-1" />Promote</>
-                          )}
-                        </Button>
+                        {!u.is_demo && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                            onClick={() => setRoleChangeUser(u)}
+                            title={u.is_superuser ? 'Demote to User' : 'Promote to Admin'}
+                          >
+                            {u.is_superuser ? (
+                              <><ChevronDown className="h-3 w-3 mr-1" />Demote</>
+                            ) : (
+                              <><ChevronUp className="h-3 w-3 mr-1" />Promote</>
+                            )}
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -326,6 +362,62 @@ export default function Admin() {
               )}
             </TableBody>
           </Table>
+        </CardContent>
+      </Card>
+
+      {/* Demo Accounts */}
+      <Card className="mt-8">
+        <CardHeader>
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
+              <Eye className="h-4 w-4" />
+            </div>
+            <div>
+              <CardTitle className="text-sm font-semibold text-foreground">Demo Accounts</CardTitle>
+              <CardDescription className="text-xs">
+                Read-only accounts that mirror your dashboard data
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-end gap-2 mb-4">
+            <div className="space-y-1 flex-1">
+              <label className="text-xs text-muted-foreground">Email</label>
+              <Input
+                type="email"
+                placeholder="demo@example.com"
+                value={demoEmail}
+                onChange={(e) => setDemoEmail(e.target.value)}
+                className="h-8 text-xs"
+              />
+            </div>
+            <div className="space-y-1 flex-1">
+              <label className="text-xs text-muted-foreground">Password</label>
+              <Input
+                type="text"
+                placeholder="demo-password"
+                value={demoPassword}
+                onChange={(e) => setDemoPassword(e.target.value)}
+                className="h-8 text-xs font-data"
+              />
+            </div>
+            <Button
+              size="sm"
+              onClick={handleCreateDemo}
+              disabled={creatingDemo || !demoEmail.trim() || !demoPassword.trim()}
+            >
+              <Plus className="h-3 w-3 mr-1" />
+              {creatingDemo ? 'Creating...' : 'Create'}
+            </Button>
+          </div>
+          {demoError && (
+            <p className="text-xs text-destructive mb-3">{demoError}</p>
+          )}
+          <p className="text-[10px] text-muted-foreground">
+            Demo users can browse your dashboard (Today, Training, Goal, History) but cannot change settings, sync data, or modify plans.
+            Share the email &amp; password with anyone you want to demo to.
+          </p>
         </CardContent>
       </Card>
 
