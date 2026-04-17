@@ -401,6 +401,24 @@ export interface Activity {
   splits: SplitData[];
 }
 
+export interface AiInsightFinding {
+  type: 'positive' | 'warning' | 'neutral';
+  text: string;
+}
+
+export interface AiInsight {
+  headline: string;
+  summary: string;
+  findings: AiInsightFinding[];
+  recommendations: string[];
+  meta: Record<string, unknown>;
+  generated_at: string | null;
+}
+
+export type AiInsightsResponse = {
+  insights: Partial<Record<string, AiInsight>>;
+};
+
 export interface HistoryResponse {
   activities: Activity[];
   total: number;

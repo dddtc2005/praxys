@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 // Card imports kept for future use
 // import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import AiInsightsCard from '@/components/AiInsightsCard';
 import DiagnosisCard from '@/components/DiagnosisCard';
 import ZoneAnalysisCard from '@/components/ZoneAnalysisCard';
 import UpcomingPlanCard from '@/components/UpcomingPlanCard';
@@ -63,6 +64,11 @@ export default function Training() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-foreground">Training Insights</h1>
         <p className="text-sm text-muted-foreground mt-1">Weekly Review</p>
+      </div>
+
+      {/* AI insights — shown when available from CLI analysis */}
+      <div className="mb-6">
+        <AiInsightsCard insightType="training_review" />
       </div>
 
       {/* Diagnosis card — full width */}

@@ -399,6 +399,73 @@ def push_training_plan(plan_csv: str) -> str:
 
 
 @mcp.tool()
+def push_training_insights(
+    insight_type: str,
+    headline: str,
+    summary: str,
+    findings: list[dict] | None = None,
+    recommendations: list[str] | None = None,
+    meta: dict | None = None,
+) -> str:
+    """Push AI-generated insights to the web dashboard.
+
+    Call this at the end of a training review, daily brief, or race forecast
+    to persist your analysis so the user can see it on the web.
+
+    Args:
+        insight_type: One of 'training_review', 'daily_brief', 'race_forecast'
+        headline: One-sentence summary (e.g., "Strong volume but threshold work needed")
+        summary: 2-3 paragraph narrative analysis
+        findings: List of {type: "positive"|"warning"|"neutral", text: "..."} findings
+        recommendations: List of actionable recommendation strings
+        meta: Optional metadata (data_range, training_base, etc.)
+    """
+    payload = {
+        "insight_type": insight_type,
+        "headline": headline,
+        "summary": summary,
+        "findings": findings or [],
+        "recommendations": recommendations or [],
+        "meta": meta or {},
+    }
+
+    if IS_REMOTE:
+        data = _remote_post("/api/insights", payload)
+    else:
+        from datetime import datetime
+        db = _local_db()
+        try:
+            from db.models import AiInsight
+            user_id = _local_user_id()
+            existing = db.query(AiInsight).filter(
+                AiInsight.user_id == user_id,
+                AiInsight.insight_type == insight_type,
+            ).first()
+            if existing:
+                existing.headline = headline
+                existing.summary = summary
+                existing.findings = findings or []
+                existing.recommendations = recommendations or []
+                existing.meta = meta or {}
+                existing.generated_at = datetime.utcnow()
+            else:
+                db.add(AiInsight(
+                    user_id=user_id,
+                    insight_type=insight_type,
+                    headline=headline,
+                    summary=summary,
+                    findings=findings or [],
+                    recommendations=recommendations or [],
+                    meta=meta or {},
+                ))
+            db.commit()
+            data = {"status": "saved", "insight_type": insight_type}
+        finally:
+            db.close()
+    return json.dumps(data, indent=2, default=str)
+
+
+@mcp.tool()
 def trigger_sync(sources: list[str] | None = None) -> str:
     """Trigger data sync from connected platforms. Optionally specify sources: ['garmin', 'stryd', 'oura']. Requires the backend server to be running."""
     if IS_REMOTE:

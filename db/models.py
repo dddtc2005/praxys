@@ -195,6 +195,26 @@ class FitnessData(Base):
     )
 
 
+class AiInsight(Base):
+    """AI-generated insights pushed from CLI skills (training review, etc.)."""
+
+    __tablename__ = "ai_insights"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    insight_type = Column(String(30), nullable=False)  # training_review, daily_brief, race_forecast
+    headline = Column(String(200), nullable=True)
+    summary = Column(Text, nullable=True)
+    findings = Column(JSON, default=list)  # [{type, text}, ...]
+    recommendations = Column(JSON, default=list)  # [str, ...]
+    meta = Column(JSON, default=dict)  # data_range, training_base, etc.
+    generated_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "insight_type", name="uq_user_insight_type"),
+    )
+
+
 class TrainingPlan(Base):
     """Planned workouts (from Stryd, AI-generated, etc.)."""
 

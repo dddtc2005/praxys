@@ -13,7 +13,10 @@ description: >-
 
 # Training Review
 
-Provide a comprehensive analysis of recent training without the web dashboard.
+Provide a comprehensive analysis of recent training. The analysis you produce
+here is richer than the web dashboard's rule-based metrics — you're connecting
+dots, spotting patterns, and giving contextual recommendations that only an
+LLM can provide. This is the primary value of the CLI skill over the web.
 
 ## Gathering Data
 
@@ -134,6 +137,31 @@ After presenting the data, provide a synthesized interpretation:
 
 Keep interpretation to 3-5 sentences. Be direct and specific — reference actual
 numbers from the data (e.g., "Only 1 supra-CP session in 6 weeks — aim for 2-3").
+
+## Push Insights to Web Dashboard
+
+After presenting the review to the user, push a structured summary to the web
+dashboard so the analysis is visible there too. The web shows rule-based metrics
+but can't do the narrative reasoning you just did — pushing your analysis bridges
+that gap.
+
+Call the `push_training_insights` tool with:
+
+- `insight_type`: `"training_review"`
+- `headline`: The one-sentence headline from your AI Interpretation
+- `summary`: A 2-3 sentence narrative synthesis — the key story of their training.
+  Write this for the web reader who might not have seen the full CLI output.
+  Be specific with numbers but keep it digestible.
+- `findings`: Array of the most important findings (3-6 items). Each:
+  `{"type": "positive"|"warning"|"neutral", "text": "..."}`
+  Prioritize actionable findings over informational ones.
+- `recommendations`: Array of 2-4 concrete, specific recommendations.
+  Each should be a single sentence the athlete can act on.
+- `meta`: Include `{"training_base": "power"|"hr"|"pace", "data_range": "YYYY-MM-DD to YYYY-MM-DD"}`
+
+This replaces any previous training review insight, so each push is the latest analysis.
+
+Tell the user after pushing: "Analysis saved — visible on your Training page now."
 
 ## Display Config
 
