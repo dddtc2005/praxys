@@ -36,6 +36,8 @@ web/dist/
 !.claude/agents/**
 !.claude/skills/
 !.claude/skills/**
+!.claude/hooks/
+!.claude/hooks/**
 .playwright-mcp/
 
 # Git worktrees

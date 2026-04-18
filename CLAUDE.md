@@ -214,6 +214,38 @@ Keep docs in sync with code — stale docs are worse than no docs. See `docs/dev
 
 Key files: `README.md` (quick start), `docs/*.md` (user guides), `docs/dev/*.md` (architecture + API reference + contributing), `plugins/trainsight/skills/*/SKILL.md` (skill instructions).
 
+## Claude Code Automations
+
+Project-level automations live in `.claude/`. They are committed to the repo so every contributor using Claude Code gets the same behavior.
+
+### Hooks (`.claude/settings.json`)
+
+| When | What | Script |
+|------|------|--------|
+| `PreToolUse` on `Edit`/`Write` | Block edits to `.env*`, `trainsight.db*`, `data/garmin/**`, `data/stryd/**`, `data/oura/**` | `.claude/hooks/block_secrets.py` |
+| `PostToolUse` on `Edit`/`Write` of `*.py` | Run full pytest with fail-fast | inline in `settings.json` |
+| `PostToolUse` on `Edit`/`Write` of `web/**/*.ts(x)` | ESLint the single edited file | `.claude/hooks/web_lint.py` |
+
+The block hook exits 2 and prints a reason, which Claude surfaces and respects. To edit a protected file, use a terminal outside Claude Code or temporarily disable the hook in `settings.json`.
+
+### Subagents (`.claude/agents/`)
+
+| Agent | Trigger |
+|-------|---------|
+| `science-reviewer` | Edits to `analysis/` or `data/science/` — citation completeness, published values, flagged estimates |
+| `metric-addition-reviewer` | New or modified training metric — enforces the 7-step checklist end-to-end plus purity and citation |
+| `api-contract-reviewer` | Edits to `api/routes/*`, `api/deps.py`, `api/views.py`, or `web/src/types/api.ts` — verifies Python response shape matches TS interfaces |
+
+All three are read-only (Read/Grep/Glob) — they report gaps; the primary agent fixes them.
+
+### Project skills (`.claude/skills/`)
+
+| Skill | Invocation | Purpose |
+|-------|-----------|---------|
+| `seed-and-preview` | User-only | Reset local DB to sample data and boot API + Vite for manual verification |
+
+Training-domain skills live in `plugins/trainsight/skills/` (see "AI Skills" below). Dev-workflow skills live in `.claude/skills/`.
+
 ## AI Skills
 
 8 skills in `plugins/trainsight/skills/` provide training features via the Trainsight plugin (MCP server + skills):
