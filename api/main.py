@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from api.auth import get_current_user_id
+from api.views import utc_isoformat
 from db.session import get_db
 
 from db.session import init_db
@@ -115,5 +116,5 @@ def get_me(
         "email": user.email,
         "is_superuser": user.is_superuser,
         "is_demo": user.is_demo,
-        "created_at": user.created_at.isoformat() if user.created_at else None,
+        "created_at": utc_isoformat(user.created_at),
     }

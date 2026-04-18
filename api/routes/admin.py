@@ -11,6 +11,7 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
 from api.auth import get_current_user_id
+from api.views import utc_isoformat
 from db.session import get_db
 
 router = APIRouter(prefix="/admin")
@@ -91,9 +92,9 @@ def list_invitations(
             "code": inv.code,
             "note": inv.note,
             "is_active": inv.is_active,
-            "created_at": inv.created_at.isoformat() if inv.created_at else None,
+            "created_at": utc_isoformat(inv.created_at),
             "used_by": used_email,
-            "used_at": inv.used_at.isoformat() if inv.used_at else None,
+            "used_at": utc_isoformat(inv.used_at),
         })
     return {"invitations": result}
 
@@ -143,7 +144,7 @@ def list_users(
                 "is_demo": u.is_demo,
                 "demo_of": u.demo_of,
                 "demo_of_email": user_emails.get(u.demo_of) if u.demo_of else None,
-                "created_at": u.created_at.isoformat() if u.created_at else None,
+                "created_at": utc_isoformat(u.created_at),
             }
             for u in users
         ]

@@ -26,6 +26,7 @@ from analysis.providers import available_providers
 from analysis.thresholds import detect_thresholds
 from analysis.training_base import get_display_config
 from api.auth import get_data_user_id, require_write_access
+from api.views import utc_isoformat
 from db.session import get_db
 from db.sync_scheduler import (
     ALLOWED_SYNC_INTERVAL_HOURS,
@@ -254,7 +255,7 @@ def get_connections(
     for conn in connections:
         result[conn.platform] = {
             "status": conn.status,
-            "last_sync": conn.last_sync.isoformat() if conn.last_sync else None,
+            "last_sync": utc_isoformat(conn.last_sync),
             "has_credentials": conn.encrypted_credentials is not None,
         }
     return {"connections": result}
