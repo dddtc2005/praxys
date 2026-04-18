@@ -32,12 +32,13 @@ async def lifespan(app: FastAPI):
     # Users can still trigger manual sync from UI/CLI at any time.
     scheduler_enabled = os.environ.get("TRAINSIGHT_SYNC_SCHEDULER", "true").lower() != "false"
     if scheduler_enabled:
-        from db.sync_scheduler import start_scheduler, stop_scheduler
+        from db.sync_scheduler import start_scheduler
         start_scheduler()
     try:
         yield
     finally:
         if scheduler_enabled:
+            from db.sync_scheduler import stop_scheduler
             stop_scheduler()
 
 

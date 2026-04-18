@@ -30,7 +30,7 @@ def normalize_sync_interval_hours(value: object) -> int:
         raise ValueError("Sync interval must be an integer hour value.") from exc
     if hours not in ALLOWED_SYNC_INTERVAL_HOURS:
         raise ValueError(
-            f"Sync interval must be one of {list(ALLOWED_SYNC_INTERVAL_HOURS)} hours."
+            f"Sync interval must be one of {ALLOWED_SYNC_INTERVAL_HOURS} hours."
         )
     return hours
 

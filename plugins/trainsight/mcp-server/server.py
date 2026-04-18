@@ -313,7 +313,18 @@ def set_sync_frequency(hours: int) -> str:
     """Set auto-sync frequency in hours (allowed: 6, 12, 24)."""
     from db.sync_scheduler import normalize_sync_interval_hours
 
-    normalized_hours = normalize_sync_interval_hours(hours)
+    try:
+        normalized_hours = normalize_sync_interval_hours(hours)
+    except ValueError as exc:
+        return json.dumps(
+            {
+                "status": "error",
+                "message": str(exc),
+                "allowed_sync_interval_hours": [6, 12, 24],
+            },
+            indent=2,
+            default=str,
+        )
     if IS_REMOTE:
         updated = _remote_put("/api/settings", {
             "source_options": {"sync_interval_hours": normalized_hours}
