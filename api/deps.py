@@ -1197,7 +1197,7 @@ def get_dashboard_data(user_id: str = None, db=None) -> dict:
     # Data sufficiency metadata — helps frontend decide what to show
     activity_count = len(merged) if not merged.empty else 0
     data_days = (today - earliest).days if not merged.empty else 0
-    cp_point_count = len(cp_trend_data.get("dates", [])) if cp_trend_data else 0
+    cp_point_count = len(cp_trend_chart.get("dates", [])) if cp_trend_chart else 0
     has_recovery = not recovery.empty if hasattr(recovery, 'empty') else bool(recovery)
 
     data_meta = {
