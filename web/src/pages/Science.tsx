@@ -10,19 +10,22 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Trans, useLingui } from '@lingui/react/macro';
+import { msg } from '@lingui/core/macro';
+import type { MessageDescriptor } from '@lingui/core';
 
 /* ── Pillar config ────────────────────────────────────────────────────── */
 
 const PILLARS: {
   key: SciencePillar;
-  label: string;
-  question: string;
+  label: MessageDescriptor;
+  question: MessageDescriptor;
   accent: string;
 }[] = [
-  { key: 'load', label: 'Load & Fitness', question: 'How does training stress become fitness?', accent: '#00ff87' },
-  { key: 'recovery', label: 'Recovery', question: 'How do we assess readiness to train?', accent: '#a78bfa' },
-  { key: 'prediction', label: 'Race Prediction', question: 'How do we estimate race potential?', accent: '#f59e0b' },
-  { key: 'zones', label: 'Training Zones', question: 'How is intensity classified?', accent: '#3b82f6' },
+  { key: 'load', label: msg`Load & Fitness`, question: msg`How does training stress become fitness?`, accent: '#00ff87' },
+  { key: 'recovery', label: msg`Recovery`, question: msg`How do we assess readiness to train?`, accent: '#a78bfa' },
+  { key: 'prediction', label: msg`Race Prediction`, question: msg`How do we estimate race potential?`, accent: '#f59e0b' },
+  { key: 'zones', label: msg`Training Zones`, question: msg`How is intensity classified?`, accent: '#3b82f6' },
 ];
 
 /* ── Markdown wrapper ─────────────────────────────────────────────────── */
@@ -63,7 +66,7 @@ function TheoryContent({
           <Separator />
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
-              References
+              <Trans>References</Trans>
             </p>
             <ol className="space-y-1 list-decimal list-inside text-xs text-muted-foreground">
               {theory.citations.map((c: any, i: number) => (
@@ -79,7 +82,7 @@ function TheoryContent({
                       rel="noopener noreferrer"
                       className="ml-1 underline decoration-dotted underline-offset-2 hover:text-foreground transition-colors"
                     >
-                      view
+                      <Trans>view</Trans>
                     </a>
                   )}
                 </li>
@@ -126,8 +129,8 @@ function PillarSection({
 
       <Tabs defaultValue="simple">
         <TabsList>
-          <TabsTrigger value="simple">Simple</TabsTrigger>
-          <TabsTrigger value="advanced">Advanced</TabsTrigger>
+          <TabsTrigger value="simple"><Trans>Simple</Trans></TabsTrigger>
+          <TabsTrigger value="advanced"><Trans>Advanced</Trans></TabsTrigger>
         </TabsList>
 
         {(['simple', 'advanced'] as const).map((mode) => (
@@ -138,7 +141,7 @@ function PillarSection({
                 <div className="flex items-center gap-2">
                   <CardTitle className="text-sm">{active.name}</CardTitle>
                   <Badge variant="outline" className="text-[10px]" style={{ borderColor: `${accent}40`, color: accent }}>
-                    Active
+                    <Trans>Active</Trans>
                   </Badge>
                 </div>
               </CardHeader>
@@ -150,11 +153,11 @@ function PillarSection({
             {/* Recommendation */}
             {recommendation && recommendation.recommended_id !== active.id && (
               <p className="text-xs text-accent-amber px-1">
-                Based on your training, we suggest{' '}
+                <Trans>Based on your training, we suggest{' '}
                 <span className="font-semibold">
                   {alternatives.find((t) => t.id === recommendation.recommended_id)?.name}
                 </span>
-                {' '}&mdash; {recommendation.reason}
+                {' '}&mdash; {recommendation.reason}</Trans>
               </p>
             )}
 
@@ -169,7 +172,7 @@ function PillarSection({
                       size="sm"
                       onClick={() => onSelect(pillar, theory.id)}
                     >
-                      Use this
+                      <Trans>Use this</Trans>
                     </Button>
                   </div>
                 </CardHeader>
@@ -190,6 +193,7 @@ function PillarSection({
 export default function Science() {
   const { isDemo } = useAuth();
   const { science, loading, updateScience } = useScience();
+  const { i18n } = useLingui();
 
   if (loading) {
     return (
@@ -209,7 +213,7 @@ export default function Science() {
     return (
       <Card className="text-center">
         <CardContent className="pt-6">
-          <p className="text-destructive font-semibold">Failed to load science data</p>
+          <p className="text-destructive font-semibold"><Trans>Failed to load science data</Trans></p>
         </CardContent>
       </Card>
     );
@@ -220,10 +224,10 @@ export default function Science() {
   return (
     <div>
       <div className="mb-10">
-        <h1 className="text-2xl font-bold text-foreground">Training Science</h1>
+        <h1 className="text-2xl font-bold text-foreground"><Trans>Training Science</Trans></h1>
         <p className="text-sm text-muted-foreground mt-1 max-w-lg">
-          Four pillars power your analysis. Each uses a published theory you can
-          understand, verify, and change.
+          <Trans>Four pillars power your analysis. Each uses a published theory you can
+          understand, verify, and change.</Trans>
         </p>
       </div>
 
@@ -232,8 +236,8 @@ export default function Science() {
           <PillarSection
             key={p.key}
             pillar={p.key}
-            label={p.label}
-            question={p.question}
+            label={i18n._(p.label)}
+            question={i18n._(p.question)}
             accent={p.accent}
             active={science.active[p.key]}
             alternatives={science.available[p.key] ?? []}
@@ -246,9 +250,9 @@ export default function Science() {
       <Separator className="mt-14 mb-6" />
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-semibold text-foreground">Zone Labels</p>
+          <p className="text-sm font-semibold text-foreground"><Trans>Zone Labels</Trans></p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Cosmetic &mdash; changes names and colors without affecting calculations
+            <Trans>Cosmetic &mdash; changes names and colors without affecting calculations</Trans>
           </p>
         </div>
         <ToggleGroup

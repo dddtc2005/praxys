@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Check, Link2, RefreshCw, Gauge, Target, ChevronRight, Sparkles } from 'lucide-react';
 import GoalEditor from '@/components/GoalEditor';
+import { Trans, useLingui } from '@lingui/react/macro';
 
 // --- Platform metadata ---
 
@@ -167,6 +168,7 @@ export default function Setup() {
   const navigate = useNavigate();
   const { config, updateSettings, refetch: refetchSettings } = useSettings();
   const setup = useSetupStatus();
+  const { t } = useLingui();
 
   // Connection state
   const [connectPlatform, setConnectPlatform] = useState<string | null>(null);
@@ -349,11 +351,11 @@ export default function Setup() {
     <div>
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-foreground">Set up Trainsight</h1>
+        <h1 className="text-2xl font-bold text-foreground"><Trans>Set up Trainsight</Trans></h1>
         <p className="text-sm text-muted-foreground mt-1">
           {setup.completed === 0
-            ? 'Complete these steps to unlock your training insights'
-            : `${setup.completed} of ${setup.total} steps complete`}
+            ? <Trans>Complete these steps to unlock your training insights</Trans>
+            : <Trans>{setup.completed} of {setup.total} steps complete</Trans>}
         </p>
 
         {/* Progress bar */}
@@ -369,8 +371,8 @@ export default function Setup() {
         {/* ===== STEP 1: Connect ===== */}
         <SetupCard
           stepNum={1}
-          title="Connect a platform"
-          description="Link at least one data source to start"
+          title={t`Connect a platform`}
+          description={t`Link at least one data source to start`}
           done={setup.hasConnection}
           icon={<Link2 className="h-4 w-4" />}
         >
@@ -411,7 +413,7 @@ export default function Setup() {
                     ))}
                   </div>
                   {!isConnected && (
-                    <p className="text-xs text-primary mt-3 font-medium">Connect</p>
+                    <p className="text-xs text-primary mt-3 font-medium"><Trans>Connect</Trans></p>
                   )}
                 </button>
               );
@@ -422,11 +424,11 @@ export default function Setup() {
         {/* ===== STEP 2: Sync ===== */}
         <SetupCard
           stepNum={2}
-          title="Sync your data"
+          title={t`Sync your data`}
           description={
             !setup.hasConnection
-              ? 'Connect a platform first'
-              : 'Choose how much historical data to pull'
+              ? t`Connect a platform first`
+              : t`Choose how much historical data to pull`
           }
           done={setup.hasSyncedData}
           icon={<RefreshCw className="h-4 w-4" />}
@@ -436,7 +438,7 @@ export default function Setup() {
             <div className="mt-4 space-y-4">
               {/* Backfill range */}
               <div>
-                <Label className="text-xs text-muted-foreground mb-2 block">Sync history</Label>
+                <Label className="text-xs text-muted-foreground mb-2 block"><Trans>Sync history</Trans></Label>
                 <div className="flex flex-wrap gap-2">
                   {BACKFILL_OPTIONS.map((opt) => (
                     <button
@@ -451,7 +453,7 @@ export default function Setup() {
                       {opt.label}
                       {opt.recommended && (
                         <Badge variant="secondary" className="ml-1.5 text-[9px] px-1 py-0">
-                          Recommended
+                          <Trans>Recommended</Trans>
                         </Badge>
                       )}
                     </button>
@@ -468,10 +470,10 @@ export default function Setup() {
                   {syncing ? (
                     <span className="flex items-center gap-2">
                       <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                      Syncing...
+                      <Trans>Syncing...</Trans>
                     </span>
                   ) : (
-                    'Start sync'
+                    <Trans>Start sync</Trans>
                   )}
                 </Button>
               </div>
@@ -506,22 +508,22 @@ export default function Setup() {
               {syncDone && (
                 <Alert className="border-primary/30 bg-primary/5">
                   <AlertDescription className="text-sm text-primary">
-                    Sync complete! Your data is ready.
+                    <Trans>Sync complete! Your data is ready.</Trans>
                   </AlertDescription>
                 </Alert>
               )}
             </div>
           )}
           {setup.hasSyncedData && (
-            <p className="mt-3 text-sm text-primary font-medium">Data synced successfully</p>
+            <p className="mt-3 text-sm text-primary font-medium"><Trans>Data synced successfully</Trans></p>
           )}
         </SetupCard>
 
         {/* ===== STEP 3: Training Base ===== */}
         <SetupCard
           stepNum={3}
-          title="Choose training base"
-          description="How your zones and training load are calculated"
+          title={t`Choose training base`}
+          description={t`How your zones and training load are calculated`}
           done={setup.hasConnection}
           icon={<Gauge className="h-4 w-4" />}
           disabled={!setup.hasConnection}
@@ -547,7 +549,7 @@ export default function Setup() {
                   {isSuggested && (
                     <div className="flex items-center gap-1 mt-2">
                       <Sparkles className="h-3 w-3 text-primary" />
-                      <span className="text-[10px] text-primary font-medium">Recommended</span>
+                      <span className="text-[10px] text-primary font-medium"><Trans>Recommended</Trans></span>
                     </div>
                   )}
                 </button>
@@ -559,8 +561,8 @@ export default function Setup() {
         {/* ===== STEP 4: Goal ===== */}
         <SetupCard
           stepNum={4}
-          title="Set a goal"
-          description="Target a race or track continuous improvement"
+          title={t`Set a goal`}
+          description={t`Target a race or track continuous improvement`}
           done={!!setup.steps.find((s) => s.key === 'goal')?.done}
           icon={<Target className="h-4 w-4" />}
         >
@@ -568,19 +570,19 @@ export default function Setup() {
             {config?.goal?.race_date || (config?.goal?.target_time_sec && Number(config.goal.target_time_sec) > 0) ? (
               <div className="flex items-center justify-between">
                 <p className="text-sm text-primary font-medium">
-                  {config.goal.race_date ? 'Race goal' : 'Continuous improvement'} configured
+                  {config.goal.race_date ? <Trans>Race goal configured</Trans> : <Trans>Continuous improvement configured</Trans>}
                 </p>
                 <Button variant="ghost" size="sm" onClick={() => setGoalEditorOpen(true)}>
-                  Edit
+                  <Trans>Edit</Trans>
                 </Button>
               </div>
             ) : (
               <div className="flex items-center justify-between">
                 <p className="text-xs text-muted-foreground">
-                  Optional — you can always set this later from the Goal page
+                  <Trans>Optional — you can always set this later from the Goal page</Trans>
                 </p>
                 <Button variant="outline" size="sm" onClick={() => setGoalEditorOpen(true)}>
-                  Set goal
+                  <Trans>Set goal</Trans>
                 </Button>
               </div>
             )}
@@ -595,7 +597,7 @@ export default function Setup() {
             className="text-muted-foreground"
             onClick={() => navigate('/')}
           >
-            {setup.allDone ? 'Go to dashboard' : 'Skip for now'}
+            {setup.allDone ? <Trans>Go to dashboard</Trans> : <Trans>Skip for now</Trans>}
             <ChevronRight className="ml-1 h-4 w-4" />
           </Button>
         </div>
@@ -606,7 +608,7 @@ export default function Setup() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
-              Connect {connectPlatform ? PLATFORM_META[connectPlatform]?.label : ''}
+              <Trans>Connect {connectPlatform ? PLATFORM_META[connectPlatform]?.label : ''}</Trans>
             </DialogTitle>
             <DialogDescription>
               {connectPlatform && PLATFORM_META[connectPlatform]?.help}
@@ -616,7 +618,7 @@ export default function Setup() {
           {/* Show what this platform provides */}
           {connectPlatform && (
             <div className="pb-2">
-              <p className="text-xs text-muted-foreground mb-1.5">Will sync:</p>
+              <p className="text-xs text-muted-foreground mb-1.5"><Trans>Will sync:</Trans></p>
               <div className="flex flex-wrap gap-1.5">
                 {PLATFORM_META[connectPlatform].categories.map((cat) => (
                   <Badge key={cat} variant="secondary" className="text-xs">
@@ -652,7 +654,7 @@ export default function Setup() {
               {/* Garmin region + activity types */}
               {connectPlatform === 'garmin' && (
                 <div className="space-y-2">
-                  <Label>Region</Label>
+                  <Label><Trans>Region</Trans></Label>
                   <div className="flex gap-2">
                     {([['international', 'International'], ['cn', 'China']] as const).map(([value, label]) => (
                       <button
@@ -673,7 +675,7 @@ export default function Setup() {
               )}
               {connectPlatform === 'garmin' && (
                 <div className="space-y-2">
-                  <Label>Activity types to sync</Label>
+                  <Label><Trans>Activity types to sync</Trans></Label>
                   <div className="flex flex-wrap gap-1.5">
                     <button
                       type="button"
@@ -689,7 +691,7 @@ export default function Setup() {
                           : 'border-border bg-muted text-muted-foreground hover:text-foreground'
                       }`}
                     >
-                      All
+                      <Trans>All</Trans>
                     </button>
                     {GARMIN_ACTIVITY_CATEGORIES.map((cat) => {
                       const selected = selectedCategories.includes(cat.key);
@@ -716,17 +718,17 @@ export default function Setup() {
                     })}
                   </div>
                   <p className="text-[10px] text-muted-foreground">
-                    Cross-training activities affect your overall training load and recovery
+                    <Trans>Cross-training activities affect your overall training load and recovery</Trans>
                   </p>
                 </div>
               )}
 
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="ghost" onClick={() => setConnectPlatform(null)} disabled={connecting}>
-                  Cancel
+                  <Trans>Cancel</Trans>
                 </Button>
                 <Button type="submit" disabled={connecting}>
-                  {connecting ? 'Connecting...' : 'Connect'}
+                  {connecting ? <Trans>Connecting...</Trans> : <Trans>Connect</Trans>}
                 </Button>
               </div>
             </form>
@@ -749,10 +751,12 @@ export default function Setup() {
       <Dialog open={!!primaryPrompt} onOpenChange={(open) => { if (!open) setPrimaryPrompt(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Choose primary source</DialogTitle>
+            <DialogTitle><Trans>Choose primary source</Trans></DialogTitle>
             <DialogDescription>
-              Multiple platforms provide <strong>{primaryPrompt?.category}</strong> data.
-              Which should be the primary source?
+              <Trans>
+                Multiple platforms provide <strong>{primaryPrompt?.category}</strong> data.
+                Which should be the primary source?
+              </Trans>
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-wrap gap-2 py-2">
