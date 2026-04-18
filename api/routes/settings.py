@@ -8,7 +8,7 @@ import os
 from dataclasses import asdict
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -27,6 +27,11 @@ from analysis.thresholds import detect_thresholds
 from analysis.training_base import get_display_config
 from api.auth import get_data_user_id, require_write_access
 from db.session import get_db
+from db.sync_scheduler import (
+    ALLOWED_SYNC_INTERVAL_HOURS,
+    DEFAULT_SYNC_INTERVAL_HOURS,
+    normalize_sync_interval_hours,
+)
 
 router = APIRouter()
 
@@ -167,6 +172,8 @@ def get_settings(
         "display": get_display_config(config.training_base),
         "detected_thresholds": detected,
         "effective_thresholds": effective,
+        "sync_interval_options_hours": list(ALLOWED_SYNC_INTERVAL_HOURS),
+        "default_sync_interval_hours": DEFAULT_SYNC_INTERVAL_HOURS,
     }
 
 
@@ -196,7 +203,15 @@ def update_settings(
     if body.goal is not None:
         config.goal.update(body.goal)
     if body.source_options is not None:
-        config.source_options.update(body.source_options)
+        source_options_update = dict(body.source_options)
+        if "sync_interval_hours" in source_options_update:
+            try:
+                source_options_update["sync_interval_hours"] = normalize_sync_interval_hours(
+                    source_options_update["sync_interval_hours"]
+                )
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+        config.source_options.update(source_options_update)
 
     save_config_to_db(user_id, config, db)
 

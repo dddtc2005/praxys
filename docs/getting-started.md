@@ -43,7 +43,9 @@ After connecting at least one platform:
 3. Sync progress is shown per platform (Garmin, Stryd, Oura)
 4. Once complete, data appears on the dashboard automatically
 
-Subsequent syncs happen automatically every 6 hours. You can also trigger a manual sync at any time from Settings.
+Subsequent syncs happen automatically in the background (default every 6 hours).
+You can change the sync frequency in **Settings → Connected Platforms → Auto sync frequency**,
+or trigger a manual sync at any time.
 
 ### 4. Configure Training
 

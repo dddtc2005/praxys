@@ -27,13 +27,28 @@ logging.basicConfig(
 async def lifespan(app: FastAPI):
     """Initialize database on startup."""
     init_db()
-    # Start sync scheduler only if explicitly enabled.
-    # On Azure with gunicorn pre-fork workers, each worker runs this lifespan.
-    # The scheduler is optional — sync is primarily triggered by user action.
-    if os.environ.get("TRAINSIGHT_SYNC_SCHEDULER", "").lower() == "true":
+    # Start sync scheduler unless explicitly disabled.
+    # On Azure with gunicorn pre-fork workers, each worker runs this lifespan,
+    # so with the default-on behavior every worker spawns its own scheduler
+    # thread. Per-row last_sync checks make duplicate ticks idempotent, but if
+    # you want exactly one scheduler set TRAINSIGHT_SYNC_SCHEDULER=false on
+    # N-1 workers (or rely on a single-worker deployment).
+    # Users can still trigger manual sync from UI/CLI at any time.
+    logger = logging.getLogger(__name__)
+    scheduler_enabled = os.environ.get("TRAINSIGHT_SYNC_SCHEDULER", "true").lower() != "false"
+    logger.info("Sync scheduler %s", "enabled" if scheduler_enabled else "disabled by env")
+    if scheduler_enabled:
         from db.sync_scheduler import start_scheduler
         start_scheduler()
-    yield
+    try:
+        yield
+    finally:
+        if scheduler_enabled:
+            try:
+                from db.sync_scheduler import stop_scheduler
+                stop_scheduler()
+            except Exception:
+                logger.exception("Failed to stop sync scheduler cleanly")
 
 
 app = FastAPI(title="Trainsight API", version="2.0.0", lifespan=lifespan)

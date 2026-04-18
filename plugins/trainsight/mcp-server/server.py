@@ -50,10 +50,26 @@ def _get_remote_headers():
 
 
 def _check_auth_error(res):
-    """Check for auth errors and return a helpful message."""
+    """Raise on HTTP errors, surfacing the API's `detail` field when present.
+
+    Without this, requests.HTTPError reports only "400 Client Error: Bad Request"
+    and the API's structured 4xx detail (e.g., the sync_interval validation
+    message) is dropped, leaving the LLM caller with no actionable info.
+    """
     if res.status_code == 401:
         raise RuntimeError(_NOT_AUTHENTICATED_MSG)
-    res.raise_for_status()
+    if res.status_code >= 400:
+        detail = ""
+        try:
+            body = res.json()
+            if isinstance(body, dict):
+                detail = body.get("detail") or body.get("message") or ""
+        except ValueError:
+            pass
+        suffix = f": {detail}" if detail else ""
+        raise RuntimeError(
+            f"API request failed (HTTP {res.status_code}){suffix}"
+        )
 
 
 def _remote_get(path: str) -> dict:
@@ -262,6 +278,102 @@ def update_settings(settings: dict) -> str:
                     setattr(config, key, value)
             save_config_to_db(_local_user_id(), config, db)
             data = {"status": "updated"}
+        finally:
+            db.close()
+    return json.dumps(data, indent=2, default=str)
+
+
+@mcp.tool()
+def get_sync_settings() -> str:
+    """Get current auto-sync frequency and allowed options."""
+    if IS_REMOTE:
+        settings = _remote_get("/api/settings")
+        source_options = settings.get("config", {}).get("source_options", {})
+        from db.sync_scheduler import (
+            ALLOWED_SYNC_INTERVAL_HOURS,
+            DEFAULT_SYNC_INTERVAL_HOURS,
+            get_user_sync_interval_hours,
+        )
+        data = {
+            "sync_interval_hours": get_user_sync_interval_hours(source_options),
+            "allowed_sync_interval_hours": settings.get(
+                "sync_interval_options_hours", list(ALLOWED_SYNC_INTERVAL_HOURS)
+            ),
+            "default_sync_interval_hours": settings.get(
+                "default_sync_interval_hours", DEFAULT_SYNC_INTERVAL_HOURS
+            ),
+        }
+    else:
+        db = _local_db()
+        try:
+            from analysis.config import load_config_from_db
+            from db.sync_scheduler import (
+                ALLOWED_SYNC_INTERVAL_HOURS,
+                DEFAULT_SYNC_INTERVAL_HOURS,
+                get_user_sync_interval_hours,
+            )
+
+            config = load_config_from_db(_local_user_id(), db)
+            data = {
+                "sync_interval_hours": get_user_sync_interval_hours(config.source_options),
+                "allowed_sync_interval_hours": list(ALLOWED_SYNC_INTERVAL_HOURS),
+                "default_sync_interval_hours": DEFAULT_SYNC_INTERVAL_HOURS,
+            }
+        finally:
+            db.close()
+    return json.dumps(data, indent=2, default=str)
+
+
+@mcp.tool()
+def set_sync_frequency(hours: int) -> str:
+    """Set auto-sync frequency in hours (allowed: 6, 12, 24)."""
+    from db.sync_scheduler import (
+        ALLOWED_SYNC_INTERVAL_HOURS,
+        normalize_sync_interval_hours,
+    )
+
+    try:
+        normalized_hours = normalize_sync_interval_hours(hours)
+    except ValueError as exc:
+        return json.dumps(
+            {
+                "status": "error",
+                "message": str(exc),
+                "allowed_sync_interval_hours": list(ALLOWED_SYNC_INTERVAL_HOURS),
+            },
+            indent=2,
+            default=str,
+        )
+    if IS_REMOTE:
+        try:
+            updated = _remote_put("/api/settings", {
+                "source_options": {"sync_interval_hours": normalized_hours}
+            })
+        except RuntimeError as exc:
+            return json.dumps(
+                {
+                    "status": "error",
+                    "message": str(exc),
+                    "allowed_sync_interval_hours": list(ALLOWED_SYNC_INTERVAL_HOURS),
+                },
+                indent=2,
+                default=str,
+            )
+        source_options = updated.get("config", {}).get("source_options", {})
+        data = {
+            "status": updated.get("status", "ok"),
+            "sync_interval_hours": source_options.get("sync_interval_hours", normalized_hours),
+        }
+    else:
+        db = _local_db()
+        try:
+            from analysis.config import load_config_from_db, save_config_to_db
+            config = load_config_from_db(_local_user_id(), db)
+            source_options = dict(config.source_options or {})
+            source_options["sync_interval_hours"] = normalized_hours
+            config.source_options = source_options
+            save_config_to_db(_local_user_id(), config, db)
+            data = {"status": "updated", "sync_interval_hours": normalized_hours}
         finally:
             db.close()
     return json.dumps(data, indent=2, default=str)

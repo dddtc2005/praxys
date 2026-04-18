@@ -128,6 +128,38 @@ class TestSettingsTools:
         assert "connections" in data
         assert isinstance(data["connections"], dict)
 
+    def test_sync_frequency_roundtrip(self):
+        from server import get_sync_settings, set_sync_frequency
+
+        original = _parse(get_sync_settings())
+        allowed = original["allowed_sync_interval_hours"]
+        assert isinstance(allowed, list)
+        assert 6 in allowed
+
+        original_hours = int(original["sync_interval_hours"])
+        new_hours = next((h for h in allowed if h != original_hours), original_hours)
+
+        _parse(set_sync_frequency(new_hours))
+        updated = _parse(get_sync_settings())
+        assert int(updated["sync_interval_hours"]) == new_hours
+
+        _parse(set_sync_frequency(original_hours))
+
+    def test_set_sync_frequency_rejects_invalid(self):
+        """Disallowed values must return a structured error envelope, not a silent success."""
+        from server import set_sync_frequency, get_sync_settings
+
+        before = _parse(get_sync_settings())
+        before_hours = int(before["sync_interval_hours"])
+
+        result = _parse(set_sync_frequency(99))
+        assert result["status"] == "error"
+        assert "99" in result["message"] or "interval" in result["message"].lower()
+        assert result["allowed_sync_interval_hours"] == [6, 12, 24]
+
+        after = _parse(get_sync_settings())
+        assert int(after["sync_interval_hours"]) == before_hours
+
 
 # ---------------------------------------------------------------------------
 # Plan tools

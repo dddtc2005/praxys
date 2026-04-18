@@ -256,7 +256,7 @@ This means deploying a new version with additional model columns just works — 
 - **Backend** (`.github/workflows/deploy-backend.yml`) — triggers on changes to `api/`, `analysis/`, `sync/`, `db/`, `data/science/`, `tests/`, `requirements.txt`. Runs tests first, then deploys via OIDC to `trainsight-app`.
 - **Frontend** (`.github/workflows/deploy-frontend.yml`) — triggers on changes to `web/`; PR builds create staging environments.
 
-Background sync is handled by the backend scheduler (per-user, opt-in via `TRAINSIGHT_SYNC_SCHEDULER=true` env var) — no CI job needed.
+Background sync is handled by the backend scheduler (enabled by default; disable with `TRAINSIGHT_SYNC_SCHEDULER=false`) — no CI job needed.
 
 ## CLI Plugin Setup
 

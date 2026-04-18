@@ -14,7 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Link2, Gauge, SlidersHorizontal, Target, Activity, User, Check } from 'lucide-react';
+import { Link2, Gauge, SlidersHorizontal, Target, Activity, User, Check, Clock } from 'lucide-react';
 import GoalEditor from '@/components/GoalEditor';
 import { formatTime, formatPace } from '@/lib/format';
 import { useAuth } from '@/hooks/useAuth';
@@ -116,6 +116,12 @@ const THRESHOLD_FIELDS = [
 ];
 
 const CONNECTABLE_PLATFORMS = ['garmin', 'stryd', 'oura'] as const;
+const SYNC_INTERVAL_OPTIONS = [
+  { hours: 6,  recommended: true },
+  { hours: 12, recommended: false },
+  { hours: 24, recommended: false },
+] as const;
+const DEFAULT_SYNC_INTERVAL_HOURS = 6;
 
 const PLATFORM_CRED_FIELDS: Record<string, { fields: { key: string; label: string; type: string }[]; help: string }> = {
   garmin: {
@@ -243,9 +249,11 @@ export default function Settings() {
     );
   }
 
-  const flash = (msg: string) => {
+  const flash = (msg: string, durationMs?: number) => {
     setSaveMsg(msg);
-    setTimeout(() => setSaveMsg(''), 2000);
+    // Errors carry the API's detail string and need longer to read than "Saved".
+    const ttl = durationMs ?? (msg === 'Saved' ? 2000 : 5000);
+    setTimeout(() => setSaveMsg(''), ttl);
   };
 
   const handleBaseChange = async (base: TrainingBase) => {
@@ -297,6 +305,27 @@ export default function Settings() {
       await updateSettings({ source_options: { ...config.source_options, garmin_region: region } });
       flash('Saved');
     } catch { flash('Error'); }
+    setSaving(false);
+  };
+
+  const handleSyncIntervalChange = async (value: string | null) => {
+    if (!value) return;
+    const hours = parseInt(value, 10);
+    if (Number.isNaN(hours)) return;
+    if (!SYNC_INTERVAL_OPTIONS.some((opt) => opt.hours === hours)) return;
+    setSaving(true);
+    try {
+      await updateSettings({
+        source_options: {
+          ...config.source_options,
+          sync_interval_hours: hours,
+        },
+      });
+      flash('Saved');
+    } catch (err) {
+      const msg = err instanceof Error && err.message ? err.message : 'Error';
+      flash(msg);
+    }
     setSaving(false);
   };
 
@@ -357,6 +386,23 @@ export default function Settings() {
 
   const connections = config.connections || [];
   const anySyncing = Object.values(syncStatus).some((s) => s.status === 'syncing');
+  const rawSyncInterval = String(
+    (config.source_options as Record<string, unknown> | undefined)?.sync_interval_hours
+      ?? DEFAULT_SYNC_INTERVAL_HOURS
+  );
+  const configuredSyncInterval = parseInt(rawSyncInterval, 10);
+  const syncIntervalHours = SYNC_INTERVAL_OPTIONS.some((opt) => opt.hours === configuredSyncInterval)
+    ? configuredSyncInterval
+    : DEFAULT_SYNC_INTERVAL_HOURS;
+
+  const lastSyncMs = Object.values(syncStatus)
+    .map((s) => (s.last_sync ? new Date(s.last_sync).getTime() : 0))
+    .reduce((a, b) => Math.max(a, b), 0);
+  const nextSyncLabel = lastSyncMs
+    ? new Date(lastSyncMs + syncIntervalHours * 3600_000).toLocaleString(undefined, {
+        weekday: 'short', hour: 'numeric', minute: '2-digit',
+      })
+    : null;
 
   const preferredFor = (platform: string): string[] => {
     return Object.entries(config.preferences)
@@ -500,6 +546,51 @@ export default function Settings() {
             </CardContent>
           </Card>
         )}
+
+        <Card className="mb-4">
+          <CardContent className="pt-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-2.5">
+              <Clock className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-foreground">Auto sync frequency</p>
+                <p className="text-xs text-muted-foreground">
+                  How often Trainsight pulls new data in the background. Lower frequency
+                  uses less network and respects platform rate limits.
+                </p>
+                {nextSyncLabel && (
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    Next sync <span className="font-data text-foreground">~{nextSyncLabel}</span>
+                  </p>
+                )}
+              </div>
+            </div>
+            <Select
+              value={String(syncIntervalHours)}
+              onValueChange={handleSyncIntervalChange}
+              disabled={saving}
+            >
+              <SelectTrigger className="w-full sm:w-auto sm:min-w-52 h-9 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SYNC_INTERVAL_OPTIONS.map((option) => (
+                  <SelectItem key={option.hours} value={String(option.hours)}>
+                    <span className="flex items-center gap-2">
+                      <span>
+                        Every <span className="font-data">{option.hours}</span> hours
+                      </span>
+                      {option.recommended && (
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          recommended
+                        </span>
+                      )}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {CONNECTABLE_PLATFORMS.map((platform) => {
