@@ -47,8 +47,8 @@ intentional processes, ask before killing them.
 ### 2. Reset the DB and seed sample data
 
 ```bash
-# trainsight.db is blocked by the PreToolUse hook — deletion must be done
-# in the shell, not via the Write tool
+# trainsight.db is blocked from Edit/Write by the PreToolUse hook.
+# The hook does not gate Bash, so `rm` in the shell works fine.
 rm -f trainsight.db trainsight.db-journal trainsight.db-wal trainsight.db-shm
 python scripts/seed_sample_data.py
 ```
@@ -58,23 +58,28 @@ from `data/sample/`, and leaves a fresh DB ready for registration.
 
 ### 3. Start the API server (background)
 
-Run in the background so you can continue with the frontend:
+Launch uvicorn with the Bash tool's `run_in_background: true` so the
+conversation stays responsive. A plain foreground command here will
+block the session until the user aborts it.
 
 ```bash
 python -m uvicorn api.main:app --reload --port 8000
 ```
 
-Watch the log line `Uvicorn running on http://127.0.0.1:8000`. If it
-fails to bind, check for stale `uvicorn.exe` processes.
+Then use `BashOutput` to watch for the line `Uvicorn running on
+http://127.0.0.1:8000`. If it fails to bind, check for stale
+`uvicorn.exe` processes.
 
 ### 4. Start the Vite dev server (background)
+
+Again use `run_in_background: true`:
 
 ```bash
 cd web && npm run dev
 ```
 
-Vite binds to `http://localhost:5173` and proxies `/api/*` to the
-backend (see `web/vite.config.ts`).
+Poll with `BashOutput` until Vite prints `Local: http://localhost:5173`.
+Vite proxies `/api/*` to the backend (see `web/vite.config.ts`).
 
 ### 5. Report back to the user
 

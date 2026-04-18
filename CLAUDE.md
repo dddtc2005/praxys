@@ -222,11 +222,11 @@ Project-level automations live in `.claude/`. They are committed to the repo so 
 
 | When | What | Script |
 |------|------|--------|
-| `PreToolUse` on `Edit`/`Write` | Block edits to `.env*`, `trainsight.db*`, `data/garmin/**`, `data/stryd/**`, `data/oura/**` | `.claude/hooks/block_secrets.py` |
-| `PostToolUse` on `Edit`/`Write` of `*.py` | Run full pytest with fail-fast | inline in `settings.json` |
-| `PostToolUse` on `Edit`/`Write` of `web/**/*.ts(x)` | ESLint the single edited file | `.claude/hooks/web_lint.py` |
+| `PreToolUse` on `Edit`/`Write` | Block edits to `.env` / `.env.*`, `trainsight.db` + SQLite companions, and anything under `data/garmin/`, `data/stryd/`, `data/oura/` | `.claude/hooks/block_secrets.py` |
+| `PostToolUse` on `Edit`/`Write` of `*.py` | Run pytest with fail-fast via the project venv; surface failures via stderr + exit 2 | `.claude/hooks/pytest_on_py.py` |
+| `PostToolUse` on `Edit`/`Write` of files under project `web/` ending in `.ts(x)` | Per-file ESLint; surface violations via stderr + exit 2 | `.claude/hooks/web_lint.py` |
 
-The block hook exits 2 and prints a reason, which Claude surfaces and respects. To edit a protected file, use a terminal outside Claude Code or temporarily disable the hook in `settings.json`.
+The block hook **fails closed** — on malformed payloads, unknown tool names, or a missing `file_path` it denies with a stderr explanation rather than letting the edit through. To edit a protected file, use a terminal outside Claude Code or temporarily disable the hook in `settings.json`.
 
 ### Subagents (`.claude/agents/`)
 
