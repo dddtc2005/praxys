@@ -308,7 +308,8 @@ export default function Settings() {
 
   const handleSyncIntervalChange = async (value: string | null) => {
     if (!value) return;
-    const hours = Number(value);
+    const hours = parseInt(value, 10);
+    if (Number.isNaN(hours)) return;
     if (!SYNC_INTERVAL_OPTIONS.some((opt) => opt.hours === hours)) return;
     setSaving(true);
     try {
@@ -382,10 +383,11 @@ export default function Settings() {
 
   const connections = config.connections || [];
   const anySyncing = Object.values(syncStatus).some((s) => s.status === 'syncing');
-  const configuredSyncInterval = Number(
+  const rawSyncInterval = String(
     (config.source_options as Record<string, unknown> | undefined)?.sync_interval_hours
       ?? DEFAULT_SYNC_INTERVAL_HOURS
   );
+  const configuredSyncInterval = parseInt(rawSyncInterval, 10);
   const syncIntervalHours = SYNC_INTERVAL_OPTIONS.some((opt) => opt.hours === configuredSyncInterval)
     ? configuredSyncInterval
     : DEFAULT_SYNC_INTERVAL_HOURS;
