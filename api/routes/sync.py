@@ -7,7 +7,7 @@ import json
 import logging
 import os
 import threading
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +16,7 @@ from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
 from api.auth import get_data_user_id, require_write_access
+from api.views import utc_isoformat
 from db.session import get_db
 
 router = APIRouter()
@@ -146,7 +147,7 @@ def _run_sync(user_id: str, source: str, creds: dict,
         with _sync_lock:
             status[source] = {
                 "status": "done",
-                "last_sync": datetime.now().isoformat(),
+                "last_sync": utc_isoformat(datetime.now(timezone.utc)),
                 "error": None,
             }
 
@@ -465,7 +466,7 @@ def get_sync_status(
         runtime = runtime_snapshot.get(src, {})
         result[src] = {
             "status": runtime.get("status", "idle"),
-            "last_sync": conn.last_sync.isoformat() if conn.last_sync else runtime.get("last_sync"),
+            "last_sync": utc_isoformat(conn.last_sync) or runtime.get("last_sync"),
             "error": runtime.get("error"),
             "connected": conn.status in ("connected", "error"),
             "progress": runtime.get("progress"),

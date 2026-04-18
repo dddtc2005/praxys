@@ -3,9 +3,30 @@
 These functions extract presentation-ready data from get_dashboard_data().
 Both web API routes and CLI skill scripts import from here to stay in sync.
 """
-from datetime import date
+from datetime import date, datetime, timezone
 
 import pandas as pd
+
+
+def utc_isoformat(dt: datetime | None) -> str | None:
+    """Serialize a UTC datetime as an ISO-8601 string with a UTC offset.
+
+    DB-stored timestamps (``User.created_at``, ``UserConnection.last_sync``,
+    etc.) are naive ``datetime.utcnow()`` values — no tzinfo, just the wall
+    clock in UTC. Calling ``.isoformat()`` on those produces a string like
+    ``"2026-04-18T12:34:56"``. Per the ECMAScript spec, browsers parse such
+    strings as *local* time, which makes the UI display a time that differs
+    from the server's actual UTC moment by the viewer's UTC offset.
+
+    Treat naive inputs as UTC and always emit the ``+00:00`` suffix so
+    ``new Date()`` on the frontend lands on the correct instant regardless of
+    the viewer's timezone.
+    """
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).isoformat()
 
 
 def last_activity(activities: list[dict]) -> dict | None:

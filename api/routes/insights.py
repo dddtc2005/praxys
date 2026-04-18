@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from api.auth import get_data_user_id, require_write_access
+from api.views import utc_isoformat
 from db.session import get_db
 
 router = APIRouter()
@@ -85,7 +86,7 @@ def get_insights(
                 "findings": row.findings or [],
                 "recommendations": row.recommendations or [],
                 "meta": row.meta or {},
-                "generated_at": row.generated_at.isoformat() if row.generated_at else None,
+                "generated_at": utc_isoformat(row.generated_at),
             }
             for row in rows
         }
@@ -116,6 +117,6 @@ def get_insight(
             "findings": row.findings or [],
             "recommendations": row.recommendations or [],
             "meta": row.meta or {},
-            "generated_at": row.generated_at.isoformat() if row.generated_at else None,
+            "generated_at": utc_isoformat(row.generated_at),
         }
     }
