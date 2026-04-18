@@ -29,8 +29,17 @@ To check the current sync state, call the `get_sync_status` MCP tool.
 
 Sync is idempotent — running it multiple times is safe (existing records are skipped).
 
-A background scheduler also runs syncs automatically every 6 hours for all
-connected platforms.
+A background scheduler also runs auto syncs for all connected platforms.
+Users can inspect and change the interval (guardrailed to 6/12/24 hours) via:
+- `get_sync_settings`
+- `set_sync_frequency`
+
+Default is every 6 hours.
+
+Webhook/subscription notes:
+- Stryd and Oura rely on polling (no webhook subscription in current integration)
+- Garmin push delivery requires a separate partner integration, so Trainsight
+  currently uses scheduled sync for Garmin too
 
 ## Reading Sync Status
 

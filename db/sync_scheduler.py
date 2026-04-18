@@ -15,10 +15,37 @@ logger = logging.getLogger(__name__)
 
 CHECK_INTERVAL_SEC = 600  # Check every 10 minutes
 DEFAULT_SYNC_INTERVAL_HOURS = 6
+ALLOWED_SYNC_INTERVAL_HOURS = (6, 12, 24)
 DELAY_BETWEEN_SYNCS_SEC = 5  # Stagger between user/platform syncs
 
 _scheduler_thread: threading.Thread | None = None
 _stop_event = threading.Event()
+
+
+def normalize_sync_interval_hours(value: object) -> int:
+    """Validate and normalize sync frequency to one of the allowed options."""
+    try:
+        hours = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Sync interval must be an integer hour value.") from exc
+    if hours not in ALLOWED_SYNC_INTERVAL_HOURS:
+        raise ValueError(
+            f"Sync interval must be one of {list(ALLOWED_SYNC_INTERVAL_HOURS)} hours."
+        )
+    return hours
+
+
+def get_user_sync_interval_hours(source_options: dict | None) -> int:
+    """Return effective sync interval from source_options with safe fallback."""
+    if not isinstance(source_options, dict):
+        return DEFAULT_SYNC_INTERVAL_HOURS
+    raw = source_options.get("sync_interval_hours")
+    if raw is None:
+        return DEFAULT_SYNC_INTERVAL_HOURS
+    try:
+        return normalize_sync_interval_hours(raw)
+    except ValueError:
+        return DEFAULT_SYNC_INTERVAL_HOURS
 
 
 def start_scheduler():
@@ -56,7 +83,7 @@ def _scheduler_loop():
 def _check_and_sync():
     """Check all user connections and sync stale ones."""
     from db.session import init_db, SessionLocal
-    from db.models import UserConnection
+    from db.models import UserConnection, UserConfig
 
     init_db()
     db = SessionLocal()
@@ -66,15 +93,26 @@ def _check_and_sync():
         ).all()
 
         now = datetime.utcnow()
+        sync_intervals_by_user: dict[str, int] = {}
         for conn in connections:
-            interval_hours = DEFAULT_SYNC_INTERVAL_HOURS
+            if conn.user_id not in sync_intervals_by_user:
+                config = (
+                    db.query(UserConfig.source_options)
+                    .filter(UserConfig.user_id == conn.user_id)
+                    .first()
+                )
+                source_options = config[0] if config else {}
+                sync_intervals_by_user[conn.user_id] = get_user_sync_interval_hours(
+                    source_options
+                )
+            interval_hours = sync_intervals_by_user[conn.user_id]
             last = conn.last_sync
             if last and (now - last) < timedelta(hours=interval_hours):
                 continue  # Not stale yet
 
             logger.info(
-                "Scheduled sync: user=%s platform=%s (last=%s)",
-                conn.user_id, conn.platform, last,
+                "Scheduled sync: user=%s platform=%s (last=%s interval=%sh)",
+                conn.user_id, conn.platform, last, interval_hours,
             )
             try:
                 _sync_connection(conn.user_id, conn.platform, db)

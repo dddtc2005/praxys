@@ -268,6 +268,77 @@ def update_settings(settings: dict) -> str:
 
 
 @mcp.tool()
+def get_sync_settings() -> str:
+    """Get current auto-sync frequency and allowed options."""
+    if IS_REMOTE:
+        settings = _remote_get("/api/settings")
+        source_options = settings.get("config", {}).get("source_options", {})
+        from db.sync_scheduler import (
+            ALLOWED_SYNC_INTERVAL_HOURS,
+            DEFAULT_SYNC_INTERVAL_HOURS,
+            get_user_sync_interval_hours,
+        )
+        data = {
+            "sync_interval_hours": get_user_sync_interval_hours(source_options),
+            "allowed_sync_interval_hours": settings.get(
+                "sync_interval_options_hours", list(ALLOWED_SYNC_INTERVAL_HOURS)
+            ),
+            "default_sync_interval_hours": settings.get(
+                "default_sync_interval_hours", DEFAULT_SYNC_INTERVAL_HOURS
+            ),
+        }
+    else:
+        db = _local_db()
+        try:
+            from analysis.config import load_config_from_db
+            from db.sync_scheduler import (
+                ALLOWED_SYNC_INTERVAL_HOURS,
+                DEFAULT_SYNC_INTERVAL_HOURS,
+                get_user_sync_interval_hours,
+            )
+
+            config = load_config_from_db(_local_user_id(), db)
+            data = {
+                "sync_interval_hours": get_user_sync_interval_hours(config.source_options),
+                "allowed_sync_interval_hours": list(ALLOWED_SYNC_INTERVAL_HOURS),
+                "default_sync_interval_hours": DEFAULT_SYNC_INTERVAL_HOURS,
+            }
+        finally:
+            db.close()
+    return json.dumps(data, indent=2, default=str)
+
+
+@mcp.tool()
+def set_sync_frequency(hours: int) -> str:
+    """Set auto-sync frequency in hours (allowed: 6, 12, 24)."""
+    from db.sync_scheduler import normalize_sync_interval_hours
+
+    normalized_hours = normalize_sync_interval_hours(hours)
+    if IS_REMOTE:
+        updated = _remote_put("/api/settings", {
+            "source_options": {"sync_interval_hours": normalized_hours}
+        })
+        source_options = updated.get("config", {}).get("source_options", {})
+        data = {
+            "status": updated.get("status", "ok"),
+            "sync_interval_hours": source_options.get("sync_interval_hours", normalized_hours),
+        }
+    else:
+        db = _local_db()
+        try:
+            from analysis.config import load_config_from_db, save_config_to_db
+            config = load_config_from_db(_local_user_id(), db)
+            source_options = dict(config.source_options or {})
+            source_options["sync_interval_hours"] = normalized_hours
+            config.source_options = source_options
+            save_config_to_db(_local_user_id(), config, db)
+            data = {"status": "updated", "sync_interval_hours": normalized_hours}
+        finally:
+            db.close()
+    return json.dumps(data, indent=2, default=str)
+
+
+@mcp.tool()
 def get_connections() -> str:
     """Get connected platforms and their status. Credentials are never returned — only connection status."""
     if IS_REMOTE:

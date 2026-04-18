@@ -116,6 +116,12 @@ const THRESHOLD_FIELDS = [
 ];
 
 const CONNECTABLE_PLATFORMS = ['garmin', 'stryd', 'oura'] as const;
+const SYNC_INTERVAL_OPTIONS = [
+  { hours: 6, label: 'Every 6 hours (recommended)' },
+  { hours: 12, label: 'Every 12 hours' },
+  { hours: 24, label: 'Every 24 hours' },
+] as const;
+const DEFAULT_SYNC_INTERVAL_HOURS = 6;
 
 const PLATFORM_CRED_FIELDS: Record<string, { fields: { key: string; label: string; type: string }[]; help: string }> = {
   garmin: {
@@ -300,6 +306,25 @@ export default function Settings() {
     setSaving(false);
   };
 
+  const handleSyncIntervalChange = async (value: string | null) => {
+    if (!value) return;
+    const hours = Number(value);
+    if (!SYNC_INTERVAL_OPTIONS.some((opt) => opt.hours === hours)) return;
+    setSaving(true);
+    try {
+      await updateSettings({
+        source_options: {
+          ...config.source_options,
+          sync_interval_hours: hours,
+        },
+      });
+      flash('Saved');
+    } catch {
+      flash('Error');
+    }
+    setSaving(false);
+  };
+
   const handleConnect = async () => {
     if (!connectPlatform) return;
     setConnecting(true);
@@ -357,6 +382,13 @@ export default function Settings() {
 
   const connections = config.connections || [];
   const anySyncing = Object.values(syncStatus).some((s) => s.status === 'syncing');
+  const configuredSyncInterval = Number(
+    (config.source_options as Record<string, unknown> | undefined)?.sync_interval_hours
+      ?? DEFAULT_SYNC_INTERVAL_HOURS
+  );
+  const syncIntervalHours = SYNC_INTERVAL_OPTIONS.some((opt) => opt.hours === configuredSyncInterval)
+    ? configuredSyncInterval
+    : DEFAULT_SYNC_INTERVAL_HOURS;
 
   const preferredFor = (platform: string): string[] => {
     return Object.entries(config.preferences)
@@ -500,6 +532,36 @@ export default function Settings() {
             </CardContent>
           </Card>
         )}
+
+        <Card className="mb-4">
+          <CardContent className="pt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-foreground">Auto sync frequency</p>
+              <p className="text-xs text-muted-foreground">
+                Scheduled sync runs in the background for connected platforms.
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Stryd and Oura currently require polling; Garmin push/webhooks need a separate partner integration.
+              </p>
+            </div>
+            <Select
+              value={String(syncIntervalHours)}
+              onValueChange={handleSyncIntervalChange}
+              disabled={saving}
+            >
+              <SelectTrigger className="w-full sm:w-64 h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SYNC_INTERVAL_OPTIONS.map((option) => (
+                  <SelectItem key={option.hours} value={String(option.hours)}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {CONNECTABLE_PLATFORMS.map((platform) => {

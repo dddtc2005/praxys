@@ -89,6 +89,12 @@ Call `update_settings` with `{"goal": {...}}`.
 4 boundaries define 5 zones. Only modify if the user has specific preferences.
 For zone theory selection (Coggan vs Seiler), use the `science` skill.
 
+### 6. Auto Sync Frequency
+
+Use `get_sync_settings` to read the current auto-sync interval and
+`set_sync_frequency` to change it (allowed values: 6, 12, 24 hours).
+Default is every 6 hours.
+
 ## First-Time Setup Checklist
 
 1. Call `get_connections` — check what's connected

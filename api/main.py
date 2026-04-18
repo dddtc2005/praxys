@@ -27,13 +27,18 @@ logging.basicConfig(
 async def lifespan(app: FastAPI):
     """Initialize database on startup."""
     init_db()
-    # Start sync scheduler only if explicitly enabled.
+    # Start sync scheduler unless explicitly disabled.
     # On Azure with gunicorn pre-fork workers, each worker runs this lifespan.
-    # The scheduler is optional — sync is primarily triggered by user action.
-    if os.environ.get("TRAINSIGHT_SYNC_SCHEDULER", "").lower() == "true":
-        from db.sync_scheduler import start_scheduler
+    # Users can still trigger manual sync from UI/CLI at any time.
+    scheduler_enabled = os.environ.get("TRAINSIGHT_SYNC_SCHEDULER", "true").lower() != "false"
+    if scheduler_enabled:
+        from db.sync_scheduler import start_scheduler, stop_scheduler
         start_scheduler()
-    yield
+    try:
+        yield
+    finally:
+        if scheduler_enabled:
+            stop_scheduler()
 
 
 app = FastAPI(title="Trainsight API", version="2.0.0", lifespan=lifespan)

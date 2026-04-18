@@ -128,6 +128,23 @@ class TestSettingsTools:
         assert "connections" in data
         assert isinstance(data["connections"], dict)
 
+    def test_sync_frequency_roundtrip(self):
+        from server import get_sync_settings, set_sync_frequency
+
+        original = _parse(get_sync_settings())
+        allowed = original["allowed_sync_interval_hours"]
+        assert isinstance(allowed, list)
+        assert 6 in allowed
+
+        original_hours = int(original["sync_interval_hours"])
+        new_hours = next((h for h in allowed if h != original_hours), original_hours)
+
+        _parse(set_sync_frequency(new_hours))
+        updated = _parse(get_sync_settings())
+        assert int(updated["sync_interval_hours"]) == new_hours
+
+        _parse(set_sync_frequency(original_hours))
+
 
 # ---------------------------------------------------------------------------
 # Plan tools
