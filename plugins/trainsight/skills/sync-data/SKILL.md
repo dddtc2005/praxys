@@ -37,9 +37,11 @@ Users can inspect and change the interval (guardrailed to 6/12/24 hours) via:
 Default is every 6 hours.
 
 Webhook/subscription notes:
-- Stryd and Oura rely on polling (no webhook subscription in current integration)
-- Garmin push delivery requires a separate partner integration, so Trainsight
-  currently uses scheduled sync for Garmin too
+- Stryd has no webhook API
+- Oura offers webhooks but Trainsight does not subscribe to them today
+  (see `docs/studies/webhook-feasibility.md` for the rationale)
+- Garmin push delivery requires partner approval, so Trainsight uses
+  scheduled polling for Garmin too
 
 ## Reading Sync Status
 

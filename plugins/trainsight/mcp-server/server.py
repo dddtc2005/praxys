@@ -50,10 +50,26 @@ def _get_remote_headers():
 
 
 def _check_auth_error(res):
-    """Check for auth errors and return a helpful message."""
+    """Raise on HTTP errors, surfacing the API's `detail` field when present.
+
+    Without this, requests.HTTPError reports only "400 Client Error: Bad Request"
+    and the API's structured 4xx detail (e.g., the sync_interval validation
+    message) is dropped, leaving the LLM caller with no actionable info.
+    """
     if res.status_code == 401:
         raise RuntimeError(_NOT_AUTHENTICATED_MSG)
-    res.raise_for_status()
+    if res.status_code >= 400:
+        detail = ""
+        try:
+            body = res.json()
+            if isinstance(body, dict):
+                detail = body.get("detail") or body.get("message") or ""
+        except ValueError:
+            pass
+        suffix = f": {detail}" if detail else ""
+        raise RuntimeError(
+            f"API request failed (HTTP {res.status_code}){suffix}"
+        )
 
 
 def _remote_get(path: str) -> dict:
@@ -311,7 +327,10 @@ def get_sync_settings() -> str:
 @mcp.tool()
 def set_sync_frequency(hours: int) -> str:
     """Set auto-sync frequency in hours (allowed: 6, 12, 24)."""
-    from db.sync_scheduler import normalize_sync_interval_hours
+    from db.sync_scheduler import (
+        ALLOWED_SYNC_INTERVAL_HOURS,
+        normalize_sync_interval_hours,
+    )
 
     try:
         normalized_hours = normalize_sync_interval_hours(hours)
@@ -320,15 +339,26 @@ def set_sync_frequency(hours: int) -> str:
             {
                 "status": "error",
                 "message": str(exc),
-                "allowed_sync_interval_hours": [6, 12, 24],
+                "allowed_sync_interval_hours": list(ALLOWED_SYNC_INTERVAL_HOURS),
             },
             indent=2,
             default=str,
         )
     if IS_REMOTE:
-        updated = _remote_put("/api/settings", {
-            "source_options": {"sync_interval_hours": normalized_hours}
-        })
+        try:
+            updated = _remote_put("/api/settings", {
+                "source_options": {"sync_interval_hours": normalized_hours}
+            })
+        except RuntimeError as exc:
+            return json.dumps(
+                {
+                    "status": "error",
+                    "message": str(exc),
+                    "allowed_sync_interval_hours": list(ALLOWED_SYNC_INTERVAL_HOURS),
+                },
+                indent=2,
+                default=str,
+            )
         source_options = updated.get("config", {}).get("source_options", {})
         data = {
             "status": updated.get("status", "ok"),

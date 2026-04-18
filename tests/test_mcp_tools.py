@@ -145,6 +145,21 @@ class TestSettingsTools:
 
         _parse(set_sync_frequency(original_hours))
 
+    def test_set_sync_frequency_rejects_invalid(self):
+        """Disallowed values must return a structured error envelope, not a silent success."""
+        from server import set_sync_frequency, get_sync_settings
+
+        before = _parse(get_sync_settings())
+        before_hours = int(before["sync_interval_hours"])
+
+        result = _parse(set_sync_frequency(99))
+        assert result["status"] == "error"
+        assert "99" in result["message"] or "interval" in result["message"].lower()
+        assert result["allowed_sync_interval_hours"] == [6, 12, 24]
+
+        after = _parse(get_sync_settings())
+        assert int(after["sync_interval_hours"]) == before_hours
+
 
 # ---------------------------------------------------------------------------
 # Plan tools

@@ -42,3 +42,4 @@ For sample data without API credentials: `python scripts/seed_sample_data.py`
 - [Features](docs/features.md)
 - [API Reference](docs/dev/api-reference.md)
 - [Contributing](docs/dev/contributing.md)
+- [Webhook Feasibility (Oura + Garmin)](docs/studies/webhook-feasibility.md)

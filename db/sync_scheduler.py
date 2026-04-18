@@ -35,16 +35,33 @@ def normalize_sync_interval_hours(value: object) -> int:
     return hours
 
 
-def get_user_sync_interval_hours(source_options: dict | None) -> int:
-    """Return effective sync interval from source_options with safe fallback."""
+def get_user_sync_interval_hours(
+    source_options: dict | None, *, user_id: str | None = None
+) -> int:
+    """Return effective sync interval from source_options with safe fallback.
+
+    Invalid stored values fall back to the default rather than raising — the
+    background scheduler must keep running for other users even if one row is
+    corrupt — but bad input is logged so config drift is visible.
+    """
+    if source_options is None:
+        return DEFAULT_SYNC_INTERVAL_HOURS
     if not isinstance(source_options, dict):
+        logger.warning(
+            "source_options for user=%s is %s, expected dict; using default %dh",
+            user_id, type(source_options).__name__, DEFAULT_SYNC_INTERVAL_HOURS,
+        )
         return DEFAULT_SYNC_INTERVAL_HOURS
     raw = source_options.get("sync_interval_hours")
     if raw is None:
         return DEFAULT_SYNC_INTERVAL_HOURS
     try:
         return normalize_sync_interval_hours(raw)
-    except ValueError:
+    except ValueError as exc:
+        logger.warning(
+            "Invalid sync_interval_hours=%r for user=%s; falling back to %dh: %s",
+            raw, user_id, DEFAULT_SYNC_INTERVAL_HOURS, exc,
+        )
         return DEFAULT_SYNC_INTERVAL_HOURS
 
 
@@ -96,15 +113,24 @@ def _check_and_sync():
         sync_intervals_by_user: dict[str, int] = {}
         for conn in connections:
             if conn.user_id not in sync_intervals_by_user:
-                config = (
-                    db.query(UserConfig.source_options)
-                    .filter(UserConfig.user_id == conn.user_id)
-                    .first()
-                )
-                source_options = config[0] if config else {}
-                sync_intervals_by_user[conn.user_id] = get_user_sync_interval_hours(
-                    source_options
-                )
+                # Isolate per-user config lookup so one bad row can't skip every
+                # remaining user this tick.
+                try:
+                    config = (
+                        db.query(UserConfig.source_options)
+                        .filter(UserConfig.user_id == conn.user_id)
+                        .first()
+                    )
+                    source_options = config[0] if config else None
+                    sync_intervals_by_user[conn.user_id] = get_user_sync_interval_hours(
+                        source_options, user_id=conn.user_id,
+                    )
+                except Exception:
+                    logger.exception(
+                        "Failed to load sync interval for user=%s; using default %dh",
+                        conn.user_id, DEFAULT_SYNC_INTERVAL_HOURS,
+                    )
+                    sync_intervals_by_user[conn.user_id] = DEFAULT_SYNC_INTERVAL_HOURS
             interval_hours = sync_intervals_by_user[conn.user_id]
             last = conn.last_sync
             if last and (now - last) < timedelta(hours=interval_hours):

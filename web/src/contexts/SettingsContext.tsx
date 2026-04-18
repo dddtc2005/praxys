@@ -91,7 +91,18 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       window.location.href = '/login';
       throw new Error('Unauthorized');
     }
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      let detail = '';
+      try {
+        const body = await res.json();
+        if (body && typeof body === 'object') {
+          detail = (body as { detail?: string; message?: string }).detail
+            ?? (body as { detail?: string; message?: string }).message
+            ?? '';
+        }
+      } catch { /* response not JSON — fall back to status code */ }
+      throw new Error(detail || `HTTP ${res.status}`);
+    }
     const data = await res.json();
     setConfig(data.config);
     setDisplay(data.display);
