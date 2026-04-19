@@ -1,4 +1,4 @@
-"""Tests for Trainsight MCP server tools in local mode.
+"""Tests for Praxys MCP server tools in local mode.
 
 Run with: python -m pytest tests/test_mcp_tools.py -v
 
@@ -17,9 +17,10 @@ mcp = pytest.importorskip("mcp", reason="MCP SDK not installed")
 # Add project root and MCP server to path
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, ROOT)
-sys.path.insert(0, os.path.join(ROOT, "plugins", "trainsight", "mcp-server"))
+sys.path.insert(0, os.path.join(ROOT, "plugins", "praxys", "mcp-server"))
 
-# Ensure local mode
+# Ensure local mode (clear both new and legacy env var prefixes)
+os.environ.pop("PRAXYS_URL", None)
 os.environ.pop("TRAINSIGHT_URL", None)
 
 

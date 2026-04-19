@@ -1,0 +1,1211 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Praxys — Brand Guideline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=JetBrains+Mono:wght@400..600&family=Noto+Sans+SC:wght@400..700&family=Noto+Serif+SC:wght@400..700&display=swap" rel="stylesheet">
+<style>
+  /* ==========================================================
+     tokens
+     ========================================================== */
+  :root[data-theme="light"] {
+    --paper: oklch(0.975 0.008 85);
+    --paper-warm: oklch(0.955 0.012 85);
+    --ink: oklch(0.18 0.02 260);
+    --ink-soft: oklch(0.40 0.02 260);
+    --ink-ghost: oklch(0.60 0.015 260);
+    --rule: oklch(0.85 0.008 85);
+    --rule-soft: oklch(0.92 0.006 85);
+    --card: oklch(0.99 0.004 85);
+    --primary: oklch(0.55 0.16 155);
+    --primary-ink: oklch(0.35 0.14 155);
+    --cobalt: oklch(0.50 0.18 258);
+    --amber: oklch(0.72 0.15 75);
+    --rust: oklch(0.55 0.18 30);
+    --grain-opacity: 0.04;
+  }
+  :root[data-theme="dark"] {
+    --paper: oklch(0.17 0.013 260);
+    --paper-warm: oklch(0.20 0.014 260);
+    --ink: oklch(0.96 0.006 260);
+    --ink-soft: oklch(0.74 0.013 260);
+    --ink-ghost: oklch(0.55 0.013 260);
+    --rule: oklch(0.30 0.013 260);
+    --rule-soft: oklch(0.25 0.013 260);
+    --card: oklch(0.22 0.014 260);
+    --primary: oklch(0.82 0.18 155);
+    --primary-ink: oklch(0.88 0.18 155);
+    --cobalt: oklch(0.74 0.14 258);
+    --amber: oklch(0.80 0.14 75);
+    --rust: oklch(0.72 0.18 30);
+    --grain-opacity: 0.025;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Geist', system-ui, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    transition: background 320ms ease, color 320ms ease;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image:
+      radial-gradient(circle at 15% 10%, color-mix(in oklab, var(--primary) 5%, transparent) 0%, transparent 45%),
+      radial-gradient(circle at 85% 80%, color-mix(in oklab, var(--cobalt) 4%, transparent) 0%, transparent 50%);
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: var(--grain-opacity);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.85' numOctaves='2' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .font-data {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+  }
+  .font-sc { font-family: 'Noto Sans SC', 'Geist', sans-serif; }
+  .font-serif-sc { font-family: 'Noto Serif SC', serif; }
+
+  /* ==========================================================
+     layout
+     ========================================================== */
+  main {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 0 40px 160px;
+  }
+
+  section { padding: 80px 0; border-top: 1px solid var(--rule); position: relative; }
+  section:first-of-type { border-top: none; }
+
+  .section-head {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 40px;
+    margin-bottom: 52px;
+    align-items: baseline;
+  }
+  .section-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-ghost);
+    letter-spacing: 0.1em;
+  }
+  .section-title {
+    font-family: 'Geist', sans-serif;
+    font-weight: 500;
+    font-size: clamp(28px, 3.8vw, 44px);
+    letter-spacing: -0.035em;
+    line-height: 1.05;
+    margin: 0 0 14px;
+  }
+  .section-title em {
+    font-style: normal;
+    color: var(--primary);
+    font-weight: 600;
+  }
+  .section-lede {
+    font-size: 16.5px;
+    line-height: 1.65;
+    color: var(--ink-soft);
+    max-width: 60ch;
+    margin: 0;
+    font-weight: 400;
+  }
+  .section-lede em { font-style: normal; color: var(--ink); font-weight: 500; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 32px;
+  }
+  .grid { display: grid; gap: 24px; }
+  .grid-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+  .grid-4 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+
+  /* ==========================================================
+     masthead
+     ========================================================== */
+  header.masthead {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: color-mix(in oklab, var(--paper) 90%, transparent);
+    backdrop-filter: saturate(180%) blur(12px);
+    border-bottom: 1px solid var(--rule);
+  }
+  .masthead-inner {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 14px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  .masthead-brand {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+  }
+  .masthead-brand .name {
+    font-family: 'Geist', sans-serif;
+    font-weight: 600;
+    font-size: 20px;
+    letter-spacing: -0.025em;
+  }
+  .masthead-brand .sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-ghost);
+  }
+  .masthead nav {
+    display: flex;
+    gap: 22px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.04em;
+  }
+  .masthead nav a {
+    color: inherit;
+    text-decoration: none;
+    padding-bottom: 4px;
+    border-bottom: 1px solid transparent;
+    transition: all 180ms ease;
+  }
+  .masthead nav a:hover { color: var(--ink); border-color: var(--primary); }
+  .theme-toggle {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    background: transparent;
+    border: 1px solid var(--rule);
+    color: var(--ink-soft);
+    padding: 7px 14px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 180ms ease;
+  }
+  .theme-toggle:hover { border-color: var(--ink-soft); color: var(--ink); }
+  @media (max-width: 880px) { .masthead nav { display: none; } }
+
+  /* ==========================================================
+     COVER
+     ========================================================== */
+  .cover {
+    padding: 80px 0 100px;
+    border-top: none;
+  }
+  .cover-grid {
+    display: grid;
+    grid-template-columns: 100px 1fr auto;
+    gap: 48px;
+    align-items: end;
+    min-height: 56vh;
+  }
+  .cover-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-ghost);
+    letter-spacing: 0.12em;
+    line-height: 2;
+  }
+  .cover-meta .label { color: var(--ink-ghost); }
+  .cover-meta .val { color: var(--ink); }
+  .cover-wordmark {
+    font-family: 'Geist', sans-serif;
+    font-weight: 500;
+    font-size: clamp(80px, 16vw, 220px);
+    letter-spacing: -0.055em;
+    line-height: 0.86;
+    margin: 0;
+    color: var(--ink);
+  }
+  .cover-wordmark .accent { color: var(--primary); }
+  .cover-tag {
+    margin-top: 40px;
+    font-family: 'Geist', sans-serif;
+    font-weight: 400;
+    font-size: clamp(20px, 2.4vw, 28px);
+    color: var(--ink-soft);
+    line-height: 1.3;
+    max-width: 28ch;
+    letter-spacing: -0.02em;
+  }
+  .cover-tag .accent { color: var(--primary); font-weight: 600; }
+  .cover-tag-cn {
+    margin-top: 14px;
+    font-size: clamp(14px, 1.7vw, 17px);
+    color: var(--ink-ghost);
+    letter-spacing: 0.04em;
+  }
+  .cover-mark { align-self: end; }
+  @media (max-width: 880px) {
+    .cover-grid { grid-template-columns: 1fr; gap: 40px; }
+    .cover-mark { order: -1; justify-self: start; }
+  }
+
+  /* ==========================================================
+     logo frames
+     ========================================================== */
+  .logo-strip {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 48px;
+    padding: 36px 0;
+    border-top: 1px solid var(--rule);
+  }
+  .logo-meta h4 {
+    font-family: 'Geist', sans-serif;
+    font-weight: 500;
+    font-size: 22px;
+    margin: 0 0 8px;
+    letter-spacing: -0.018em;
+  }
+  .logo-meta .rec {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin-bottom: 12px;
+    padding: 3px 8px;
+    border: 1px solid color-mix(in oklab, var(--primary) 40%, transparent);
+    border-radius: 2px;
+  }
+  .logo-meta .read {
+    font-size: 13px;
+    color: var(--ink-soft);
+    line-height: 1.6;
+  }
+  .logo-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+  .logo-frame {
+    background: var(--paper-warm);
+    border: 1px solid var(--rule-soft);
+    border-radius: 2px;
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    position: relative;
+  }
+  .logo-frame::after {
+    content: attr(data-size);
+    position: absolute;
+    bottom: 8px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.08em;
+    color: var(--ink-ghost);
+    text-transform: uppercase;
+  }
+  @media (max-width: 720px) {
+    .logo-strip { grid-template-columns: 1fr; }
+  }
+
+  /* ==========================================================
+     color swatches
+     ========================================================== */
+  .swatch {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .swatch .chip {
+    aspect-ratio: 5 / 3;
+    border-radius: 3px;
+    border: 1px solid var(--rule-soft);
+  }
+  .swatch .name {
+    font-family: 'Geist', sans-serif;
+    font-weight: 500;
+    font-size: 16px;
+    letter-spacing: -0.015em;
+  }
+  .swatch .use { font-size: 12px; color: var(--ink-soft); }
+  .swatch .val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-ghost);
+    line-height: 1.6;
+  }
+
+  /* ==========================================================
+     type specimen
+     ========================================================== */
+  .type-row {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 32px;
+    padding: 28px 0;
+    border-top: 1px solid var(--rule-soft);
+    align-items: baseline;
+  }
+  .type-row:first-child { border-top: 1px solid var(--rule); }
+  .type-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .type-spec {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-ghost);
+    margin-top: 4px;
+    letter-spacing: 0.04em;
+  }
+
+  /* ==========================================================
+     metric card
+     ========================================================== */
+  .metric-card {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .metric-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .metric-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    font-size: 60px;
+    font-weight: 500;
+    letter-spacing: -0.035em;
+    line-height: 1;
+    color: var(--ink);
+  }
+  .metric-value .unit {
+    font-family: 'Geist', sans-serif;
+    font-size: 22px;
+    font-weight: 400;
+    color: var(--ink-ghost);
+    margin-left: 8px;
+    letter-spacing: 0;
+  }
+  .metric-delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--primary);
+  }
+  .metric-ci {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-ghost);
+    margin-left: 12px;
+  }
+
+  /* sidebar mockup */
+  .sidebar-mock {
+    background: var(--paper-warm);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 240px;
+  }
+  .sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px 20px;
+    border-bottom: 1px solid var(--rule-soft);
+    margin-bottom: 14px;
+  }
+  .sidebar-brand .name {
+    font-family: 'Geist', sans-serif;
+    font-weight: 600;
+    font-size: 20px;
+    letter-spacing: -0.025em;
+  }
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 9px 12px;
+    border-radius: 2px;
+    font-size: 13px;
+    color: var(--ink-soft);
+    letter-spacing: -0.003em;
+  }
+  .sidebar-item.active {
+    background: color-mix(in oklab, var(--primary) 12%, transparent);
+    color: var(--primary-ink);
+    font-weight: 500;
+  }
+  .sidebar-item svg { width: 14px; height: 14px; opacity: 0.75; flex-shrink: 0; }
+  .sidebar-item.active svg { opacity: 1; }
+
+  /* science note */
+  .science-note {
+    background: color-mix(in oklab, var(--cobalt) 5%, var(--card));
+    border: 1px solid color-mix(in oklab, var(--cobalt) 25%, var(--rule));
+    border-left: 3px solid var(--cobalt);
+    border-radius: 2px;
+    padding: 24px 26px;
+  }
+  .science-note .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--cobalt);
+    margin-bottom: 14px;
+  }
+  .science-note .body {
+    font-size: 14.5px;
+    line-height: 1.65;
+    color: var(--ink);
+  }
+  .science-note .cite {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px dashed color-mix(in oklab, var(--cobalt) 30%, var(--rule));
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    line-height: 1.55;
+  }
+  .science-note .cite em { font-style: italic; }
+
+  /* ==========================================================
+     bilingual lockup
+     ========================================================== */
+  .cn-card {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 36px 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 520px;
+  }
+  .cn-card .en {
+    font-family: 'Geist', sans-serif;
+    font-weight: 500;
+    font-size: 40px;
+    letter-spacing: -0.045em;
+    line-height: 1;
+    color: var(--ink);
+  }
+  .cn-card .en .accent { color: var(--primary); }
+  .cn-card .divider {
+    height: 1px;
+    background: var(--rule);
+    margin: 8px 0;
+  }
+  .cn-card .cn {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 52px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    line-height: 1;
+    color: var(--ink);
+  }
+  .cn-card .pinyin {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    color: var(--ink-ghost);
+  }
+  .cn-card .source {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--ink-soft);
+    margin-top: 4px;
+  }
+  .cn-card .source .quote {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 14px;
+    color: var(--ink);
+    padding: 0 2px;
+  }
+  .cn-card .tagline-row {
+    margin-top: 6px;
+    padding-top: 16px;
+    border-top: 1px dashed var(--rule);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .cn-card .tagline-cn {
+    font-family: 'Noto Sans SC', sans-serif;
+    font-size: 15px;
+    color: var(--ink);
+    letter-spacing: 0.02em;
+  }
+  .cn-card .tagline-en {
+    font-size: 13px;
+    color: var(--ink-ghost);
+    font-style: italic;
+  }
+
+  /* ==========================================================
+     tagline hero
+     ========================================================== */
+  .quote-block {
+    padding: 80px 48px;
+    background:
+      radial-gradient(circle at 20% 20%, color-mix(in oklab, var(--primary) 12%, transparent), transparent 60%),
+      radial-gradient(circle at 80% 80%, color-mix(in oklab, var(--cobalt) 10%, transparent), transparent 60%),
+      var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+  }
+  .quote-block .mark-bg {
+    position: absolute;
+    top: -30px;
+    right: -30px;
+    opacity: 0.08;
+    pointer-events: none;
+  }
+  .quote-en {
+    font-family: 'Geist', sans-serif;
+    font-weight: 400;
+    font-size: clamp(32px, 5vw, 56px);
+    letter-spacing: -0.04em;
+    line-height: 1.08;
+    margin: 0;
+    max-width: 18ch;
+    color: var(--ink);
+  }
+  .quote-en .accent { color: var(--primary); font-weight: 600; }
+  .quote-cn {
+    margin-top: 28px;
+    font-family: 'Noto Serif SC', serif;
+    font-size: clamp(19px, 2.4vw, 26px);
+    color: var(--ink-soft);
+    letter-spacing: 0.06em;
+  }
+  .quote-attr {
+    margin-top: 40px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-ghost);
+  }
+
+  /* ==========================================================
+     bilingual usage grid
+     ========================================================== */
+  .usage-row {
+    display: grid;
+    grid-template-columns: 2fr 3fr;
+    gap: 40px;
+    padding: 32px 0;
+    border-top: 1px solid var(--rule-soft);
+    align-items: center;
+  }
+  .usage-row:first-child { border-top: 1px solid var(--rule); }
+  .usage-label {
+    font-family: 'Geist', sans-serif;
+    font-weight: 500;
+    font-size: 22px;
+    letter-spacing: -0.02em;
+  }
+  .usage-label .ctx {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 400;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-ghost);
+    margin-top: 6px;
+  }
+  .usage-demo {
+    background: var(--paper-warm);
+    border: 1px solid var(--rule-soft);
+    border-radius: 4px;
+    padding: 28px;
+    min-height: 110px;
+    display: flex;
+    align-items: center;
+  }
+
+  /* ==========================================================
+     footer
+     ========================================================== */
+  footer {
+    margin-top: 120px;
+    padding: 40px 0;
+    border-top: 1px solid var(--rule);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-ghost);
+    letter-spacing: 0.1em;
+  }
+  footer .sig {
+    font-family: 'Geist', sans-serif;
+    font-weight: 400;
+    font-size: 15px;
+    color: var(--ink-soft);
+    letter-spacing: -0.015em;
+  }
+
+  @keyframes riseIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: none; }
+  }
+  .cover-wordmark, .section-title { animation: riseIn 700ms cubic-bezier(0.2, 0.65, 0.3, 1) both; }
+</style>
+</head>
+<body>
+
+<!-- ================== MASTHEAD ================== -->
+<header class="masthead">
+  <div class="masthead-inner">
+    <div class="masthead-brand">
+      <span class="name">Praxys</span>
+      <span class="sub">Brand guideline · v1.0</span>
+    </div>
+    <nav>
+      <a href="#cover">Cover</a>
+      <a href="#naming">Name</a>
+      <a href="#logo">Mark</a>
+      <a href="#color">Color</a>
+      <a href="#type">Type</a>
+      <a href="#ui">Product</a>
+      <a href="#bilingual">Bilingual</a>
+    </nav>
+    <button class="theme-toggle" id="themeBtn" type="button">
+      <span id="themeLabel">Dark</span>
+    </button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ================== COVER ================== -->
+  <section class="cover" id="cover">
+    <div class="cover-grid">
+      <div class="cover-meta">
+        <div><span class="label">Project</span></div>
+        <div><span class="val">Endurance training</span></div>
+        <div style="margin-top:16px;"><span class="label">Audience</span></div>
+        <div><span class="val">Every level</span></div>
+        <div style="margin-top:16px;"><span class="label">Markets</span></div>
+        <div><span class="val">EN · 中文</span></div>
+        <div style="margin-top:16px;"><span class="label">Date</span></div>
+        <div><span class="val">2026 · 04</span></div>
+      </div>
+      <div>
+        <h1 class="cover-wordmark">Pra<span class="accent">x</span>ys</h1>
+        <p class="cover-tag">Sports science that <span class="accent">meets you</span> where you are.</p>
+        <p class="cover-tag-cn font-sc">运动科学，与你同行。</p>
+      </div>
+      <div class="cover-mark">
+        <svg width="160" height="160" viewBox="0 0 48 48" aria-label="Praxys mark">
+          <line x1="14" y1="42" x2="16" y2="5" stroke="var(--cobalt)" stroke-width="2.2" stroke-linecap="round"/>
+          <path d="M 16 6 L 40 8 Q 33 14, 40 20 L 15 22 Z" fill="var(--primary)"/>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================== NAMING ================== -->
+  <section id="naming">
+    <div class="section-head">
+      <div class="section-num">I / vi</div>
+      <div>
+        <h2 class="section-title">The <em>name</em></h2>
+      </div>
+    </div>
+    <div style="display:grid; grid-template-columns: 100px 1fr; gap:40px;">
+      <div></div>
+      <div style="max-width: 62ch;">
+        <p style="font-family:'Geist',sans-serif; font-weight:400; font-size:22px; line-height:1.55; letter-spacing:-0.02em; margin:0 0 28px; color:var(--ink);">
+          <strong style="font-weight:600;">Praxys</strong> is a variant of the Greek <em style="font-weight:500; color:var(--primary);">praxis</em> — action grounded in theory. We keep the meaning and the sound, sharpen the trademark path with a single-letter shift. Not training prescribed from above, not science abstracted from the athlete, but method practiced by a person in their own life.
+        </p>
+        <p style="color:var(--ink-soft); line-height:1.7; font-size:15.5px; margin:0 0 24px; max-width:54ch;">
+          Short form <strong style="color:var(--ink); font-weight:500;">Praxys</strong> is the hero mark — used in the sidebar, favicon, and every in-product surface. Full form <strong style="color:var(--ink); font-weight:500;">Praxys Endurance</strong> carries category signal where discovery depends on it — App Store, marketing headers, the first sentence of a cold introduction.
+        </p>
+        <div style="display:flex; gap:36px; margin-top:36px; flex-wrap:wrap;">
+          <div>
+            <div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-ghost); margin-bottom:6px;">Pronunciation</div>
+            <div style="font-family:'Geist',sans-serif; font-weight:500; font-size:22px; letter-spacing:-0.02em;">/ˈpræksɪs/</div>
+          </div>
+          <div>
+            <div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-ghost); margin-bottom:6px;">Syllables</div>
+            <div style="font-family:'Geist',sans-serif; font-weight:500; font-size:22px; letter-spacing:-0.02em;">Prak · sis</div>
+          </div>
+          <div>
+            <div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-ghost); margin-bottom:6px;">Origin</div>
+            <div style="font-family:'Geist',sans-serif; font-weight:500; font-size:22px; letter-spacing:-0.02em;">Greek · coined</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================== LOGO ================== -->
+  <section id="logo">
+    <div class="section-head">
+      <div class="section-num">II / vi</div>
+      <div>
+        <h2 class="section-title">The <em>flag</em></h2>
+        <p class="section-lede">A race flag on a pole — the filled green flag reads as action and signal, the cobalt pole reads as grounded method. The fluttering trailing edge carries motion: <em>not prescribed, not static</em>. Together, the mark still holds the silhouette of a capital P — pole as stem, flag as bowl.</p>
+      </div>
+    </div>
+
+    <div class="logo-strip">
+      <div class="logo-meta">
+        <span class="rec">★ Selected</span>
+        <h4>Praxys flag</h4>
+        <p class="read">Green race flag on a cobalt pole. The trailing edge pinches inward — a flag caught in the wind, reading as motion. Single visual idea; scales from 16 px favicon to hero marketing without loss.</p>
+      </div>
+      <div class="logo-row">
+        <div class="logo-frame" data-size="16 · favicon">
+          <svg width="16" height="16" viewBox="0 0 48 48" aria-label="Praxys favicon">
+            <line x1="14" y1="42" x2="16" y2="5" stroke="var(--cobalt)" stroke-width="4" stroke-linecap="round"/>
+            <path d="M 16 6 L 40 8 Q 33 14, 40 20 L 15 22 Z" fill="var(--primary)"/>
+          </svg>
+        </div>
+        <div class="logo-frame" data-size="48 · sidebar">
+          <svg width="72" height="72" viewBox="0 0 48 48" aria-label="Praxys sidebar mark">
+            <line x1="14" y1="42" x2="16" y2="5" stroke="var(--cobalt)" stroke-width="3" stroke-linecap="round"/>
+            <path d="M 16 6 L 40 8 Q 33 14, 40 20 L 15 22 Z" fill="var(--primary)"/>
+          </svg>
+        </div>
+        <div class="logo-frame" data-size="hero">
+          <svg width="200" height="200" viewBox="0 0 48 48" aria-label="Praxys hero mark">
+            <line x1="14" y1="42" x2="16" y2="5" stroke="var(--cobalt)" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M 16 6 L 40 8 Q 33 14, 40 20 L 15 22 Z" fill="var(--primary)"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- construction / spec -->
+    <div style="margin-top:56px; display:grid; grid-template-columns: 220px 1fr; gap:48px;">
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-ghost); margin-bottom:12px;">Construction</div>
+        <h4 style="font-family:'Geist',sans-serif; font-weight:500; font-size:20px; letter-spacing:-0.02em; margin:0 0 8px;">On a 48 × 48 grid</h4>
+        <p style="font-size:13px; color:var(--ink-soft); line-height:1.6;">The pole stands 37 units tall with a subtle 2-unit forward lean. The flag occupies the top quarter — 16 units tall, 24 units wide — with a single inward curve on the trailing edge at the vertical mid-point.</p>
+      </div>
+      <div class="card" style="padding:32px;">
+        <svg viewBox="0 0 48 48" width="100%" style="max-width:420px; display:block; margin:0 auto;">
+          <!-- construction grid -->
+          <defs>
+            <pattern id="g" width="4" height="4" patternUnits="userSpaceOnUse">
+              <path d="M 4 0 L 0 0 L 0 4" fill="none" stroke="var(--rule)" stroke-width="0.15"/>
+            </pattern>
+          </defs>
+          <rect x="0" y="0" width="48" height="48" fill="url(#g)"/>
+          <!-- dims -->
+          <line x1="14" y1="44" x2="16" y2="4" stroke="var(--ink-ghost)" stroke-width="0.2" stroke-dasharray="0.5 0.5"/>
+          <line x1="16" y1="6" x2="40" y2="8" stroke="var(--ink-ghost)" stroke-width="0.2" stroke-dasharray="0.5 0.5"/>
+          <line x1="40" y1="8" x2="40" y2="20" stroke="var(--ink-ghost)" stroke-width="0.2" stroke-dasharray="0.5 0.5"/>
+          <line x1="40" y1="20" x2="15" y2="22" stroke="var(--ink-ghost)" stroke-width="0.2" stroke-dasharray="0.5 0.5"/>
+          <!-- the mark -->
+          <line x1="14" y1="42" x2="16" y2="5" stroke="var(--cobalt)" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M 16 6 L 40 8 Q 33 14, 40 20 L 15 22 Z" fill="var(--primary)"/>
+          <!-- anchor points -->
+          <circle cx="16" cy="5" r="0.6" fill="var(--ink)"/>
+          <circle cx="14" cy="42" r="0.6" fill="var(--ink)"/>
+          <circle cx="40" cy="8" r="0.6" fill="var(--ink)"/>
+          <circle cx="40" cy="20" r="0.6" fill="var(--ink)"/>
+          <circle cx="33" cy="14" r="0.6" fill="var(--cobalt)"/>
+          <circle cx="15" cy="22" r="0.6" fill="var(--ink)"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- clearspace -->
+    <div style="margin-top:36px; display:grid; grid-template-columns: 220px 1fr; gap:48px;">
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-ghost); margin-bottom:12px;">Clear space</div>
+        <h4 style="font-family:'Geist',sans-serif; font-weight:500; font-size:20px; letter-spacing:-0.02em; margin:0 0 8px;">One flag width</h4>
+        <p style="font-size:13px; color:var(--ink-soft); line-height:1.6;">Minimum clear space on all sides equals the flag's width. Never crop the pole below 75 %, never tint the fill, never invert the stem/flag color roles.</p>
+      </div>
+      <div class="card" style="padding:32px; display:flex; justify-content:center;">
+        <svg viewBox="0 0 120 72" width="100%" style="max-width:420px;">
+          <!-- clearspace rectangle -->
+          <rect x="10" y="6" width="100" height="60" fill="none" stroke="var(--ink-ghost)" stroke-width="0.3" stroke-dasharray="1 1"/>
+          <!-- mark centered -->
+          <g transform="translate(36, 12) scale(1)">
+            <line x1="14" y1="42" x2="16" y2="5" stroke="var(--cobalt)" stroke-width="2" stroke-linecap="round"/>
+            <path d="M 16 6 L 40 8 Q 33 14, 40 20 L 15 22 Z" fill="var(--primary)"/>
+          </g>
+          <!-- arrows + x labels -->
+          <text x="60" y="4" text-anchor="middle" font-family="JetBrains Mono" font-size="3" fill="var(--ink-ghost)" letter-spacing="0.2">x</text>
+          <text x="4" y="38" text-anchor="middle" font-family="JetBrains Mono" font-size="3" fill="var(--ink-ghost)" letter-spacing="0.2">x</text>
+          <text x="116" y="38" text-anchor="middle" font-family="JetBrains Mono" font-size="3" fill="var(--ink-ghost)" letter-spacing="0.2">x</text>
+          <text x="60" y="71" text-anchor="middle" font-family="JetBrains Mono" font-size="3" fill="var(--ink-ghost)" letter-spacing="0.2">x</text>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================== COLOR ================== -->
+  <section id="color">
+    <div class="section-head">
+      <div class="section-num">III / vi</div>
+      <div>
+        <h2 class="section-title">Green &amp; <em>cobalt</em></h2>
+        <p class="section-lede">Green carries action — the training signal, the go, positive deltas. <em>Cobalt is reserved for reasoning surfaces</em>: why this recommendation, which theory, which source. The palette separates <em>what to do</em> from <em>why the system suggested it</em>.</p>
+      </div>
+    </div>
+    <div class="grid grid-4">
+      <div class="swatch">
+        <div class="chip" style="background:var(--primary);"></div>
+        <div><div class="name">Primary · green</div><div class="use">Action · positive signal</div></div>
+        <div class="val">oklch(0.55 0.16 155)</div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background:var(--cobalt);"></div>
+        <div><div class="name">Cobalt</div><div class="use">Reasoning surfaces</div></div>
+        <div class="val">oklch(0.50 0.18 258)</div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background:var(--amber);"></div>
+        <div><div class="name">Amber</div><div class="use">Caution · threshold</div></div>
+        <div class="val">oklch(0.72 0.15 75)</div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background:var(--rust);"></div>
+        <div><div class="name">Rust</div><div class="use">Rest · high intensity</div></div>
+        <div class="val">oklch(0.55 0.18 30)</div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background:var(--paper); border-color:var(--rule);"></div>
+        <div><div class="name">Paper</div><div class="use">Background</div></div>
+        <div class="val">oklch(0.975 0.008 85)</div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background:var(--card); border-color:var(--rule);"></div>
+        <div><div class="name">Card</div><div class="use">Surface</div></div>
+        <div class="val">oklch(0.99 0.004 85)</div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background:var(--ink);"></div>
+        <div><div class="name">Ink</div><div class="use">Foreground text</div></div>
+        <div class="val">oklch(0.18 0.02 260)</div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background:var(--ink-soft);"></div>
+        <div><div class="name">Ink · soft</div><div class="use">Secondary text</div></div>
+        <div class="val">oklch(0.38 0.02 260)</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================== TYPE ================== -->
+  <section id="type">
+    <div class="section-head">
+      <div class="section-num">IV / vi</div>
+      <div>
+        <h2 class="section-title"><em>Geist</em> · JetBrains Mono · Noto SC</h2>
+        <p class="section-lede"><em>Geist</em> carries everything in Latin script — display, headings, UI, body. One family, scaled by weight. <em>JetBrains Mono is reserved for numeric data</em>, always with tabular figures so every column aligns. Noto Sans SC + Noto Serif SC carry the system into Chinese.</p>
+      </div>
+    </div>
+    <div class="card" style="padding: 40px;">
+      <div class="type-row">
+        <div>
+          <div class="type-label">Display</div>
+          <div class="type-spec">Geist · w 500</div>
+        </div>
+        <div style="font-family:'Geist',sans-serif; font-weight:500; font-size:72px; letter-spacing:-0.055em; line-height:0.95;">Praxys Endurance</div>
+      </div>
+      <div class="type-row">
+        <div>
+          <div class="type-label">Heading</div>
+          <div class="type-spec">Geist · w 500</div>
+        </div>
+        <div style="font-family:'Geist',sans-serif; font-weight:500; font-size:32px; letter-spacing:-0.035em; line-height:1.15;">Sports science, personalized for you.</div>
+      </div>
+      <div class="type-row">
+        <div>
+          <div class="type-label">Body</div>
+          <div class="type-spec">Geist · w 400 · 16 px</div>
+        </div>
+        <div style="font-size:16.5px; max-width:52ch; line-height:1.65;">Every recommendation carries its reasoning. Adapt the plan as your life changes — a race cycle, a new baby, a recovery week — and the system reshapes around your context.</div>
+      </div>
+      <div class="type-row">
+        <div>
+          <div class="type-label">Section label</div>
+          <div class="type-spec">Geist · w 500 · caps</div>
+        </div>
+        <div style="font-size:11px; font-weight:500; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-soft);">Recovery · Training signal · Zone distribution</div>
+      </div>
+      <div class="type-row">
+        <div>
+          <div class="type-label">Data</div>
+          <div class="type-spec">JetBrains Mono · tnum</div>
+        </div>
+        <div>
+          <div class="font-data" style="font-size:48px; font-weight:500; letter-spacing:-0.035em; line-height:1;">248<span style="color:var(--ink-ghost); font-size:22px; margin-left:8px; font-family:'Geist',sans-serif; font-weight:400; letter-spacing:0;">W</span></div>
+          <div class="font-data" style="font-size:12.5px; color:var(--ink-ghost); margin-top:10px; letter-spacing:0.02em;">CP · +3.2 % over 28 d · 95 % CI ± 4 W</div>
+        </div>
+      </div>
+      <div class="type-row">
+        <div>
+          <div class="type-label">中文 body</div>
+          <div class="type-spec">Noto Sans SC · 400</div>
+        </div>
+        <div class="font-sc" style="font-size:16.5px; line-height:1.75;">每一条建议都附带依据。当你的生活节奏发生变化 —— 备赛期、新生儿、恢复周 —— 训练计划会随之重塑。</div>
+      </div>
+      <div class="type-row">
+        <div>
+          <div class="type-label">中文 quote</div>
+          <div class="type-spec">Noto Serif SC · 500</div>
+        </div>
+        <div class="font-serif-sc" style="font-size:24px; line-height:1.55; letter-spacing:0.04em;">博学之，审问之，慎思之，明辨之，笃行之。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================== PRODUCT UI ================== -->
+  <section id="ui">
+    <div class="section-head">
+      <div class="section-num">V / vi</div>
+      <div>
+        <h2 class="section-title">In <em>product</em></h2>
+        <p class="section-lede">Three surfaces where the system meets the athlete — the sidebar (brand chrome), a primary metric (Today page, numbers always in JetBrains Mono), and a reasoning note (the cobalt surface). The science is always present; it is never the mood.</p>
+      </div>
+    </div>
+
+    <div class="grid grid-2" style="align-items:start;">
+      <div style="display:flex; justify-content:center;">
+        <div class="sidebar-mock">
+          <div class="sidebar-brand">
+            <svg width="22" height="22" viewBox="0 0 48 48" aria-hidden="true">
+              <line x1="14" y1="42" x2="16" y2="5" stroke="var(--cobalt)" stroke-width="3.5" stroke-linecap="round"/>
+              <path d="M 16 6 L 40 8 Q 33 14, 40 20 L 15 22 Z" fill="var(--primary)"/>
+            </svg>
+            <span class="name">Praxys</span>
+          </div>
+          <div class="sidebar-item active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            Today
+          </div>
+          <div class="sidebar-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>
+            Training
+          </div>
+          <div class="sidebar-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg>
+            Goal
+          </div>
+          <div class="sidebar-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 14l4-4 3 3 5-6"/></svg>
+            History
+          </div>
+          <div class="sidebar-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L4 7v5c0 5 4 9 8 10 4-1 8-5 8-10V7z"/></svg>
+            Science
+          </div>
+          <div class="sidebar-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v6M12 17v6M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24M1 12h6M17 12h6M4.22 19.78l4.24-4.24M15.54 8.46l4.24-4.24"/></svg>
+            Settings
+          </div>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-eyebrow">Critical power · 28-day trend</div>
+        <div class="metric-value">248<span class="unit">W</span></div>
+        <div>
+          <span class="metric-delta">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4l8 8h-5v8h-6v-8H4z"/></svg>
+            +3.2 % · 28 d
+          </span>
+          <span class="metric-ci">95 % CI ± 4 W</span>
+        </div>
+        <div style="margin-top:14px; height:64px;">
+          <svg viewBox="0 0 300 64" preserveAspectRatio="none" style="width:100%; height:100%;">
+            <defs>
+              <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="var(--primary)" stop-opacity="0.28"/>
+                <stop offset="100%" stop-color="var(--primary)" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <path d="M 0 48 L 20 46 L 40 44 L 60 41 L 80 44 L 100 38 L 120 34 L 140 30 L 160 26 L 180 22 L 200 20 L 220 16 L 240 14 L 260 12 L 280 10 L 300 8 L 300 64 L 0 64 Z" fill="url(#g1)"/>
+            <path d="M 0 48 L 20 46 L 40 44 L 60 41 L 80 44 L 100 38 L 120 34 L 140 30 L 160 26 L 180 22 L 200 20 L 220 16 L 240 14 L 260 12 L 280 10 L 300 8" stroke="var(--primary)" stroke-width="2" fill="none" stroke-linejoin="round"/>
+            <circle cx="300" cy="8" r="3" fill="var(--primary)"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:24px; max-width: 780px;">
+      <div class="science-note">
+        <div class="eyebrow">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+          Why this recommendation
+        </div>
+        <div class="body">Your plan nudges today's tempo interval down by 8 W because HRV is two standard deviations below your 60-day baseline and sleep efficiency dropped to 82 %. Pulling intensity back by ~5 % preserves the aerobic stimulus while giving your parasympathetic system room to recover.</div>
+        <div class="cite">Plews et al., <em>HRV-guided training prescription</em>, Int J Sports Physiol Perform (2013). Method — Seiler polarized framework. Recovery gate — HRV<sub>ln</sub> rMSSD.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================== BILINGUAL ================== -->
+  <section id="bilingual">
+    <div class="section-head">
+      <div class="section-num">VI / vi</div>
+      <div>
+        <h2 class="section-title">Bilingual, by <em>surface</em></h2>
+        <p class="section-lede">Not <em>always both</em>, not <em>either/or</em>. The rule follows the surface's purpose: brand moments carry both languages as an explicit signal of the global identity; product chrome speaks the reader's locale; formal copy follows the reader's preference. <em>Always-both is reserved</em>, never a default.</p>
+      </div>
+    </div>
+
+    <div>
+      <div class="usage-row">
+        <div class="usage-label">
+          Always both
+          <span class="ctx">Hero · App Store splash · brand posters</span>
+        </div>
+        <div class="usage-demo" style="flex-direction:column; align-items:flex-start; gap:12px;">
+          <div style="font-family:'Geist',sans-serif; font-weight:400; font-size:28px; letter-spacing:-0.035em; line-height:1.2;">Sports science that <span style="color:var(--primary); font-weight:600;">meets you</span> where you are.</div>
+          <div style="font-family:'Noto Serif SC',serif; font-size:16px; color:var(--ink-soft); letter-spacing:0.04em;">运动科学，与你同行。</div>
+        </div>
+      </div>
+
+      <div class="usage-row">
+        <div class="usage-label">
+          Locale only
+          <span class="ctx">Sidebar · page headers · toasts · onboarding</span>
+        </div>
+        <div class="usage-demo" style="gap:24px;">
+          <div style="padding:12px 18px; background:var(--card); border:1px solid var(--rule); border-radius:2px;">
+            <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-ghost); margin-bottom:4px;">en-US</div>
+            <div style="font-size:14px;">Today's training signal</div>
+          </div>
+          <div style="padding:12px 18px; background:var(--card); border:1px solid var(--rule); border-radius:2px;">
+            <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-ghost); margin-bottom:4px;">zh-CN</div>
+            <div class="font-sc" style="font-size:14px;">今日训练建议</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="usage-row">
+        <div class="usage-label">
+          Primary, with subtitle
+          <span class="ctx">Marketing pages · emails · social cards</span>
+        </div>
+        <div class="usage-demo" style="flex-direction:column; align-items:flex-start; gap:4px;">
+          <div style="font-family:'Geist',sans-serif; font-weight:600; font-size:24px; letter-spacing:-0.035em;">Praxys Endurance</div>
+          <div style="font-family:'Noto Sans SC',sans-serif; font-size:12.5px; color:var(--ink-ghost); letter-spacing:0.04em;">运动科学，与你同行 · sports science that meets you where you are</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- bilingual name lockup (final recommendation) -->
+    <div style="margin-top: 60px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-ghost); margin-bottom:16px;">Selected pairing · pending CNIPA clearance</div>
+      <div class="cn-card">
+        <div class="en">Pra<span class="accent">x</span>ys</div>
+        <div class="divider"></div>
+        <div class="cn font-serif-sc">知行</div>
+        <div class="pinyin">zhī xíng</div>
+        <div class="source">王阳明 — <span class="quote">知行合一</span>. The unity of knowing and doing. Universally recognized; the Chinese and Greek intellectual traditions' names for the same concept.</div>
+        <div class="tagline-row">
+          <div class="tagline-cn font-sc">运动科学，知行合一。</div>
+          <div class="tagline-en">Sports science that meets you where you are.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================== TAGLINE ================== -->
+  <section id="tagline">
+    <div class="section-head">
+      <div class="section-num">—</div>
+      <div><h2 class="section-title">The <em>tagline</em></h2></div>
+    </div>
+
+    <div class="quote-block">
+      <svg class="mark-bg" width="320" height="320" viewBox="0 0 48 48">
+        <line x1="14" y1="42" x2="16" y2="5" stroke="var(--primary)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M 16 6 L 40 8 Q 33 14, 40 20 L 15 22 Z" fill="var(--primary)"/>
+      </svg>
+      <p class="quote-en">Sports science that <span class="accent">meets you</span> where you are.</p>
+      <p class="quote-cn font-serif-sc">运动科学，与你同行。</p>
+      <div class="quote-attr">Praxys · primary tagline · EN + 中文</div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div>Praxys · brand guideline · <span style="color:var(--ink-soft);">v1.0</span></div>
+  <div class="sig">Every step, reasoned.</div>
+  <div>2026 · 04 · 19</div>
+</footer>
+
+<script>
+  const btn = document.getElementById('themeBtn');
+  const label = document.getElementById('themeLabel');
+  const root = document.documentElement;
+  const paint = () => {
+    label.textContent = root.dataset.theme === 'light' ? 'Dark' : 'Light';
+  };
+  btn.addEventListener('click', () => {
+    root.dataset.theme = root.dataset.theme === 'light' ? 'dark' : 'light';
+    paint();
+  });
+  paint();
+</script>
+
+</body>
+</html>

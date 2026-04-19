@@ -30,7 +30,7 @@ Garmin/Stryd/Oura APIs
    └── routes/           Thin endpoint handlers
         |
    ┌────┴────────────┐
-   web/    plugins/trainsight/
+   web/    plugins/praxys/
    React   MCP server (12 tools,
    SPA     local + remote modes)
 ```
@@ -159,7 +159,7 @@ Activities can come from Garmin, Stryd, or Coros. `data_loader.py` merges them:
 
 ### MCP Plugin
 
-The Trainsight MCP plugin (`plugins/trainsight/mcp-server/server.py`) provides 12 tools for Claude Code and Copilot CLI. It operates in two modes:
+The Praxys MCP plugin (`plugins/praxys/mcp-server/server.py`) provides 12 tools for Claude Code and Copilot CLI. It operates in two modes:
 
 **Remote mode** (`TRAINSIGHT_URL` env var set):
 - All tool calls proxy to the deployed API via HTTP
@@ -239,7 +239,7 @@ React SPA (Vite + TypeScript + Tailwind v4 + shadcn/ui):
 - **`types/api.ts`**: TypeScript interfaces matching API response shapes
 - **`lib/chart-theme.ts`**: Single source of truth for chart colors
 
-### plugins/trainsight/
+### plugins/praxys/
 
 MCP plugin for Claude Code and Copilot CLI:
 - **`mcp-server/server.py`**: 12 tools with dual-mode execution (see MCP Plugin section)

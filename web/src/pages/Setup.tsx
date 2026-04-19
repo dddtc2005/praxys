@@ -351,7 +351,7 @@ export default function Setup() {
     <div>
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-foreground"><Trans>Set up Trainsight</Trans></h1>
+        <h1 className="text-2xl font-bold text-foreground"><Trans>Set up Praxys</Trans></h1>
         <p className="text-sm text-muted-foreground mt-1">
           {setup.completed === 0
             ? <Trans>Complete these steps to unlock your training insights</Trans>

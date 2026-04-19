@@ -1,6 +1,6 @@
 # Plugin Test Scenarios
 
-Integration test scenarios for the Trainsight plugin. Each file is an independent
+Integration test scenarios for the Praxys plugin. Each file is an independent
 test case that can be executed in Claude Code or Copilot CLI.
 
 ## Prerequisites

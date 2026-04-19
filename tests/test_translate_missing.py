@@ -121,6 +121,6 @@ class TestPromptFallbacksGracefully:
             prompt = tm.build_system_prompt()
             # Base rules are still present
             assert "VERBATIM" in prompt
-            assert "Trainsight" in prompt
+            assert "Praxys" in prompt
         finally:
             monkeypatch.setattr(tm, "__file__", original_file)

@@ -221,7 +221,7 @@ def _client():
     return anthropic.Anthropic(api_key=api_key)
 
 
-SYSTEM_PROMPT_BASE = """You translate UI strings for Trainsight, a power-based training dashboard
+SYSTEM_PROMPT_BASE = """You translate UI strings for Praxys, a sports-science training platform
 for endurance athletes. Rules:
 
 1. Preserve every ICU/MessageFormat placeholder ({name}, {count, plural,
@@ -235,7 +235,7 @@ for endurance athletes. Rules:
      "{count, plural, other {# 项目}}"
 3. Keep technical acronyms unchanged: HRV, TSB, CTL, ATL, CP, FTP, VO2max,
    RSS, rTSS, TRIMP, LTHR, km, W, bpm, /km, /mi.
-4. Do not translate brand names: Trainsight, Garmin, Stryd, Oura.
+4. Do not translate brand names: Praxys, Garmin, Stryd, Oura.
 5. Match the source's punctuation style (ellipses, quote marks, whitespace
    around punctuation).
 6. Output the translation ONLY — no prefix, no quotes, no explanation.
@@ -425,7 +425,7 @@ def translate_yaml_tree(source_dir: Path, target_dir: Path, language: str) -> No
             messages=[{
                 "role": "user",
                 "content": (
-                    f"Translate the following Trainsight science YAML fields to {language}. "
+                    f"Translate the following Praxys science YAML fields to {language}. "
                     f"Preserve markdown formatting (headings, tables, lists, code). Keep "
                     f"technical terms in English where standard. Output each field as "
                     f"`[key]\\n<translation>` separated by blank lines, matching the input order:\n\n{numbered}"

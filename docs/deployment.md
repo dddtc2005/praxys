@@ -17,7 +17,7 @@
 
 ## Joining an Existing Deployment
 
-If a Trainsight instance is already deployed and you want to contribute as a developer, you do not need to deploy your own. Ask the project admin for:
+If a Praxys instance is already deployed and you want to contribute as a developer, you do not need to deploy your own. Ask the project admin for:
 
 1. **Access to the Azure resource group** (`rg-trainsight`) — Contributor role is sufficient for most development tasks
 2. **An invitation code** — to register an account on the deployed instance
@@ -211,7 +211,7 @@ az ad app federated-credential create \
   --parameters '{
     "name": "github-main",
     "issuer": "https://token.actions.githubusercontent.com",
-    "subject": "repo:dddtc2005/trainsight:ref:refs/heads/main",
+    "subject": "repo:dddtc2005/praxys:ref:refs/heads/main",
     "audiences": ["api://AzureADTokenExchange"]
   }'
 

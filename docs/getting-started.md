@@ -1,10 +1,10 @@
 # Getting Started
 
-Full setup guide for Trainsight. Choose cloud mode (hosted) or local mode (your machine).
+Full setup guide for Praxys. Choose cloud mode (hosted) or local mode (your machine).
 
 ## Cloud Mode (Recommended)
 
-If Trainsight is deployed to the cloud, you just need a browser. The CLI plugin ([Claude Code](https://claude.com/claude-code) or [GitHub Copilot CLI](https://githubnext.com/projects/copilot-cli/)) is optional but recommended for AI features like training plan generation, daily briefs, and race forecasts.
+If Praxys is deployed to the cloud, you just need a browser. The CLI plugin ([Claude Code](https://claude.com/claude-code) or [GitHub Copilot CLI](https://githubnext.com/projects/copilot-cli/)) is optional but recommended for AI features like training plan generation, daily briefs, and race forecasts.
 
 ### 1. Register
 

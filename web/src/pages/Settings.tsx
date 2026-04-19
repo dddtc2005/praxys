@@ -450,7 +450,7 @@ export default function Settings() {
               </div>
               <div>
                 <CardTitle className="text-sm font-semibold text-foreground"><Trans>Profile</Trans></CardTitle>
-                <CardDescription className="text-xs"><Trans>Your identity in Trainsight</Trans></CardDescription>
+                <CardDescription className="text-xs"><Trans>Your identity in Praxys</Trans></CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -593,7 +593,7 @@ export default function Settings() {
               <div>
                 <p className="text-sm font-medium text-foreground"><Trans>Auto sync frequency</Trans></p>
                 <p className="text-xs text-muted-foreground">
-                  <Trans>How often Trainsight pulls new data in the background. Lower frequency uses less network and respects platform rate limits.</Trans>
+                  <Trans>How often Praxys pulls new data in the background. Lower frequency uses less network and respects platform rate limits.</Trans>
                 </p>
                 {nextSyncLabel && (
                   <p className="text-xs text-muted-foreground mt-1.5">

@@ -91,7 +91,7 @@ export default function SetupChecklist({ hasData }: SetupChecklistProps) {
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
             <h2 className="text-lg font-semibold text-foreground">
-              <Trans>Get started with Trainsight</Trans>
+              <Trans>Get started with Praxys</Trans>
             </h2>
             <p className="text-sm text-muted-foreground mt-0.5">
               {completed === 0

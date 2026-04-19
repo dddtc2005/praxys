@@ -2,25 +2,16 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react';
 import { activateLocale, isSupportedLocale, type SupportedLocale } from '../i18n/init';
 import { detectBrowserLocale } from '../lib/locale-detect';
-
-const STORAGE_KEY = 'trainsight-locale';
+import { KEYS, getCompatItem, setCompatItem, removeCompatItem } from '../lib/storage-compat';
 
 function readStoredLocale(): SupportedLocale | null {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return isSupportedLocale(stored) ? stored : null;
-  } catch {
-    return null;
-  }
+  const stored = getCompatItem(KEYS.locale.new, KEYS.locale.legacy);
+  return isSupportedLocale(stored) ? stored : null;
 }
 
 function writeStoredLocale(locale: SupportedLocale | null) {
-  try {
-    if (locale === null) localStorage.removeItem(STORAGE_KEY);
-    else localStorage.setItem(STORAGE_KEY, locale);
-  } catch {
-    // localStorage unavailable
-  }
+  if (locale === null) removeCompatItem(KEYS.locale.new, KEYS.locale.legacy);
+  else setCompatItem(KEYS.locale.new, KEYS.locale.legacy, locale);
 }
 
 interface LocaleContextValue {

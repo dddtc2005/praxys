@@ -1,5 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { Sun, Moon, Monitor, TrendingUp, Target, Clock, FlaskConical, Settings, LogOut, ListChecks, ShieldCheck } from 'lucide-react';
+import { PraxysFlag } from '@/components/PraxysFlag';
 import {
   Sidebar,
   SidebarContent,
@@ -82,11 +83,9 @@ export default function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <div className="flex items-center gap-3 px-2 py-2">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/20">
-            <TrendingUp className="h-5 w-5 text-primary" />
-          </div>
+          <PraxysFlag className="h-8 w-8 shrink-0" />
           <span className="text-lg font-semibold text-foreground group-data-[collapsible=icon]:hidden">
-            Trainsight
+            Praxys
           </span>
         </div>
       </SidebarHeader>

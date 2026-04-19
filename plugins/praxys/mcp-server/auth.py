@@ -1,19 +1,28 @@
-"""JWT authentication for remote Trainsight API."""
+"""JWT authentication for remote Praxys API."""
 import json
 import os
 import getpass
 
 import requests
 
-CONFIG_DIR = os.path.expanduser("~/.trainsight")
+# Config dir migrated from ~/.trainsight to ~/.praxys for the rebrand. We
+# read both during the deprecation window so existing CLI users keep their
+# cached token; new writes always go to ~/.praxys.
+CONFIG_DIR = os.path.expanduser("~/.praxys")
+LEGACY_CONFIG_DIR = os.path.expanduser("~/.trainsight")
 TOKEN_PATH = os.path.join(CONFIG_DIR, "token")
 CONFIG_PATH = os.path.join(CONFIG_DIR, "config.json")
+_LEGACY_TOKEN_PATH = os.path.join(LEGACY_CONFIG_DIR, "token")
+_LEGACY_CONFIG_PATH = os.path.join(LEGACY_CONFIG_DIR, "config.json")
 
 
 def get_config() -> dict:
     """Load stored remote API config (url, email)."""
     if os.path.exists(CONFIG_PATH):
         with open(CONFIG_PATH) as f:
+            return json.load(f)
+    if os.path.exists(_LEGACY_CONFIG_PATH):
+        with open(_LEGACY_CONFIG_PATH) as f:
             return json.load(f)
     return {}
 
@@ -30,6 +39,9 @@ def get_token() -> str | None:
     if os.path.exists(TOKEN_PATH):
         with open(TOKEN_PATH) as f:
             return f.read().strip()
+    if os.path.exists(_LEGACY_TOKEN_PATH):
+        with open(_LEGACY_TOKEN_PATH) as f:
+            return f.read().strip()
     return None
 
 
@@ -41,7 +53,7 @@ def save_token(token: str):
 
 
 def login(base_url: str, email: str = None, password: str = None) -> str:
-    """Login to Trainsight API and cache token. Returns access_token."""
+    """Login to Praxys API and cache token. Returns access_token."""
     if not email:
         email = input("Email: ")
     if not password:

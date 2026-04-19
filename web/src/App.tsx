@@ -92,7 +92,7 @@ function LoginGuard() {
     const rawCallback = params.get('cli_callback');
     const CLI_CALLBACK_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/callback/;
     if (rawCallback && CLI_CALLBACK_RE.test(rawCallback)) {
-      const token = localStorage.getItem('trainsight-auth-token');
+      const token = localStorage.getItem('praxys-auth-token') ?? localStorage.getItem('trainsight-auth-token');
       if (token) {
         window.location.href = `${rawCallback}?token=${encodeURIComponent(token)}`;
         return null;

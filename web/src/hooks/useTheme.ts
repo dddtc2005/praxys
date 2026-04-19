@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { KEYS, getCompatItem, setCompatItem } from '../lib/storage-compat';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -20,24 +21,14 @@ function applyTheme(resolved: 'light' | 'dark') {
   }
 }
 
-const STORAGE_KEY = 'trainsight-theme';
-
 function readStoredTheme(): Theme {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
-  } catch {
-    // localStorage unavailable (private browsing, disabled, etc.)
-  }
+  const stored = getCompatItem(KEYS.theme.new, KEYS.theme.legacy);
+  if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
   return 'dark';
 }
 
 function writeStoredTheme(theme: Theme) {
-  try {
-    localStorage.setItem(STORAGE_KEY, theme);
-  } catch {
-    // localStorage unavailable
-  }
+  setCompatItem(KEYS.theme.new, KEYS.theme.legacy, theme);
 }
 
 export function useTheme() {

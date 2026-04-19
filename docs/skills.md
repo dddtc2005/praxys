@@ -1,16 +1,16 @@
 # CLI Skills
 
-Trainsight includes 8 AI skills that provide access to all training features via Claude Code and Copilot CLI. No web UI needed.
+Praxys includes 8 AI skills that provide access to all training features via Claude Code and Copilot CLI. No web UI needed.
 
 ## Requirements
 
 - [Claude Code](https://claude.com/claude-code) or [GitHub Copilot CLI](https://githubnext.com/projects/copilot-cli/)
 - Python 3.11+ with project dependencies installed (`pip install -r requirements.txt`)
-- A running Trainsight backend (cloud or local) with at least one connected platform
+- A running Praxys backend (cloud or local) with at least one connected platform
 
 ## Plugin Installation
 
-Skills are packaged as a Claude Code plugin in `plugins/trainsight/`.
+Skills are packaged as a Claude Code plugin in `plugins/praxys/`.
 
 ```bash
 # Register the local marketplace (one-time)
@@ -25,7 +25,7 @@ claude plugin install trainsight
 
 ## Plugin Mode Configuration
 
-The plugin connects to either a **cloud deployment** or **local server**, controlled by the `env` section in `plugins/trainsight/.mcp.json`:
+The plugin connects to either a **cloud deployment** or **local server**, controlled by the `env` section in `plugins/praxys/.mcp.json`:
 
 ### Cloud Mode (Recommended)
 
@@ -73,7 +73,7 @@ In local mode, the MCP server imports project modules directly and uses the firs
 
 ## MCP Tools
 
-The plugin provides an MCP server (`plugins/trainsight/mcp-server/server.py`) that exposes these tools to the AI agent:
+The plugin provides an MCP server (`plugins/praxys/mcp-server/server.py`) that exposes these tools to the AI agent:
 
 | Tool | Description |
 |------|-------------|
@@ -191,7 +191,7 @@ Scaffold a new training metric end-to-end (7-step guide).
 
 ## How Skills Work
 
-Skills are defined in `plugins/trainsight/skills/` — each skill has a `SKILL.md` file with instructions that Claude Code and Copilot CLI auto-discover when the plugin is installed.
+Skills are defined in `plugins/praxys/skills/` — each skill has a `SKILL.md` file with instructions that Claude Code and Copilot CLI auto-discover when the plugin is installed.
 
 Skills that need training data call the MCP tools listed above. The MCP server handles mode detection (remote vs local) transparently, so the same skill works whether you are connected to a cloud deployment or running locally.
 
@@ -199,9 +199,9 @@ Skills that need training data call the MCP tools listed above. The MCP server h
 
 ```
 User invokes /daily-brief
-    → Claude Code reads plugins/trainsight/skills/daily-brief/SKILL.md
+    → Claude Code reads plugins/praxys/skills/daily-brief/SKILL.md
     → Skill instructions tell the AI to call get_daily_brief MCP tool
-    → MCP server (plugins/trainsight/mcp-server/server.py) handles the call:
+    → MCP server (plugins/praxys/mcp-server/server.py) handles the call:
         Remote mode: GET /api/today (with JWT auth)
         Local mode:  Direct Python import → get_dashboard_data()
     → JSON response returned to the AI
@@ -211,7 +211,7 @@ User invokes /daily-brief
 ### Plugin Structure
 
 ```
-plugins/trainsight/
+plugins/praxys/
   plugin.json          Plugin manifest (name, version, component directories)
   .mcp.json            MCP server configuration
   skills/              8 skill directories (auto-discovered)
