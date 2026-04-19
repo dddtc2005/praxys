@@ -16,17 +16,17 @@ msgstr ""
 #. placeholder {0}: findings.length
 #: src/components/AiInsightsCard.tsx:86
 msgid "{0, plural, one {# finding} other {# findings}}"
-msgstr ""
+msgstr "{0, plural, other {# 条发现}}"
 
 #. placeholder {0}: recommendations.length
 #: src/components/AiInsightsCard.tsx:92
 msgid "{0, plural, one {# recommendation} other {# recommendations}}"
-msgstr ""
+msgstr "{0, plural, other {# 条建议}}"
 
 #. placeholder {0}: data.workouts.length
 #: src/components/UpcomingPlanCard.tsx:516
 msgid "{0, plural, one {# workout} other {# workouts}}"
-msgstr ""
+msgstr "{0, plural, other {# 次训练}}"
 
 #. placeholder {0}: rc.estimated_months.toFixed(1)
 #: src/pages/Goal.tsx:338
@@ -58,7 +58,7 @@ msgstr "{topZoneName} / 质量"
 
 #: src/pages/History.tsx:41
 msgid "{total, plural, one {# activity} other {# activities}}"
-msgstr ""
+msgstr "{total, plural, other {# 项活动}}"
 
 #. placeholder {0}: roleChangeUser?.email
 #: src/pages/Admin.tsx:444
@@ -70,32 +70,32 @@ msgstr ""
 msgid "<0>{0}</0> will lose admin privileges. They will no longer be able to manage users or invitation codes."
 msgstr ""
 
-#: src/lib/display-labels.ts:38
+#: src/lib/display-labels.ts:67
 #: src/pages/Settings.tsx:178
 msgid "100 Mile"
 msgstr "100英里"
 
-#: src/lib/display-labels.ts:37
+#: src/lib/display-labels.ts:66
 #: src/pages/Settings.tsx:177
 msgid "100K"
 msgstr "100公里"
 
-#: src/lib/display-labels.ts:34
+#: src/lib/display-labels.ts:63
 #: src/pages/Settings.tsx:172
 msgid "10K"
 msgstr "10公里"
 
-#: src/lib/display-labels.ts:36
+#: src/lib/display-labels.ts:65
 #: src/pages/Settings.tsx:176
 msgid "50 Mile"
 msgstr "50英里"
 
-#: src/lib/display-labels.ts:35
+#: src/lib/display-labels.ts:64
 #: src/pages/Settings.tsx:175
 msgid "50K"
 msgstr "50公里"
 
-#: src/lib/display-labels.ts:33
+#: src/lib/display-labels.ts:62
 #: src/pages/Settings.tsx:171
 msgid "5K"
 msgstr "5公里"
@@ -372,7 +372,7 @@ msgid "Cosmetic — changes names and colors without affecting calculations"
 msgstr "仅外观——更改名称与颜色，不影响计算"
 
 #: src/components/charts/CpTrendChart.tsx:40
-#: src/lib/display-labels.ts:27
+#: src/lib/display-labels.ts:56
 msgid "CP Trend"
 msgstr "CP 趋势"
 
@@ -400,7 +400,7 @@ msgstr "创建中..."
 msgid "Creating..."
 msgstr ""
 
-#: src/lib/display-labels.ts:23
+#: src/lib/display-labels.ts:52
 #: src/pages/Settings.tsx:116
 msgid "Critical Power"
 msgstr "临界功率"
@@ -555,7 +555,7 @@ msgstr "邮箱"
 msgid "Email and password are required."
 msgstr "请输入邮箱和密码。"
 
-#: src/lib/display-labels.ts:14
+#: src/lib/display-labels.ts:43
 msgid "Endurance"
 msgstr "耐力"
 
@@ -695,12 +695,12 @@ msgstr "目标"
 msgid "Goal Tracker"
 msgstr "目标追踪"
 
-#: src/lib/display-labels.ts:32
+#: src/lib/display-labels.ts:61
 #: src/pages/Settings.tsx:173
 msgid "Half Marathon"
 msgstr "半程马拉松"
 
-#: src/lib/display-labels.ts:20
+#: src/lib/display-labels.ts:49
 #: src/pages/Settings.tsx:96
 msgid "Heart Rate"
 msgstr "心率"
@@ -790,7 +790,7 @@ msgstr "邀请码"
 msgid "Invitation Codes"
 msgstr "邀请码"
 
-#: src/lib/display-labels.ts:24
+#: src/lib/display-labels.ts:53
 msgid "Lactate Threshold HR"
 msgstr "乳酸阈心率"
 
@@ -856,7 +856,7 @@ msgstr "偏低"
 msgid "LTHR"
 msgstr "乳酸阈心率"
 
-#: src/lib/display-labels.ts:28
+#: src/lib/display-labels.ts:57
 msgid "LTHR Trend"
 msgstr "LTHR 趋势"
 
@@ -872,7 +872,7 @@ msgstr "管理用户和邀请码"
 msgid "Manual"
 msgstr "手动"
 
-#: src/lib/display-labels.ts:31
+#: src/lib/display-labels.ts:60
 #: src/pages/Goal.tsx:362
 #: src/pages/Settings.tsx:174
 #: src/pages/Settings.tsx:936
@@ -1029,7 +1029,7 @@ msgstr "其他信号"
 
 #: src/components/ActivityCard.tsx:121
 #: src/components/SplitBreakdown.tsx:50
-#: src/lib/display-labels.ts:21
+#: src/lib/display-labels.ts:50
 #: src/pages/Settings.tsx:105
 msgid "Pace"
 msgstr "配速"
@@ -1058,7 +1058,7 @@ msgid "Planned Workout"
 msgstr "计划训练"
 
 #: src/components/SplitBreakdown.tsx:48
-#: src/lib/display-labels.ts:19
+#: src/lib/display-labels.ts:48
 #: src/pages/Settings.tsx:87
 msgid "Power"
 msgstr "功率"
@@ -1132,7 +1132,7 @@ msgstr ""
 msgid "Pushing..."
 msgstr ""
 
-#: src/lib/display-labels.ts:39
+#: src/lib/display-labels.ts:68
 #: src/pages/Goal.tsx:104
 #: src/pages/Goal.tsx:245
 msgid "Race"
@@ -1193,7 +1193,7 @@ msgstr "推荐"
 
 #: src/components/RecoveryPanel.tsx:42
 #: src/components/RecoveryPanel.tsx:43
-#: src/lib/display-labels.ts:13
+#: src/lib/display-labels.ts:42
 #: src/lib/phase-label.ts:16
 #: src/pages/Science.tsx:26
 #: src/pages/Settings.tsx:74
@@ -1479,7 +1479,7 @@ msgstr "瞄准一场比赛或追踪持续提升"
 msgid "Target Time"
 msgstr "目标时间"
 
-#: src/lib/display-labels.ts:15
+#: src/lib/display-labels.ts:44
 #: src/lib/phase-label.ts:14
 msgid "Tempo"
 msgstr "节奏跑"
@@ -1493,17 +1493,17 @@ msgstr "主题"
 msgid "This will permanently delete <0>{0}</0> and all their data (activities, config, connections, plans). This cannot be undone."
 msgstr ""
 
-#: src/lib/display-labels.ts:16
+#: src/lib/display-labels.ts:45
 #: src/lib/phase-label.ts:15
 msgid "Threshold"
 msgstr "乳酸阈"
 
-#: src/lib/display-labels.ts:25
+#: src/lib/display-labels.ts:54
 #: src/pages/Settings.tsx:118
 msgid "Threshold Pace"
 msgstr "阈值配速"
 
-#: src/lib/display-labels.ts:29
+#: src/lib/display-labels.ts:58
 msgid "Threshold Pace Trend"
 msgstr "阈值配速趋势"
 
@@ -1602,7 +1602,7 @@ msgstr "查看"
 msgid "Viewing configuration (read-only demo)"
 msgstr "查看配置（只读演示）"
 
-#: src/lib/display-labels.ts:17
+#: src/lib/display-labels.ts:46
 msgid "VO2max"
 msgstr "VO2max"
 

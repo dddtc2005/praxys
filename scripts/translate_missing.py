@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -35,6 +36,65 @@ except ImportError:
     anthropic = None  # handled in main()
 
 MODEL = os.environ.get("TRANSLATE_MODEL", "claude-opus-4-7")
+
+# Lingui XML tag references (the numbered variant — <0>, </0>, <1/>). These
+# must appear verbatim in every translation because Lingui compiles them
+# back into React children at runtime.
+_XML_TAG_RE = re.compile(r"</?\d+(?:\s*/)?>")
+
+
+def _icu_variable_names(s: str) -> list[str]:
+    """Walk `s` and extract the variable names of every *outermost* ICU
+    placeholder. Handles nested braces in plural/select branches:
+
+        "{count, plural, one {# item} other {# items}}"  ->  ["count"]
+        "Hello {name}, you have {count} runs"           ->  ["name", "count"]
+        "{count, plural, other {# 项}}"                 ->  ["count"]
+
+    The comparison is on variable names only — branch contents (`# item` vs
+    `# items` vs `# 项`) are allowed to differ, which is the whole point of
+    translating plural branches.
+    """
+    names: list[str] = []
+    i = 0
+    n = len(s)
+    while i < n:
+        if s[i] != "{":
+            i += 1
+            continue
+        # Balance-match braces to find the end of the outer placeholder.
+        depth = 1
+        j = i + 1
+        while j < n and depth > 0:
+            if s[j] == "{":
+                depth += 1
+            elif s[j] == "}":
+                depth -= 1
+            j += 1
+        if depth != 0:
+            # Unbalanced — treat the rest as literal, bail.
+            break
+        # `{` at i, matching `}` at j-1. Content is s[i+1 : j-1].
+        inner = s[i + 1 : j - 1]
+        # Variable name is everything before the first comma (or the whole
+        # thing for a simple {name} placeholder).
+        head = inner.split(",", 1)[0].strip()
+        names.append(head)
+        i = j
+    return names
+
+
+def _placeholders(s: str) -> dict[str, list[str]]:
+    """Return the token fingerprint used for placeholder validation.
+
+    Two keys:
+      - `icu`:  sorted list of outermost ICU variable names
+      - `xml`:  sorted list of Lingui XML tag references (<0>, </0>, <1/>)
+    """
+    return {
+        "icu": sorted(_icu_variable_names(s)),
+        "xml": sorted(_XML_TAG_RE.findall(s)),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -161,29 +221,123 @@ def _client():
     return anthropic.Anthropic(api_key=api_key)
 
 
-SYSTEM_PROMPT = """You translate UI strings for Trainsight, a power-based training dashboard for
-endurance athletes. Keep technical terms (CP, FTP, HRV, TSB, RSS, km, W, bpm,
-/km, /mi) unchanged. Preserve ICU/MessageFormat placeholders like {name},
-{count, plural, one {#} other {#}}, and <0>...</0> XML tags verbatim. Match
-the punctuation style of the source (ellipses, quote marks). Output the
-translation only, with no prefix, quotes, or explanation."""
+SYSTEM_PROMPT_BASE = """You translate UI strings for Trainsight, a power-based training dashboard
+for endurance athletes. Rules:
+
+1. Preserve every ICU/MessageFormat placeholder ({name}, {count, plural,
+   one {#} other {#}}, {0}) and every Lingui XML tag (<0>...</0>, <1/>)
+   VERBATIM. Count them in source and output — if the source has 2, the
+   output must have 2. Do not rename, reorder, or drop them.
+2. When translating to Simplified Chinese, pluralization collapses to a
+   single `other` branch. Example source:
+     "{count, plural, one {# item} other {# items}}"
+   Example zh output:
+     "{count, plural, other {# 项目}}"
+3. Keep technical acronyms unchanged: HRV, TSB, CTL, ATL, CP, FTP, VO2max,
+   RSS, rTSS, TRIMP, LTHR, km, W, bpm, /km, /mi.
+4. Do not translate brand names: Trainsight, Garmin, Stryd, Oura.
+5. Match the source's punctuation style (ellipses, quote marks, whitespace
+   around punctuation).
+6. Output the translation ONLY — no prefix, no quotes, no explanation.
+"""
 
 
-def translate_batch(entries: list[dict], language: str, batch_size: int = 20) -> None:
-    """Translate entries whose msgstr is empty; mutates entries in place."""
+def _glossary_section() -> str:
+    """Read scripts/i18n_glossary.yaml and format it as a prompt appendix.
+
+    Failing softly (file missing / PyYAML missing) keeps the translator
+    usable in minimal environments; the terminology pinning is best-effort.
+    """
+    path = Path(__file__).with_name("i18n_glossary.yaml")
+    if not path.exists():
+        return ""
+    try:
+        import yaml  # type: ignore[import-not-found]
+    except ImportError:
+        return ""
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError:
+        return ""
+    terms = data.get("terms") or []
+    lines = []
+    for t in terms:
+        en = t.get("en", "").strip()
+        zh = t.get("zh", "").strip()
+        note = t.get("note", "").strip()
+        if not en:
+            continue
+        # Rows with empty zh signal "keep English" — emit that rule explicitly.
+        rhs = zh if zh else "(keep English)"
+        lines.append(f"- {en} → {rhs}" + (f" ({note})" if note else ""))
+    if not lines:
+        return ""
+    return (
+        "\n\nUse this glossary for Simplified Chinese. These renderings are "
+        "canonical — reuse them exactly so terminology stays consistent across "
+        "releases:\n" + "\n".join(lines)
+    )
+
+
+def build_system_prompt() -> str:
+    return SYSTEM_PROMPT_BASE + _glossary_section()
+
+
+def _placeholders_match(source: str, translation: str) -> bool:
+    """True iff `translation` preserves every placeholder in `source`.
+
+    ICU plural/select shapes may legitimately change between locales
+    (en has `one` + `other`, zh collapses to `other` only), so we compare
+    *variable names* rather than the full placeholder text. XML tag refs
+    must match exactly because Lingui uses them as React-children indices.
+    """
+    return _placeholders(source) == _placeholders(translation)
+
+
+def translate_batch(
+    entries: list[dict],
+    language: str,
+    batch_size: int = 20,
+    max_translations: int | None = None,
+) -> dict[str, int]:
+    """Translate entries whose msgstr is empty; mutates entries in place.
+
+    Returns a summary dict with `filled`, `rejected_placeholder_mismatch`,
+    and `capped` counts so the caller can surface them in CI logs.
+
+    `max_translations`: hard ceiling on how many entries we attempt per run
+    (cost safety). When the cap is hit, remaining entries stay empty and
+    the CI PR will only refresh a subset — the next CI run picks up the
+    rest. Set via env var `TRANSLATE_MAX` in the workflow.
+    """
     missing = [e for e in entries if not e["msgstr"]]
     if not missing:
         print("No missing translations.", file=sys.stderr)
-        return
+        return {"filled": 0, "rejected_placeholder_mismatch": 0, "capped": 0}
+
+    capped = 0
+    if max_translations is not None and len(missing) > max_translations:
+        capped = len(missing) - max_translations
+        missing = missing[:max_translations]
+        print(
+            f"Capping to {max_translations} translations this run "
+            f"({capped} will remain empty for the next run).",
+            file=sys.stderr,
+        )
+
     client = _client()
+    system_prompt = build_system_prompt()
     print(f"Translating {len(missing)} entries to {language}...", file=sys.stderr)
+
+    filled = 0
+    rejected = 0
     for start in range(0, len(missing), batch_size):
         chunk = missing[start:start + batch_size]
         numbered = "\n".join(f"{i + 1}. {e['msgid']}" for i, e in enumerate(chunk))
         resp = client.messages.create(
             model=MODEL,
             max_tokens=4096,
-            system=SYSTEM_PROMPT,
+            system=system_prompt,
             messages=[{
                 "role": "user",
                 "content": (
@@ -200,7 +354,29 @@ def translate_batch(entries: list[dict], language: str, batch_size: int = 20) ->
             # Strip leading "N. " numbering
             if line[:4].strip().rstrip(".").isdigit():
                 line = line.split(".", 1)[1].strip() if "." in line else line
+            if not line:
+                continue
+            if not _placeholders_match(entry["msgid"], line):
+                # Don't ship translations where Claude silently dropped or
+                # invented a placeholder — the UI would render broken text.
+                # Leave msgstr empty; next CI run will retry.
+                src_ph = _placeholders(entry["msgid"])
+                out_ph = _placeholders(line)
+                print(
+                    f"  [rejected] placeholder mismatch for {entry['msgid']!r}:\n"
+                    f"    source placeholders: {src_ph}\n"
+                    f"    output placeholders: {out_ph}",
+                    file=sys.stderr,
+                )
+                rejected += 1
+                continue
             entry["msgstr"] = line
+            filled += 1
+    return {
+        "filled": filled,
+        "rejected_placeholder_mismatch": rejected,
+        "capped": capped,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -245,7 +421,7 @@ def translate_yaml_tree(source_dir: Path, target_dir: Path, language: str) -> No
         resp = client.messages.create(
             model=MODEL,
             max_tokens=4096,
-            system=SYSTEM_PROMPT,
+            system=build_system_prompt(),
             messages=[{
                 "role": "user",
                 "content": (
@@ -303,6 +479,16 @@ def main() -> int:
     po.add_argument("--source", required=True, type=Path)
     po.add_argument("--target", required=True, type=Path)
     po.add_argument("--language", required=True, help='e.g. "Simplified Chinese"')
+    po.add_argument(
+        "--max-translations",
+        type=int,
+        default=int(os.environ.get("TRANSLATE_MAX", "100")),
+        help=(
+            "Cost cap: max entries to translate in one run. Default 100 (or "
+            "$TRANSLATE_MAX). When the cap is hit the remaining entries stay "
+            "empty — the next CI run picks them up."
+        ),
+    )
 
     yml = sub.add_parser("yaml", help="Translate science YAML files")
     yml.add_argument("--source-dir", required=True, type=Path)
@@ -324,10 +510,18 @@ def main() -> int:
                 "msgid": msgid,
                 "msgstr": existing["msgstr"] if existing else "",
             })
-        translate_batch(merged, args.language)
+        summary = translate_batch(
+            merged,
+            args.language,
+            max_translations=args.max_translations,
+        )
         args.target.parent.mkdir(parents=True, exist_ok=True)
         write_po(args.target, merged)
-        print(f"Wrote {args.target}")
+        print(
+            f"Wrote {args.target} — filled={summary['filled']}, "
+            f"rejected_placeholder_mismatch={summary['rejected_placeholder_mismatch']}, "
+            f"capped={summary['capped']}"
+        )
         return 0
 
     if args.cmd == "yaml":

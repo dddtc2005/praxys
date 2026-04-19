@@ -70,32 +70,32 @@ msgstr "<0>{0}</0> will gain admin privileges. They will be able to manage all u
 msgid "<0>{0}</0> will lose admin privileges. They will no longer be able to manage users or invitation codes."
 msgstr "<0>{0}</0> will lose admin privileges. They will no longer be able to manage users or invitation codes."
 
-#: src/lib/display-labels.ts:38
+#: src/lib/display-labels.ts:67
 #: src/pages/Settings.tsx:178
 msgid "100 Mile"
 msgstr "100 Mile"
 
-#: src/lib/display-labels.ts:37
+#: src/lib/display-labels.ts:66
 #: src/pages/Settings.tsx:177
 msgid "100K"
 msgstr "100K"
 
-#: src/lib/display-labels.ts:34
+#: src/lib/display-labels.ts:63
 #: src/pages/Settings.tsx:172
 msgid "10K"
 msgstr "10K"
 
-#: src/lib/display-labels.ts:36
+#: src/lib/display-labels.ts:65
 #: src/pages/Settings.tsx:176
 msgid "50 Mile"
 msgstr "50 Mile"
 
-#: src/lib/display-labels.ts:35
+#: src/lib/display-labels.ts:64
 #: src/pages/Settings.tsx:175
 msgid "50K"
 msgstr "50K"
 
-#: src/lib/display-labels.ts:33
+#: src/lib/display-labels.ts:62
 #: src/pages/Settings.tsx:171
 msgid "5K"
 msgstr "5K"
@@ -372,7 +372,7 @@ msgid "Cosmetic — changes names and colors without affecting calculations"
 msgstr "Cosmetic — changes names and colors without affecting calculations"
 
 #: src/components/charts/CpTrendChart.tsx:40
-#: src/lib/display-labels.ts:27
+#: src/lib/display-labels.ts:56
 msgid "CP Trend"
 msgstr "CP Trend"
 
@@ -400,7 +400,7 @@ msgstr "Creating account..."
 msgid "Creating..."
 msgstr "Creating..."
 
-#: src/lib/display-labels.ts:23
+#: src/lib/display-labels.ts:52
 #: src/pages/Settings.tsx:116
 msgid "Critical Power"
 msgstr "Critical Power"
@@ -555,7 +555,7 @@ msgstr "Email"
 msgid "Email and password are required."
 msgstr "Email and password are required."
 
-#: src/lib/display-labels.ts:14
+#: src/lib/display-labels.ts:43
 msgid "Endurance"
 msgstr "Endurance"
 
@@ -695,12 +695,12 @@ msgstr "Goal"
 msgid "Goal Tracker"
 msgstr "Goal Tracker"
 
-#: src/lib/display-labels.ts:32
+#: src/lib/display-labels.ts:61
 #: src/pages/Settings.tsx:173
 msgid "Half Marathon"
 msgstr "Half Marathon"
 
-#: src/lib/display-labels.ts:20
+#: src/lib/display-labels.ts:49
 #: src/pages/Settings.tsx:96
 msgid "Heart Rate"
 msgstr "Heart Rate"
@@ -790,7 +790,7 @@ msgstr "Invitation Code"
 msgid "Invitation Codes"
 msgstr "Invitation Codes"
 
-#: src/lib/display-labels.ts:24
+#: src/lib/display-labels.ts:53
 msgid "Lactate Threshold HR"
 msgstr "Lactate Threshold HR"
 
@@ -856,7 +856,7 @@ msgstr "Low"
 msgid "LTHR"
 msgstr "LTHR"
 
-#: src/lib/display-labels.ts:28
+#: src/lib/display-labels.ts:57
 msgid "LTHR Trend"
 msgstr "LTHR Trend"
 
@@ -872,7 +872,7 @@ msgstr "Manage users and invitation codes"
 msgid "Manual"
 msgstr "Manual"
 
-#: src/lib/display-labels.ts:31
+#: src/lib/display-labels.ts:60
 #: src/pages/Goal.tsx:362
 #: src/pages/Settings.tsx:174
 #: src/pages/Settings.tsx:936
@@ -1029,7 +1029,7 @@ msgstr "Other Signals"
 
 #: src/components/ActivityCard.tsx:121
 #: src/components/SplitBreakdown.tsx:50
-#: src/lib/display-labels.ts:21
+#: src/lib/display-labels.ts:50
 #: src/pages/Settings.tsx:105
 msgid "Pace"
 msgstr "Pace"
@@ -1058,7 +1058,7 @@ msgid "Planned Workout"
 msgstr "Planned Workout"
 
 #: src/components/SplitBreakdown.tsx:48
-#: src/lib/display-labels.ts:19
+#: src/lib/display-labels.ts:48
 #: src/pages/Settings.tsx:87
 msgid "Power"
 msgstr "Power"
@@ -1132,7 +1132,7 @@ msgstr "Push to Stryd"
 msgid "Pushing..."
 msgstr "Pushing..."
 
-#: src/lib/display-labels.ts:39
+#: src/lib/display-labels.ts:68
 #: src/pages/Goal.tsx:104
 #: src/pages/Goal.tsx:245
 msgid "Race"
@@ -1193,7 +1193,7 @@ msgstr "Recommended"
 
 #: src/components/RecoveryPanel.tsx:42
 #: src/components/RecoveryPanel.tsx:43
-#: src/lib/display-labels.ts:13
+#: src/lib/display-labels.ts:42
 #: src/lib/phase-label.ts:16
 #: src/pages/Science.tsx:26
 #: src/pages/Settings.tsx:74
@@ -1479,7 +1479,7 @@ msgstr "Target a race or track continuous improvement"
 msgid "Target Time"
 msgstr "Target Time"
 
-#: src/lib/display-labels.ts:15
+#: src/lib/display-labels.ts:44
 #: src/lib/phase-label.ts:14
 msgid "Tempo"
 msgstr "Tempo"
@@ -1493,17 +1493,17 @@ msgstr "Theme"
 msgid "This will permanently delete <0>{0}</0> and all their data (activities, config, connections, plans). This cannot be undone."
 msgstr "This will permanently delete <0>{0}</0> and all their data (activities, config, connections, plans). This cannot be undone."
 
-#: src/lib/display-labels.ts:16
+#: src/lib/display-labels.ts:45
 #: src/lib/phase-label.ts:15
 msgid "Threshold"
 msgstr "Threshold"
 
-#: src/lib/display-labels.ts:25
+#: src/lib/display-labels.ts:54
 #: src/pages/Settings.tsx:118
 msgid "Threshold Pace"
 msgstr "Threshold Pace"
 
-#: src/lib/display-labels.ts:29
+#: src/lib/display-labels.ts:58
 msgid "Threshold Pace Trend"
 msgstr "Threshold Pace Trend"
 
@@ -1602,7 +1602,7 @@ msgstr "view"
 msgid "Viewing configuration (read-only demo)"
 msgstr "Viewing configuration (read-only demo)"
 
-#: src/lib/display-labels.ts:17
+#: src/lib/display-labels.ts:46
 msgid "VO2max"
 msgstr "VO2max"
 

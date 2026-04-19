@@ -1,0 +1,13 @@
+# Code ownership — reviewers auto-requested on PRs touching these paths.
+# Current sole maintainer: @dddtc2005.
+#
+# The zh catalog + science translations are flagged explicitly because
+# the CI bot re-translates on every push to main. A human review before
+# merging the auto-PR is the only safety net against terminology drift
+# or semantic regressions when English source strings change.
+
+/web/src/locales/zh/        @dddtc2005
+/data/science/zh/           @dddtc2005
+/scripts/translate_missing.py  @dddtc2005
+/scripts/i18n_glossary.yaml    @dddtc2005
+/.github/workflows/i18n.yml    @dddtc2005

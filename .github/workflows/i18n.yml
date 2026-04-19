@@ -7,11 +7,53 @@ on:
       - 'web/src/**'
       - 'data/science/**'
       - 'scripts/translate_missing.py'
+      - 'scripts/i18n_glossary.yaml'
       - '.github/workflows/i18n.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'web/src/**'
+      - 'web/src/locales/**'
   workflow_dispatch:
 
 jobs:
+  # Runs on every PR: fails if the source catalog in en/messages.po is out
+  # of date vs the <Trans>/t`/msg`` calls in the source tree. Forces devs to
+  # `npm run i18n:extract` before pushing so strings can't silently slip past
+  # the CI bot and land translated-only-on-main.
+  extract-check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web deps
+        working-directory: web
+        run: npm ci
+
+      - name: Run lingui extract
+        working-directory: web
+        run: npm run i18n:extract:ci
+
+      - name: Fail if source catalog is stale
+        run: |
+          if ! git diff --exit-code -- web/src/locales/en/messages.po; then
+            echo "::error::web/src/locales/en/messages.po is out of date."
+            echo "::error::Run 'npm run i18n:extract' in web/ and commit the result."
+            exit 1
+          fi
+
+  # Runs on push to main: extracts, translates missing zh entries through
+  # Claude (with glossary + placeholder validation + cost cap), and opens
+  # a PR. Human reviews the zh diff before merging.
   translate:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -43,6 +85,10 @@ jobs:
       - name: Fill missing zh entries (catalog)
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Cost cap — only translate this many entries per run. Remaining
+          # empties get filled on subsequent runs. Raise via repo secret or
+          # env override if you want bulk catch-up.
+          TRANSLATE_MAX: '100'
         run: |
           python scripts/translate_missing.py po \
             --source web/src/locales/en/messages.po \
@@ -69,5 +115,22 @@ jobs:
             Automated translation refresh.
 
             Review the diff in `web/src/locales/zh/messages.po` and
-            `data/science/zh/` before merging. The translator preserves
-            technical terms (CP, FTP, HRV, km, W, bpm) and ICU placeholders.
+            `data/science/zh/` before merging. The translator:
+            - Uses `scripts/i18n_glossary.yaml` for canonical terminology
+              (CP, 临界功率, 乳酸阈, etc.). Update the glossary if you want
+              a term rendered differently going forward.
+            - Preserves ICU placeholders (`{count}`, `{name, plural, ...}`)
+              and Lingui XML tags (`<0>`) — rejects translations that drop
+              or add them.
+            - Caps at `TRANSLATE_MAX` entries per run (default 100) so a
+              bulk re-translation can't burn the API budget in one shot.
+
+            If the diff looks off:
+            - Wrong term: edit the glossary row and re-run the workflow.
+            - Missing placeholder: leave empty; it retries next run. If the
+              rejection is chronic, the source string likely needs a
+              friendlier shape.
+            - Rewording of an edit: port the old zh from git history
+              (`git log -p -- web/src/locales/zh/messages.po`) since Lingui
+              extraction drops the old msgid when the English source is
+              edited.
