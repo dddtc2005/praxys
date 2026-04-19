@@ -1,0 +1,64 @@
+name: Miniapp build
+
+# The WeChat Mini Program artifact is distributed through Tencent's own
+# review + publish workflow — there's no equivalent of a `deploy` step
+# in CI. What we CAN catch in CI is build regressions: a TypeScript
+# error, a bad import, or a dependency bump that breaks the Taro
+# compile. This workflow runs on any PR that touches miniapp/ and
+# verifies that `taro build --type weapp` produces a dist/ with the
+# expected entry points.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'miniapp/**'
+      - '.github/workflows/miniapp-build.yml'
+  pull_request:
+    paths:
+      - 'miniapp/**'
+      - '.github/workflows/miniapp-build.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: miniapp
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: miniapp/package-lock.json
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build (weapp)
+        run: npm run build:weapp
+      - name: Verify expected pages in dist/
+        run: |
+          for p in login today training goal history settings; do
+            if [ ! -d "dist/pages/$p" ]; then
+              echo "Missing dist/pages/$p — build incomplete" >&2
+              exit 1
+            fi
+          done
+          echo "All 6 pages present in dist/."
+      - name: Report bundle size
+        run: |
+          size=$(du -sk dist | cut -f1)
+          echo "dist/ size: ${size} KB"
+          # WeChat's main-package limit is 2 MB (2048 KB). Warn over
+          # 1500, fail over 2000 so we notice bloat before the user does.
+          if [ "$size" -gt 2000 ]; then
+            echo "::error::dist/ exceeds 2 MB WeChat main-package limit"
+            exit 1
+          elif [ "$size" -gt 1500 ]; then
+            echo "::warning::dist/ is ${size} KB — closing in on the 2 MB cap"
+          fi

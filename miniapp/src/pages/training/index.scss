@@ -1,0 +1,81 @@
+.train-root {
+  padding: 32rpx 32rpx 64rpx;
+}
+
+.train-header {
+  font-size: 52rpx;
+  font-weight: 700;
+  color: #e6ebf5;
+  display: block;
+  margin-bottom: 24rpx;
+}
+
+.train-hero-value {
+  font-size: 48rpx;
+  font-weight: 600;
+  color: #e6ebf5;
+  display: block;
+}
+
+.train-hero-meta {
+  font-size: 24rpx;
+  display: block;
+  margin-top: 4rpx;
+}
+
+.train-line {
+  font-size: 26rpx;
+  color: #e6ebf5;
+  line-height: 1.6;
+}
+
+.train-finding {
+  font-size: 26rpx;
+  display: block;
+  padding: 8rpx 0;
+  line-height: 1.5;
+  color: #e6ebf5;
+}
+
+.train-zonebar {
+  margin-bottom: 24rpx;
+}
+
+.train-zonebar-head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8rpx;
+}
+
+.train-zonebar-name {
+  font-size: 26rpx;
+  color: #e6ebf5;
+}
+
+.train-zonebar-value {
+  font-size: 24rpx;
+  color: #8b93a7;
+}
+
+.train-zonebar-track {
+  position: relative;
+  height: 16rpx;
+  background-color: #1a2040;
+  border-radius: 8rpx;
+  overflow: visible;
+}
+
+.train-zonebar-fill {
+  height: 100%;
+  background-color: #44d08e;
+  border-radius: 8rpx;
+}
+
+.train-zonebar-target {
+  position: absolute;
+  top: -4rpx;
+  width: 4rpx;
+  height: 24rpx;
+  background-color: #f59e0b;
+  border-radius: 2rpx;
+}

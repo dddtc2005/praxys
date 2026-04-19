@@ -38,6 +38,14 @@ class User(Base):
     demo_of = Column(String(36), ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    # WeChat Mini Program identity. openid is per-app, unionid spans apps under the
+    # same WeChat Open Platform account. We keep email NOT NULL for FastAPI-Users
+    # compatibility; WeChat-only users get a synthetic "wechat_<openid>@trainsight.local".
+    wechat_openid = Column(String(64), unique=True, index=True, nullable=True)
+    wechat_unionid = Column(String(64), index=True, nullable=True)
+    wechat_nickname = Column(String(100), nullable=True)
+    wechat_avatar_url = Column(String(500), nullable=True)
+
     config = relationship("UserConfig", back_populates="user", uselist=False)
     connections = relationship("UserConnection", back_populates="user")
 

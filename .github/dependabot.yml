@@ -38,6 +38,25 @@ updates:
           - "minor"
           - "patch"
 
+  # WeChat Mini Program npm dependencies (Taro)
+  - package-ecosystem: "npm"
+    directory: "/miniapp"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    reviewers:
+      - "dddtc2005"
+    labels:
+      - "dependencies"
+      - "javascript"
+      - "miniapp"
+    open-pull-requests-limit: 5
+    groups:
+      miniapp-minor:
+        update-types:
+          - "minor"
+          - "patch"
+
   # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"

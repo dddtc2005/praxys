@@ -26,8 +26,9 @@ Garmin/Stryd/Oura APIs → sync/*.py → db/sync_writer.py → SQLite (trainsigh
 | `analysis/` | Metric computation | `metrics.py` (pure functions), `data_loader.py` (CSV I/O + merge), `science.py` (theory YAML loader), `config.py` (UserConfig dataclass), `zones.py`, `thresholds.py`, `training_base.py` |
 | `analysis/providers/` | Pluggable data sources | `base.py` (abstract provider ABCs), `garmin.py`, `stryd.py`, `oura.py`, `ai.py` (AI plan CSV loader), `models.py` |
 | `db/` | Database layer (SQLite) | `models.py` (SQLAlchemy models), `session.py` (engine + session factory), `crypto.py` (Fernet credential encryption), `sync_writer.py` (upsert sync data), `csv_import.py` (one-time CSV migration), `sync_scheduler.py` (background sync jobs) |
-| `api/` | FastAPI backend | `main.py` (app), `deps.py` (data layer), `auth.py` (JWT auth), `users.py`, `views.py` (shared view helpers), `routes/` (endpoints incl. `admin.py`, `register.py`) |
+| `api/` | FastAPI backend | `main.py` (app), `deps.py` (data layer), `auth.py` (JWT auth), `users.py`, `views.py` (shared view helpers), `invitations.py` (shared invitation helpers), `routes/` (endpoints incl. `admin.py`, `register.py`, `wechat.py`) |
 | `web/src/` | React frontend | `pages/` (6 pages: Today, Training, Goal, History, Science, Settings), `components/` (UI + `charts/` sub-dir), `hooks/` (`useApi`, `useChartColors`, `useTheme`, `use-mobile`), `contexts/` (`ScienceContext`, `SettingsContext`), `types/` (API contracts), `lib/` (`chart-theme`, `format`, `utils`, `workout-parser`) |
+| `miniapp/` | WeChat Mini Program (Taro 4 + React) | `src/pages/` (login, today, training, goal, settings), `src/lib/` (`api-client.ts` Taro.request wrapper, `auth.ts` WeChat login flow, `format.ts` copied from web), `src/hooks/useApi.ts` (no react-query — mini program size budget), `src/types/api.ts` copied from web. Build: `npm run build:weapp` → `dist/` loaded by WeChat DevTools |
 | `plugins/` | Trainsight plugin | `trainsight/skills/` (8 SKILL.md files), `trainsight/mcp-server/` (MCP server: `server.py`, `auth.py`) |
 | `tests/` | pytest suite | `test_metrics.py`, `test_integration.py`, etc. |
 | `data/` | Sample + science data | `sample/` (tracked synthetic CSVs), `science/` (theory YAMLs: load, recovery, prediction, zones, labels) |
@@ -208,6 +209,15 @@ python -m pytest tests/ -v
 - Admin page (`/admin`) lets admins generate invitation codes and manage users
 - Admin status is granted to: the first registered user, and any user matching `TRAINSIGHT_ADMIN_EMAIL`
 
+### WeChat Mini Program auth
+
+The `/api/auth/wechat/*` endpoints (`login`, `link-with-password`, `register`) let a WeChat Mini Program authenticate against the same backend. WeChat-only users get a synthetic sentinel in `users.email` (`wechat:<openid>`) since FastAPI-Users requires a non-null email; users who supply an email+password on register can also log in via the normal web flow. Invitation-code rules are shared with the web register route via `api/invitations.py`.
+
+Required env vars (set only if you're running a mini program):
+- `WECHAT_MINIAPP_APPID` — from `mp.weixin.qq.com` → 开发 → 开发设置
+- `WECHAT_MINIAPP_SECRET` — same page; rotate like any secret
+- If unset, the endpoints return 503 `WECHAT_NOT_CONFIGURED` (the rest of the app is unaffected)
+
 ## Documentation
 
 Keep docs in sync with code — stale docs are worse than no docs. See `docs/dev/contributing.md` for which files to update when making changes.
@@ -262,6 +272,8 @@ Training-domain skills live in `plugins/trainsight/skills/` (see "AI Skills" bel
 | `add-metric` | Scaffold a new metric end-to-end (7-step guide) |
 
 Skills use MCP tools provided by the Trainsight plugin MCP server (`plugins/trainsight/mcp-server/server.py`). The server runs in dual mode: local (direct DB access) or remote (HTTP API with JWT auth via `TRAINSIGHT_URL`).
+
+The plugin's `.mcp.json` hardcodes the hosted production URLs so contributors get a working setup out of the box — first use just needs the `login` MCP tool. To point the plugin at a local backend or flip to local DB mode instead, see `plugins/trainsight/README.md`.
 
 ## AI Features
 

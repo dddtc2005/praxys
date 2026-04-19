@@ -80,6 +80,15 @@ def init_db():
         ("user_config", "display_name", "VARCHAR(100) DEFAULT ''"),
         ("users", "is_demo", "BOOLEAN NOT NULL DEFAULT 0"),
         ("users", "demo_of", "VARCHAR(36) DEFAULT NULL"),
+        ("users", "wechat_openid", "VARCHAR(64) DEFAULT NULL"),
+        ("users", "wechat_unionid", "VARCHAR(64) DEFAULT NULL"),
+        ("users", "wechat_nickname", "VARCHAR(100) DEFAULT NULL"),
+        ("users", "wechat_avatar_url", "VARCHAR(500) DEFAULT NULL"),
+    ]
+    _indexes = [
+        # (index_name, table, column, unique)
+        ("ix_users_wechat_openid", "users", "wechat_openid", True),
+        ("ix_users_wechat_unionid", "users", "wechat_unionid", False),
     ]
     with engine.connect() as conn:
         for table, column, col_type in _migrations:
@@ -93,6 +102,25 @@ def init_db():
                         # Column may already exist (concurrent worker startup)
                         conn.rollback()
                         _log.debug("Column %s.%s already exists, skipping", table, column)
+
+        # Refresh inspector after ALTERs so get_columns sees the new columns
+        # before we attempt to create indexes that reference them.
+        insp_after = inspect(engine)
+        for index_name, table, column, unique in _indexes:
+            if table not in insp_after.get_table_names():
+                continue
+            existing_cols = {c["name"] for c in insp_after.get_columns(table)}
+            if column not in existing_cols:
+                continue
+            unique_clause = "UNIQUE " if unique else ""
+            try:
+                conn.execute(text(
+                    f"CREATE {unique_clause}INDEX IF NOT EXISTS {index_name} ON {table} ({column})"
+                ))
+                conn.commit()
+            except OperationalError:
+                conn.rollback()
+                _log.debug("Index %s already exists, skipping", index_name)
 
 
 def get_db():

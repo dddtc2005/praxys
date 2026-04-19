@@ -1,0 +1,129 @@
+.today-root {
+  padding: 32rpx 32rpx 64rpx;
+}
+
+.today-header {
+  font-size: 52rpx;
+  font-weight: 700;
+  color: #e6ebf5;
+  display: block;
+}
+
+.today-date {
+  font-size: 26rpx;
+  color: #8b93a7;
+  display: block;
+  margin-bottom: 32rpx;
+}
+
+.today-signal {
+  padding: 40rpx 32rpx;
+}
+
+.today-signal-label {
+  font-size: 48rpx;
+  font-weight: 700;
+  letter-spacing: 4rpx;
+  display: block;
+  margin-bottom: 8rpx;
+}
+
+.today-signal-title {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #e6ebf5;
+  display: block;
+  margin-bottom: 16rpx;
+}
+
+.today-signal-reason {
+  font-size: 28rpx;
+  color: #8b93a7;
+  line-height: 1.5;
+  display: block;
+}
+
+.today-recovery-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #1a2040;
+}
+
+.today-recovery-row:last-child {
+  border-bottom: none;
+}
+
+.today-recovery-label,
+.today-recovery-value {
+  font-size: 28rpx;
+}
+
+.today-upcoming-row {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #1a2040;
+}
+
+.today-upcoming-row:last-child {
+  border-bottom: none;
+}
+
+.today-upcoming-date {
+  font-size: 24rpx;
+  color: #8b93a7;
+  width: 160rpx;
+  font-variant-numeric: tabular-nums;
+}
+
+.today-upcoming-name {
+  font-size: 28rpx;
+  color: #e6ebf5;
+  flex: 1;
+}
+
+.today-upcoming-meta {
+  font-size: 24rpx;
+  color: #8b93a7;
+}
+
+.today-last-date {
+  font-size: 28rpx;
+  color: #e6ebf5;
+  display: block;
+  margin-bottom: 16rpx;
+}
+
+.today-last-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32rpx;
+}
+
+.today-metric {
+  min-width: 160rpx;
+}
+
+.today-metric-label {
+  font-size: 22rpx;
+  text-transform: uppercase;
+  letter-spacing: 1rpx;
+  display: block;
+  margin-bottom: 4rpx;
+}
+
+.today-metric-value {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #e6ebf5;
+  display: block;
+}
+
+.today-warnings .today-warning-item {
+  font-size: 26rpx;
+  display: block;
+  padding: 8rpx 0;
+  line-height: 1.5;
+}

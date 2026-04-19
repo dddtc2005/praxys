@@ -1,0 +1,46 @@
+.goal-root {
+  padding: 32rpx 32rpx 64rpx;
+}
+
+.goal-header {
+  font-size: 52rpx;
+  font-weight: 700;
+  color: #e6ebf5;
+  display: block;
+  margin-bottom: 24rpx;
+}
+
+.goal-countdown {
+  text-align: center;
+  padding: 56rpx 32rpx;
+}
+
+.goal-countdown-value {
+  font-size: 96rpx;
+  font-weight: 700;
+  color: #44d08e;
+  display: block;
+  line-height: 1;
+}
+
+.goal-countdown-label {
+  font-size: 26rpx;
+  display: block;
+  margin-top: 12rpx;
+  text-transform: uppercase;
+  letter-spacing: 2rpx;
+}
+
+.goal-big {
+  font-size: 48rpx;
+  font-weight: 600;
+  color: #e6ebf5;
+  display: block;
+  margin-bottom: 8rpx;
+}
+
+.goal-assessment {
+  font-size: 28rpx;
+  color: #e6ebf5;
+  line-height: 1.5;
+}

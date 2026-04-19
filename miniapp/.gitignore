@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.DS_Store
+project.private.config.json
+*.log
+
+# Taro/SWC compile cache (binary, platform-specific)
+.swc/

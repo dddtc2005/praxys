@@ -1,0 +1,39 @@
+.settings-root {
+  padding: 32rpx 32rpx 64rpx;
+}
+
+.settings-header {
+  font-size: 52rpx;
+  font-weight: 700;
+  color: #e6ebf5;
+  display: block;
+  margin-bottom: 24rpx;
+}
+
+.settings-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #1a2040;
+}
+
+.settings-row:last-child {
+  border-bottom: none;
+}
+
+.settings-label,
+.settings-value {
+  font-size: 28rpx;
+}
+
+.settings-label {
+  text-transform: capitalize;
+}
+
+.settings-hint {
+  font-size: 24rpx;
+  display: block;
+  margin-top: 12rpx;
+  line-height: 1.5;
+}

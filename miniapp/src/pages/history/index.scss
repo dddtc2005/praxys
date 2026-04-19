@@ -1,0 +1,109 @@
+.history-root {
+  padding: 32rpx 32rpx 64rpx;
+}
+
+.history-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 24rpx;
+}
+
+.history-header {
+  font-size: 52rpx;
+  font-weight: 700;
+  color: #e6ebf5;
+}
+
+.history-total {
+  font-size: 24rpx;
+}
+
+.history-row {
+  cursor: pointer;
+}
+
+.history-row-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 12rpx;
+}
+
+.history-row-date {
+  font-size: 24rpx;
+  font-variant-numeric: tabular-nums;
+}
+
+.history-row-type {
+  font-size: 26rpx;
+  color: #e6ebf5;
+  text-transform: capitalize;
+}
+
+.history-row-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32rpx;
+  margin-top: 8rpx;
+}
+
+.history-metric {
+  min-width: 100rpx;
+}
+
+.history-metric-label {
+  font-size: 20rpx;
+  text-transform: uppercase;
+  letter-spacing: 1rpx;
+  display: block;
+}
+
+.history-metric-value {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #e6ebf5;
+  display: block;
+}
+
+.history-tap-hint {
+  font-size: 22rpx;
+  display: block;
+  margin-top: 16rpx;
+}
+
+.history-splits {
+  margin-top: 16rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid #1a2040;
+}
+
+.history-split-row {
+  display: flex;
+  gap: 24rpx;
+  padding: 6rpx 0;
+  align-items: baseline;
+}
+
+.history-split-num {
+  width: 48rpx;
+  font-size: 22rpx;
+}
+
+.history-split-cell {
+  font-size: 24rpx;
+  min-width: 100rpx;
+}
+
+.history-split-more {
+  font-size: 22rpx;
+  display: block;
+  padding-top: 8rpx;
+}
+
+.history-footer {
+  text-align: center;
+  padding: 32rpx 0;
+  font-size: 24rpx;
+  display: block;
+}
