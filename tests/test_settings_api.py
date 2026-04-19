@@ -20,9 +20,9 @@ def api_client(monkeypatch):
     # released the file lock by the time the temp dir is removed.
     tmpdir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
     monkeypatch.setenv("DATA_DIR", tmpdir.name)
-    monkeypatch.setenv("TRAINSIGHT_SYNC_SCHEDULER", "false")
+    monkeypatch.setenv("PRAXYS_SYNC_SCHEDULER", "false")
     monkeypatch.setenv(
-        "TRAINSIGHT_LOCAL_ENCRYPTION_KEY", "JKkx_5SVHKQDr0HSMrwl0KQHcA0pl5pxsYSLEAQDB4o="
+        "PRAXYS_LOCAL_ENCRYPTION_KEY", "JKkx_5SVHKQDr0HSMrwl0KQHcA0pl5pxsYSLEAQDB4o="
     )
     # Reset the module-level engine singletons so init_db rebuilds against tmpdir.
     from db import session as db_session

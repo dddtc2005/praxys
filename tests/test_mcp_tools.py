@@ -52,7 +52,7 @@ class TestUserDetection:
         assert len(uid) > 0
 
     def test_env_var_override(self, monkeypatch):
-        monkeypatch.setenv("TRAINSIGHT_USER_ID", "test-override-id")
+        monkeypatch.setenv("PRAXYS_USER_ID", "test-override-id")
         import server
         server._cached_user_id = None
         uid = server._local_user_id()

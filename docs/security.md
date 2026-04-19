@@ -31,13 +31,13 @@ The KEK is a **Fernet key** stored in your `.env` file (which is gitignored). Ge
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-Set as `TRAINSIGHT_LOCAL_ENCRYPTION_KEY` in `.env`. Without this key, encrypted credentials cannot be decrypted and syncs will fail after a restart.
+Set as `PRAXYS_LOCAL_ENCRYPTION_KEY` in `.env`. Without this key, encrypted credentials cannot be decrypted and syncs will fail after a restart.
 
 ## Authentication
 
 ### JWT Tokens
 
-User sessions use JSON Web Tokens (JWT) with a 7-day lifetime. Tokens are signed with a server-side secret (`TRAINSIGHT_JWT_SECRET`). Expired tokens are rejected and the user must log in again.
+User sessions use JSON Web Tokens (JWT) with a 7-day lifetime. Tokens are signed with a server-side secret (`PRAXYS_JWT_SECRET`). Expired tokens are rejected and the user must log in again.
 
 ### Two Types of Passwords
 

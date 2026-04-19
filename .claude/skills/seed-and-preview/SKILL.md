@@ -30,8 +30,8 @@ Run these checks and report any that fail. Do not proceed past a failure.
    - Unix: `source .venv/bin/activate`
 3. `.env` exists and has a Fernet key:
    ```bash
-   test -f .env && grep -q TRAINSIGHT_LOCAL_ENCRYPTION_KEY .env || \
-     echo "MISSING: .env or TRAINSIGHT_LOCAL_ENCRYPTION_KEY — see CLAUDE.md 'First-time setup'"
+   test -f .env && grep -q PRAXYS_LOCAL_ENCRYPTION_KEY .env || \
+     echo "MISSING: .env or PRAXYS_LOCAL_ENCRYPTION_KEY — see CLAUDE.md 'First-time setup'"
    ```
 4. Python deps installed (`pip show fastapi >/dev/null 2>&1` or
    `pip install -r requirements.txt`).

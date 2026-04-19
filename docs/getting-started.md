@@ -108,15 +108,15 @@ Edit `.env` and generate the required encryption key:
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-Paste the key as the value for `TRAINSIGHT_LOCAL_ENCRYPTION_KEY` in `.env`. This key encrypts platform credentials (Garmin/Stryd/Oura passwords) at rest.
+Paste the key as the value for `PRAXYS_LOCAL_ENCRYPTION_KEY` in `.env`. This key encrypts platform credentials (Garmin/Stryd/Oura passwords) at rest.
 
 `.env` settings:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `TRAINSIGHT_LOCAL_ENCRYPTION_KEY` | Yes | Fernet key for credential encryption. Without this, credentials won't survive restarts. |
-| `TRAINSIGHT_JWT_SECRET` | No | JWT signing key. Auto-generated if not set, but tokens won't survive restarts. |
-| `TRAINSIGHT_ADMIN_EMAIL` | No | This email can register without an invitation code. Not needed if you're the first user. |
+| `PRAXYS_LOCAL_ENCRYPTION_KEY` | Yes | Fernet key for credential encryption. Without this, credentials won't survive restarts. |
+| `PRAXYS_JWT_SECRET` | No | JWT signing key. Auto-generated if not set, but tokens won't survive restarts. |
+| `PRAXYS_ADMIN_EMAIL` | No | This email can register without an invitation code. Not needed if you're the first user. |
 
 ### 3. Start the Servers
 

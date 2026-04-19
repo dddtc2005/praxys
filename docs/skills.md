@@ -38,16 +38,16 @@ The default `.mcp.json` ships with cloud URLs pre-configured:
       "command": "python",
       "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-server/server.py"],
       "env": {
-        "TRAINSIGHT_URL": "https://trainsight-app.azurewebsites.net",
-        "TRAINSIGHT_FRONTEND_URL": "https://jolly-sand-0aeced900.7.azurestaticapps.net"
+        "PRAXYS_URL": "https://trainsight-app.azurewebsites.net",
+        "PRAXYS_FRONTEND_URL": "https://jolly-sand-0aeced900.7.azurestaticapps.net"
       }
     }
   }
 }
 ```
 
-- `TRAINSIGHT_URL` — Backend API (required for remote mode)
-- `TRAINSIGHT_FRONTEND_URL` — Frontend SWA (used for browser-based login)
+- `PRAXYS_URL` — Backend API (required for remote mode)
+- `PRAXYS_FRONTEND_URL` — Frontend SWA (used for browser-based login)
 
 **Authentication:** Use the `login` tool in Claude Code — it opens your browser, you log in normally, and the token is automatically cached at `~/.trainsight/token`. Use `whoami` to check which account is active.
 
@@ -90,7 +90,7 @@ The plugin provides an MCP server (`plugins/praxys/mcp-server/server.py`) that e
 | `trigger_sync` | Sync data from connected platforms |
 | `get_sync_status` | Check sync status per platform |
 
-Each tool works in both remote mode (HTTP to the deployed API) and local mode (direct Python imports). The mode is determined by the `TRAINSIGHT_URL` environment variable.
+Each tool works in both remote mode (HTTP to the deployed API) and local mode (direct Python imports). The mode is determined by the `PRAXYS_URL` environment variable.
 
 ## Available Skills
 

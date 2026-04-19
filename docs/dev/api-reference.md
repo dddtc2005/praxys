@@ -19,7 +19,7 @@ Register a new user. First user on a fresh database becomes admin without an inv
 }
 ```
 
-- `invitation_code` is optional for the first user (auto-admin) or if the email matches `TRAINSIGHT_ADMIN_EMAIL`
+- `invitation_code` is optional for the first user (auto-admin) or if the email matches `PRAXYS_ADMIN_EMAIL`
 
 **Response:**
 ```json
