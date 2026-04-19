@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View, Text, Button, Input } from '@tarojs/components';
-import Taro from '@tarojs/taro';
+import Taro, { useDidShow } from '@tarojs/taro';
 
 import {
   runLaunchLogin,
@@ -9,6 +9,7 @@ import {
   wechatRegister,
 } from '@/lib/auth';
 import type { ApiError } from '@/lib/api-client';
+import { applyThemeChrome, themeClassName } from '@/lib/theme';
 import './index.scss';
 
 type Stage =
@@ -20,6 +21,7 @@ type Stage =
 
 export default function LoginPage() {
   const [stage, setStage] = useState<Stage>({ kind: 'loading' });
+  useDidShow(() => applyThemeChrome());
 
   // On mount, run the login exchange once. `hasRun` prevents a double-run
   // from React.StrictMode / hot reload during development.
@@ -50,7 +52,7 @@ export default function LoginPage() {
 
   if (stage.kind === 'loading') {
     return (
-      <View className="login-root">
+      <View className={`login-root ${themeClassName()}`}>
         <Text className="login-title">Signing you in…</Text>
       </View>
     );
@@ -58,7 +60,7 @@ export default function LoginPage() {
 
   if (stage.kind === 'error') {
     return (
-      <View className="login-root">
+      <View className={`login-root ${themeClassName()}`}>
         <Text className="login-title ts-destructive">Sign-in failed</Text>
         <Text className="login-detail">{stage.message}</Text>
         <Button
@@ -73,7 +75,7 @@ export default function LoginPage() {
 
   if (stage.kind === 'choose') {
     return (
-      <View className="login-root">
+      <View className={`login-root ${themeClassName()}`}>
         <Text className="login-title">Welcome to Trainsight</Text>
         <Text className="login-detail">
           Let's connect your WeChat to a Trainsight account.
@@ -144,7 +146,7 @@ function LinkForm({ ticket, onBack }: FormProps) {
   }
 
   return (
-    <View className="login-root">
+    <View className={`login-root ${themeClassName()}`}>
       <Text className="login-title">Link your account</Text>
       <Text className="login-detail">
         Enter the email + password you use on trainsight.app.
@@ -153,6 +155,7 @@ function LinkForm({ ticket, onBack }: FormProps) {
         className="ts-input login-input"
         type="text"
         placeholder="email"
+        placeholderStyle="color: #6b7394;"
         value={email}
         onInput={(e) => setEmail(e.detail.value)}
       />
@@ -160,6 +163,7 @@ function LinkForm({ ticket, onBack }: FormProps) {
         className="ts-input login-input"
         password
         placeholder="password"
+        placeholderStyle="color: #6b7394;"
         value={password}
         onInput={(e) => setPassword(e.detail.value)}
       />
@@ -204,7 +208,7 @@ function RegisterForm({ ticket, onBack }: FormProps) {
   }
 
   return (
-    <View className="login-root">
+    <View className={`login-root ${themeClassName()}`}>
       <Text className="login-title">Create your account</Text>
       <Text className="login-detail">
         Trainsight is invite-only while in beta. Email + password are optional
@@ -214,6 +218,7 @@ function RegisterForm({ ticket, onBack }: FormProps) {
         className="ts-input login-input"
         type="text"
         placeholder="invitation code (required)"
+        placeholderStyle="color: #6b7394;"
         value={invitationCode}
         onInput={(e) => setInvitationCode(e.detail.value.toUpperCase())}
       />
@@ -221,6 +226,7 @@ function RegisterForm({ ticket, onBack }: FormProps) {
         className="ts-input login-input"
         type="text"
         placeholder="email (optional)"
+        placeholderStyle="color: #6b7394;"
         value={email}
         onInput={(e) => setEmail(e.detail.value)}
       />
@@ -228,6 +234,7 @@ function RegisterForm({ ticket, onBack }: FormProps) {
         className="ts-input login-input"
         password
         placeholder="password (optional)"
+        placeholderStyle="color: #6b7394;"
         value={password}
         onInput={(e) => setPassword(e.detail.value)}
       />

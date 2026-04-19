@@ -13,6 +13,7 @@ export default defineAppConfig({
     'pages/goal/index',
     'pages/history/index',
     'pages/settings/index',
+    'pages/science/index',
   ],
   window: {
     backgroundTextStyle: 'dark',
@@ -29,7 +30,7 @@ export default defineAppConfig({
     list: [
       { pagePath: 'pages/today/index', text: 'Today' },
       { pagePath: 'pages/training/index', text: 'Training' },
-      { pagePath: 'pages/history/index', text: 'History' },
+      { pagePath: 'pages/history/index', text: 'Activities' },
       { pagePath: 'pages/goal/index', text: 'Goal' },
       { pagePath: 'pages/settings/index', text: 'Settings' },
     ],

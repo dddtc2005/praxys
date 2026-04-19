@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { Canvas, View, Text } from '@tarojs/components';
 import Taro from '@tarojs/taro';
 
+import { chartColors } from '@/lib/theme';
 import './LineChart.scss';
 
 /**
@@ -45,10 +46,6 @@ interface LineChartProps {
 }
 
 const PADDING = { top: 16, right: 16, bottom: 24, left: 40 };
-const AXIS_COLOR = '#2a3252';
-const GRID_COLOR = '#1a2040';
-const TICK_COLOR = '#8b93a7';
-const ZERO_COLOR = '#44d08e';
 
 // Bracket-access the selector-query trigger to avoid tripping lint rules
 // that pattern-match on the literal `.exec(` token meant for Node's
@@ -99,7 +96,17 @@ export default function LineChart({
           canvas.height = cssHeight * dpr;
           ctx.setTransform(1, 0, 0, 1, 0, 0);
           ctx.scale(dpr, dpr);
-          renderChart(ctx, cssWidth, cssHeight, bounds, series, dates, showZeroLine, showAxes);
+          renderChart(
+            ctx,
+            cssWidth,
+            cssHeight,
+            bounds,
+            series,
+            dates,
+            showZeroLine,
+            showAxes,
+            chartColors(),
+          );
         },
       );
     }
@@ -151,12 +158,13 @@ function renderChart(
   dates: string[] | undefined,
   showZeroLine: boolean,
   showAxes: boolean,
+  colors: { axis: string; grid: string; tick: string; zero: string },
 ) {
   const { yMin, yMax, n } = bounds;
   ctx.clearRect(0, 0, width, height);
 
   if (n < 2 || yMax === yMin) {
-    ctx.fillStyle = TICK_COLOR;
+    ctx.fillStyle = colors.tick;
     ctx.font = '11px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('Not enough data', width / 2, height / 2);
@@ -175,7 +183,7 @@ function renderChart(
     plotBottom - ((v - yMin) / (yMax - yMin)) * plotHeight;
 
   // Horizontal gridlines (4 divisions).
-  ctx.strokeStyle = GRID_COLOR;
+  ctx.strokeStyle = colors.grid;
   ctx.lineWidth = 0.5;
   for (let i = 0; i <= 4; i++) {
     const y = plotTop + (plotHeight * i) / 4;
@@ -188,7 +196,7 @@ function renderChart(
   // Optional zero line for things like TSB.
   if (showZeroLine && yMin < 0 && yMax > 0) {
     const y = yScale(0);
-    ctx.strokeStyle = ZERO_COLOR;
+    ctx.strokeStyle = colors.zero;
     ctx.setLineDash([4, 4]);
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -253,7 +261,7 @@ function renderChart(
   }
 
   if (showAxes) {
-    ctx.fillStyle = TICK_COLOR;
+    ctx.fillStyle = colors.tick;
     ctx.font = '10px sans-serif';
 
     ctx.textAlign = 'right';
@@ -269,7 +277,7 @@ function renderChart(
       ctx.fillText(shortDate(dates[dates.length - 1]), plotRight, plotBottom + 6);
     }
 
-    ctx.strokeStyle = AXIS_COLOR;
+    ctx.strokeStyle = colors.axis;
     ctx.lineWidth = 0.5;
     ctx.beginPath();
     ctx.moveTo(plotLeft, plotBottom);

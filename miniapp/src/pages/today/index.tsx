@@ -1,9 +1,10 @@
 import { View, Text, Button } from '@tarojs/components';
-import Taro, { usePullDownRefresh } from '@tarojs/taro';
+import Taro, { usePullDownRefresh, useDidShow } from '@tarojs/taro';
 
 import { useApi } from '@/hooks/useApi';
 import type { TodayResponse } from '@/types/api';
 import { formatDistance, formatTime } from '@/lib/format';
+import { applyThemeChrome, themeClassName } from '@/lib/theme';
 import LineChart from '@/components/LineChart';
 import './index.scss';
 
@@ -15,6 +16,8 @@ import './index.scss';
  */
 export default function TodayPage() {
   const { data, loading, error, refetch } = useApi<TodayResponse>('/api/today');
+
+  useDidShow(() => applyThemeChrome());
 
   // WeChat's standard "pull down to refresh" gesture → re-fetch.
   usePullDownRefresh(() => {
@@ -30,7 +33,7 @@ export default function TodayPage() {
 
   if (loading && !data) {
     return (
-      <View className="today-root">
+      <View className={`today-root ${themeClassName()}`}>
         <Text className="today-header">Today</Text>
         <Text className="today-date">{today}</Text>
         <View className="ts-card">
@@ -45,7 +48,7 @@ export default function TodayPage() {
 
   if (error) {
     return (
-      <View className="today-root">
+      <View className={`today-root ${themeClassName()}`}>
         <Text className="today-header ts-destructive">Failed to load</Text>
         <Text className="today-date">{error}</Text>
         <Button className="ts-button" onClick={() => refetch()}>Retry</Button>
@@ -55,7 +58,7 @@ export default function TodayPage() {
 
   if (!data) {
     return (
-      <View className="today-root">
+      <View className={`today-root ${themeClassName()}`}>
         <Text className="today-header">Today</Text>
         <Text className="today-date">No data available yet.</Text>
       </View>
@@ -66,7 +69,7 @@ export default function TodayPage() {
   const hasSparkline = tsb_sparkline && tsb_sparkline.values.length >= 2;
 
   return (
-    <View className="today-root">
+    <View className={`today-root ${themeClassName()}`}>
       <Text className="today-header">Today</Text>
       <Text className="today-date">{today}</Text>
 
@@ -75,6 +78,13 @@ export default function TodayPage() {
       {hasSparkline && (
         <View className="ts-card">
           <Text className="ts-section-label">Form (TSB)</Text>
+          <FormHeadline
+            tsb={
+              signal?.recovery?.tsb ??
+              tsb_sparkline.values[tsb_sparkline.values.length - 1] ??
+              null
+            }
+          />
           <LineChart
             canvasId="today-sparkline"
             height={200}
@@ -194,6 +204,42 @@ function SignalCard({
       <Text className={`today-signal-label ${meta.accent}`}>{meta.label}</Text>
       <Text className="today-signal-title">{meta.title}</Text>
       <Text className="today-signal-reason">{reason}</Text>
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Form headline — current TSB value + zone badge
+// ---------------------------------------------------------------------------
+
+/**
+ * Map a TSB value to a textual zone name + an accent class. Thresholds are
+ * the widely-used Banister-style bands; Trainsight's science page shows
+ * exact zone boundaries for whichever load theory is active, so this
+ * headline is a quick-glance summary, not the source of truth.
+ *
+ * The web app's FormSparkline uses the same buckets.
+ */
+function tsbZone(tsb: number): { label: string; accent: string } {
+  if (tsb > 25) return { label: 'Peaked', accent: 'ts-warning' };
+  if (tsb >= 5) return { label: 'Fresh', accent: 'ts-primary' };
+  if (tsb >= -10) return { label: 'Neutral', accent: '' };
+  if (tsb >= -30) return { label: 'Fatigued', accent: 'ts-warning' };
+  return { label: 'Over-fatigued', accent: 'ts-destructive' };
+}
+
+function FormHeadline({ tsb }: { tsb: number | null | undefined }) {
+  if (tsb == null) {
+    return <Text className="today-tsb-headline ts-muted">No TSB data yet</Text>;
+  }
+  const zone = tsbZone(tsb);
+  return (
+    <View className="today-tsb-headline-row">
+      <Text className="today-tsb-value ts-value">
+        {tsb >= 0 ? '+' : ''}
+        {tsb.toFixed(1)}
+      </Text>
+      <Text className={`today-tsb-zone ${zone.accent}`}>{zone.label}</Text>
     </View>
   );
 }

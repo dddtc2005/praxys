@@ -5,13 +5,18 @@ import Taro from '@tarojs/taro';
  * DevTools (simulator allows 不校验合法域名); for production the domain
  * must be whitelisted in the mini-program console.
  *
- * Value is injected at build time via `defineConstants` in
- * config/index.ts; fallback is the Azure deployment so DevTools-only
- * testing works without extra config.
+ * Override at build time:
+ *   API_BASE=http://192.168.1.5:8000 npm run build:weapp
+ *
+ * The value is baked into the bundle via `defineConstants` in
+ * config/index.ts — mini programs don't have runtime environment
+ * variables, so this has to happen at compile time.
+ *
+ * Default: localhost:8000 (matches `uvicorn api.main:app --reload`).
  */
 export const API_BASE: string =
   (typeof process !== 'undefined' && (process.env.API_BASE as string | undefined)) ||
-  'https://jolly-sand-0aeced900.7.azurestaticapps.net';
+  'http://localhost:8000';
 
 export const TOKEN_KEY = 'trainsight-auth-token';
 

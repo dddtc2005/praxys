@@ -1,17 +1,20 @@
 .today-root {
+  // Theme class on the same element paints background + text color;
+  // see app.scss .theme-dark / .theme-light.
   padding: 32rpx 32rpx 64rpx;
+  min-height: 100vh;
 }
 
 .today-header {
   font-size: 52rpx;
   font-weight: 700;
-  color: #e6ebf5;
+  color: var(--text);
   display: block;
 }
 
 .today-date {
   font-size: 26rpx;
-  color: #8b93a7;
+  color: var(--text-muted);
   display: block;
   margin-bottom: 32rpx;
 }
@@ -31,14 +34,14 @@
 .today-signal-title {
   font-size: 36rpx;
   font-weight: 600;
-  color: #e6ebf5;
+  color: var(--text);
   display: block;
   margin-bottom: 16rpx;
 }
 
 .today-signal-reason {
   font-size: 28rpx;
-  color: #8b93a7;
+  color: var(--text-muted);
   line-height: 1.5;
   display: block;
 }
@@ -48,7 +51,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 16rpx 0;
-  border-bottom: 1rpx solid #1a2040;
+  border-bottom: 1rpx solid var(--border-subtle);
 }
 
 .today-recovery-row:last-child {
@@ -64,7 +67,7 @@
   display: flex;
   align-items: center;
   padding: 16rpx 0;
-  border-bottom: 1rpx solid #1a2040;
+  border-bottom: 1rpx solid var(--border-subtle);
 }
 
 .today-upcoming-row:last-child {
@@ -73,25 +76,25 @@
 
 .today-upcoming-date {
   font-size: 24rpx;
-  color: #8b93a7;
+  color: var(--text-muted);
   width: 160rpx;
   font-variant-numeric: tabular-nums;
 }
 
 .today-upcoming-name {
   font-size: 28rpx;
-  color: #e6ebf5;
+  color: var(--text);
   flex: 1;
 }
 
 .today-upcoming-meta {
   font-size: 24rpx;
-  color: #8b93a7;
+  color: var(--text-muted);
 }
 
 .today-last-date {
   font-size: 28rpx;
-  color: #e6ebf5;
+  color: var(--text);
   display: block;
   margin-bottom: 16rpx;
 }
@@ -117,7 +120,7 @@
 .today-metric-value {
   font-size: 32rpx;
   font-weight: 600;
-  color: #e6ebf5;
+  color: var(--text);
   display: block;
 }
 
@@ -126,4 +129,31 @@
   display: block;
   padding: 8rpx 0;
   line-height: 1.5;
+}
+
+.today-tsb-headline-row {
+  display: flex;
+  align-items: baseline;
+  gap: 16rpx;
+  margin-bottom: 16rpx;
+}
+
+.today-tsb-value {
+  font-size: 56rpx;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.today-tsb-zone {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1rpx;
+}
+
+.today-tsb-headline {
+  font-size: 26rpx;
+  display: block;
+  margin-bottom: 12rpx;
 }

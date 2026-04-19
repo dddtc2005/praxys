@@ -1,9 +1,10 @@
 import { View, Text, Button } from '@tarojs/components';
-import Taro, { usePullDownRefresh } from '@tarojs/taro';
+import Taro, { usePullDownRefresh, useDidShow } from '@tarojs/taro';
 
 import { useApi } from '@/hooks/useApi';
 import type { GoalResponse } from '@/types/api';
 import { formatTime } from '@/lib/format';
+import { applyThemeChrome, themeClassName } from '@/lib/theme';
 import LineChart from '@/components/LineChart';
 import './index.scss';
 
@@ -14,6 +15,7 @@ import './index.scss';
  */
 export default function GoalPage() {
   const { data, loading, error, refetch } = useApi<GoalResponse>('/api/goal');
+  useDidShow(() => applyThemeChrome());
   usePullDownRefresh(() => {
     refetch();
     Taro.stopPullDownRefresh();
@@ -21,7 +23,7 @@ export default function GoalPage() {
 
   if (loading && !data) {
     return (
-      <View className="goal-root">
+      <View className={`goal-root ${themeClassName()}`}>
         <Text className="goal-header">Goal</Text>
         <View className="ts-card"><View className="ts-skeleton" /></View>
       </View>
@@ -30,7 +32,7 @@ export default function GoalPage() {
 
   if (error) {
     return (
-      <View className="goal-root">
+      <View className={`goal-root ${themeClassName()}`}>
         <Text className="goal-header ts-destructive">Failed to load</Text>
         <Text>{error}</Text>
         <Button className="ts-button" onClick={() => refetch()}>Retry</Button>
@@ -44,7 +46,7 @@ export default function GoalPage() {
 
   if (rc.mode === 'none') {
     return (
-      <View className="goal-root">
+      <View className={`goal-root ${themeClassName()}`}>
         <Text className="goal-header">Goal</Text>
         <View className="ts-card">
           <Text className="ts-muted">
@@ -57,7 +59,7 @@ export default function GoalPage() {
   }
 
   return (
-    <View className="goal-root">
+    <View className={`goal-root ${themeClassName()}`}>
       <Text className="goal-header">Goal</Text>
 
       {rc.days_left != null && (
@@ -72,7 +74,7 @@ export default function GoalPage() {
           <Text className="ts-section-label">Predicted finish</Text>
           <Text className="goal-big ts-value">{formatTime(rc.predicted_time_sec)}</Text>
           {rc.target_time_sec != null && (
-            <Text className="ts-muted">
+            <Text className="goal-target-line">
               Target: {formatTime(rc.target_time_sec)}
             </Text>
           )}
@@ -87,22 +89,24 @@ export default function GoalPage() {
             {rc.cp_gap_watts.toFixed(0)} W
           </Text>
           {rc.current_cp != null && rc.target_cp != null && (
-            <Text className="ts-muted">
+            <Text className="goal-gap-range">
               {rc.current_cp.toFixed(0)} W → {rc.target_cp.toFixed(0)} W
             </Text>
           )}
         </View>
       )}
 
-      <View className="ts-card">
-        <Text className="ts-section-label">Reality check</Text>
-        <Text className="goal-assessment">{rc.reality_check.assessment}</Text>
-        {rc.reality_check.trend_note && (
-          <Text className="ts-muted" style={{ marginTop: '8rpx' }}>
-            {rc.reality_check.trend_note}
+      {rc.reality_check && (
+        <View className="ts-card">
+          <Text className="ts-section-label">Reality check</Text>
+          <Text className="goal-assessment">
+            {rc.reality_check.assessment}
           </Text>
-        )}
-      </View>
+          {rc.reality_check.trend_note && (
+            <Text className="goal-trend-note">{rc.reality_check.trend_note}</Text>
+          )}
+        </View>
+      )}
 
       {hasCpTrend && (
         <View className="ts-card">

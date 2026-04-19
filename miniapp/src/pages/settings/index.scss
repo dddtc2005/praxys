@@ -1,11 +1,12 @@
 .settings-root {
   padding: 32rpx 32rpx 64rpx;
+  min-height: 100vh;
 }
 
 .settings-header {
   font-size: 52rpx;
   font-weight: 700;
-  color: #e6ebf5;
+  color: var(--text);
   display: block;
   margin-bottom: 24rpx;
 }
@@ -15,7 +16,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 16rpx 0;
-  border-bottom: 1rpx solid #1a2040;
+  border-bottom: 1rpx solid var(--border-subtle);
 }
 
 .settings-row:last-child {
@@ -36,4 +37,92 @@
   display: block;
   margin-top: 12rpx;
   line-height: 1.5;
+}
+
+.settings-empty {
+  display: block;
+  font-size: 26rpx;
+  line-height: 1.6;
+}
+
+.settings-webhint {
+  display: block;
+  font-size: 26rpx;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 16rpx;
+}
+
+.settings-weburl {
+  display: block;
+  font-size: 24rpx;
+  color: var(--text);
+  word-break: break-all;
+  padding: 12rpx 16rpx;
+  background-color: var(--surface-subtle);
+  border-radius: 8rpx;
+  margin-bottom: 16rpx;
+}
+
+.settings-nav-card {
+  // Whole card is tappable; use the native tap highlight only.
+}
+
+.settings-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-nav-title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4rpx;
+}
+
+.settings-nav-sub {
+  display: block;
+  font-size: 22rpx;
+  line-height: 1.4;
+}
+
+.settings-nav-chevron {
+  font-size: 36rpx;
+  padding-left: 24rpx;
+}
+
+.settings-origin {
+  display: block;
+  font-size: 18rpx;
+  line-height: 1.2;
+  margin-top: 2rpx;
+  text-transform: lowercase;
+  letter-spacing: 0.5rpx;
+}
+
+// Theme selector — 3 inline pills.
+.settings-theme-row {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 8rpx;
+}
+
+.settings-theme-opt {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 0;
+  border-radius: 12rpx;
+  font-size: 26rpx;
+  color: var(--text-muted);
+  background-color: var(--surface-subtle);
+  border: 2rpx solid var(--border);
+}
+
+.settings-theme-opt--active {
+  color: var(--primary-on);
+  background-color: var(--primary);
+  border-color: var(--primary);
+  font-weight: 600;
 }

@@ -142,6 +142,13 @@ async def _jscode2session(js_code: str) -> dict:
     Returns {openid, unionid (optional), session_key}. Raises HTTPException
     on configuration or upstream errors. Kept async because this is called
     from FastAPI async handlers; httpx.AsyncClient is the natural fit.
+
+    Note on secret handling: Tencent's jscode2session API only accepts
+    credentials as query-string parameters, so `secret` ends up on the
+    request URL. We silence httpx's INFO logger for the duration of
+    this call to keep the secret out of structured logs (Azure App
+    Insights, local `uvicorn` terminal, etc.). Transport errors still
+    log at WARNING, without the URL.
     """
     appid = os.environ.get("WECHAT_MINIAPP_APPID", "")
     secret = os.environ.get("WECHAT_MINIAPP_SECRET", "")
@@ -154,12 +161,18 @@ async def _jscode2session(js_code: str) -> dict:
         "js_code": js_code,
         "grant_type": "authorization_code",
     }
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        try:
-            resp = await client.get(TENCENT_JSCODE_URL, params=params)
-        except httpx.HTTPError as exc:
-            logger.warning("jscode2session transport error: %s", exc)
-            raise HTTPException(502, "WECHAT_UPSTREAM_ERROR")
+    httpx_logger = logging.getLogger("httpx")
+    previous_level = httpx_logger.level
+    httpx_logger.setLevel(logging.WARNING)
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            try:
+                resp = await client.get(TENCENT_JSCODE_URL, params=params)
+            except httpx.HTTPError as exc:
+                logger.warning("jscode2session transport error: %s", type(exc).__name__)
+                raise HTTPException(502, "WECHAT_UPSTREAM_ERROR")
+    finally:
+        httpx_logger.setLevel(previous_level)
 
     try:
         data = resp.json()

@@ -145,26 +145,23 @@ def test_login_returning_user_gets_jwt(wechat_client):
     assert body["wechat_login_ticket"] is None
 
 
-def test_login_missing_wechat_config_fails(monkeypatch, wechat_client):
-    # Disable the mock so the real helper runs and hits the config check.
+def test_jscode2session_without_config_raises_503(monkeypatch):
+    """Unit test the helper directly — going through the full TestClient
+    plus an importlib.reload to "unload" the wechat mock ends up
+    re-running api.main's load_dotenv(), which silently restores any
+    real credentials a developer has in their local .env. Testing the
+    helper in isolation avoids that fragility entirely."""
+    import asyncio
+    from fastapi import HTTPException
     import api.routes.wechat as wechat_routes
-    monkeypatch.delenv("WECHAT_MINIAPP_APPID", raising=False)
-    monkeypatch.delenv("WECHAT_MINIAPP_SECRET", raising=False)
-    monkeypatch.setattr(
-        wechat_routes, "_jscode2session", wechat_routes._jscode2session.__wrapped__
-        if hasattr(wechat_routes._jscode2session, "__wrapped__")
-        else wechat_routes._jscode2session,
-    )
-    # Re-import a clean (non-monkeypatched) version
-    import importlib
-    importlib.reload(wechat_routes)
-    import api.main
-    importlib.reload(api.main)
-    from fastapi.testclient import TestClient
-    client = TestClient(api.main.app)
-    r = client.post("/api/auth/wechat/login", json={"js_code": "c"})
-    assert r.status_code == 503
-    assert "WECHAT_NOT_CONFIGURED" in r.text
+
+    monkeypatch.setenv("WECHAT_MINIAPP_APPID", "")
+    monkeypatch.setenv("WECHAT_MINIAPP_SECRET", "")
+
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(wechat_routes._jscode2session("any-code"))
+    assert exc_info.value.status_code == 503
+    assert "WECHAT_NOT_CONFIGURED" in str(exc_info.value.detail)
 
 
 # ---------------------------------------------------------------------------

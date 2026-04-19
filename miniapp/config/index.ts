@@ -19,7 +19,12 @@ const config: UserConfigExport = {
   sourceRoot: 'src',
   outputRoot: 'dist',
   plugins: [],
-  defineConstants: {},
+  // Mini programs have no runtime env — expose API_BASE at build time so
+  // it can be overridden like `API_BASE=http://... npm run build:weapp`.
+  // Values must be JSON-stringified; Taro replaces them via webpack.DefinePlugin.
+  defineConstants: {
+    'process.env.API_BASE': JSON.stringify(process.env.API_BASE || ''),
+  },
   copy: {
     patterns: [],
     options: {},

@@ -204,7 +204,14 @@ def load_config_from_db(user_id: str, db) -> UserConfig:
 
     row = db.query(UserConfigModel).filter(UserConfigModel.user_id == user_id).first()
     if not row:
-        return UserConfig()
+        # Fresh user with no saved settings yet. UserConfig()'s default
+        # `connections` field contains ["garmin","stryd","oura"] — a leftover
+        # from the single-user file-based era — which causes the Settings
+        # page to show platforms as connected when the user has never linked
+        # them. Always derive connections from the database instead.
+        fresh = UserConfig()
+        fresh.connections = _get_connections_from_db(user_id, db)
+        return fresh
 
     # Preferences: use stored preferences if set, otherwise derive from connections
     stored_prefs = row.preferences if row.preferences else {}

@@ -1,11 +1,12 @@
 .train-root {
   padding: 32rpx 32rpx 64rpx;
+  min-height: 100vh;
 }
 
 .train-header {
   font-size: 52rpx;
   font-weight: 700;
-  color: #e6ebf5;
+  color: var(--text);
   display: block;
   margin-bottom: 24rpx;
 }
@@ -13,7 +14,7 @@
 .train-hero-value {
   font-size: 48rpx;
   font-weight: 600;
-  color: #e6ebf5;
+  color: var(--text);
   display: block;
 }
 
@@ -25,8 +26,15 @@
 
 .train-line {
   font-size: 26rpx;
-  color: #e6ebf5;
+  color: var(--text);
   line-height: 1.6;
+}
+
+.train-empty {
+  font-size: 26rpx;
+  color: var(--text-muted);
+  line-height: 1.6;
+  display: block;
 }
 
 .train-finding {
@@ -34,7 +42,7 @@
   display: block;
   padding: 8rpx 0;
   line-height: 1.5;
-  color: #e6ebf5;
+  color: var(--text);
 }
 
 .train-zonebar {
@@ -49,25 +57,25 @@
 
 .train-zonebar-name {
   font-size: 26rpx;
-  color: #e6ebf5;
+  color: var(--text);
 }
 
 .train-zonebar-value {
   font-size: 24rpx;
-  color: #8b93a7;
+  color: var(--text-muted);
 }
 
 .train-zonebar-track {
   position: relative;
   height: 16rpx;
-  background-color: #1a2040;
+  background-color: var(--border-subtle);
   border-radius: 8rpx;
   overflow: visible;
 }
 
 .train-zonebar-fill {
   height: 100%;
-  background-color: #44d08e;
+  background-color: var(--primary);
   border-radius: 8rpx;
 }
 
@@ -76,6 +84,6 @@
   top: -4rpx;
   width: 4rpx;
   height: 24rpx;
-  background-color: #f59e0b;
+  background-color: var(--warning);
   border-radius: 2rpx;
 }

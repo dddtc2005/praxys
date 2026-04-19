@@ -1,8 +1,9 @@
 import { View, Text, Button } from '@tarojs/components';
-import Taro, { usePullDownRefresh } from '@tarojs/taro';
+import Taro, { usePullDownRefresh, useDidShow } from '@tarojs/taro';
 
 import { useApi } from '@/hooks/useApi';
 import type { TrainingResponse } from '@/types/api';
+import { applyThemeChrome, themeClassName } from '@/lib/theme';
 import LineChart from '@/components/LineChart';
 import './index.scss';
 
@@ -14,6 +15,7 @@ import './index.scss';
  */
 export default function TrainingPage() {
   const { data, loading, error, refetch } = useApi<TrainingResponse>('/api/training');
+  useDidShow(() => applyThemeChrome());
   usePullDownRefresh(() => {
     refetch();
     Taro.stopPullDownRefresh();
@@ -21,7 +23,7 @@ export default function TrainingPage() {
 
   if (loading && !data) {
     return (
-      <View className="train-root">
+      <View className={`train-root ${themeClassName()}`}>
         <Text className="train-header">Training</Text>
         <View className="ts-card"><View className="ts-skeleton" /></View>
         <View className="ts-card"><View className="ts-skeleton" /></View>
@@ -31,7 +33,7 @@ export default function TrainingPage() {
 
   if (error) {
     return (
-      <View className="train-root">
+      <View className={`train-root ${themeClassName()}`}>
         <Text className="train-header ts-destructive">Failed to load</Text>
         <Text>{error}</Text>
         <Button className="ts-button" onClick={() => refetch()}>Retry</Button>
@@ -42,25 +44,49 @@ export default function TrainingPage() {
   if (!data) return null;
 
   const { diagnosis, cp_trend, fitness_fatigue } = data;
-  const latestCp = cp_trend.values.length ? cp_trend.values[cp_trend.values.length - 1] : null;
-  const hasFitnessFatigue = fitness_fatigue && fitness_fatigue.dates.length >= 2;
-  const hasCpTrend = cp_trend && cp_trend.values.length >= 2;
+
+  // Everything below optionals out — a brand-new account with no synced
+  // data gets mostly-null payloads, and crashing on undefined fields
+  // left the whole Training page blank. Defensive reads everywhere.
+  const weeklyKm = diagnosis?.volume?.weekly_avg_km;
+  const hasVolume = typeof weeklyKm === 'number';
+  const latestCp = cp_trend?.values?.length ? cp_trend.values[cp_trend.values.length - 1] : null;
+  const hasFitnessFatigue = !!fitness_fatigue && fitness_fatigue.dates.length >= 2;
+  const hasCpTrend = !!cp_trend && cp_trend.values.length >= 2;
+  const distribution = diagnosis?.distribution ?? [];
+  const consistency = diagnosis?.consistency;
+  const findings = diagnosis?.diagnosis ?? [];
+  const suggestions = diagnosis?.suggestions ?? [];
+  const hasAnyTrainingData = hasVolume || latestCp != null || distribution.length > 0;
 
   return (
-    <View className="train-root">
+    <View className={`train-root ${themeClassName()}`}>
       <Text className="train-header">Training</Text>
 
-      <View className="ts-card">
-        <Text className="ts-section-label">Volume</Text>
-        <View className="train-hero">
-          <Text className="train-hero-value ts-value">
-            {diagnosis.volume.weekly_avg_km.toFixed(1)} km/week
-          </Text>
-          <Text className="train-hero-meta ts-muted">
-            trend: {diagnosis.volume.trend}
+      {!hasAnyTrainingData && (
+        <View className="ts-card">
+          <Text className="train-empty">
+            No training data yet. Sync Garmin / Stryd from the web app
+            (Settings → Sync) to populate this view.
           </Text>
         </View>
-      </View>
+      )}
+
+      {hasVolume && (
+        <View className="ts-card">
+          <Text className="ts-section-label">Volume</Text>
+          <View className="train-hero">
+            <Text className="train-hero-value ts-value">
+              {weeklyKm.toFixed(1)} km/week
+            </Text>
+            {diagnosis?.volume?.trend && (
+              <Text className="train-hero-meta ts-muted">
+                trend: {diagnosis.volume.trend}
+              </Text>
+            )}
+          </View>
+        </View>
+      )}
 
       {latestCp != null && (
         <View className="ts-card">
@@ -102,33 +128,37 @@ export default function TrainingPage() {
         </View>
       )}
 
-      <View className="ts-card">
-        <Text className="ts-section-label">
-          Zone distribution · {diagnosis.theory_name}
-        </Text>
-        {diagnosis.distribution.map((z) => (
-          <ZoneBar
-            key={z.name}
-            name={z.name}
-            actual={z.actual_pct}
-            target={z.target_pct}
-          />
-        ))}
-      </View>
+      {distribution.length > 0 && (
+        <View className="ts-card">
+          <Text className="ts-section-label">
+            Zone distribution{diagnosis?.theory_name ? ` · ${diagnosis.theory_name}` : ''}
+          </Text>
+          {distribution.map((z) => (
+            <ZoneBar
+              key={z.name}
+              name={z.name}
+              actual={z.actual_pct ?? 0}
+              target={z.target_pct}
+            />
+          ))}
+        </View>
+      )}
 
-      <View className="ts-card">
-        <Text className="ts-section-label">Consistency</Text>
-        <Text className="train-line">
-          {diagnosis.consistency.total_sessions} sessions · gaps ≥7d:{' '}
-          {diagnosis.consistency.weeks_with_gaps} · longest:{' '}
-          {diagnosis.consistency.longest_gap_days}d
-        </Text>
-      </View>
+      {consistency && (
+        <View className="ts-card">
+          <Text className="ts-section-label">Consistency</Text>
+          <Text className="train-line">
+            {consistency.total_sessions ?? 0} sessions · gaps ≥7d:{' '}
+            {consistency.weeks_with_gaps ?? 0} · longest:{' '}
+            {consistency.longest_gap_days ?? 0}d
+          </Text>
+        </View>
+      )}
 
-      {diagnosis.diagnosis.length > 0 && (
+      {findings.length > 0 && (
         <View className="ts-card">
           <Text className="ts-section-label">Findings</Text>
-          {diagnosis.diagnosis.map((f, i) => (
+          {findings.map((f, i) => (
             <Text
               key={i}
               className={
@@ -145,10 +175,10 @@ export default function TrainingPage() {
         </View>
       )}
 
-      {diagnosis.suggestions.length > 0 && (
+      {suggestions.length > 0 && (
         <View className="ts-card">
           <Text className="ts-section-label">Suggestions</Text>
-          {diagnosis.suggestions.map((s, i) => (
+          {suggestions.map((s, i) => (
             <Text key={i} className="train-finding">{i + 1}. {s}</Text>
           ))}
         </View>

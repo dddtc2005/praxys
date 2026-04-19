@@ -1,18 +1,73 @@
 /*
- * Global styles. Taro converts px → rpx automatically (designWidth=750).
- * Colors mirror web/src/index.css dark theme at a high level; we use raw
- * hex rather than CSS custom properties because WeChat's WXSS support for
- * var() inheritance is patchy across devices.
+ * Design tokens — every colour used by any page lives here as a CSS
+ * variable. `.theme-dark` is the default (also applied to `page` so the
+ * first paint before React mounts matches the bundle's default
+ * preference); `.theme-light` overrides the same names.
+ *
+ * WeChat's WXSS supports CSS custom properties since base-lib 2.11.0
+ * (2020). Older clients would render untransformed var() strings, which
+ * is unsupported at this point.
  */
+
+// Theme tokens. Every surface colour in the app reads from these
+// variables so switching themes is purely additive (no page-specific
+// overrides). The theme class also directly paints its own
+// background-color + color — WeChat's WXSS doesn't reliably let an
+// element resolve a var() it declares on itself, so we avoid that on
+// the theme-bearing root element.
+//
+// Descendants (cards, text, charts) still read the vars cleanly via
+// inheritance, which is the whole point of custom properties.
+
+.theme-dark {
+  --bg: #0a0e27;
+  --surface: #111834;
+  --surface-subtle: #0a0e27;
+  --border: #2a3252;
+  --border-subtle: #1a2040;
+  --text: #e6ebf5;
+  --text-muted: #8b93a7;
+  --text-placeholder: #6b7394;
+  --primary: #44d08e;
+  --primary-on: #0a0e27;
+  --destructive: #ef4444;
+  --warning: #f59e0b;
+  --accent-blue: #3b82f6;
+  --accent-purple: #a855f7;
+  background-color: #0a0e27;
+  color: #e6ebf5;
+}
+
+.theme-light {
+  --bg: #fafaf7;
+  --surface: #ffffff;
+  --surface-subtle: #f2f1eb;
+  --border: #d5d4cc;
+  --border-subtle: #e9e8e1;
+  --text: #1a1a1a;
+  --text-muted: #6b6b66;
+  --text-placeholder: #999;
+  --primary: #16a060;
+  --primary-on: #ffffff;
+  --destructive: #dc2626;
+  --warning: #d97706;
+  --accent-blue: #2563eb;
+  --accent-purple: #7c3aed;
+  background-color: #fafaf7;
+  color: #1a1a1a;
+}
 
 page {
   font-family:
     -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB',
     'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
   font-size: 28rpx;
-  color: #e6ebf5;
-  background-color: #0a0e27;
   line-height: 1.5;
+  // Default page element to dark; the theme class on the root View
+  // paints over this, but this avoids a flash of wrong colour during
+  // first paint before React mounts.
+  background-color: #0a0e27;
+  color: #e6ebf5;
 }
 
 .ts-container {
@@ -20,7 +75,7 @@ page {
 }
 
 .ts-card {
-  background-color: #111834;
+  background-color: var(--surface);
   border-radius: 16rpx;
   padding: 32rpx;
   margin-bottom: 24rpx;
@@ -28,10 +83,13 @@ page {
 }
 
 .ts-section-label {
+  // WeChat <Text> is inline by default — without display:block vertical
+  // margin collapses and the label runs straight into the next text.
+  display: block;
   font-size: 22rpx;
   text-transform: uppercase;
   letter-spacing: 2rpx;
-  color: #8b93a7;
+  color: var(--text-muted);
   font-weight: 600;
   margin-bottom: 12rpx;
 }
@@ -44,29 +102,29 @@ page {
 .ts-heading {
   font-size: 36rpx;
   font-weight: 600;
-  color: #e6ebf5;
+  color: var(--text);
   margin-bottom: 8rpx;
 }
 
 .ts-muted {
-  color: #8b93a7;
+  color: var(--text-muted);
 }
 
 .ts-primary {
-  color: #44d08e;
+  color: var(--primary);
 }
 
 .ts-destructive {
-  color: #ef4444;
+  color: var(--destructive);
 }
 
 .ts-warning {
-  color: #f59e0b;
+  color: var(--warning);
 }
 
 .ts-button {
-  background-color: #44d08e;
-  color: #0a0e27;
+  background-color: var(--primary);
+  color: var(--primary-on);
   border: none;
   border-radius: 12rpx;
   padding: 20rpx 32rpx;
@@ -76,23 +134,26 @@ page {
 
 .ts-button--secondary {
   background-color: transparent;
-  color: #e6ebf5;
-  border: 2rpx solid #2a3252;
+  color: var(--text);
+  border: 2rpx solid var(--border);
 }
 
 .ts-input {
-  background-color: #0a0e27;
-  border: 2rpx solid #2a3252;
-  color: #e6ebf5;
-  border-radius: 8rpx;
-  padding: 16rpx 20rpx;
-  font-size: 28rpx;
+  background-color: var(--surface);
+  border: 2rpx solid var(--border);
+  color: var(--text);
+  border-radius: 12rpx;
+  padding: 28rpx 24rpx;
+  font-size: 30rpx;
   width: 100%;
   box-sizing: border-box;
+  // WeChat's Input placeholder colour is set via a separate attribute
+  // in the WXML; we pass placeholder-style at the component level instead
+  // of in CSS because the simulator ignores ::placeholder on Input.
 }
 
 .ts-skeleton {
-  background-color: #111834;
+  background-color: var(--surface);
   border-radius: 8rpx;
   height: 40rpx;
   width: 100%;

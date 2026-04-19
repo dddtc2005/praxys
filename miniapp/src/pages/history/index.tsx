@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { View, Text, Button } from '@tarojs/components';
-import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro';
+import Taro, { useReachBottom, usePullDownRefresh, useDidShow } from '@tarojs/taro';
 
 import { apiGet, ApiError } from '@/lib/api-client';
 import type { Activity, HistoryResponse } from '@/types/api';
 import { formatDistance, formatTime } from '@/lib/format';
+import { applyThemeChrome, themeClassName } from '@/lib/theme';
 import './index.scss';
 
 /**
@@ -47,6 +48,8 @@ export default function HistoryPage() {
     void fetchPage(0, true);
   }, [fetchPage]);
 
+  useDidShow(() => applyThemeChrome());
+
   useReachBottom(() => {
     if (loadingMore || loading) return;
     if (activities.length >= total) return;
@@ -64,7 +67,7 @@ export default function HistoryPage() {
 
   if (loading && activities.length === 0) {
     return (
-      <View className="history-root">
+      <View className={`history-root ${themeClassName()}`}>
         <Text className="history-header">Activities</Text>
         {[0, 1, 2].map((i) => (
           <View key={i} className="ts-card">
@@ -77,7 +80,7 @@ export default function HistoryPage() {
 
   if (error && activities.length === 0) {
     return (
-      <View className="history-root">
+      <View className={`history-root ${themeClassName()}`}>
         <Text className="history-header ts-destructive">Failed to load</Text>
         <Text>{error}</Text>
         <Button className="ts-button" onClick={() => fetchPage(0, true)}>Retry</Button>
@@ -86,7 +89,7 @@ export default function HistoryPage() {
   }
 
   return (
-    <View className="history-root">
+    <View className={`history-root ${themeClassName()}`}>
       <View className="history-header-row">
         <Text className="history-header">Activities</Text>
         <Text className="history-total ts-muted">
@@ -107,7 +110,7 @@ export default function HistoryPage() {
         <Text className="history-footer ts-muted">Loading more…</Text>
       )}
       {!loadingMore && activities.length >= total && total > 0 && (
-        <Text className="history-footer ts-muted">End of history</Text>
+        <Text className="history-footer ts-muted">End of activities</Text>
       )}
     </View>
   );
