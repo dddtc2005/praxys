@@ -1,4 +1,4 @@
-# Trainsight — Architectural Review
+# Praxys — Architectural Review
 
 > **Historical snapshot (2026-04-10).** This review was conducted before the database migration (CSV → SQLite), auth system, and multi-user architecture were implemented. Many issues identified here (CSV race conditions, no auth, single-user) have been resolved. Kept for historical context.
 
@@ -9,7 +9,7 @@
 
 ## 1. Executive Summary
 
-Trainsight is a self-hosted, power-based scientific training system for endurance athletes. The architecture is well-structured: a strict CSV → pure-function → cached-API → React-SPA pipeline with clear layer boundaries. Core computation is fully separated from I/O, the science framework is YAML-driven and extensible, and the frontend design system is consistent. The three major feature specs (multi-source architecture, zone-aware training analysis, AI-generated training plans) have all reached various stages of implementation — the zone-aware analysis is shipped, the AI plan module is functional, and the multi-source provider system is partially in place.
+Praxys is a self-hosted, power-based scientific training system for endurance athletes. The architecture is well-structured: a strict CSV → pure-function → cached-API → React-SPA pipeline with clear layer boundaries. Core computation is fully separated from I/O, the science framework is YAML-driven and extensible, and the frontend design system is consistent. The three major feature specs (multi-source architecture, zone-aware training analysis, AI-generated training plans) have all reached various stages of implementation — the zone-aware analysis is shipped, the AI plan module is functional, and the multi-source provider system is partially in place.
 
 **Spec debt** — the main gaps between design specs and code are: (a) dynamic activity-type routing not yet implemented, (b) `data_loader.py` hard-codes CSV paths instead of routing through provider interfaces, and (c) `UserConfig` lacks the `activity_routing` dict.
 

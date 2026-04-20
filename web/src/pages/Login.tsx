@@ -49,7 +49,7 @@ export default function Login() {
     if (result.ok) {
       // If this was a CLI login flow, redirect token to the CLI's local server
       if (cliCallback) {
-        const token = localStorage.getItem('trainsight-auth-token');
+        const token = localStorage.getItem('praxys-auth-token') ?? localStorage.getItem('trainsight-auth-token');
         if (token) {
           window.location.href = `${cliCallback}?token=${encodeURIComponent(token)}`;
           return;
@@ -65,7 +65,7 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center px-4 py-6 sm:px-6 lg:px-8 bg-background">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-xl font-bold text-foreground">Trainsight</CardTitle>
+          <CardTitle className="text-xl font-bold text-foreground">Praxys</CardTitle>
           <CardDescription>
             {cliCallback
               ? <Trans>Log in to connect your CLI plugin</Trans>

@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
+import { KEYS, getCompatItem, setCompatItem, removeCompatItem } from '../lib/storage-compat';
 
 interface AuthState {
   token: string | null;
@@ -15,10 +16,6 @@ interface AuthContextType extends AuthState {
   register: (email: string, password: string, invitationCode?: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
 }
-
-const TOKEN_KEY = 'trainsight-auth-token';
-const EMAIL_KEY = 'trainsight-auth-email';
-const ADMIN_KEY = 'trainsight-auth-admin';
 
 // The API base URL may be empty (same origin via SWA linked backend)
 // or set via import.meta.env.VITE_API_URL for development/non-SWA deployments.
@@ -45,8 +42,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // On mount, restore token from localStorage and verify it with the server.
   useEffect(() => {
-    const stored = localStorage.getItem(TOKEN_KEY);
-    const storedEmail = localStorage.getItem(EMAIL_KEY);
+    const stored = getCompatItem(KEYS.authToken.new, KEYS.authToken.legacy);
+    const storedEmail = getCompatItem(KEYS.authEmail.new, KEYS.authEmail.legacy);
     if (storedEmail) setEmail(storedEmail);
 
     if (!stored) {
@@ -61,9 +58,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then((r) => {
         if (r.status === 401) {
           // Token expired or user deactivated — clear auth state
-          localStorage.removeItem(TOKEN_KEY);
-          localStorage.removeItem(EMAIL_KEY);
-          localStorage.removeItem(ADMIN_KEY);
+          removeCompatItem(KEYS.authToken.new, KEYS.authToken.legacy);
+          removeCompatItem(KEYS.authEmail.new, KEYS.authEmail.legacy);
+          removeCompatItem(KEYS.authAdmin.new, KEYS.authAdmin.legacy);
           setToken(null);
           setEmail(null);
           setIsAdmin(false);
@@ -76,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data) {
           setIsAdmin(data.is_superuser);
           setIsDemo(data.is_demo ?? false);
-          localStorage.setItem(ADMIN_KEY, String(data.is_superuser));
+          setCompatItem(KEYS.authAdmin.new, KEYS.authAdmin.legacy, String(data.is_superuser));
         }
       })
       .catch(() => {})
@@ -103,8 +100,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
       const accessToken = data.access_token;
       if (accessToken) {
-        localStorage.setItem(TOKEN_KEY, accessToken);
-        localStorage.setItem(EMAIL_KEY, email);
+        setCompatItem(KEYS.authToken.new, KEYS.authToken.legacy, accessToken);
+        setCompatItem(KEYS.authEmail.new, KEYS.authEmail.legacy, email);
         setToken(accessToken);
         setEmail(email);
         // Fetch admin status
@@ -114,7 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (me) {
               setIsAdmin(me.is_superuser);
               setIsDemo(me.is_demo ?? false);
-              localStorage.setItem(ADMIN_KEY, String(me.is_superuser));
+              setCompatItem(KEYS.authAdmin.new, KEYS.authAdmin.legacy, String(me.is_superuser));
             }
           })
           .catch(() => {});
@@ -156,9 +153,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [login]);
 
   const logout = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(EMAIL_KEY);
-    localStorage.removeItem(ADMIN_KEY);
+    removeCompatItem(KEYS.authToken.new, KEYS.authToken.legacy);
+    removeCompatItem(KEYS.authEmail.new, KEYS.authEmail.legacy);
+    removeCompatItem(KEYS.authAdmin.new, KEYS.authAdmin.legacy);
     setToken(null);
     setEmail(null);
     setIsAdmin(false);

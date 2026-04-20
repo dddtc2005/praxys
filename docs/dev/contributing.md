@@ -1,6 +1,6 @@
 # Contributing
 
-How to extend Trainsight with new features.
+How to extend Praxys with new features.
 
 ## Adding a New Metric
 
@@ -49,7 +49,7 @@ How to extend Trainsight with new features.
 
 ## Adding a New Skill
 
-1. **Create skill directory** `plugins/trainsight/skills/{skill-name}/`
+1. **Create skill directory** `plugins/praxys/skills/{skill-name}/`
 
 2. **Write `SKILL.md`** with frontmatter:
    ```yaml
@@ -60,7 +60,7 @@ How to extend Trainsight with new features.
    ---
    ```
 
-3. **Add MCP tool** (if needed) in `plugins/trainsight/mcp-server/`:
+3. **Add MCP tool** (if needed) in `plugins/praxys/mcp-server/`:
    - Define the tool handler following existing MCP tool patterns
    - The tool will be available to both Claude Code and Copilot CLI via the plugin's MCP server
 

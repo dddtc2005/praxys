@@ -1,6 +1,6 @@
 # Features
 
-Overview of Trainsight's capabilities.
+Overview of Praxys's capabilities.
 
 ## Dashboard Pages
 

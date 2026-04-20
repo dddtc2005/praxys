@@ -10,6 +10,8 @@ interface CliHintProps {
   description: string;
 }
 
+// TODO after GitHub repo rename: update to /dddtc2005/praxys. GitHub auto-redirects
+// old URLs, so this works in the interim.
 const PLUGIN_URL = 'https://github.com/dddtc2005/trainsight';
 
 /**
@@ -28,7 +30,7 @@ export default function CliHint({ skill, title, description }: CliHintProps) {
           <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
           <div className="flex items-center gap-3 mt-2.5">
             <code className="rounded-md bg-accent-purple/10 border border-accent-purple/20 px-2.5 py-1 font-data text-xs text-accent-purple">
-              /trainsight:{skill}
+              /praxys:{skill}
             </code>
             <a
               href={PLUGIN_URL}

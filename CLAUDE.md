@@ -28,7 +28,7 @@ Garmin/Stryd/Oura APIs → sync/*.py → db/sync_writer.py → SQLite (trainsigh
 | `db/` | Database layer (SQLite) | `models.py` (SQLAlchemy models), `session.py` (engine + session factory), `crypto.py` (Fernet credential encryption), `sync_writer.py` (upsert sync data), `csv_import.py` (one-time CSV migration), `sync_scheduler.py` (background sync jobs) |
 | `api/` | FastAPI backend | `main.py` (app), `deps.py` (data layer), `auth.py` (JWT auth), `users.py`, `views.py` (shared view helpers), `routes/` (endpoints incl. `admin.py`, `register.py`) |
 | `web/src/` | React frontend | `pages/` (6 pages: Today, Training, Goal, History, Science, Settings), `components/` (UI + `charts/` sub-dir), `hooks/` (`useApi`, `useChartColors`, `useTheme`, `use-mobile`), `contexts/` (`ScienceContext`, `SettingsContext`), `types/` (API contracts), `lib/` (`chart-theme`, `format`, `utils`, `workout-parser`) |
-| `plugins/` | Trainsight plugin | `trainsight/skills/` (8 SKILL.md files), `trainsight/mcp-server/` (MCP server: `server.py`, `auth.py`) |
+| `plugins/` | Praxys plugin | `praxys/skills/` (8 SKILL.md files), `praxys/mcp-server/` (MCP server: `server.py`, `auth.py`) |
 | `tests/` | pytest suite | `test_metrics.py`, `test_integration.py`, etc. |
 | `data/` | Sample + science data | `sample/` (tracked synthetic CSVs), `science/` (theory YAMLs: load, recovery, prediction, zones, labels) |
 | `scripts/` | Utility + skill helper scripts | `seed_sample_data.py`, `generate_sample_data.py`, `build_training_context.py`, `daily_brief.py`, `race_forecast.py`, `sync_report.py`, `run_diagnosis.py` |
@@ -76,7 +76,7 @@ All training metrics, predictions, and insights must be grounded in exercise sci
 - **Light + dark** themes via `.dark` class on `<html>`. Default stored preference is dark.
 - `:root` = light theme (warm paper tones), `.dark` = dark theme (deep navy tones)
 - Theme toggle in sidebar footer cycles: Dark → Light → System
-- User preference persisted in `localStorage` key `trainsight-theme`
+- User preference persisted in `localStorage` key `praxys-theme` (legacy `trainsight-theme` is dual-read for 90 days post-rebrand)
 - Inline script in `index.html` prevents flash of wrong theme on load
 - shadcn's CSS variable system (`--background`, `--card`, `--primary`, etc.) is the **single source of truth** for surface colors
 - Brand accent: `--primary` is darkened green in light, vivid neon-green in dark
@@ -182,7 +182,7 @@ Goal configuration is managed via the Goal page UI and stored in the database:
 
 # First-time setup: copy .env.example and generate encryption key
 cp .env.example .env
-python -c "from cryptography.fernet import Fernet; print(f'TRAINSIGHT_LOCAL_ENCRYPTION_KEY={Fernet.generate_key().decode()}')" >> .env
+python -c "from cryptography.fernet import Fernet; print(f'PRAXYS_LOCAL_ENCRYPTION_KEY={Fernet.generate_key().decode()}')" >> .env
 
 # API server
 pip install -r requirements.txt
@@ -204,15 +204,15 @@ python -m pytest tests/ -v
 
 ### Invitation system and admin
 
-- Registration requires a valid invitation code (except for the first user and `TRAINSIGHT_ADMIN_EMAIL`)
+- Registration requires a valid invitation code (except for the first user and `PRAXYS_ADMIN_EMAIL`)
 - Admin page (`/admin`) lets admins generate invitation codes and manage users
-- Admin status is granted to: the first registered user, and any user matching `TRAINSIGHT_ADMIN_EMAIL`
+- Admin status is granted to: the first registered user, and any user matching `PRAXYS_ADMIN_EMAIL`
 
 ## Documentation
 
 Keep docs in sync with code — stale docs are worse than no docs. See `docs/dev/contributing.md` for which files to update when making changes.
 
-Key files: `README.md` (quick start), `docs/*.md` (user guides), `docs/dev/*.md` (architecture + API reference + contributing), `plugins/trainsight/skills/*/SKILL.md` (skill instructions).
+Key files: `README.md` (quick start), `docs/*.md` (user guides), `docs/dev/*.md` (architecture + API reference + contributing), `plugins/praxys/skills/*/SKILL.md` (skill instructions).
 
 ## Claude Code Automations
 
@@ -244,11 +244,11 @@ All three are read-only (Read/Grep/Glob) — they report gaps; the primary agent
 |-------|-----------|---------|
 | `seed-and-preview` | User-only | Reset local DB to sample data and boot API + Vite for manual verification |
 
-Training-domain skills live in `plugins/trainsight/skills/` (see "AI Skills" below). Dev-workflow skills live in `.claude/skills/`.
+Training-domain skills live in `plugins/praxys/skills/` (see "AI Skills" below). Dev-workflow skills live in `.claude/skills/`.
 
 ## AI Skills
 
-8 skills in `plugins/trainsight/skills/` provide training features via the Trainsight plugin (MCP server + skills):
+8 skills in `plugins/praxys/skills/` provide training features via the Praxys plugin (MCP server + skills):
 
 | Skill | Purpose |
 |-------|---------|
@@ -261,7 +261,7 @@ Training-domain skills live in `plugins/trainsight/skills/` (see "AI Skills" bel
 | `race-forecast` | Race time prediction and goal feasibility |
 | `add-metric` | Scaffold a new metric end-to-end (7-step guide) |
 
-Skills use MCP tools provided by the Trainsight plugin MCP server (`plugins/trainsight/mcp-server/server.py`). The server runs in dual mode: local (direct DB access) or remote (HTTP API with JWT auth via `TRAINSIGHT_URL`).
+Skills use MCP tools provided by the Praxys plugin MCP server (`plugins/praxys/mcp-server/server.py`). The server runs in dual mode: local (direct DB access) or remote (HTTP API with JWT auth via `PRAXYS_URL`).
 
 ## AI Features
 

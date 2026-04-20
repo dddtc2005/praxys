@@ -116,7 +116,7 @@ msgstr "操作"
 msgid "Active"
 msgstr "当前使用"
 
-#: src/components/AppSidebar.tsx:67
+#: src/components/AppSidebar.tsx:68
 #: src/pages/History.tsx:38
 #: src/pages/Settings.tsx:73
 #: src/pages/Settings.tsx:80
@@ -136,7 +136,7 @@ msgstr "实际"
 msgid "Adjust Workout"
 msgstr "调整训练"
 
-#: src/components/AppSidebar.tsx:70
+#: src/components/AppSidebar.tsx:71
 #: src/pages/Admin.tsx:175
 #: src/pages/Admin.tsx:222
 msgid "Admin"
@@ -431,7 +431,7 @@ msgstr "当前体能"
 msgid "Currently set to {0}-based training"
 msgstr ""
 
-#: src/components/AppSidebar.tsx:27
+#: src/components/AppSidebar.tsx:28
 msgid "Dark"
 msgstr "深色"
 
@@ -667,10 +667,14 @@ msgid "Get personalized training recommendations, recovery assessment, and today
 msgstr "通过 Claude Code 插件获取个性化训练建议、恢复评估及今日训练信号。"
 
 #: src/components/SetupChecklist.tsx:94
-msgid "Get started with Trainsight"
-msgstr ""
+msgid "Get started with Praxys"
+msgstr "开始使用 Praxys"
 
-#: src/components/CliHint.tsx:39
+#: src/components/SetupChecklist.tsx:94
+#~ msgid "Get started with Trainsight"
+#~ msgstr ""
+
+#: src/components/CliHint.tsx:41
 msgid "Get the Claude Code Plugin"
 msgstr "获取 Claude Code 插件"
 
@@ -686,7 +690,7 @@ msgstr "轻松进行"
 msgid "Go to dashboard"
 msgstr "前往仪表盘"
 
-#: src/components/AppSidebar.tsx:66
+#: src/components/AppSidebar.tsx:67
 #: src/pages/Settings.tsx:915
 msgid "Goal"
 msgstr "目标"
@@ -738,8 +742,12 @@ msgid "How is intensity classified?"
 msgstr "如何分类训练强度？"
 
 #: src/pages/Settings.tsx:596
-msgid "How often Trainsight pulls new data in the background. Lower frequency uses less network and respects platform rate limits."
-msgstr "Trainsight 后台拉取新数据的频率。较低频率占用更少网络流量，并尊重平台的速率限制。"
+msgid "How often Praxys pulls new data in the background. Lower frequency uses less network and respects platform rate limits."
+msgstr "Praxys 后台拉取新数据的频率。较低频率占用更少网络流量，并尊重平台的速率限制。"
+
+#: src/pages/Settings.tsx:596
+#~ msgid "How often Trainsight pulls new data in the background. Lower frequency uses less network and respects platform rate limits."
+#~ msgstr "Trainsight 后台拉取新数据的频率。较低频率占用更少网络流量，并尊重平台的速率限制。"
 
 #: src/components/ScienceNote.tsx:10
 msgid "How this is calculated"
@@ -811,7 +819,7 @@ msgstr "上次同步 {0}"
 msgid "Leave blank for the first account. Required after that."
 msgstr "首个账号可留空，之后必填。"
 
-#: src/components/AppSidebar.tsx:28
+#: src/components/AppSidebar.tsx:29
 msgid "Light"
 msgstr "浅色"
 
@@ -839,8 +847,8 @@ msgstr "负荷与体能"
 msgid "Log in to connect your CLI plugin"
 msgstr "登录以连接 CLI 插件"
 
-#: src/components/AppSidebar.tsx:146
-#: src/components/AppSidebar.tsx:148
+#: src/components/AppSidebar.tsx:145
+#: src/components/AppSidebar.tsx:147
 msgid "Log out"
 msgstr "退出登录"
 
@@ -1291,7 +1299,7 @@ msgstr "跑步"
 msgid "Save"
 msgstr "保存"
 
-#: src/components/AppSidebar.tsx:68
+#: src/components/AppSidebar.tsx:69
 msgid "Science"
 msgstr "科学"
 
@@ -1307,19 +1315,23 @@ msgid "Set goal"
 msgstr "设定目标"
 
 #: src/pages/Setup.tsx:354
-msgid "Set up Trainsight"
-msgstr "设置 Trainsight"
+msgid "Set up Praxys"
+msgstr "设置 Praxys"
+
+#: src/pages/Setup.tsx:354
+#~ msgid "Set up Trainsight"
+#~ msgstr "设置 Trainsight"
 
 #: src/pages/Settings.tsx:493
 msgid "Set your name"
 msgstr "设置您的名字"
 
-#: src/components/AppSidebar.tsx:69
+#: src/components/AppSidebar.tsx:70
 #: src/pages/Settings.tsx:430
 msgid "Settings"
 msgstr "设置"
 
-#: src/components/AppSidebar.tsx:61
+#: src/components/AppSidebar.tsx:62
 msgid "Setup"
 msgstr "设置向导"
 
@@ -1452,7 +1464,7 @@ msgstr "同步中"
 msgid "Syncing..."
 msgstr "同步中..."
 
-#: src/components/AppSidebar.tsx:29
+#: src/components/AppSidebar.tsx:30
 msgid "System"
 msgstr "跟随系统"
 
@@ -1484,7 +1496,7 @@ msgstr "目标时间"
 msgid "Tempo"
 msgstr "节奏跑"
 
-#: src/components/AppSidebar.tsx:140
+#: src/components/AppSidebar.tsx:139
 msgid "Theme"
 msgstr "主题"
 
@@ -1511,7 +1523,7 @@ msgstr "阈值配速趋势"
 msgid "Thresholds"
 msgstr "阈值"
 
-#: src/components/AppSidebar.tsx:60
+#: src/components/AppSidebar.tsx:61
 #: src/components/charts/FitnessFatigueChart.tsx:216
 #: src/components/RecoveryPanel.tsx:90
 #: src/pages/Today.tsx:70
@@ -1522,7 +1534,7 @@ msgstr "今日"
 msgid "TODAY"
 msgstr ""
 
-#: src/components/AppSidebar.tsx:65
+#: src/components/AppSidebar.tsx:66
 msgid "Training"
 msgstr "训练"
 
@@ -1648,8 +1660,12 @@ msgid "you@example.com"
 msgstr ""
 
 #: src/pages/Settings.tsx:453
-msgid "Your identity in Trainsight"
-msgstr "您在 Trainsight 的身份"
+msgid "Your identity in Praxys"
+msgstr "您在 Praxys 的身份"
+
+#: src/pages/Settings.tsx:453
+#~ msgid "Your identity in Trainsight"
+#~ msgstr "您在 Trainsight 的身份"
 
 #: src/pages/Settings.tsx:479
 msgid "Your name"

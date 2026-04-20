@@ -1,7 +1,7 @@
 {
-  "name": "trainsight",
+  "name": "praxys",
   "version": "1.0.0",
-  "description": "Trainsight training dashboard — MCP tools for training data, daily briefs, race forecasts, and AI plan management",
+  "description": "Praxys training dashboard — MCP tools for training data, daily briefs, race forecasts, and AI plan management",
   "author": {
     "name": "Fei Tao",
     "url": "https://github.com/dddtc2005/trainsight"

@@ -6,6 +6,7 @@ import './index.css'
 import App from './App'
 import { i18n, activateLocale, DEFAULT_LOCALE, isSupportedLocale, type SupportedLocale } from './i18n/init'
 import { detectLocaleFromTag } from './lib/locale-detect'
+import { KEYS, getCompatItem } from './lib/storage-compat'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -25,12 +26,8 @@ const queryClient = new QueryClient({
 // another device) still falls back to LocaleSync after settings load —
 // that's an unavoidable round-trip.
 function _initialLocale(): SupportedLocale {
-  try {
-    const stored = localStorage.getItem('trainsight-locale')
-    if (isSupportedLocale(stored)) return stored
-  } catch {
-    // localStorage may be unavailable (private browsing, server-render)
-  }
+  const stored = getCompatItem(KEYS.locale.new, KEYS.locale.legacy)
+  if (isSupportedLocale(stored)) return stored
   if (typeof navigator !== 'undefined') {
     return detectLocaleFromTag(navigator.language)
   }

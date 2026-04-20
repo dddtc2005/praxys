@@ -1,4 +1,9 @@
-"""SQLAlchemy ORM models for the Trainsight database."""
+"""SQLAlchemy ORM models for the Praxys database.
+
+The on-disk SQLite filename is still `trainsight.db` — we keep the legacy
+filename to avoid user-data migration risk. Only the codebase-level brand
+references have been renamed.
+"""
 from datetime import date, datetime
 from uuid import uuid4
 

@@ -114,6 +114,10 @@
   --accent-red-val: #dc2626;
   --accent-blue-val: #2563eb;
   --accent-purple-val: #7c3aed;
+  /* Cobalt — reserved for reasoning surfaces (ScienceNote, "why this recommendation"
+     explainers). Per the Praxys brand guideline, cobalt separates "why the system
+     suggested it" from "what to do" (the green primary). */
+  --accent-cobalt-val: #2e71c6;
 }
 
 /* Dark accent values — vivid/bright for dark backgrounds */
@@ -123,6 +127,7 @@
   --accent-red-val: #ef4444;
   --accent-blue-val: #3b82f6;
   --accent-purple-val: #8b5cf6;
+  --accent-cobalt-val: #6ba5e6;
 }
 
 @theme {
@@ -131,6 +136,7 @@
   --color-accent-red: var(--accent-red-val);
   --color-accent-blue: var(--accent-blue-val);
   --color-accent-purple: var(--accent-purple-val);
+  --color-accent-cobalt: var(--accent-cobalt-val);
 
   --font-sans: 'DM Sans', 'Noto Sans SC', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'Noto Sans SC', ui-monospace, monospace;

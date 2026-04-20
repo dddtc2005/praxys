@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Trainsight MCP Server — dual-mode (local/remote) training data tools.
+"""Praxys MCP Server — dual-mode (local/remote) training data tools.
 
 Mode detection:
-  - TRAINSIGHT_URL env var set → remote mode (HTTP API with JWT auth)
-  - TRAINSIGHT_URL not set → local mode (direct Python imports, dev user, DB)
+  - PRAXYS_URL (or legacy TRAINSIGHT_URL) env var set → remote mode (HTTP API with JWT auth)
+  - neither set → local mode (direct Python imports, dev user, DB)
 """
 import json
 import os
@@ -18,34 +18,41 @@ sys.path.insert(0, _PROJECT_ROOT)
 
 from mcp.server.fastmcp import FastMCP
 
-mcp = FastMCP("trainsight", instructions="Training data tools for Trainsight dashboard")
+mcp = FastMCP("praxys", instructions="Training data tools for Praxys dashboard")
 
-# Mode detection
-REMOTE_URL = os.environ.get("TRAINSIGHT_URL", "")
+# Mode detection — prefer PRAXYS_*, fall back to legacy TRAINSIGHT_* for one
+# release (deprecation: 2026-05-19).
+REMOTE_URL = os.environ.get("PRAXYS_URL") or os.environ.get("TRAINSIGHT_URL", "")
 IS_REMOTE = bool(REMOTE_URL)
 # Frontend URL for browser-based login (defaults to same as backend for local dev)
-FRONTEND_URL = os.environ.get("TRAINSIGHT_FRONTEND_URL", REMOTE_URL)
+FRONTEND_URL = (
+    os.environ.get("PRAXYS_FRONTEND_URL")
+    or os.environ.get("TRAINSIGHT_FRONTEND_URL", REMOTE_URL)
+)
 
 
 # ---------------------------------------------------------------------------
 # Remote helpers (HTTP API)
 # ---------------------------------------------------------------------------
 
-_TOKEN_PATH = os.path.expanduser("~/.trainsight/token")
+# Token path migrated from ~/.trainsight to ~/.praxys; still read legacy.
+_TOKEN_PATH = os.path.expanduser("~/.praxys/token")
+_LEGACY_TOKEN_PATH = os.path.expanduser("~/.trainsight/token")
 
 _NOT_AUTHENTICATED_MSG = (
     "Not authenticated. Please run the `login` tool first with your "
-    "Trainsight email and password, or manually cache a token at ~/.trainsight/token"
+    "Praxys email and password, or manually cache a token at ~/.praxys/token"
 )
 
 
 def _get_remote_headers():
     """Get auth headers for remote API calls."""
-    if os.path.exists(_TOKEN_PATH):
-        with open(_TOKEN_PATH) as f:
-            token = f.read().strip()
-        if token:
-            return {"Authorization": f"Bearer {token}"}
+    for path in (_TOKEN_PATH, _LEGACY_TOKEN_PATH):
+        if os.path.exists(path):
+            with open(path) as f:
+                token = f.read().strip()
+            if token:
+                return {"Authorization": f"Bearer {token}"}
     return {}
 
 
@@ -128,7 +135,7 @@ def _local_user_id() -> str:
     """Get the user ID for local mode.
 
     Priority:
-    1. TRAINSIGHT_USER_ID env var (explicit override)
+    1. PRAXYS_USER_ID (or legacy TRAINSIGHT_USER_ID) env var (explicit override)
     2. First active user found in the database
 
     Raises RuntimeError if no users exist (register via the web UI first).
@@ -137,8 +144,8 @@ def _local_user_id() -> str:
     if _cached_user_id:
         return _cached_user_id
 
-    # Check env var override
-    env_uid = os.environ.get("TRAINSIGHT_USER_ID")
+    # Check env var override (prefer PRAXYS_USER_ID; fall back to legacy)
+    env_uid = os.environ.get("PRAXYS_USER_ID") or os.environ.get("TRAINSIGHT_USER_ID")
     if env_uid:
         _cached_user_id = env_uid
         return env_uid
@@ -641,9 +648,9 @@ def get_sync_status() -> str:
 
 @mcp.tool()
 def login() -> str:
-    """Authenticate with Trainsight via browser login.
+    """Authenticate with Praxys via browser login.
 
-    Opens the Trainsight login page in your browser. After you log in,
+    Opens the Praxys login page in your browser. After you log in,
     the token is automatically captured and cached for CLI use.
     No passwords are entered in the CLI.
     """
@@ -747,7 +754,7 @@ def login() -> str:
 
 @mcp.tool()
 def whoami() -> str:
-    """Show which Trainsight account is currently authenticated."""
+    """Show which Praxys account is currently authenticated."""
     if not IS_REMOTE:
         uid = _local_user_id()
         db = _local_db()

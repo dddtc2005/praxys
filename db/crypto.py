@@ -47,13 +47,14 @@ class CredentialVault:
 
     def _init_local(self):
         """Initialize local Fernet key for development envelope encryption."""
-        local_key = os.environ.get("TRAINSIGHT_LOCAL_ENCRYPTION_KEY")
+        from api.env_compat import getenv_compat
+        local_key = getenv_compat("LOCAL_ENCRYPTION_KEY")
         if not local_key:
             local_key = Fernet.generate_key().decode()
             logger.warning(
-                "TRAINSIGHT_LOCAL_ENCRYPTION_KEY not set! Generated ephemeral key — "
+                "PRAXYS_LOCAL_ENCRYPTION_KEY not set! Generated ephemeral key — "
                 "platform credentials will NOT survive restart. "
-                "Run: set TRAINSIGHT_LOCAL_ENCRYPTION_KEY=<key> to persist credentials.",
+                "Run: set PRAXYS_LOCAL_ENCRYPTION_KEY=<key> to persist credentials.",
             )
         self._local_key = (
             local_key.encode() if isinstance(local_key, str) else local_key

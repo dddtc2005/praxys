@@ -2,7 +2,7 @@
 
 This document is a comprehensive literature review of endurance training science, originally produced by OpenAI deep research. It covers training models, recovery science, monitoring tools, and supplementary topics (altitude, heat, nutrition periodization, strength training) grounded in peer-reviewed sports science.
 
-This review serves as the evidence base for Trainsight's science framework. The theories, zone systems, load models, and recovery protocols described here directly inform the YAML theory files in `data/science/` and the metric computations in `analysis/metrics.py`. A mapping of key findings to Trainsight's implementation is provided at the end of this document.
+This review serves as the evidence base for Praxys's science framework. The theories, zone systems, load models, and recovery protocols described here directly inform the YAML theory files in `data/science/` and the metric computations in `analysis/metrics.py`. A mapping of key findings to Praxys's implementation is provided at the end of this document.
 
 ---
 
@@ -345,11 +345,11 @@ Combine objective and subjective metrics. Keep a training log (distance, pace/po
 
 ---
 
-## How This Informs Trainsight
+## How This Informs Praxys
 
-The following table maps key findings from this review to their implementation in the Trainsight science framework and codebase.
+The following table maps key findings from this review to their implementation in the Praxys science framework and codebase.
 
-| Literature Finding | Trainsight Implementation | Files |
+| Literature Finding | Praxys Implementation | Files |
 |---|---|---|
 | **Banister impulse-response model** (CTL/ATL/TSB with tau1=42d, tau2=7d) | Core load model. CTL, ATL, TSB computed as EWMA in `metrics.py`. TSB zone boundaries (Performance/Optimal/Productive/Overreaching) defined in theory YAML. | `data/science/load/banister_pmc.yaml`, `analysis/metrics.py` |
 | **Polarized 80/20 intensity distribution** (Seiler 3-zone: <VT1 / VT1-VT2 / >VT2) | Default zone model. Boundaries set as fractions of CP (power), LTHR (HR), and threshold pace. Target distribution 80/5/15 used for training diagnosis. | `data/science/zones/polarized_3zone.yaml`, `analysis/zones.py` |

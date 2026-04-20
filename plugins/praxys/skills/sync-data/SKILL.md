@@ -38,9 +38,9 @@ Default is every 6 hours.
 
 Webhook/subscription notes:
 - Stryd has no webhook API
-- Oura offers webhooks but Trainsight does not subscribe to them today
+- Oura offers webhooks but Praxys does not subscribe to them today
   (see `docs/studies/webhook-feasibility.md` for the rationale)
-- Garmin push delivery requires partner approval, so Trainsight uses
+- Garmin push delivery requires partner approval, so Praxys uses
   scheduled polling for Garmin too
 
 ## Reading Sync Status

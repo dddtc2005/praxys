@@ -71,7 +71,7 @@ def _safe_str(val) -> str | None:
     return str(val)
 
 
-def migrate(data_dir: str, email: str = "local@trainsight.dev", password: str = "changeme"):
+def migrate(data_dir: str, email: str = "local@praxys.dev", password: str = "changeme"):
     """Run the full CSV-to-DB migration."""
     # Set DATA_DIR so init_db creates the DB in the right place
     os.environ["DATA_DIR"] = data_dir
@@ -411,7 +411,7 @@ def main():
     )
     parser.add_argument(
         "--email",
-        default="local@trainsight.dev",
+        default="local@praxys.dev",
         help="Email for the migrated user account",
     )
     args = parser.parse_args()

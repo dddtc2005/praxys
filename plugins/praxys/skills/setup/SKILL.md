@@ -1,7 +1,7 @@
 ---
 name: setup
 description: >-
-  Configure Trainsight: connect data sources (Garmin, Stryd, Oura), set training
+  Configure Praxys: connect data sources (Garmin, Stryd, Oura), set training
   base (power/HR/pace), configure thresholds (CP, LTHR, pace), set race goals,
   and manage source preferences. Use this skill whenever the user asks to "connect
   garmin", "set up stryd", "add oura", "change training base", "set my CP",
@@ -11,7 +11,7 @@ description: >-
   or missing connections.
 ---
 
-# Trainsight Setup
+# Praxys Setup
 
 Guide the user through configuring their training system.
 

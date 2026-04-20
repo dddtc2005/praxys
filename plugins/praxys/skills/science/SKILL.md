@@ -1,7 +1,7 @@
 ---
 name: science
 description: >-
-  Browse, compare, and select training science theories for Trainsight. Covers
+  Browse, compare, and select training science theories for Praxys. Covers
   4 pillars: load model (CTL/ATL/TSB), recovery assessment (HRV protocols),
   race prediction (power model vs Riegel), and zone framework (Coggan 5-zone
   vs Seiler polarized). Use this skill when the user asks "what zone theory
@@ -12,7 +12,7 @@ description: >-
   training analysis.
 ---
 
-# Trainsight Science Framework
+# Praxys Science Framework
 
 The science framework lets users choose which exercise science theories drive
 their training analysis. Each pillar has multiple theories backed by published

@@ -1,4 +1,4 @@
-"""Trainsight API — FastAPI application with SQLite backend and JWT auth."""
+"""Praxys API — FastAPI application with SQLite backend and JWT auth."""
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from api.auth import get_current_user_id
+from api.env_compat import getenv_compat
 from api.views import utc_isoformat
 from db.session import get_db
 
@@ -32,11 +33,11 @@ async def lifespan(app: FastAPI):
     # On Azure with gunicorn pre-fork workers, each worker runs this lifespan,
     # so with the default-on behavior every worker spawns its own scheduler
     # thread. Per-row last_sync checks make duplicate ticks idempotent, but if
-    # you want exactly one scheduler set TRAINSIGHT_SYNC_SCHEDULER=false on
+    # you want exactly one scheduler set PRAXYS_SYNC_SCHEDULER=false on
     # N-1 workers (or rely on a single-worker deployment).
     # Users can still trigger manual sync from UI/CLI at any time.
     logger = logging.getLogger(__name__)
-    scheduler_enabled = os.environ.get("TRAINSIGHT_SYNC_SCHEDULER", "true").lower() != "false"
+    scheduler_enabled = (getenv_compat("SYNC_SCHEDULER", "true") or "true").lower() != "false"
     logger.info("Sync scheduler %s", "enabled" if scheduler_enabled else "disabled by env")
     if scheduler_enabled:
         from db.sync_scheduler import start_scheduler
@@ -52,7 +53,7 @@ async def lifespan(app: FastAPI):
                 logger.exception("Failed to stop sync scheduler cleanly")
 
 
-app = FastAPI(title="Trainsight API", version="2.0.0", lifespan=lifespan)
+app = FastAPI(title="Praxys API", version="2.0.0", lifespan=lifespan)
 
 # CORS — use FastAPI middleware for local dev only.
 # On Azure, platform-level CORS is configured via `az webapp cors` and takes
@@ -60,9 +61,9 @@ app = FastAPI(title="Trainsight API", version="2.0.0", lifespan=lifespan)
 # middleware doesn't add headers to the actual response).
 if not os.environ.get("WEBSITE_SITE_NAME"):
     # Not running on Azure App Service → add middleware for local dev
-    origins_str = os.environ.get(
-        "TRAINSIGHT_CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
-    )
+    origins_str = getenv_compat(
+        "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
+    ) or ""
     origins = [o.strip() for o in origins_str.split(",")]
     app.add_middleware(
         CORSMiddleware,

@@ -29,7 +29,7 @@
 ### AI Features Agent
 - **Focus:** `api/ai.py`, `api/routes/ai.py`, `analysis/providers/ai.py`, frontend AI components
 - **Tasks:** Extend LLM-powered coaching, natural language queries, plan generation
-- **Context needed:** `api/deps.py` for data access, existing metrics for context injection, `plugins/trainsight/` for MCP tools
+- **Context needed:** `api/deps.py` for data access, existing metrics for context injection, `plugins/praxys/` for MCP tools
 - **Key rule:** AI features must be optional — guard with `is_available()`, app works fully without API key
 
 ## Workflow Patterns

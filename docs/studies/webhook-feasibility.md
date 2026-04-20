@@ -1,6 +1,6 @@
 # Webhook Feasibility Study: Oura and Garmin
 
-Trainsight currently syncs Oura and Garmin data via scheduled polling (see `db/sync_scheduler.py`). This study asks whether event-driven webhooks could replace or augment that polling.
+Praxys currently syncs Oura and Garmin data via scheduled polling (see `db/sync_scheduler.py`). This study asks whether event-driven webhooks could replace or augment that polling.
 
 ## TL;DR
 
@@ -22,7 +22,7 @@ Credentials are stored encrypted in `user_connections.encrypted_credentials`. Th
 
 Based on the official API surface at `https://cloud.ouraring.com/v2/docs#tag/Webhook-Subscription-Routes` (docs page is a SPA and is best viewed in a browser).
 
-> All claims in this section are sourced from Oura's external documentation, not from Trainsight code -- no webhook receiver exists in this codebase yet. Re-verify against the live Oura docs before any implementation.
+> All claims in this section are sourced from Oura's external documentation, not from Praxys code -- no webhook receiver exists in this codebase yet. Re-verify against the live Oura docs before any implementation.
 
 **Subscription management endpoints** (all under `https://api.ouraring.com`):
 
@@ -105,7 +105,7 @@ Tracked follow-up items (no file moved or created -- kept inline here to avoid d
 - [ ] Re-check annually whether Garmin opens the Health API to non-commercial developers or adds a paid self-serve tier.
 - [ ] Evaluate a Connect IQ companion app as a device-side bridge (ConnectIQ → user-controlled HTTP endpoint). Assess what data is actually accessible from the device context.
 - [ ] Evaluate using an intermediary that already has Garmin approval and exposes outbound webhooks (e.g. Intervals.icu, Strava) as a broker -- effectively buying real-time without the approval.
-- [ ] Reopen the decision if Trainsight ever gains a commercial entity eligible to apply to the Health API program.
+- [ ] Reopen the decision if Praxys ever gains a commercial entity eligible to apply to the Health API program.
 
 ## References
 

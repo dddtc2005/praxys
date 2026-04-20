@@ -2,11 +2,10 @@
 
 Registration rules:
 1. Fresh DB (no users) → first register becomes admin, no invitation needed
-2. TRAINSIGHT_ADMIN_EMAIL match → no invitation needed, becomes admin (optional safety net)
+2. PRAXYS_ADMIN_EMAIL match → no invitation needed, becomes admin (optional safety net)
 3. All other users → must provide a valid, unused invitation code
 """
 import logging
-import os
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -14,13 +13,14 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from api.env_compat import getenv_compat
 from db.session import get_db
 
 logger = logging.getLogger(__name__)
 
 register_router = APIRouter()
 
-ADMIN_EMAIL = os.environ.get("TRAINSIGHT_ADMIN_EMAIL", "")
+ADMIN_EMAIL = getenv_compat("ADMIN_EMAIL", "") or ""
 
 
 class RegisterRequest(BaseModel):
