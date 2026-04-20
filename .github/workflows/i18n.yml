@@ -116,7 +116,7 @@ jobs:
             --language "Simplified Chinese"
 
       - name: Open pull request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           commit-message: 'i18n: refresh zh translations'
           title: 'i18n: refresh zh translations'
