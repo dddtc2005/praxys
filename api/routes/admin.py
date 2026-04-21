@@ -221,6 +221,10 @@ def delete_user(
     db.delete(user)
     db.commit()
 
+    # Wipe cached Garmin OAuth tokens on disk for this user
+    from api.routes.sync import clear_garmin_tokens
+    clear_garmin_tokens(target_user_id)
+
     return {"status": "deleted", "email": email}
 
 

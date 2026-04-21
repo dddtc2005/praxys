@@ -331,6 +331,12 @@ def connect_platform(
         )
         db.add(conn)
 
+    # Garmin caches OAuth tokens on disk — invalidate them whenever credentials
+    # change so the next sync re-authenticates with the new username/password.
+    if platform == "garmin":
+        from api.routes.sync import clear_garmin_tokens
+        clear_garmin_tokens(user_id)
+
     db.commit()
     return {"status": "connected", "platform": platform}
 
@@ -351,4 +357,9 @@ def disconnect_platform(
     if conn:
         db.delete(conn)
         db.commit()
+
+    if platform == "garmin":
+        from api.routes.sync import clear_garmin_tokens
+        clear_garmin_tokens(user_id)
+
     return {"status": "disconnected", "platform": platform}
