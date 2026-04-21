@@ -84,19 +84,34 @@ def test_sync_garmin_passes_per_user_path_to_login(tmp_path, monkeypatch) -> Non
     """
     monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
 
-    recorded: list[tuple[str, str]] = []
+    # Pre-create token files so _sync_garmin passes the path to login().
+    # The bug fix makes login receive None on first-time sync (no tokens),
+    # but the isolation guarantee still matters once tokens exist — so we
+    # exercise the cached-tokens branch here.
+    for uid in ("user-a", "user-b"):
+        d = _garmin_token_dir(uid)
+        os.makedirs(d, exist_ok=True)
+        for name in ("oauth1_token.json", "oauth2_token.json"):
+            with open(os.path.join(d, name), "w") as f:
+                f.write("{}")
+
+    recorded_login: list[tuple[str, str]] = []
+    recorded_dump: list[tuple[str, str]] = []
 
     class _FakeGarth:
+        def __init__(self, email: str) -> None:
+            self._email = email
+
         def dump(self, path: str) -> None:
-            pass
+            recorded_dump.append((self._email, path))
 
     class _FakeGarminClient:
         def __init__(self, email: str, password: str, is_cn: bool = False):
             self.email = email
-            self.garth = _FakeGarth()
+            self.garth = _FakeGarth(email)
 
-        def login(self, token_dir: str) -> None:
-            recorded.append((self.email, token_dir))
+        def login(self, token_dir) -> None:
+            recorded_login.append((self.email, token_dir))
 
         def get_activities_by_date(self, start, end, activitytype=None):
             return []
@@ -106,6 +121,9 @@ def test_sync_garmin_passes_per_user_path_to_login(tmp_path, monkeypatch) -> Non
 
         def get_lactate_threshold(self, latest=False, start_date=None, end_date=None):
             return []
+
+        def get_user_profile(self):
+            return {}
 
         def get_training_status(self, d):
             return {}
@@ -130,6 +148,7 @@ def test_sync_garmin_passes_per_user_path_to_login(tmp_path, monkeypatch) -> Non
     monkeypatch.setattr("db.sync_writer.write_lactate_threshold", lambda *a, **k: 0)
     monkeypatch.setattr("db.sync_writer.write_daily_metrics", lambda *a, **k: 0)
     monkeypatch.setattr("db.sync_writer.write_recovery", lambda *a, **k: 0)
+    monkeypatch.setattr("db.sync_writer.write_profile_thresholds", lambda *a, **k: 0)
 
     class _FakeConfig:
         source_options = {"garmin_activity_categories": ["running"]}
@@ -159,9 +178,114 @@ def test_sync_garmin_passes_per_user_path_to_login(tmp_path, monkeypatch) -> Non
     _sync_garmin("user-a", creds_a, None, _NullDB())
     _sync_garmin("user-b", creds_b, None, _NullDB())
 
-    assert len(recorded) == 2
-    email_a, path_a = recorded[0]
-    email_b, path_b = recorded[1]
+    assert len(recorded_login) == 2
+    email_a, path_a = recorded_login[0]
+    email_b, path_b = recorded_login[1]
     assert path_a != path_b
     assert path_a.endswith(os.sep + "user-a")
     assert path_b.endswith(os.sep + "user-b")
+
+    # Dump should also go to each user's own directory so next sync can reuse.
+    assert len(recorded_dump) == 2
+    dump_a = dict(recorded_dump)["a@example.com"]
+    dump_b = dict(recorded_dump)["b@example.com"]
+    assert dump_a.endswith(os.sep + "user-a")
+    assert dump_b.endswith(os.sep + "user-b")
+
+
+def test_sync_garmin_first_time_login_without_tokens(tmp_path, monkeypatch) -> None:
+    """Regression: first-ever sync must not pass a tokenstore path to login().
+
+    garminconnect.login() delegates to garth.load(), which raises
+    FileNotFoundError when oauth1_token.json / oauth2_token.json aren't in
+    the directory. Our code used to pass the path unconditionally, so the
+    first sync for any new user crashed before fetching any data. Fix: pass
+    None when no token files exist; dump after the credential-based login
+    so the next sync can use the cached tokens.
+    """
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+
+    login_args: list[object] = []
+    dump_paths: list[str] = []
+
+    class _FakeGarth:
+        def dump(self, path: str) -> None:
+            dump_paths.append(path)
+
+    class _FakeGarminClient:
+        def __init__(self, email: str, password: str, is_cn: bool = False):
+            self.garth = _FakeGarth()
+
+        def login(self, token_dir) -> None:
+            login_args.append(token_dir)
+
+        def get_activities_by_date(self, *a, **k):
+            return []
+
+        def get_activity_splits(self, aid):
+            return {}
+
+        def get_lactate_threshold(self, **kwargs):
+            return []
+
+        def get_user_profile(self):
+            return {}
+
+        def get_training_status(self, d):
+            return {}
+
+        def get_training_readiness(self, d):
+            return None
+
+        def get_race_predictions(self):
+            return None
+
+        def get_hrv_data(self, d):
+            return None
+
+        def get_sleep_data(self, d):
+            return None
+
+    monkeypatch.setattr("garminconnect.Garmin", _FakeGarminClient)
+    for name in (
+        "write_activities", "write_splits", "write_lactate_threshold",
+        "write_daily_metrics", "write_recovery", "write_profile_thresholds",
+    ):
+        monkeypatch.setattr(f"db.sync_writer.{name}", lambda *a, **k: 0)
+
+    class _FakeConfig:
+        source_options = {"garmin_activity_categories": ["running"]}
+
+    monkeypatch.setattr(
+        "analysis.config.load_config_from_db", lambda user_id, db: _FakeConfig()
+    )
+
+    from api.routes.sync import _sync_garmin
+
+    class _NullDB:
+        def query(self, *a, **k):
+            class _Q:
+                def filter(self, *a, **k):
+                    return self
+
+                def first(self):
+                    return None
+
+            return _Q()
+
+        def commit(self):
+            pass
+
+    _sync_garmin(
+        "first-time-user", {"email": "x@example.com", "password": "pw"},
+        None, _NullDB(),
+    )
+
+    assert login_args == [None], (
+        "login() must receive None when the tokenstore has no token files; "
+        f"got {login_args!r}"
+    )
+    assert len(dump_paths) == 1
+    assert dump_paths[0].endswith(os.sep + "first-time-user"), (
+        "dump() must still scope the saved tokens per-user"
+    )
