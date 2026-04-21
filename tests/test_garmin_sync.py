@@ -1,6 +1,7 @@
 from sync.garmin_sync import (
     parse_activities,
     parse_daily_metrics,
+    parse_garmin_recovery,
     parse_splits,
     parse_user_profile,
 )
@@ -301,3 +302,89 @@ def test_parse_user_profile_empty_or_invalid():
     assert parse_user_profile(None) == {}
     assert parse_user_profile({}) == {}
     assert parse_user_profile({"userData": {"maxHr": "not a number"}}) == {}
+
+
+# --- Recovery parser robustness ---
+# Garmin returns nested fields explicitly as null on days without data.
+# dict.get(k, default) returns None for a present-but-null key, so every
+# .get() chain needs an isinstance() guard or None-coalesce. These tests
+# cover the exact shapes that used to raise AttributeError and silently
+# abort the recovery loop via the outer try/except.
+
+
+def test_parse_garmin_recovery_returns_none_when_all_sources_empty():
+    assert parse_garmin_recovery("2026-04-21") is None
+
+
+def test_parse_garmin_recovery_handles_null_hrv_summary():
+    """hrvSummary can come back as explicit null; must not raise."""
+    row = parse_garmin_recovery(
+        "2026-04-21",
+        hrv_data={"hrvSummary": None},
+        sleep_data={"dailySleepDTO": {"sleepScore": 85}},
+    )
+    assert row is not None
+    assert row["sleep_score"] == "85"
+    assert "hrv_ms" not in row
+
+
+def test_parse_garmin_recovery_handles_null_daily_sleep():
+    """dailySleepDTO can come back as explicit null; must not raise."""
+    row = parse_garmin_recovery(
+        "2026-04-21",
+        hrv_data={"hrvSummary": {"lastNightAvg": 42.5}},
+        sleep_data={"dailySleepDTO": None},
+    )
+    assert row is not None
+    assert row["hrv_ms"] == "42"
+
+
+def test_parse_garmin_recovery_handles_null_sleep_scores():
+    """sleepScores (or its overall child) can be null."""
+    row = parse_garmin_recovery(
+        "2026-04-21",
+        sleep_data={"dailySleepDTO": {
+            "sleepScores": None,
+            "sleepTimeSeconds": 27000,
+            "restingHeartRate": 52,
+        }},
+    )
+    assert row is not None
+    assert row["total_sleep_hours"] == "7.5"
+    assert row["resting_hr"] == "52"
+    # No sleep_score at any level → field absent, not a crash
+    assert "sleep_score" not in row
+
+
+def test_parse_garmin_recovery_extracts_all_fields_from_full_payload():
+    row = parse_garmin_recovery(
+        "2026-04-21",
+        hrv_data={"hrvSummary": {"lastNightAvg": 48}},
+        sleep_data={"dailySleepDTO": {
+            "sleepScores": {"overall": {"value": 78}},
+            "sleepTimeSeconds": 27900,
+            "restingHeartRate": 50,
+        }},
+        training_readiness=[{"score": 72}],
+    )
+    assert row == {
+        "date": "2026-04-21",
+        "source": "garmin",
+        "readiness_score": "72",
+        "hrv_ms": "48",
+        "sleep_score": "78",
+        "total_sleep_hours": "7.8",
+        "resting_hr": "50",
+    }
+
+
+def test_parse_garmin_recovery_ignores_unreasonable_rhr():
+    """RHR values below 20 bpm are sensor artefacts; skip them."""
+    row = parse_garmin_recovery(
+        "2026-04-21",
+        sleep_data={"dailySleepDTO": {
+            "sleepScore": 70, "restingHeartRate": 0,
+        }},
+    )
+    assert row is not None
+    assert "resting_hr" not in row

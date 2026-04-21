@@ -429,10 +429,19 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
                             "for user %s: %s",
                             sleep_fail_streak, user_id, sleep_last_err,
                         )
-            row = parse_garmin_recovery(
-                d, hrv_data=hrv, sleep_data=sleep,
-                training_readiness=tr if days_ago == 0 else None,
-            )
+            # Per-day try/except: a single malformed Garmin payload must not
+            # wipe out the whole window. Historically a null nested field in
+            # the HRV/sleep response would raise an AttributeError, the outer
+            # try/except would catch it, and every subsequent day would be
+            # skipped — no recovery rows at all.
+            try:
+                row = parse_garmin_recovery(
+                    d, hrv_data=hrv, sleep_data=sleep,
+                    training_readiness=tr if days_ago == 0 else None,
+                )
+            except Exception as e:
+                logger.debug("Recovery parse for %s: skipped (%s)", d, e)
+                row = None
             if row:
                 recovery_rows.append(row)
             time.sleep(RATE_LIMIT_DELAY)
