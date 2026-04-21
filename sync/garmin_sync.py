@@ -60,6 +60,13 @@ def parse_activities(raw_activities: list[dict]) -> list[dict]:
             val = a.get(f"hrTimeInZone_{z}")
             hr_zones[f"hr_zone{z}_sec"] = str(int(val)) if val is not None else ""
 
+        # Native Garmin running power is present on modern watches (Fenix 6+,
+        # FR 255/955/965, Epix) and when an HRM-Pro or Stryd pod is paired via
+        # ANT+. Older watches may only surface power through ConnectIQ (handled
+        # at the lap level in parse_splits).
+        avg_power_raw = a.get("averagePower")
+        max_power_raw = a.get("maxPower")
+
         rows.append({
             "activity_id": str(a.get("activityId", "")),
             "date": date_str,
@@ -68,6 +75,8 @@ def parse_activities(raw_activities: list[dict]) -> list[dict]:
             "distance_km": str(round(distance_m / 1000, 1)) if distance_m else "",
             "duration_sec": str(int(duration)) if duration else "",
             "avg_pace_min_km": avg_pace,
+            "avg_power": str(round(float(avg_power_raw), 1)) if avg_power_raw is not None else "",
+            "max_power": str(round(float(max_power_raw), 1)) if max_power_raw is not None else "",
             "avg_hr": str(int(a["averageHR"])) if a.get("averageHR") else "",
             "max_hr": str(int(a["maxHR"])) if a.get("maxHR") else "",
             "elevation_gain_m": str(a["elevationGain"]) if a.get("elevationGain") else "",
@@ -83,8 +92,14 @@ def parse_activities(raw_activities: list[dict]) -> list[dict]:
 def parse_splits(activity_id: str, splits_data: dict) -> list[dict]:
     """Parse per-lap split data from get_activity_splits() response.
 
-    Garmin returns laps as lapDTOs. ConnectIQ power (e.g. Stryd) appears in
-    connectIQMeasurement array with a specific developerFieldNumber.
+    Garmin returns laps as lapDTOs. Power comes from one of two sources, in
+    priority order:
+    1. Native Garmin running power (lap["averagePower"]) — present on modern
+       watches and when HRM-Pro / Stryd pod is paired via ANT+.
+    2. ConnectIQ developer field 10 — Stryd's ConnectIQ data-field convention,
+       used when the watch doesn't expose power natively. Field numbers are
+       defined per-app so the `developerFieldName` is checked to avoid
+       accepting a non-power field that happens to share the number.
     """
     rows = []
     laps = splits_data.get("lapDTOs", [])
@@ -102,13 +117,29 @@ def parse_splits(activity_id: str, splits_data: dict) -> list[dict]:
             secs = int(pace_sec_per_km % 60)
             avg_pace = f"{mins}:{secs:02d}"
 
-        # ConnectIQ power from Stryd — look in connectIQMeasurement array
+        # Prefer native Garmin power; fall back to ConnectIQ field 10.
         avg_power = ""
-        for ciq in lap.get("connectIQMeasurement", []):
-            if ciq.get("developerFieldNumber") == 10:
+        native_power = lap.get("averagePower")
+        if native_power is not None:
+            try:
+                avg_power = str(int(float(native_power)))
+            except (ValueError, TypeError):
+                pass
+        if not avg_power:
+            for ciq in lap.get("connectIQMeasurement", []):
+                if ciq.get("developerFieldNumber") != 10:
+                    continue
+                # Accept when the field name confirms power, or when no name
+                # is present (Stryd's historical payload). Reject if the name
+                # is set but clearly isn't power.
+                field_name = str(
+                    ciq.get("developerFieldName") or ciq.get("fieldName") or ""
+                ).lower()
+                if field_name and "power" not in field_name:
+                    continue
                 try:
                     avg_power = str(int(float(ciq["value"])))
-                except (ValueError, KeyError):
+                except (ValueError, KeyError, TypeError):
                     pass
                 break
 
@@ -131,6 +162,46 @@ def parse_splits(activity_id: str, splits_data: dict) -> list[dict]:
             "avg_power": avg_power,
         })
     return rows
+
+
+def parse_user_profile(profile: dict | None) -> dict:
+    """Extract configured max HR and resting HR from Garmin user profile.
+
+    The user-settings endpoint returns a nested structure. Fields live under
+    ``userData`` on the modern API but Garmin has shipped several shapes over
+    time, so we check a couple of alternate names and a top-level fallback.
+    """
+    if not isinstance(profile, dict):
+        return {}
+
+    user_data = profile.get("userData")
+    if not isinstance(user_data, dict):
+        user_data = profile
+
+    result: dict[str, int] = {}
+    max_hr = (
+        user_data.get("maxHr")
+        or user_data.get("maxHeartRate")
+        or user_data.get("heartRateMax")
+    )
+    if max_hr:
+        try:
+            result["max_hr_bpm"] = int(float(max_hr))
+        except (TypeError, ValueError):
+            pass
+
+    rhr = (
+        user_data.get("restingHeartRate")
+        or user_data.get("restHr")
+        or profile.get("restingHeartRate")
+    )
+    if rhr:
+        try:
+            result["rest_hr_bpm"] = int(float(rhr))
+        except (TypeError, ValueError):
+            pass
+
+    return result
 
 
 def parse_daily_metrics(

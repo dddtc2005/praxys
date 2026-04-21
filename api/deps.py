@@ -97,6 +97,21 @@ def _resolve_thresholds(
             if row and row.value:
                 setattr(result, est_attr, float(row.value))
 
+        # Fallback: derive max_hr_bpm from the highest max_hr recorded across
+        # activities when fitness_data has no entry. The Garmin sync writes
+        # per-activity max_hr but never a max_hr_bpm fitness record, so HR-based
+        # users would otherwise have no max_hr threshold and TRIMP would be
+        # skipped — leaving the fitness/fatigue chart empty.
+        if result.max_hr_bpm is None:
+            from db.models import Activity
+            from sqlalchemy import func
+            max_hr = db.query(func.max(Activity.max_hr)).filter(
+                Activity.user_id == user_id,
+                Activity.max_hr.isnot(None),
+            ).scalar()
+            if max_hr:
+                result.max_hr_bpm = float(max_hr)
+
         # Apply manual overrides from config
         t = config.thresholds
         if t.get("cp_watts"):
