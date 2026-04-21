@@ -237,7 +237,16 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
     # first-authenticated user's Garmin data.
     token_dir = _garmin_token_dir(user_id)
     os.makedirs(token_dir, exist_ok=True)
-    client.login(token_dir)
+    # garminconnect.login() delegates to garth.load(), which raises
+    # FileNotFoundError when the oauth1/oauth2 JSONs aren't present (it only
+    # catches AssertionError). Pass the tokenstore only when we have tokens
+    # to load; otherwise fall through to username/password auth. Dump after
+    # login so the next sync can skip credentials.
+    has_tokens = all(
+        os.path.isfile(os.path.join(token_dir, name))
+        for name in ("oauth1_token.json", "oauth2_token.json")
+    )
+    client.login(token_dir if has_tokens else None)
     try:
         client.garth.dump(token_dir)
     except AttributeError:
