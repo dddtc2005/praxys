@@ -289,3 +289,105 @@ def test_sync_garmin_first_time_login_without_tokens(tmp_path, monkeypatch) -> N
     assert dump_paths[0].endswith(os.sep + "first-time-user"), (
         "dump() must still scope the saved tokens per-user"
     )
+
+
+def test_sync_garmin_recovery_loop_survives_a_malformed_day(tmp_path, monkeypatch) -> None:
+    """Regression: one corrupt Garmin payload must not skip remaining days.
+
+    Before the per-day try/except was added in _sync_garmin's recovery loop,
+    an AttributeError inside parse_garmin_recovery (e.g. from Garmin
+    returning a present-but-null nested key that .get() couldn't default
+    away) propagated to the outer try/except and aborted the whole window,
+    writing zero recovery rows. This test simulates that: day 0 returns a
+    payload that makes parse_garmin_recovery raise; day 1 returns a valid
+    payload; write_recovery must still receive the day-1 row.
+    """
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+
+    # Pre-create tokens so login is skipped via cached path
+    token_root = _garmin_token_dir("bad-day-user")
+    os.makedirs(token_root, exist_ok=True)
+    for name in ("oauth1_token.json", "oauth2_token.json"):
+        with open(os.path.join(token_root, name), "w") as f:
+            f.write("{}")
+
+    day_calls: dict[str, list[str]] = {"hrv": [], "sleep": []}
+    recovery_write_calls: list[list[dict]] = []
+
+    class _FakeGarth:
+        def dump(self, path): pass
+
+    class _FakeClient:
+        def __init__(self, email, password, is_cn=False):
+            self.garth = _FakeGarth()
+
+        def login(self, token_dir): pass
+        def get_activities_by_date(self, *a, **k): return []
+        def get_activity_splits(self, aid): return {}
+        def get_lactate_threshold(self, **kwargs): return []
+        def get_user_profile(self): return {}
+        def get_training_status(self, d): return {}
+        def get_training_readiness(self, d): return None
+        def get_race_predictions(self): return None
+
+        def get_hrv_data(self, d):
+            day_calls["hrv"].append(d)
+            # First iteration (today) → malformed. Later iterations → valid.
+            if len(day_calls["hrv"]) == 1:
+                # Make float() blow up inside parse_garmin_recovery
+                return {"hrvSummary": {"lastNightAvg": "not-a-number"}}
+            return {"hrvSummary": {"lastNightAvg": 42}}
+
+        def get_sleep_data(self, d):
+            day_calls["sleep"].append(d)
+            return {"dailySleepDTO": {"sleepScore": 80, "restingHeartRate": 50}}
+
+    monkeypatch.setattr("garminconnect.Garmin", _FakeClient)
+    monkeypatch.setattr("db.sync_writer.write_activities", lambda *a, **k: 0)
+    monkeypatch.setattr("db.sync_writer.write_splits", lambda *a, **k: 0)
+    monkeypatch.setattr("db.sync_writer.write_lactate_threshold", lambda *a, **k: 0)
+    monkeypatch.setattr("db.sync_writer.write_daily_metrics", lambda *a, **k: 0)
+    monkeypatch.setattr("db.sync_writer.write_profile_thresholds", lambda *a, **k: 0)
+
+    def _fake_write_recovery(user_id, readiness, sleep, hrv, db, *, garmin_recovery=None):
+        recovery_write_calls.append(list(garmin_recovery or []))
+        return len(garmin_recovery or [])
+
+    monkeypatch.setattr("db.sync_writer.write_recovery", _fake_write_recovery)
+
+    class _FakeConfig:
+        source_options = {"garmin_activity_categories": ["running"]}
+
+    monkeypatch.setattr(
+        "analysis.config.load_config_from_db", lambda user_id, db: _FakeConfig()
+    )
+
+    from api.routes.sync import _sync_garmin
+
+    class _NullDB:
+        def query(self, *a, **k):
+            class _Q:
+                def filter(self, *a, **k): return self
+                def first(self): return None
+            return _Q()
+        def commit(self): pass
+
+    result = _sync_garmin(
+        "bad-day-user",
+        {"email": "x@example.com", "password": "pw"},
+        None, _NullDB(),
+    )
+
+    # Default window is today..today-7 inclusive (8 days). Day 0 is corrupt,
+    # remaining 7 produce rows — the loop must not abort on the first failure.
+    expected_days = len(day_calls["hrv"])
+    assert expected_days >= 7, f"Loop aborted early: {day_calls}"
+    assert len(recovery_write_calls) == 1, (
+        "write_recovery should be called exactly once with the surviving rows"
+    )
+    good_rows = recovery_write_calls[0]
+    assert len(good_rows) == expected_days - 1, (
+        f"Expected {expected_days - 1} good rows (day 0 skipped), "
+        f"got {len(good_rows)}"
+    )
+    assert result.get("recovery") == len(good_rows)

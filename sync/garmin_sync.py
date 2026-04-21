@@ -248,7 +248,7 @@ def parse_garmin_recovery(
     date_str: str,
     hrv_data: dict | None = None,
     sleep_data: dict | None = None,
-    training_readiness: dict | None = None,
+    training_readiness: dict | list | None = None,
 ) -> dict | None:
     """Parse Garmin HRV, sleep, and readiness into a recovery_data row.
 
@@ -267,15 +267,18 @@ def parse_garmin_recovery(
         entry = training_readiness
         if isinstance(training_readiness, list) and training_readiness:
             entry = training_readiness[0]
-        score = entry.get("score")
-        if score is not None:
-            result["readiness_score"] = str(round(float(score)))
-            has_data = True
+        if isinstance(entry, dict):
+            score = entry.get("score")
+            if score is not None:
+                result["readiness_score"] = str(round(float(score)))
+                has_data = True
 
     # HRV → hrv_ms (use lastNightAvg or lastNight5MinHigh).
-    # dict.get(k, default) returns None — not the default — when the key is
-    # present with a null value, which Garmin does on days where the watch
-    # collected no HRV. Guard each level against that before calling .get().
+    # Garmin returns nested keys (hrvSummary / dailySleepDTO / sleepScores)
+    # as explicit null on days the watch collected nothing — observed
+    # especially on Garmin CN. `.get("k", default)` does NOT apply the
+    # default for a present-but-null key, so each level needs an
+    # isinstance guard before chaining further .get() calls.
     if isinstance(hrv_data, dict):
         summary = hrv_data.get("hrvSummary") or hrv_data
         if isinstance(summary, dict):

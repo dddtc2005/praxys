@@ -369,6 +369,7 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
     # activity sync so a 6-month backfill doesn't leave us with a 7-day HRV
     # trend. Cap to a year to avoid hammering Garmin if from_date is ancient.
     recovery_count = 0
+    recovery_rows: list[dict] = []
     try:
         from sync.garmin_sync import parse_garmin_recovery
 
@@ -394,7 +395,7 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
         hrv_aborted = False
         sleep_aborted = False
 
-        recovery_rows = []
+        parse_failures = 0
         for days_ago in range(total_days):
             d = (today_date - timedelta(days=days_ago)).isoformat()
             hrv = None
@@ -429,17 +430,18 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
                             "for user %s: %s",
                             sleep_fail_streak, user_id, sleep_last_err,
                         )
-            # Per-day try/except: a single malformed Garmin payload must not
-            # wipe out the whole window. Historically a null nested field in
-            # the HRV/sleep response would raise an AttributeError, the outer
-            # try/except would catch it, and every subsequent day would be
-            # skipped — no recovery rows at all.
+            # Per-day try/except: keep one malformed Garmin payload from
+            # skipping the rest of the window. parse_garmin_recovery is
+            # hardened against the known null shapes, but Garmin's schema is
+            # undocumented and has regressed before — treat any parse error
+            # as "skip this day" rather than aborting the loop.
             try:
                 row = parse_garmin_recovery(
                     d, hrv_data=hrv, sleep_data=sleep,
                     training_readiness=tr if days_ago == 0 else None,
                 )
             except Exception as e:
+                parse_failures += 1
                 logger.debug("Recovery parse for %s: skipped (%s)", d, e)
                 row = None
             if row:
@@ -448,18 +450,30 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
             if hrv_aborted and sleep_aborted:
                 break
 
-        if recovery_rows:
-            # Sleep-data RHR feeds recovery_data for the HRV / recovery trend.
-            # The TRIMP rest_hr_bpm threshold is written separately by
-            # write_profile_thresholds above from the Garmin user profile —
-            # that value is stable across days and the appropriate reference
-            # for a threshold input, whereas overnight RHR carries daily noise.
+        if total_days and parse_failures >= max(3, total_days // 2):
+            logger.warning(
+                "Garmin recovery parse failed for %d of %d days (user %s) — "
+                "recovery trend will be incomplete",
+                parse_failures, total_days, user_id,
+            )
+    except Exception as e:
+        logger.warning("Garmin recovery fetch failed for user %s: %s", user_id, e)
+
+    # DB write is intentionally outside the fetch try/except so a DB error
+    # doesn't get mislabelled as a Garmin fetch failure.
+    if recovery_rows:
+        try:
+            # Sleep RHR feeds recovery_data per day for the HRV trend.
+            # fitness_data.rest_hr_bpm (the TRIMP reference) is written by
+            # write_profile_thresholds above — kept stable, not per-day noisy.
             recovery_count = sync_writer.write_recovery(
                 user_id, [], [], {}, db,
                 garmin_recovery=recovery_rows,
             )
-    except Exception as e:
-        logger.warning("Garmin recovery fetch failed for user %s: %s", user_id, e)
+        except Exception as e:
+            logger.warning(
+                "Garmin recovery write failed for user %s: %s", user_id, e,
+            )
 
     return {"activities": act_count, "splits": split_count,
             "lactate_threshold": lt_count, "profile": profile_count,
