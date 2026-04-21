@@ -57,8 +57,12 @@ def test_missing_user_returns_empty_dict():
     assert _load_push_status("never-pushed") == {}
 
 
-def test_corrupt_file_falls_back_to_empty(tmp_path):
-    """A hand-edited or partially written file must not 500 the endpoint."""
+def test_corrupt_file_quarantines_rather_than_overwriting(tmp_path):
+    """A corrupt file must be preserved under a quarantine name, not silently
+    overwritten by the next save. Returning {} keeps the endpoint responsive
+    without destroying recoverable history."""
+    import glob
+
     from api.routes import plan as plan_mod
     from api.routes.plan import _load_push_status
 
@@ -68,3 +72,26 @@ def test_corrupt_file_falls_back_to_empty(tmp_path):
         f.write("{this is not json")
 
     assert _load_push_status("corrupt-user") == {}
+    # Original file is gone, renamed with a .corrupt-<stamp> suffix.
+    assert not os.path.exists(path)
+    quarantines = glob.glob(f"{path}.corrupt-*")
+    assert len(quarantines) == 1
+
+
+def test_save_cleans_up_tmp_file_on_rename_failure(tmp_path, monkeypatch):
+    """If os.replace raises, the .tmp must not leak on disk."""
+    from api.routes import plan as plan_mod
+    from api.routes.plan import _save_push_status
+
+    user_id = "user-rename-fail"
+    target = plan_mod._stryd_push_status_path(user_id)
+
+    def _boom(src, dst):
+        raise OSError("simulated rename failure")
+
+    monkeypatch.setattr("os.replace", _boom)
+
+    with pytest.raises(OSError):
+        _save_push_status(user_id, {"2026-05-01": {"workout_id": "x"}})
+
+    assert not os.path.exists(target + ".tmp"), "orphan .tmp was left behind"

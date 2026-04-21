@@ -26,10 +26,16 @@ _STRYD_PUSH_STATUS_DIR = os.path.join(_DATA_DIR, "ai", "stryd_push_status")
 def _stryd_push_status_path(user_id: str) -> str:
     """Per-user push-status path.
 
-    A previous version shared a single ``stryd_push_status.json`` across all
-    users, which leaked one user's workout IDs to every other caller. Scoping
-    by user_id is required for multi-tenant installs. Using the raw DB user_id
-    (UUID) keeps the filename collision-free and filesystem-safe.
+    Must be per-user: a shared file would let any caller of
+    ``GET /api/plan/stryd-status`` see every other user's workout IDs and
+    push timestamps. UUID user_ids keep filenames collision-free and
+    filesystem-safe.
+
+    A legacy single-file layout at ``data/ai/stryd_push_status.json`` may
+    still exist on older deployments — this code does not read or migrate
+    it. Operators should delete that orphan file on deploy; leaving it in
+    place only means historical push-state that the UI won't show. No user
+    data is lost.
     """
     return os.path.join(_STRYD_PUSH_STATUS_DIR, f"{user_id}.json")
 
@@ -80,7 +86,13 @@ def get_plan(
 
 
 def _load_push_status(user_id: str) -> dict:
-    """Load a user's Stryd push status JSON. Returns {} on missing or corrupt file."""
+    """Load a user's Stryd push status JSON.
+
+    Returns {} when the file is absent. On corruption, quarantines the file
+    (renames to ``*.corrupt-<timestamp>``) and returns {} — the subsequent
+    save would otherwise overwrite it with an empty dict and destroy any
+    recoverable content.
+    """
     path = _stryd_push_status_path(user_id)
     if not os.path.exists(path):
         return {}
@@ -91,7 +103,20 @@ def _load_push_status(user_id: str) -> dict:
                 raise ValueError(f"Expected dict, got {type(data).__name__}")
             return data
     except (json.JSONDecodeError, ValueError, OSError) as e:
-        logger.warning("Corrupt push status file %s: %s", path, e)
+        from datetime import datetime, timezone
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        quarantine = f"{path}.corrupt-{stamp}"
+        try:
+            os.replace(path, quarantine)
+            logger.error(
+                "Quarantined corrupt push status file for user=%s at %s: %s",
+                user_id, quarantine, e,
+            )
+        except OSError as rename_err:
+            logger.error(
+                "Corrupt push status file for user=%s at %s (quarantine failed: %s): %s",
+                user_id, path, rename_err, e,
+            )
         return {}
 
 
@@ -100,9 +125,17 @@ def _save_push_status(user_id: str, status: dict) -> None:
     path = _stryd_push_status_path(user_id)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     tmp_path = path + ".tmp"
-    with open(tmp_path, "w") as f:
-        json.dump(status, f, indent=2)
-    os.replace(tmp_path, path)
+    try:
+        with open(tmp_path, "w") as f:
+            json.dump(status, f, indent=2)
+        os.replace(tmp_path, path)
+    except OSError:
+        # Don't leave a half-written tmp file behind on rename failures.
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 @router.get("/plan/stryd-status")
