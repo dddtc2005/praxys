@@ -242,6 +242,46 @@ def write_daily_metrics(user_id: str, rows: list[dict], db: Session) -> int:
     return count
 
 
+def write_profile_thresholds(
+    user_id: str,
+    profile: dict,
+    db: Session,
+    source: str = "garmin",
+    as_of: date | None = None,
+) -> int:
+    """Write configured max/resting HR from a user-profile parse into fitness_data.
+
+    Keeps the user's configured Garmin HR thresholds authoritative over the
+    activity-max fallback in api.deps._resolve_thresholds.
+    """
+    if not profile:
+        return 0
+    when = as_of or date.today()
+    count = 0
+    for key in ("max_hr_bpm", "rest_hr_bpm"):
+        val = profile.get(key)
+        if val is None:
+            continue
+        exists = db.query(FitnessData.id).filter(
+            FitnessData.user_id == user_id,
+            FitnessData.date == when,
+            FitnessData.metric_type == key,
+        ).first()
+        if exists:
+            db.query(FitnessData).filter(
+                FitnessData.user_id == user_id,
+                FitnessData.date == when,
+                FitnessData.metric_type == key,
+            ).update({"value": float(val), "source": source})
+        else:
+            db.add(FitnessData(
+                user_id=user_id, date=when,
+                metric_type=key, value=float(val), source=source,
+            ))
+        count += 1
+    return count
+
+
 def write_lactate_threshold(user_id: str, rows: list[dict], db: Session) -> int:
     """Write lactate threshold data to fitness_data table. Returns count of new."""
     count = 0

@@ -1,4 +1,9 @@
-from sync.garmin_sync import parse_activities, parse_daily_metrics, parse_splits
+from sync.garmin_sync import (
+    parse_activities,
+    parse_daily_metrics,
+    parse_splits,
+    parse_user_profile,
+)
 
 SAMPLE_ACTIVITY = {
     "activityId": 12345678901,
@@ -199,3 +204,100 @@ def test_parse_daily_metrics_empty():
     assert rows[0]["training_status"] == ""
     assert rows[0]["training_readiness"] == ""
     assert rows[0]["marathon_prediction_sec"] == ""
+
+
+# --- Activity power (native Garmin + ConnectIQ fallback) ---
+
+
+def test_parse_activities_native_power():
+    """Activity-level averagePower/maxPower from native running power."""
+    act = {
+        **SAMPLE_ACTIVITY,
+        "averagePower": 252.4,
+        "maxPower": 410,
+    }
+    rows = parse_activities([act])
+    assert rows[0]["avg_power"] == "252.4"
+    assert rows[0]["max_power"] == "410.0"
+
+
+def test_parse_activities_no_power_when_missing():
+    """Activities without power fields leave the column empty."""
+    rows = parse_activities([SAMPLE_ACTIVITY])
+    assert rows[0]["avg_power"] == ""
+    assert rows[0]["max_power"] == ""
+
+
+def test_parse_splits_prefers_native_power_over_connectiq():
+    """Native lap averagePower wins over ConnectIQ field 10."""
+    data = {
+        "lapDTOs": [{
+            "distance": 1000.0, "duration": 300.0,
+            "averageHR": 150.0, "averageRunCadence": 170.0,
+            "elevationGain": 0.0, "elevationLoss": 0.0,
+            "averagePower": 245.0,
+            "connectIQMeasurement": [
+                {"developerFieldNumber": 10, "value": "999.0"},
+            ],
+        }],
+    }
+    rows = parse_splits("a1", data)
+    assert rows[0]["avg_power"] == "245"
+
+
+def test_parse_splits_connectiq_fallback_when_native_absent():
+    """ConnectIQ field 10 picks up when native power isn't present."""
+    data = {
+        "lapDTOs": [{
+            "distance": 1000.0, "duration": 300.0,
+            "connectIQMeasurement": [
+                {"developerFieldNumber": 10, "value": "270.0"},
+            ],
+        }],
+    }
+    rows = parse_splits("a1", data)
+    assert rows[0]["avg_power"] == "270"
+
+
+def test_parse_splits_ignores_connectiq_non_power_field():
+    """ConnectIQ field 10 from an unrelated app (by name) is skipped."""
+    data = {
+        "lapDTOs": [{
+            "distance": 1000.0, "duration": 300.0,
+            "connectIQMeasurement": [
+                {
+                    "developerFieldNumber": 10,
+                    "developerFieldName": "Leg Spring Stiffness",
+                    "value": "11.5",
+                },
+            ],
+        }],
+    }
+    rows = parse_splits("a1", data)
+    # Non-power field 10 must not be mis-read as power.
+    assert rows[0]["avg_power"] == ""
+
+
+# --- User profile (max HR + resting HR thresholds) ---
+
+
+def test_parse_user_profile_extracts_max_and_rest_hr():
+    profile = {"userData": {"maxHr": 188, "restingHeartRate": 48}}
+    assert parse_user_profile(profile) == {"max_hr_bpm": 188, "rest_hr_bpm": 48}
+
+
+def test_parse_user_profile_handles_alternate_field_names():
+    profile = {"userData": {"heartRateMax": 192.0, "restHr": 50}}
+    assert parse_user_profile(profile) == {"max_hr_bpm": 192, "rest_hr_bpm": 50}
+
+
+def test_parse_user_profile_without_userdata_wrapper():
+    """Some Garmin responses put fields at top level instead of nested."""
+    profile = {"maxHeartRate": 185, "restingHeartRate": 52}
+    assert parse_user_profile(profile) == {"max_hr_bpm": 185, "rest_hr_bpm": 52}
+
+
+def test_parse_user_profile_empty_or_invalid():
+    assert parse_user_profile(None) == {}
+    assert parse_user_profile({}) == {}
+    assert parse_user_profile({"userData": {"maxHr": "not a number"}}) == {}
