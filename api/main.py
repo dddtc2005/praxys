@@ -29,6 +29,14 @@ logging.basicConfig(
 async def lifespan(app: FastAPI):
     """Initialize database on startup."""
     init_db()
+
+    # Resolve the JWT secret eagerly so a misconfigured deployment (no
+    # PRAXYS_JWT_SECRET and no dev opt-in) dies at boot rather than on the
+    # first authenticated request — uvicorn treats a lifespan exception as
+    # a failed start and won't route traffic.
+    from api.auth_secrets import get_jwt_secret
+    get_jwt_secret()
+
     # Start sync scheduler unless explicitly disabled.
     # On Azure with gunicorn pre-fork workers, each worker runs this lifespan,
     # so with the default-on behavior every worker spawns its own scheduler
