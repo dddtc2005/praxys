@@ -160,3 +160,90 @@ def test_write_profile_thresholds_feeds_resolver(db_with_user):
     assert result.rest_hr_bpm == 48.0
 
 
+def test_write_profile_thresholds_upserts_existing_same_day(db_with_user):
+    """A second write on the same day updates in place rather than duplicating.
+
+    Guards the UPDATE filter (user_id + date + metric_type) against future
+    refactors that might drop a predicate and silently overwrite the wrong
+    row or create a duplicate.
+    """
+    from db import sync_writer
+    from db.models import FitnessData
+    from api.deps import _resolve_thresholds
+
+    db, user_id = db_with_user
+
+    sync_writer.write_profile_thresholds(
+        user_id, {"max_hr_bpm": 185, "rest_hr_bpm": 50}, db,
+    )
+    db.commit()
+    sync_writer.write_profile_thresholds(
+        user_id, {"max_hr_bpm": 188, "rest_hr_bpm": 48}, db,
+    )
+    db.commit()
+
+    rows = db.query(FitnessData).filter(
+        FitnessData.user_id == user_id,
+        FitnessData.metric_type.in_(("max_hr_bpm", "rest_hr_bpm")),
+    ).all()
+    assert len(rows) == 2, "Second write must update existing rows, not append"
+
+    result = _resolve_thresholds(_fake_config(), user_id=user_id, db=db)
+    assert result.max_hr_bpm == 188.0
+    assert result.rest_hr_bpm == 48.0
+
+
+def test_hr_base_daily_load_non_zero_via_trimp_fallback(db_with_user):
+    """End-to-end regression: an HR-base user with max_hr_bpm and activities
+    but no lthr_bpm (the Garmin CN shape) must still get non-zero daily load.
+
+    Before the fix, thresholds.max_hr_bpm was always None because the Garmin
+    sync never wrote it, compute_activity_load returned None for the HR
+    branch, the cross-base TRIMP fallback also required max_hr_bpm, and every
+    daily load collapsed to 0 — empty fitness/fatigue chart. This test would
+    have failed on main.
+    """
+    import pandas as pd
+    from db.models import Activity
+    from api.deps import _resolve_thresholds, _compute_daily_load
+
+    db, user_id = db_with_user
+    today = date.today()
+    for i in range(3):
+        db.add(Activity(
+            user_id=user_id,
+            activity_id=f"a{i}",
+            date=today - timedelta(days=i),
+            activity_type="running",
+            distance_km=10.0,
+            duration_sec=3000.0,
+            avg_hr=150.0,
+            max_hr=178.0,
+            source="garmin",
+        ))
+    db.commit()
+
+    config = _fake_config(training_base="hr")
+    thresholds = _resolve_thresholds(config, user_id=user_id, db=db)
+
+    # max_hr_bpm must come from the Activity fallback (no fitness_data row).
+    assert thresholds.max_hr_bpm == 178.0
+    assert thresholds.lthr_bpm is None
+
+    activities_df = pd.DataFrame([
+        {
+            "date": today - timedelta(days=i),
+            "duration_sec": 3000.0,
+            "avg_hr": 150.0,
+            "distance_km": 10.0,
+        }
+        for i in range(3)
+    ])
+    date_range = pd.date_range(today - timedelta(days=2), today)
+    daily_load = _compute_daily_load(activities_df, date_range, config, thresholds)
+    assert daily_load.sum() > 0, (
+        "HR-base daily load must be non-zero via cross-base TRIMP when "
+        "max_hr_bpm is resolved, even without lthr_bpm"
+    )
+
+

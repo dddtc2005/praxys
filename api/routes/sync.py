@@ -280,11 +280,15 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
     activity_rows = parse_activities(raw_activities)
     act_count = sync_writer.write_activities(user_id, activity_rows, db)
 
-    # Splits (only for new activities)
+    # Splits — per-activity lap data. Splits drive interval intensity analysis
+    # (see CLAUDE.md: "Always use activity_splits.csv for intensity analysis").
+    # Per-activity misses are logged at debug, but a systemic failure would
+    # quietly lose intensity metrics, so we surface an aggregate warning.
     status = _get_user_status(user_id)
     activity_ids = [str(a.get("activityId", "")) for a in raw_activities]
     total = len(activity_ids)
     all_splits = []
+    split_failures = 0
     for idx, aid in enumerate(activity_ids):
         with _sync_lock:
             status["garmin"]["progress"] = f"Fetching splits: {idx + 1}/{total}"
@@ -293,11 +297,19 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
             all_splits.extend(parse_splits(aid, splits_data))
             time.sleep(RATE_LIMIT_DELAY)
         except Exception as e:
+            split_failures += 1
             logger.debug("Splits for %s: skipped (%s)", aid, e)
+    if total and split_failures >= max(3, total // 2):
+        logger.warning(
+            "Garmin splits fetch failed for %d of %d activities (user %s) — "
+            "intensity analysis will be missing for those runs",
+            split_failures, total, user_id,
+        )
     split_count = sync_writer.write_splits(user_id, all_splits, db)
 
-    # Lactate threshold. Garmin CN sometimes 404s here; log at warning so the
-    # failure is visible in the server log instead of vanishing at debug level.
+    # Lactate threshold. Log at warning so intermittent failures surface
+    # instead of vanishing at debug level — the previous behaviour silently
+    # hid real failures when endpoints rejected the request.
     lt_count = 0
     try:
         lt_start = (date.today() - timedelta(days=365)).isoformat()
@@ -353,22 +365,61 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
 
         start_date = date.fromisoformat(start)
         today_date = date.today()
-        total_days = (today_date - start_date).days + 1
-        total_days = max(1, min(total_days, 365))
+        requested_days = (today_date - start_date).days + 1
+        total_days = max(1, min(requested_days, 365))
+        if requested_days > total_days:
+            logger.info(
+                "Garmin recovery backfill window capped at %d days for user %s "
+                "(requested %d)", total_days, user_id, requested_days,
+            )
+
+        # Circuit-breaker: if an endpoint rejects N consecutive times, stop
+        # calling it for the rest of the loop. Prevents a 180-day backfill
+        # with a systemic auth failure from spamming 360 debug lines and
+        # waiting RATE_LIMIT_DELAY×180 for nothing.
+        consec_break = 5
+        hrv_fail_streak = 0
+        sleep_fail_streak = 0
+        hrv_last_err: Exception | None = None
+        sleep_last_err: Exception | None = None
+        hrv_aborted = False
+        sleep_aborted = False
 
         recovery_rows = []
         for days_ago in range(total_days):
             d = (today_date - timedelta(days=days_ago)).isoformat()
             hrv = None
             sleep = None
-            try:
-                hrv = client.get_hrv_data(d)
-            except Exception as e:
-                logger.debug("HRV for %s: skipped (%s)", d, e)
-            try:
-                sleep = client.get_sleep_data(d)
-            except Exception as e:
-                logger.debug("Sleep for %s: skipped (%s)", d, e)
+            if not hrv_aborted:
+                try:
+                    hrv = client.get_hrv_data(d)
+                    hrv_fail_streak = 0
+                except Exception as e:
+                    hrv_fail_streak += 1
+                    hrv_last_err = e
+                    logger.debug("HRV for %s: skipped (%s)", d, e)
+                    if hrv_fail_streak >= consec_break:
+                        hrv_aborted = True
+                        logger.warning(
+                            "Garmin HRV aborted after %d consecutive failures "
+                            "for user %s: %s",
+                            hrv_fail_streak, user_id, hrv_last_err,
+                        )
+            if not sleep_aborted:
+                try:
+                    sleep = client.get_sleep_data(d)
+                    sleep_fail_streak = 0
+                except Exception as e:
+                    sleep_fail_streak += 1
+                    sleep_last_err = e
+                    logger.debug("Sleep for %s: skipped (%s)", d, e)
+                    if sleep_fail_streak >= consec_break:
+                        sleep_aborted = True
+                        logger.warning(
+                            "Garmin sleep aborted after %d consecutive failures "
+                            "for user %s: %s",
+                            sleep_fail_streak, user_id, sleep_last_err,
+                        )
             row = parse_garmin_recovery(
                 d, hrv_data=hrv, sleep_data=sleep,
                 training_readiness=tr if days_ago == 0 else None,
@@ -376,12 +427,15 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
             if row:
                 recovery_rows.append(row)
             time.sleep(RATE_LIMIT_DELAY)
+            if hrv_aborted and sleep_aborted:
+                break
 
         if recovery_rows:
-            # Sleep-data RHR flows into recovery_data per day for the HRV /
-            # recovery trend. The TRIMP rest_hr threshold is intentionally not
-            # written here — that comes from the user-profile trailing average
-            # above, which is more stable than an overnight measurement.
+            # Sleep-data RHR feeds recovery_data for the HRV / recovery trend.
+            # The TRIMP rest_hr_bpm threshold is written separately by
+            # write_profile_thresholds above from the Garmin user profile —
+            # that value is stable across days and the appropriate reference
+            # for a threshold input, whereas overnight RHR carries daily noise.
             recovery_count = sync_writer.write_recovery(
                 user_id, [], [], {}, db,
                 garmin_recovery=recovery_rows,
