@@ -17,7 +17,7 @@ Skills are packaged as a Claude Code plugin in `plugins/praxys/`.
 claude plugin marketplace add ./plugins/marketplace.json
 
 # Install the plugin
-claude plugin install trainsight
+claude plugin install praxys
 
 # Reload plugins (in Claude Code)
 /reload-plugins
@@ -34,7 +34,7 @@ The default `.mcp.json` ships with cloud URLs pre-configured:
 ```json
 {
   "mcpServers": {
-    "trainsight": {
+    "praxys": {
       "command": "python",
       "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-server/server.py"],
       "env": {

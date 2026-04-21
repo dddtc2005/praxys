@@ -267,7 +267,7 @@ After deploying, users connect their CLI tools to the deployed backend:
 claude plugin marketplace add ./plugins/marketplace.json
 
 # Install the plugin
-claude plugin install trainsight
+claude plugin install praxys
 
 # The MCP server's PRAXYS_URL env var (in .mcp.json) routes
 # requests to the deployed API with JWT authentication.
