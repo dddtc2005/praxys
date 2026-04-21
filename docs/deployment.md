@@ -73,7 +73,7 @@ The database (`data/trainsight.db`) is created automatically on first startup. N
 ## Prerequisites (Azure)
 
 - Azure subscription
-- GitHub repository (dddtc2005/trainsight)
+- GitHub repository (dddtc2005/praxys)
 - Azure CLI installed locally
 
 ## Azure Setup (One-Time)
@@ -158,7 +158,7 @@ az role assignment create \
 az staticwebapp create \
   --name swa-trainsight \
   --resource-group rg-trainsight \
-  --source https://github.com/dddtc2005/trainsight \
+  --source https://github.com/dddtc2005/praxys \
   --branch main \
   --app-location "web" \
   --output-location "dist"

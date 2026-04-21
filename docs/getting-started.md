@@ -85,8 +85,8 @@ Run everything on your machine. Same features, same auth flow.
 ### 1. Clone and Install
 
 ```bash
-git clone https://github.com/dddtc2005/trainsight.git
-cd trainsight
+git clone https://github.com/dddtc2005/praxys.git
+cd praxys
 
 # Python dependencies
 pip install -r requirements.txt

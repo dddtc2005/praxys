@@ -10,9 +10,7 @@ interface CliHintProps {
   description: string;
 }
 
-// TODO after GitHub repo rename: update to /dddtc2005/praxys. GitHub auto-redirects
-// old URLs, so this works in the interim.
-const PLUGIN_URL = 'https://github.com/dddtc2005/trainsight';
+const PLUGIN_URL = 'https://github.com/dddtc2005/praxys';
 
 /**
  * Prominent card promoting the Claude Code plugin for AI-powered features.

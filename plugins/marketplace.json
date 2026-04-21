@@ -13,7 +13,7 @@
       "description": "Praxys training dashboard — MCP tools for training data, daily briefs, race forecasts, and AI plan management",
       "source": "./plugins/praxys",
       "category": "productivity",
-      "homepage": "https://github.com/dddtc2005/trainsight"
+      "homepage": "https://github.com/dddtc2005/praxys"
     }
   ]
 }

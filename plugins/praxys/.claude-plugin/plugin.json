@@ -4,8 +4,8 @@
   "description": "Praxys training dashboard — MCP tools for training data, daily briefs, race forecasts, and AI plan management",
   "author": {
     "name": "Fei Tao",
-    "url": "https://github.com/dddtc2005/trainsight"
+    "url": "https://github.com/dddtc2005/praxys"
   },
-  "repository": "https://github.com/dddtc2005/trainsight",
+  "repository": "https://github.com/dddtc2005/praxys",
   "keywords": ["training", "running", "power", "stryd", "garmin", "oura", "fitness"]
 }
