@@ -39,21 +39,58 @@ def _str(val) -> str | None:
     return str(val)
 
 
+# Columns that may be missing on pre-existing rows from an older sync (e.g.
+# native Garmin running power wasn't parsed before PR #62). A re-sync should
+# fill these in without touching columns that were already populated —
+# protects against overwriting Stryd-sourced power with Garmin's reading when
+# both sources synced the same activity.
+_ACTIVITY_FILL_COLUMNS = ("avg_power", "max_power")
+_SPLIT_FILL_COLUMNS = ("avg_power",)
+
+
+def _fill_missing(obj, row: dict, columns: tuple[str, ...]) -> bool:
+    """Set listed columns on `obj` from `row` when the column is currently None.
+
+    Returns True if any column was populated. Never overwrites a non-null
+    value, so a user who already has Stryd power on a split won't see it
+    replaced by the Garmin reading on a subsequent sync.
+    """
+    touched = False
+    for col in columns:
+        if getattr(obj, col) is None:
+            val = _float(row.get(col))
+            if val is not None:
+                setattr(obj, col, val)
+                touched = True
+    return touched
+
+
 def write_activities(user_id: str, rows: list[dict], db: Session) -> int:
-    """Write activity rows to DB. Skips existing (by activity_id). Returns count of new."""
+    """Write activity rows to DB.
+
+    New activity_ids are inserted. Pre-existing rows get their
+    ``_ACTIVITY_FILL_COLUMNS`` topped up when those columns are still NULL
+    (previous syncs may have missed fields this sync now parses). Returns
+    the total number of rows inserted or gap-filled.
+    """
     if not rows:
         return 0
-    existing_ids = {
-        r[0] for r in db.query(Activity.activity_id).filter(
+    existing = {
+        obj.activity_id: obj for obj in db.query(Activity).filter(
             Activity.user_id == user_id
         ).all()
     }
     count = 0
     for row in rows:
         aid = _str(row.get("activity_id"))
-        if not aid or aid in existing_ids:
+        if not aid:
             continue
-        db.add(Activity(
+        existing_obj = existing.get(aid)
+        if existing_obj is not None:
+            if _fill_missing(existing_obj, row, _ACTIVITY_FILL_COLUMNS):
+                count += 1
+            continue
+        new_obj = Activity(
             user_id=user_id,
             activity_id=aid,
             date=_parse_date(row.get("date")),
@@ -72,20 +109,27 @@ def write_activities(user_id: str, rows: list[dict], db: Session) -> int:
             cp_estimate=_float(row.get("cp_estimate")),
             start_time=_str(row.get("start_time")),
             source=_str(row.get("source")) or "garmin",
-        ))
-        existing_ids.add(aid)
+        )
+        db.add(new_obj)
+        existing[aid] = new_obj
         count += 1
     return count
 
 
 def write_splits(user_id: str, rows: list[dict], db: Session) -> int:
-    """Write split rows to DB. Skips existing. Returns count of new."""
+    """Write split rows to DB.
+
+    New (activity_id, split_num) pairs are inserted. Pre-existing rows get
+    their ``_SPLIT_FILL_COLUMNS`` topped up when still NULL — the common
+    case is native Garmin lap power that older syncs didn't parse.
+    """
     if not rows:
         return 0
     existing = {
-        (r[0], r[1]) for r in db.query(
-            ActivitySplit.activity_id, ActivitySplit.split_num
-        ).filter(ActivitySplit.user_id == user_id).all()
+        (obj.activity_id, obj.split_num): obj
+        for obj in db.query(ActivitySplit).filter(
+            ActivitySplit.user_id == user_id
+        ).all()
     }
     count = 0
     for row in rows:
@@ -94,9 +138,12 @@ def write_splits(user_id: str, rows: list[dict], db: Session) -> int:
         if not aid or snum is None:
             continue
         snum = int(snum)
-        if (aid, snum) in existing:
+        existing_obj = existing.get((aid, snum))
+        if existing_obj is not None:
+            if _fill_missing(existing_obj, row, _SPLIT_FILL_COLUMNS):
+                count += 1
             continue
-        db.add(ActivitySplit(
+        new_obj = ActivitySplit(
             user_id=user_id,
             activity_id=aid,
             split_num=snum,
@@ -108,8 +155,9 @@ def write_splits(user_id: str, rows: list[dict], db: Session) -> int:
             avg_pace_min_km=_str(row.get("avg_pace_min_km")),
             avg_cadence=_float(row.get("avg_cadence")),
             elevation_change_m=_float(row.get("elevation_change_m")),
-        ))
-        existing.add((aid, snum))
+        )
+        db.add(new_obj)
+        existing[(aid, snum)] = new_obj
         count += 1
     return count
 
