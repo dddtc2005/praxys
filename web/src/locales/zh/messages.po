@@ -828,8 +828,8 @@ msgid "Link at least one data source to start"
 msgstr "至少关联一个数据源以开始"
 
 #: src/components/SetupChecklist.tsx:48
-msgid "Link Garmin, Stryd, or Oura to pull your training data"
-msgstr ""
+msgid "Link Garmin, Strava, Stryd, or Oura to pull your training data"
+msgstr "关联 Garmin、Strava、Stryd 或 Oura 以拉取您的训练数据"
 
 #: src/pages/Settings.tsx:552
 msgid "Link your training devices and services"

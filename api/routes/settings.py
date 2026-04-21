@@ -3,12 +3,16 @@
 Supports both file-based (backward compat) and DB-based config persistence.
 When user_id and db are available (from auth), uses DB; otherwise falls back to files.
 """
+from datetime import datetime, timedelta, timezone
 import logging
 import os
+from urllib.parse import urlencode, urlparse
 from dataclasses import asdict
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+import jwt
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -26,6 +30,7 @@ from analysis.providers import available_providers
 from analysis.thresholds import detect_thresholds
 from analysis.training_base import get_display_config
 from api.auth import get_data_user_id, require_write_access
+from api.env_compat import getenv_compat
 from api.views import utc_isoformat
 from db.session import get_db
 from db.sync_scheduler import (
@@ -38,6 +43,7 @@ router = APIRouter()
 
 
 SUPPORTED_LANGUAGES = {"en", "zh"}
+_STRAVA_STATE_TTL_MINUTES = 10
 
 
 class SettingsUpdate(BaseModel):
@@ -248,6 +254,152 @@ class ConnectPlatformRequest(BaseModel):
     token: str | None = None
     # Garmin-specific
     is_cn: bool = False
+    # Strava manual token fallback
+    access_token: str | None = None
+    refresh_token: str | None = None
+    expires_at: int | None = None
+    scope: str | None = None
+    athlete_id: int | None = None
+    athlete_username: str | None = None
+
+
+class StravaOAuthStartRequest(BaseModel):
+    """Start parameters for the browser-based Strava OAuth flow."""
+
+    web_origin: str | None = None
+    return_to: str = "/settings"
+
+
+def _jwt_secret() -> str:
+    """Return the signing secret used for short-lived Strava OAuth state."""
+
+    from api.auth import JWT_SECRET
+
+    return JWT_SECRET
+
+
+def _validate_web_origin(raw_origin: str | None) -> str:
+    """Validate a frontend origin used for the Strava return redirect."""
+
+    if not raw_origin:
+        raise HTTPException(400, "Missing web origin for Strava OAuth flow")
+    parsed = urlparse(raw_origin)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise HTTPException(400, "Invalid web origin for Strava OAuth flow")
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def _validate_return_to(return_to: str | None) -> str:
+    """Restrict post-auth redirects to local app paths."""
+
+    value = (return_to or "/settings").strip()
+    if not value.startswith("/") or value.startswith("//"):
+        return "/settings"
+    return value
+
+
+def _strava_client_config() -> tuple[str, str]:
+    """Load Strava OAuth client credentials from environment."""
+
+    client_id = getenv_compat("STRAVA_CLIENT_ID")
+    client_secret = getenv_compat("STRAVA_CLIENT_SECRET")
+    if not client_id or not client_secret:
+        raise HTTPException(
+            status_code=503,
+            detail="Strava OAuth is not configured. Set PRAXYS_STRAVA_CLIENT_ID and PRAXYS_STRAVA_CLIENT_SECRET.",
+        )
+    return client_id, client_secret
+
+
+def _strava_redirect_uri(request: Request) -> str:
+    """Resolve the callback URI registered with the Strava app."""
+
+    override = getenv_compat("STRAVA_REDIRECT_URI")
+    if override:
+        return override
+    return str(request.url_for("strava_oauth_callback"))
+
+
+def _encode_strava_state(user_id: str, web_origin: str, return_to: str) -> str:
+    """Create a short-lived signed state token for the Strava OAuth callback."""
+
+    payload = {
+        "sub": user_id,
+        "purpose": "strava_connect",
+        "web_origin": web_origin,
+        "return_to": return_to,
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=_STRAVA_STATE_TTL_MINUTES),
+    }
+    return jwt.encode(payload, _jwt_secret(), algorithm="HS256")
+
+
+def _decode_strava_state(state: str) -> dict[str, Any]:
+    """Validate and decode a Strava OAuth state token."""
+
+    try:
+        payload = jwt.decode(state, _jwt_secret(), algorithms=["HS256"])
+    except jwt.PyJWTError as exc:
+        raise HTTPException(400, "Invalid Strava OAuth state") from exc
+    if payload.get("purpose") != "strava_connect":
+        raise HTTPException(400, "Invalid Strava OAuth state")
+    return payload
+
+
+def _upsert_connection_credentials(
+    user_id: str,
+    platform: str,
+    creds: dict[str, Any],
+    db: Session,
+) -> None:
+    """Encrypt and upsert platform credentials in the existing connection row."""
+
+    import json as json_mod
+
+    from db.crypto import get_vault
+    from db.models import UserConnection
+
+    vault = get_vault()
+    encrypted_data, wrapped_dek = vault.encrypt(json_mod.dumps(creds))
+
+    conn = db.query(UserConnection).filter(
+        UserConnection.user_id == user_id,
+        UserConnection.platform == platform,
+    ).first()
+
+    caps = PLATFORM_CAPABILITIES.get(platform, {})
+    prefs = {k: v for k, v in caps.items() if v}
+
+    if conn:
+        conn.encrypted_credentials = encrypted_data
+        conn.wrapped_dek = wrapped_dek
+        conn.status = "connected"
+        conn.preferences = prefs
+    else:
+        conn = UserConnection(
+            user_id=user_id,
+            platform=platform,
+            encrypted_credentials=encrypted_data,
+            wrapped_dek=wrapped_dek,
+            status="connected",
+            preferences=prefs,
+        )
+        db.add(conn)
+
+
+def _strava_redirect_target(
+    web_origin: str,
+    return_to: str,
+    *,
+    status: str,
+    message: str | None = None,
+) -> str:
+    """Build the final frontend redirect target after the Strava callback."""
+
+    params = {"strava": status}
+    if message:
+        params["strava_message"] = message
+    query = urlencode(params)
+    return f"{web_origin}{return_to}{'&' if '?' in return_to else '?'}{query}"
 
 
 @router.get("/settings/connections")
@@ -272,6 +424,80 @@ def get_connections(
     return {"connections": result}
 
 
+@router.post("/settings/connections/strava/start")
+def start_strava_oauth(
+    body: StravaOAuthStartRequest,
+    request: Request,
+    user_id: str = Depends(require_write_access),
+) -> dict:
+    """Return the Strava OAuth authorize URL for the current user."""
+
+    from sync.strava_sync import DEFAULT_SCOPE, build_authorize_url
+
+    client_id, _client_secret = _strava_client_config()
+    web_origin = _validate_web_origin(body.web_origin or request.headers.get("origin"))
+    return_to = _validate_return_to(body.return_to)
+    state = _encode_strava_state(user_id, web_origin, return_to)
+    authorize_url = build_authorize_url(
+        client_id,
+        _strava_redirect_uri(request),
+        state,
+        scope=DEFAULT_SCOPE,
+    )
+    return {"authorize_url": authorize_url}
+
+
+@router.get("/settings/connections/strava/callback", name="strava_oauth_callback")
+def strava_oauth_callback(
+    request: Request,
+    code: str | None = None,
+    state: str | None = None,
+    scope: str | None = None,
+    error: str | None = None,
+    db: Session = Depends(get_db),
+) -> RedirectResponse:
+    """Handle the Strava OAuth callback and persist the encrypted tokens."""
+
+    payload = _decode_strava_state(state or "")
+    web_origin = _validate_web_origin(payload.get("web_origin"))
+    return_to = _validate_return_to(payload.get("return_to"))
+
+    if error:
+        return RedirectResponse(
+            _strava_redirect_target(web_origin, return_to, status="error", message=error)
+        )
+    if not code:
+        return RedirectResponse(
+            _strava_redirect_target(
+                web_origin, return_to, status="error", message="missing_code"
+            )
+        )
+
+    from sync.strava_sync import DEFAULT_SCOPE, exchange_code_for_token, fetch_athlete_api
+
+    client_id, client_secret = _strava_client_config()
+    token_payload = exchange_code_for_token(code, client_id, client_secret)
+    athlete = token_payload.get("athlete") or {}
+    access_token = token_payload.get("access_token")
+    if access_token and not athlete:
+        athlete = fetch_athlete_api(access_token)
+
+    creds = {
+        "access_token": token_payload.get("access_token"),
+        "refresh_token": token_payload.get("refresh_token"),
+        "expires_at": int(token_payload.get("expires_at") or 0),
+        "expires_in": int(token_payload.get("expires_in") or 0),
+        "scope": scope or DEFAULT_SCOPE,
+        "athlete": athlete,
+    }
+    _upsert_connection_credentials(str(payload["sub"]), "strava", creds, db)
+    db.commit()
+
+    return RedirectResponse(
+        _strava_redirect_target(web_origin, return_to, status="connected")
+    )
+
+
 @router.post("/settings/connections/{platform}")
 def connect_platform(
     platform: str,
@@ -280,9 +506,6 @@ def connect_platform(
     db: Session = Depends(get_db),
 ) -> dict:
     """Connect a platform by storing encrypted credentials."""
-    import json as json_mod
-    from db.models import UserConnection
-    from db.crypto import get_vault
 
     if platform not in PLATFORM_CAPABILITIES:
         return {"status": "error", "message": f"Unknown platform: {platform}"}
@@ -298,39 +521,23 @@ def connect_platform(
         if not body.token:
             return {"status": "error", "message": "token required"}
         creds = {"token": body.token}
+    elif platform == "strava":
+        if not body.access_token or not body.refresh_token:
+            return {"status": "error", "message": "access_token and refresh_token required"}
+        creds = {
+            "access_token": body.access_token,
+            "refresh_token": body.refresh_token,
+            "expires_at": int(body.expires_at or 0),
+            "scope": body.scope or "read,activity:read_all,profile:read_all",
+            "athlete": {
+                "id": body.athlete_id,
+                "username": body.athlete_username,
+            },
+        }
     else:
         return {"status": "error", "message": f"Unsupported platform: {platform}"}
 
-    # Encrypt credentials
-    vault = get_vault()
-    encrypted_data, wrapped_dek = vault.encrypt(json_mod.dumps(creds))
-
-    # Upsert connection
-    conn = db.query(UserConnection).filter(
-        UserConnection.user_id == user_id,
-        UserConnection.platform == platform,
-    ).first()
-
-    # Build preferences from platform capabilities
-    caps = PLATFORM_CAPABILITIES.get(platform, {})
-    prefs = {k: v for k, v in caps.items() if v}
-
-    if conn:
-        conn.encrypted_credentials = encrypted_data
-        conn.wrapped_dek = wrapped_dek
-        conn.status = "connected"
-        conn.preferences = prefs
-    else:
-        conn = UserConnection(
-            user_id=user_id,
-            platform=platform,
-            encrypted_credentials=encrypted_data,
-            wrapped_dek=wrapped_dek,
-            status="connected",
-            preferences=prefs,
-        )
-        db.add(conn)
-
+    _upsert_connection_credentials(user_id, platform, creds, db)
     db.commit()
 
     # Invalidate cached OAuth tokens AFTER the new credentials are persisted:

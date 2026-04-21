@@ -16,6 +16,7 @@ from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
 from api.auth import get_data_user_id, require_write_access
+from api.env_compat import getenv_compat
 from api.views import utc_isoformat
 from db.session import get_db
 
@@ -42,7 +43,7 @@ class SyncRequest(BaseModel):
 _sync_status: dict[str, dict[str, dict]] = {}
 _sync_lock = threading.Lock()
 
-_DEFAULT_SOURCES = ["garmin", "stryd", "oura"]
+_DEFAULT_SOURCES = ["garmin", "strava", "stryd", "oura"]
 
 
 def _get_user_status(user_id: str) -> dict[str, dict]:
@@ -131,6 +132,36 @@ def _get_credentials(user_id: str, platform: str, db: Session) -> dict | None:
     return None
 
 
+def _persist_credentials(user_id: str, platform: str, creds: dict, db: Session) -> None:
+    """Encrypt and persist updated platform credentials."""
+
+    from db.crypto import get_vault
+    from db.models import UserConnection
+
+    vault = get_vault()
+    encrypted_credentials, wrapped_dek = vault.encrypt(json.dumps(creds))
+    conn = db.query(UserConnection).filter(
+        UserConnection.user_id == user_id,
+        UserConnection.platform == platform,
+    ).first()
+    if conn is None:
+        return
+    conn.encrypted_credentials = encrypted_credentials
+    conn.wrapped_dek = wrapped_dek
+
+
+def _get_strava_client_config() -> tuple[str, str]:
+    """Load Strava OAuth client credentials from environment."""
+
+    client_id = getenv_compat("STRAVA_CLIENT_ID")
+    client_secret = getenv_compat("STRAVA_CLIENT_SECRET")
+    if not client_id or not client_secret:
+        raise RuntimeError(
+            "Strava OAuth is not configured. Set PRAXYS_STRAVA_CLIENT_ID and PRAXYS_STRAVA_CLIENT_SECRET."
+        )
+    return client_id, client_secret
+
+
 def _run_sync(user_id: str, source: str, creds: dict,
               from_date: str | None = None) -> None:
     """Run sync for a single source. Called in a background thread.
@@ -163,6 +194,9 @@ def _run_sync(user_id: str, source: str, creds: dict,
         if source == "garmin":
             counts = _sync_garmin(user_id, creds, from_date, db)
 
+        elif source == "strava":
+            counts = _sync_strava(user_id, creds, from_date, db)
+
         elif source == "stryd":
             counts = _sync_stryd(user_id, creds, from_date, db)
 
@@ -180,7 +214,7 @@ def _run_sync(user_id: str, source: str, creds: dict,
             UserConnection.platform == source,
         ).first()
         if conn:
-            conn.last_sync = datetime.utcnow()
+            conn.last_sync = datetime.now(timezone.utc).replace(tzinfo=None)
             conn.status = "connected"
             db.commit()
 
@@ -571,6 +605,56 @@ def _sync_stryd(user_id: str, creds: dict, from_date: str | None,
     plan_count = sync_writer.write_training_plan(user_id, plan_rows, "stryd", db)
 
     return {"activities": act_count, "splits": split_count, "cp_estimates": cp_count, "plan": plan_count}
+
+
+def _sync_strava(user_id: str, creds: dict, from_date: str | None, db) -> dict:
+    """Fetch Strava activity data and write directly to DB."""
+
+    import time as time_mod
+
+    from db import sync_writer
+    from sync.strava_sync import (
+        fetch_activities_api,
+        fetch_activity_laps,
+        refresh_access_token_if_needed,
+    )
+
+    client_id, client_secret = _get_strava_client_config()
+    creds, changed = refresh_access_token_if_needed(creds, client_id, client_secret)
+    if changed:
+        _persist_credentials(user_id, "strava", creds, db)
+
+    access_token = creds.get("access_token")
+    if not access_token:
+        raise RuntimeError("Strava credentials missing access_token")
+
+    start = from_date or (date.today() - timedelta(days=14)).isoformat()
+    status = _get_user_status(user_id)
+
+    activity_rows, raw_activities = fetch_activities_api(access_token, start)
+    total = len(activity_rows)
+    with _sync_lock:
+        status["strava"]["progress"] = f"Writing {total} activities..."
+    for row in activity_rows:
+        row.setdefault("activity_type", "other")
+        row.setdefault("source", "strava")
+    act_count = sync_writer.write_activities(user_id, activity_rows, db)
+
+    all_splits = []
+    for idx, raw_act in enumerate(raw_activities):
+        activity_id = raw_act.get("id")
+        if not activity_id:
+            continue
+        with _sync_lock:
+            status["strava"]["progress"] = f"Fetching laps: {idx + 1}/{total}"
+        try:
+            all_splits.extend(fetch_activity_laps(str(activity_id), access_token))
+            time_mod.sleep(0.2)
+        except Exception as exc:
+            logger.debug("Strava laps for %s: skipped (%s)", activity_id, exc)
+    split_count = sync_writer.write_splits(user_id, all_splits, db)
+
+    return {"activities": act_count, "splits": split_count}
 
 
 def _sync_oura(user_id: str, creds: dict, from_date: str | None,

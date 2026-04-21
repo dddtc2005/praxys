@@ -828,8 +828,8 @@ msgid "Link at least one data source to start"
 msgstr "Link at least one data source to start"
 
 #: src/components/SetupChecklist.tsx:48
-msgid "Link Garmin, Stryd, or Oura to pull your training data"
-msgstr "Link Garmin, Stryd, or Oura to pull your training data"
+msgid "Link Garmin, Strava, Stryd, or Oura to pull your training data"
+msgstr "Link Garmin, Strava, Stryd, or Oura to pull your training data"
 
 #: src/pages/Settings.tsx:552
 msgid "Link your training devices and services"
