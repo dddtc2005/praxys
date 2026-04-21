@@ -462,6 +462,15 @@ def connect_platform(platform: str, credentials: dict) -> str:
                 )
                 db.add(conn)
             db.commit()
+            # Invalidate cached Garmin OAuth tokens so the next sync re-auths
+            # with the new credentials. Mirrors the API route — skipping this
+            # would reproduce the shared-tokenstore leak for local MCP users.
+            if platform == "garmin":
+                from api.routes.sync import clear_garmin_tokens
+                try:
+                    clear_garmin_tokens(_local_user_id())
+                except OSError:
+                    pass  # logged inside clear_garmin_tokens; treat as best-effort here
             data = {"status": "connected", "platform": platform}
         finally:
             db.close()
@@ -484,6 +493,12 @@ def disconnect_platform(platform: str) -> str:
             if conn:
                 db.delete(conn)
                 db.commit()
+            if platform == "garmin":
+                from api.routes.sync import clear_garmin_tokens
+                try:
+                    clear_garmin_tokens(_local_user_id())
+                except OSError:
+                    pass
             data = {"status": "disconnected", "platform": platform}
         finally:
             db.close()

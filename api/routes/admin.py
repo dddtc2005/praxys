@@ -221,9 +221,18 @@ def delete_user(
     db.delete(user)
     db.commit()
 
-    # Wipe cached Garmin OAuth tokens on disk for this user
+    # Best-effort disk cleanup: the user is already gone from the DB, so an
+    # orphaned token directory can't be resolved to a live account. Don't 500
+    # the request for a filesystem glitch — just log it.
     from api.routes.sync import clear_garmin_tokens
-    clear_garmin_tokens(target_user_id)
+    try:
+        clear_garmin_tokens(target_user_id)
+    except OSError:
+        import logging
+        logging.getLogger(__name__).exception(
+            "User %s deleted but Garmin tokenstore cleanup failed — orphan directory left on disk.",
+            target_user_id,
+        )
 
     return {"status": "deleted", "email": email}
 

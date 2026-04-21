@@ -1,28 +1,38 @@
 #!/usr/bin/env python3
-"""One-shot cleanup for the shared-Garmin-token bug (issue #56).
+"""One-shot cleanup for the shared-Garmin-token cross-user data leak.
 
 Background
 ----------
 Before the fix, every user's Garmin sync wrote OAuth tokens to a shared
-``sync/.garmin_tokens/`` directory. `garminconnect.Garmin.login()` reuses
-tokens from its tokenstore and only falls back to username/password if
-loading fails — so after the first user authenticated, every subsequent
-user's sync fetched that first user's Garmin data and stored it under
-their own user_id. The result: multiple users seeing identical activities.
+``sync/.garmin_tokens/`` directory. garminconnect loads any tokens it finds
+at that path without re-validating them against Garmin's API, so after the
+first user authenticated, every subsequent user's sync silently reused that
+session and fetched *their* data — storing it under the requester's user_id.
 
 What this script does
 ---------------------
 1. Deletes Garmin-sourced rows in ``activities``, ``activity_splits``, and
-   ``fitness_data`` for every user *except* the admin(s). The admin's own
-   data was correct (their tokens stayed valid for themselves); everyone
-   else's "Garmin" rows are suspect and should be re-fetched after the fix.
+   ``fitness_data`` for every user *except* the admin(s). See the assumption
+   below.
 2. Resets ``user_connections.last_sync`` to NULL for those users so the
    background scheduler treats them as stale and re-syncs promptly.
-3. Removes the shared token directory so nothing stale lingers on disk.
+3. Removes loose token files at the legacy shared-root path, leaving the
+   per-user subdirectories the fix creates in place.
 
 Run with ``--dry-run`` first to see per-user counts. Add ``--apply`` to
 commit the deletions. Safe to re-run: deletes are keyed on non-admin users
-only, so repeated runs are idempotent once users re-sync with the fix.
+only, so repeated runs converge once users re-sync with the fix.
+
+Assumption: admin authenticated first
+-------------------------------------
+The script preserves every ``is_superuser=True`` user's Garmin rows because
+in the common deployment flow the admin is the first user on the box and
+their tokens sat in the shared path from then on — so their rows were never
+overwritten by someone else's data. **If a non-admin actually authenticated
+before the admin did, the admin's rows are the poisoned ones** and this
+script will preserve bad data while discarding the non-admin's (correct)
+data. Before ``--apply`` on a deployment where that ordering is uncertain,
+inspect ``user_connections.last_sync`` and decide manually.
 
 Usage
 -----
@@ -83,14 +93,17 @@ def _summarize(db, admin_ids: list[str]) -> dict:
 
 def _apply(db, admin_ids: list[str]) -> dict:
     """Delete suspect Garmin rows and reset last_sync so re-sync fires."""
-    # Splits FK the activity_id; delete them via a subquery keyed on suspect
-    # activities rather than blanket-deleting so Stryd-sourced splits survive.
-    suspect_activity_ids = db.query(Activity.activity_id).filter(
+    # Non-admin users' "Garmin" activities carry the admin's own activity_ids
+    # (that's the bug — they fetched admin data). Filter splits by BOTH the
+    # activity_id AND user_id so the admin's matching splits survive.
+    from sqlalchemy import select
+    suspect_activity_ids = select(Activity.activity_id).where(
         ~Activity.user_id.in_(admin_ids),
         Activity.source == "garmin",
-    ).subquery()
+    )
 
     split_count = db.query(ActivitySplit).filter(
+        ~ActivitySplit.user_id.in_(admin_ids),
         ActivitySplit.activity_id.in_(suspect_activity_ids),
     ).delete(synchronize_session=False)
 

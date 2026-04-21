@@ -71,20 +71,38 @@ def _garmin_token_root() -> str:
 
 
 def _garmin_token_dir(user_id: str) -> str:
-    """Per-user Garmin tokenstore path. Isolating per user is critical — see issue #56."""
+    """Per-user Garmin tokenstore path.
+
+    garminconnect.Garmin.login() loads any tokens it finds at this path from
+    disk without validating whose Garmin account they belong to, so a shared
+    directory would leak one user's authenticated session to the next caller.
+    """
     return os.path.join(_garmin_token_root(), user_id)
 
 
 def clear_garmin_tokens(user_id: str) -> None:
     """Remove cached Garmin OAuth tokens for a user.
 
-    Call this whenever credentials change (connect with new creds, disconnect)
-    so the next sync forces a fresh login instead of reusing stale tokens.
+    Call whenever cached tokens should no longer be trusted: credential
+    rotation on connect, explicit disconnect, or user deletion. Leaves the
+    token root intact. Raises OSError on filesystem failure — callers decide
+    whether that's fatal (connect flow) or best-effort (post-delete cleanup).
+    Silencing failures here would re-open the cross-user leak the helper exists
+    to prevent.
     """
     import shutil
     path = _garmin_token_dir(user_id)
-    if os.path.isdir(path):
-        shutil.rmtree(path, ignore_errors=True)
+    if not os.path.isdir(path):
+        return
+    try:
+        shutil.rmtree(path)
+    except OSError:
+        logger.exception(
+            "Failed to clear Garmin tokenstore for user %s at %s — "
+            "stale tokens may still be reused on next sync.",
+            user_id, path,
+        )
+        raise
 
 
 def _get_credentials(user_id: str, platform: str, db: Session) -> dict | None:
@@ -212,10 +230,11 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
 
     client = Garmin(creds["email"], creds["password"],
                     is_cn=creds.get("is_cn", False))
-    # Garmin OAuth tokens must be scoped per user. garminconnect.Garmin.login()
-    # reuses whatever tokens are already in the tokenstore and only falls back
-    # to username/password if they fail to load — so a shared token_dir causes
-    # every user's sync to fetch the first user's Garmin data. See issue #56.
+    # The tokenstore must be per-user: garminconnect.Garmin.login() loads any
+    # tokens at that path without validating the account they belong to and
+    # only falls back to username/password if the files themselves are missing
+    # or malformed. A shared path would have every user's sync fetching the
+    # first-authenticated user's Garmin data.
     token_dir = _garmin_token_dir(user_id)
     os.makedirs(token_dir, exist_ok=True)
     client.login(token_dir)
