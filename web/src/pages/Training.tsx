@@ -123,9 +123,9 @@ export default function Training() {
           <ComplianceChart data={data.weekly_review} loadLabel={activeDisplay?.load_label} />
         </DataHint>
         <DataHint
-          sufficient={!!(data.data_meta?.has_recovery && (data.sleep_perf?.length ?? 0) >= 2)}
+          sufficient={!!(data.data_meta?.has_recovery && (data.sleep_perf?.pairs?.length ?? 0) >= 2)}
           message={t`Not enough data to show sleep vs performance`}
-          hint={t`Connect a recovery source (like Oura Ring) and sync activities with power data.`}
+          hint={t`Sync activities together with sleep data (Garmin, Oura, or similar) so we can pair them by date.`}
         >
           <SleepPerfChart data={data.sleep_perf} />
         </DataHint>

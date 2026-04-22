@@ -320,8 +320,18 @@ def compute_trimp(
 ) -> float:
     """Banister TRIMP (HR-based load).
 
-    Uses exponential weighting of HR intensity.
-    k values can be overridden from a science theory.
+    Exponential weighting of HR reserve:
+        TRIMP = minutes × HRR_frac × 0.64 × exp(k × HRR_frac)
+
+    Sex-specific ``k`` reflects the blood-lactate → HR response (males have
+    a steeper curve). Defaults 1.92 / 1.67 from Banister's 1991 formulation;
+    theories may override via YAML params.
+
+    Source: Banister EW (1991), "Modeling elite athletic performance." In
+    *Physiological Testing of Elite Athletes*, Human Kinetics, pp. 403-424.
+    See also Morton, Fitz-Clarke & Banister (1990),
+    https://doi.org/10.1152/jappl.1990.69.3.1171 for the impulse-response
+    model that consumes TRIMP.
     """
     if duration_sec <= 0 or max_hr <= rest_hr:
         return 0.0
@@ -339,8 +349,16 @@ def compute_rtss(
 ) -> float:
     """Running TSS from normalized graded pace (pace-based load).
 
-    rTSS = (duration/3600) * (threshold_pace/actual_pace)^2 * 100
+    rTSS = (duration/3600) × (threshold_pace / actual_pace)² × 100
+
     Faster pace = lower sec/km, so threshold/actual > 1 when running hard.
+    Mirrors TrainingPeaks' rTSS definition (Skiba / McGregor), the pace-side
+    equivalent of power-based TSS.
+
+    Source: Skiba PF, "Calculation of Power Output and Quantification of
+    Training Stress in Distance Runners" (PhysFarm technical note),
+    https://www.physfarm.com/rtss.pdf — see also TrainingPeaks' rTSS
+    explainer https://www.trainingpeaks.com/learn/articles/running-training-stress-score/.
     """
     if duration_sec <= 0 or avg_pace_sec_km <= 0 or threshold_pace_sec_km <= 0:
         return 0.0
