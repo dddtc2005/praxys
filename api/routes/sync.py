@@ -19,6 +19,7 @@ from api.auth import get_data_user_id, require_write_access
 from api.env_compat import getenv_compat
 from api.views import utc_isoformat
 from db.session import get_db
+from sync import intervals_icu_sync
 
 router = APIRouter()
 
@@ -43,7 +44,7 @@ class SyncRequest(BaseModel):
 _sync_status: dict[str, dict[str, dict]] = {}
 _sync_lock = threading.Lock()
 
-_DEFAULT_SOURCES = ["garmin", "strava", "stryd", "oura"]
+_DEFAULT_SOURCES = ["garmin", "strava", "stryd", "oura", "intervals_icu"]
 
 
 def _get_user_status(user_id: str) -> dict[str, dict]:
@@ -202,6 +203,9 @@ def _run_sync(user_id: str, source: str, creds: dict,
 
         elif source == "oura":
             counts = _sync_oura(user_id, creds, from_date, db)
+
+        elif source == "intervals_icu":
+            counts = _sync_intervals_icu(user_id, creds, from_date, db)
 
         else:
             raise ValueError(f"Unknown source: {source}")
@@ -907,6 +911,34 @@ def _sync_oura(user_id: str, creds: dict, from_date: str | None,
         user_id, readiness_rows, sleep_rows, hrv_by_date, db
     )
     return {"recovery": count}
+
+
+def _sync_intervals_icu(user_id: str, creds: dict, from_date: str | None,
+                        db) -> dict:
+    """Fetch intervals.icu data and write directly to DB.
+
+    Returns a counts dict with the keys the sync-status layer expects:
+    {activities, splits, recovery, fitness}.
+    """
+    from datetime import date as _date, timedelta
+
+    if from_date:
+        since = _date.fromisoformat(from_date)
+    else:
+        since = _date.today() - timedelta(days=180)
+
+    result = intervals_icu_sync.sync_all(
+        user_id=user_id,
+        credentials=creds,
+        db=db,
+        since=since,
+    )
+    return {
+        "activities": result.activities_written,
+        "splits": result.splits_written,
+        "recovery": result.wellness_written,
+        "fitness": result.thresholds_written,
+    }
 
 
 @router.get("/sync/status")

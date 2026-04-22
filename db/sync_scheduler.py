@@ -174,7 +174,7 @@ def _sync_connection(user_id: str, platform: str, db):
     creds = json.loads(creds_json)
 
     # Use the sync route's direct DB write functions
-    from api.routes.sync import _sync_garmin, _sync_strava, _sync_stryd, _sync_oura
+    from api.routes.sync import _sync_garmin, _sync_strava, _sync_stryd, _sync_oura, _sync_intervals_icu
 
     if platform == "garmin":
         counts = _sync_garmin(user_id, creds, None, db)
@@ -184,6 +184,8 @@ def _sync_connection(user_id: str, platform: str, db):
         counts = _sync_stryd(user_id, creds, None, db)
     elif platform == "oura":
         counts = _sync_oura(user_id, creds, None, db)
+    elif platform == "intervals_icu":
+        counts = _sync_intervals_icu(user_id, creds, None, db)
     else:
         logger.warning("Unknown platform: %s", platform)
         return
