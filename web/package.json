@@ -16,7 +16,7 @@
     "@fontsource-variable/geist": "^5.2.8",
     "@lingui/core": "^5.9.5",
     "@lingui/detect-locale": "^5.9.5",
-    "@lingui/react": "^5.9.5",
+    "@lingui/react": "^6.0.0",
     "@tailwindcss/vite": "^4.2.3",
     "@tanstack/react-query": "^5.99.2",
     "class-variance-authority": "^0.7.1",
