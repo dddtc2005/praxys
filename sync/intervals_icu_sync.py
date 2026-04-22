@@ -244,3 +244,69 @@ def _parse_laps(
             "elevation_change_m": "",
         })
     return rows
+
+
+def _parse_wellness(wellness_rows: list[dict]) -> list[dict]:
+    """Convert intervals.icu wellness rows to Praxys recovery_data rows."""
+    rows: list[dict] = []
+    for w in wellness_rows:
+        rows.append({
+            "date": str(w.get("id") or "")[:10],
+            "readiness_score": _round_or_empty(w.get("readiness")),
+            "hrv_avg": _round_or_empty(w.get("hrv"), decimals=2),
+            "resting_hr": _round_or_empty(w.get("restingHR")),
+            "sleep_score": _round_or_empty(w.get("sleepScore")),
+            "total_sleep_sec": _round_or_empty(w.get("sleepSecs"), decimals=0),
+            "deep_sleep_sec": "",
+            "rem_sleep_sec": "",
+            "body_temp_delta": "",
+            "source": "intervals_icu",
+        })
+    return rows
+
+
+def _parse_thresholds(profile: dict, today: date) -> list[dict]:
+    """Extract running thresholds from athlete profile sportSettings.
+
+    V2 verified (2026-04-22): intervals.icu sportSettings for a Run-typed
+    entry exposes `ftp`, `lthr`, `max_hr`, `threshold_pace`. The
+    `threshold_pace` value is in meters per second — Praxys stores pace
+    as seconds per km, so convert: sec_per_km = 1000 / m_per_s.
+
+    Maps to Praxys fitness_data metric_type values:
+      ftp            -> running_ftp
+      lthr           -> lthr
+      threshold_pace -> threshold_pace_sec_km  (unit-converted)
+      max_hr         -> max_hr
+    """
+    rows: list[dict] = []
+    today_str = today.strftime("%Y-%m-%d")
+    for setting in profile.get("sportSettings") or []:
+        types = setting.get("types") or []
+        if "Run" not in types and "TrailRun" not in types:
+            continue
+
+        pace_mps = setting.get("threshold_pace")
+        pace_sec_km = (
+            round(1000 / float(pace_mps), 2)
+            if pace_mps not in (None, "", 0, 0.0)
+            else None
+        )
+
+        metric_map = {
+            "running_ftp": setting.get("ftp"),
+            "lthr": setting.get("lthr"),
+            "threshold_pace_sec_km": pace_sec_km,
+            "max_hr": setting.get("max_hr"),
+        }
+        for metric_type, value in metric_map.items():
+            if value in (None, ""):
+                continue
+            rows.append({
+                "date": today_str,
+                "metric_type": metric_type,
+                "value": _round_or_empty(value, decimals=2),
+                "source": "intervals_icu",
+            })
+        break  # first Run-containing entry wins
+    return rows

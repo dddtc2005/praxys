@@ -1,3 +1,4 @@
+from datetime import date
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -218,3 +219,84 @@ def test_parse_laps_returns_empty_when_no_intervals():
     from sync.intervals_icu_sync import _parse_laps
     assert _parse_laps("icu_zzz", {"id": "zzz"}, activity_type="running") == []
     assert _parse_laps("icu_zzz", {"icu_intervals": []}, activity_type="running") == []
+
+
+def test_parse_wellness_maps_date_and_fields():
+    from sync.intervals_icu_sync import _parse_wellness
+    wellness = _load_fixture("wellness.json")
+    rows = _parse_wellness(wellness)
+    assert len(rows) == 5
+    first = rows[0]
+    assert first["date"] == "2026-04-16"
+    assert float(first["readiness_score"]) == 82
+    assert float(first["hrv_avg"]) == 64.2
+    assert float(first["resting_hr"]) == 48
+    assert float(first["sleep_score"]) == 85
+    assert float(first["total_sleep_sec"]) == 27900
+    # intervals.icu does not expose these
+    assert first.get("deep_sleep_sec") in (None, "")
+    assert first.get("rem_sleep_sec") in (None, "")
+    assert first.get("body_temp_delta") in (None, "")
+    assert first["source"] == "intervals_icu"
+
+
+def test_parse_thresholds_extracts_run_sport_settings():
+    from sync.intervals_icu_sync import _parse_thresholds
+    profile = _load_fixture("athlete_profile.json")
+    today = date(2026, 4, 22)
+    rows = _parse_thresholds(profile, today)
+    metrics = {r["metric_type"]: r for r in rows}
+    assert "running_ftp" in metrics
+    assert float(metrics["running_ftp"]["value"]) == 270
+    assert "lthr" in metrics
+    assert float(metrics["lthr"]["value"]) == 168
+    # threshold_pace in m/s (V2 verified). Fixture 4.08163 m/s -> ~245.0 sec/km.
+    assert "threshold_pace_sec_km" in metrics
+    assert float(metrics["threshold_pace_sec_km"]["value"]) == pytest.approx(245.0, abs=0.5)
+    assert "max_hr" in metrics
+    assert float(metrics["max_hr"]["value"]) == 192
+    for row in rows:
+        assert row["date"] == "2026-04-22"
+        assert row["source"] == "intervals_icu"
+
+
+def test_parse_thresholds_converts_threshold_pace_from_mps():
+    """intervals.icu returns threshold_pace in m/s; Praxys stores sec/km."""
+    from sync.intervals_icu_sync import _parse_thresholds
+    profile = {
+        "sportSettings": [{
+            "types": ["Run"],
+            "ftp": 270, "lthr": 168, "max_hr": 192,
+            "threshold_pace": 4.2918453,  # m/s -> 1000/4.29 ~= 233.0 sec/km
+        }],
+    }
+    rows = _parse_thresholds(profile, date(2026, 4, 22))
+    metric = {r["metric_type"]: r for r in rows}
+    assert float(metric["threshold_pace_sec_km"]["value"]) == pytest.approx(233.0, abs=0.5)
+
+
+def test_parse_thresholds_skips_null_ftp():
+    """When sportSettings has ftp=None, do not emit a running_ftp row."""
+    from sync.intervals_icu_sync import _parse_thresholds
+    profile = {
+        "sportSettings": [{
+            "types": ["Run"],
+            "ftp": None, "lthr": 168, "max_hr": 192,
+            "threshold_pace": 4.08,
+        }],
+    }
+    rows = _parse_thresholds(profile, date(2026, 4, 22))
+    metric_types = {r["metric_type"] for r in rows}
+    assert "running_ftp" not in metric_types
+    assert "lthr" in metric_types
+
+
+def test_parse_thresholds_ignores_sport_settings_without_run():
+    """If only Ride sportSettings exist, no threshold rows are emitted."""
+    from sync.intervals_icu_sync import _parse_thresholds
+    profile = {
+        "id": "i123456",
+        "sportSettings": [{"types": ["Ride"], "ftp": 290, "lthr": 170}],
+    }
+    rows = _parse_thresholds(profile, date(2026, 4, 22))
+    assert rows == []
