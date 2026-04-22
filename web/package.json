@@ -38,7 +38,7 @@
     "@lingui/cli": "^5.9.5",
     "@lingui/macro": "^5.9.5",
     "@lingui/swc-plugin": "^5.11.0",
-    "@lingui/vite-plugin": "^5.9.5",
+    "@lingui/vite-plugin": "^6.0.0",
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
