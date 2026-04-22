@@ -1,6 +1,8 @@
 import type { LastActivity } from '@/types/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Trans } from '@lingui/react/macro';
+import { useLocale } from '@/contexts/LocaleContext';
 
 interface Props {
   activity: LastActivity;
@@ -13,6 +15,7 @@ function formatDuration(sec: number): string {
 }
 
 export default function LastActivityCard({ activity }: Props) {
+  const { locale } = useLocale();
   const details: string[] = [];
   if (activity.distance_km != null)
     details.push(`${activity.distance_km.toFixed(1)} km`);
@@ -27,7 +30,7 @@ export default function LastActivityCard({ activity }: Props) {
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase());
 
-  const dateLabel = new Date(activity.date).toLocaleDateString('en-US', {
+  const dateLabel = new Date(activity.date).toLocaleDateString(locale === 'zh' ? 'zh-CN' : 'en-US', {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
@@ -37,7 +40,7 @@ export default function LastActivityCard({ activity }: Props) {
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Last Activity
+          <Trans>Last Activity</Trans>
         </CardTitle>
         <span className="text-[10px] text-muted-foreground font-data">{dateLabel}</span>
       </CardHeader>

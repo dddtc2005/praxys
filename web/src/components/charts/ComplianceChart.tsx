@@ -12,6 +12,7 @@ import {
 import type { WeeklyReview } from '@/types/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useChartColors } from '@/hooks/useChartColors';
+import { Trans, useLingui } from '@lingui/react/macro';
 
 interface Props {
   data: WeeklyReview;
@@ -20,11 +21,12 @@ interface Props {
 
 export default function ComplianceChart({ data, loadLabel }: Props) {
   const chartColors = useChartColors();
+  const { t } = useLingui();
   const label = loadLabel || 'RSS';
 
   const chartData = data.weeks.map((week, i) => {
-    const planned = data.planned_rss[i] ?? 0;
-    const actual = data.actual_rss[i] ?? 0;
+    const planned = data.planned_load[i] ?? 0;
+    const actual = data.actual_load[i] ?? 0;
     const compliance = planned > 0 ? Math.round((actual / planned) * 100) : null;
     return { week, planned, actual, compliance };
   });
@@ -33,8 +35,16 @@ export default function ComplianceChart({ data, loadLabel }: Props) {
     <Card>
       <CardHeader>
         <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Weekly Load Compliance
+          <Trans>Weekly Load Compliance</Trans>
         </CardTitle>
+        {data.planned_estimated && (
+          <p className="text-[11px] text-muted-foreground mt-1">
+            <Trans>
+              Planned bars are estimated — your plan has no {label} targets
+              for the current training base.
+            </Trans>
+          </p>
+        )}
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
@@ -66,7 +76,7 @@ export default function ComplianceChart({ data, loadLabel }: Props) {
             {/* Planned bar — wider, behind, with diagonal pattern fill */}
             <Bar
               dataKey="planned"
-              name={`Planned ${label}`}
+              name={`${t`Planned`} ${label}`}
               fill="url(#planned-pattern)"
               stroke={chartColors.tick}
               strokeWidth={1}
@@ -77,7 +87,7 @@ export default function ComplianceChart({ data, loadLabel }: Props) {
             {/* Actual bar — narrower, in front, solid fill with compliance coloring */}
             <Bar
               dataKey="actual"
-              name={`Actual ${label}`}
+              name={`${t`Actual`} ${label}`}
               radius={[3, 3, 0, 0]}
               barSize={22}
             >

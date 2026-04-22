@@ -11,6 +11,8 @@ import type { CpTrendChart as CpTrendChartData } from '@/types/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useChartColors } from '@/hooks/useChartColors';
 import { formatPace } from '@/lib/format';
+import { Trans, useLingui } from '@lingui/react/macro';
+import { tDisplay } from '@/lib/display-labels';
 
 interface Props {
   data: CpTrendChartData;
@@ -22,6 +24,7 @@ interface Props {
 
 export default function CpTrendChart({ data, targetCp, label, unit = 'W', metricName = 'CP' }: Props) {
   const chartColors = useChartColors();
+  const { t, i18n } = useLingui();
   const isPace = unit === '/km';
   const chartData = data.dates.map((date, i) => ({
     date,
@@ -34,7 +37,7 @@ export default function CpTrendChart({ data, targetCp, label, unit = 'W', metric
     <Card>
       <CardHeader>
         <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          {label || 'CP Trend'}
+          {label ? tDisplay(label, i18n) : <Trans>CP Trend</Trans>}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -71,7 +74,7 @@ export default function CpTrendChart({ data, targetCp, label, unit = 'W', metric
                 strokeDasharray="6 4"
                 dot={false}
                 isAnimationActive={false}
-                name="Target"
+                name={t`Target`}
               />
             )}
             <Line

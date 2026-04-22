@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, Sparkles, CheckCircle2, AlertTriangle, Minus } from 'lucide-react';
 import { useState } from 'react';
+import { Trans, Plural, useLingui } from '@lingui/react/macro';
+import { useLocale } from '@/contexts/LocaleContext';
 
 interface Props {
   insightType: string;
@@ -19,19 +21,22 @@ function FindingIcon({ type }: { type: string }) {
   return <Minus className="h-4 w-4 shrink-0 text-muted-foreground" />;
 }
 
-function timeAgo(isoDate: string): string {
+function timeAgo(isoDate: string, locale: string): string {
   const diff = Date.now() - new Date(isoDate).getTime();
+  const rtf = new Intl.RelativeTimeFormat(locale === 'zh' ? 'zh-CN' : 'en-US', { style: 'short' });
   const mins = Math.floor(diff / 60_000);
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 60) return rtf.format(-mins, 'minute');
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return rtf.format(-hours, 'hour');
   const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  return rtf.format(-days, 'day');
 }
 
 export default function AiInsightsCard({ insightType }: Props) {
   const { data } = useApi<{ insight: AiInsight | null }>(`/api/insights/${insightType}`);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const { locale } = useLocale();
+  const {} = useLingui();
 
   const insight = data?.insight;
   if (!insight) return null;
@@ -48,12 +53,12 @@ export default function AiInsightsCard({ insightType }: Props) {
               <Sparkles className="h-3.5 w-3.5" />
             </div>
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-accent-purple">
-              AI Analysis
+              <Trans>AI Analysis</Trans>
             </CardTitle>
           </div>
           {insight.generated_at && (
             <span className="text-[10px] text-muted-foreground font-data">
-              {timeAgo(insight.generated_at)}
+              {timeAgo(insight.generated_at, locale)}
             </span>
           )}
         </div>
@@ -74,13 +79,29 @@ export default function AiInsightsCard({ insightType }: Props) {
           <Collapsible open={detailsOpen} onOpenChange={setDetailsOpen}>
             <CollapsibleTrigger className="flex items-center gap-1 text-xs text-accent-purple hover:text-accent-purple/80 transition-colors mb-2">
               <ChevronDown className={`h-3.5 w-3.5 transition-transform ${detailsOpen ? 'rotate-180' : ''}`} />
-              {detailsOpen ? 'Hide details' : `${findings.length} findings, ${recommendations.length} recommendations`}
+              {detailsOpen ? (
+                <Trans>Hide details</Trans>
+              ) : (
+                <span>
+                  <Plural
+                    value={findings.length}
+                    one="# finding"
+                    other="# findings"
+                  />
+                  {', '}
+                  <Plural
+                    value={recommendations.length}
+                    one="# recommendation"
+                    other="# recommendations"
+                  />
+                </span>
+              )}
             </CollapsibleTrigger>
             <CollapsibleContent>
               {/* Findings */}
               {findings.length > 0 && (
                 <div className="space-y-1.5 mb-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Findings</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"><Trans>Findings</Trans></p>
                   {findings.map((f, i) => (
                     <div key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
                       <FindingIcon type={f.type} />
@@ -93,7 +114,7 @@ export default function AiInsightsCard({ insightType }: Props) {
               {/* Recommendations */}
               {recommendations.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Recommendations</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"><Trans>Recommendations</Trans></p>
                   {recommendations.map((r, i) => (
                     <div key={i} className="flex items-start gap-2 text-sm text-foreground">
                       <span className="text-accent-purple font-bold shrink-0">{i + 1}.</span>

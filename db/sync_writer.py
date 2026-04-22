@@ -39,21 +39,73 @@ def _str(val) -> str | None:
     return str(val)
 
 
+# Columns that may be missing on pre-existing rows from an older sync (e.g.
+# native Garmin running power wasn't parsed before PR #62). A re-sync should
+# fill these in without touching columns that were already populated —
+# protects against overwriting Stryd-sourced power with Garmin's reading when
+# both sources synced the same activity.
+_ACTIVITY_FILL_COLUMNS = ("avg_power", "max_power")
+_SPLIT_FILL_COLUMNS = ("avg_power",)
+
+
+def _fill_missing(obj, row: dict, columns: tuple[str, ...]) -> bool:
+    """Set listed columns on `obj` from `row` when the column is currently None.
+
+    Returns True if any column was populated. Never overwrites a non-null
+    value, so a user who already has Stryd power on a split won't see it
+    replaced by the Garmin reading on a subsequent sync.
+    """
+    touched = False
+    for col in columns:
+        if getattr(obj, col) is None:
+            val = _float(row.get(col))
+            if val is not None:
+                setattr(obj, col, val)
+                touched = True
+    return touched
+
+
+def _pace_min_str(row: dict) -> str | None:
+    """Prefer an explicit pace string, else derive one from sec/km."""
+    pace_min = _str(row.get("avg_pace_min_km"))
+    if pace_min:
+        return pace_min
+
+    pace_sec = _float(row.get("avg_pace_sec_km"))
+    if pace_sec is None or pace_sec <= 0:
+        return None
+
+    total_seconds = int(round(pace_sec))
+    minutes, seconds = divmod(total_seconds, 60)
+    return f"{minutes}:{seconds:02d}"
+
+
 def write_activities(user_id: str, rows: list[dict], db: Session) -> int:
-    """Write activity rows to DB. Skips existing (by activity_id). Returns count of new."""
+    """Write activity rows to DB.
+
+    New activity_ids are inserted. Pre-existing rows get their
+    ``_ACTIVITY_FILL_COLUMNS`` topped up when those columns are still NULL
+    (previous syncs may have missed fields this sync now parses). Returns
+    the total number of rows inserted or gap-filled.
+    """
     if not rows:
         return 0
-    existing_ids = {
-        r[0] for r in db.query(Activity.activity_id).filter(
+    existing = {
+        obj.activity_id: obj for obj in db.query(Activity).filter(
             Activity.user_id == user_id
         ).all()
     }
     count = 0
     for row in rows:
         aid = _str(row.get("activity_id"))
-        if not aid or aid in existing_ids:
+        if not aid:
             continue
-        db.add(Activity(
+        existing_obj = existing.get(aid)
+        if existing_obj is not None:
+            if _fill_missing(existing_obj, row, _ACTIVITY_FILL_COLUMNS):
+                count += 1
+            continue
+        new_obj = Activity(
             user_id=user_id,
             activity_id=aid,
             date=_parse_date(row.get("date")),
@@ -64,7 +116,8 @@ def write_activities(user_id: str, rows: list[dict], db: Session) -> int:
             max_power=_float(row.get("max_power")),
             avg_hr=_float(row.get("avg_hr")),
             max_hr=_float(row.get("max_hr")),
-            avg_pace_min_km=_str(row.get("avg_pace_min_km")),
+            avg_pace_min_km=_pace_min_str(row),
+            avg_pace_sec_km=_float(row.get("avg_pace_sec_km")),
             elevation_gain_m=_float(row.get("elevation_gain_m")),
             avg_cadence=_float(row.get("avg_cadence")),
             training_effect=_float(row.get("aerobic_te") or row.get("training_effect")),
@@ -72,20 +125,27 @@ def write_activities(user_id: str, rows: list[dict], db: Session) -> int:
             cp_estimate=_float(row.get("cp_estimate")),
             start_time=_str(row.get("start_time")),
             source=_str(row.get("source")) or "garmin",
-        ))
-        existing_ids.add(aid)
+        )
+        db.add(new_obj)
+        existing[aid] = new_obj
         count += 1
     return count
 
 
 def write_splits(user_id: str, rows: list[dict], db: Session) -> int:
-    """Write split rows to DB. Skips existing. Returns count of new."""
+    """Write split rows to DB.
+
+    New (activity_id, split_num) pairs are inserted. Pre-existing rows get
+    their ``_SPLIT_FILL_COLUMNS`` topped up when still NULL — the common
+    case is native Garmin lap power that older syncs didn't parse.
+    """
     if not rows:
         return 0
     existing = {
-        (r[0], r[1]) for r in db.query(
-            ActivitySplit.activity_id, ActivitySplit.split_num
-        ).filter(ActivitySplit.user_id == user_id).all()
+        (obj.activity_id, obj.split_num): obj
+        for obj in db.query(ActivitySplit).filter(
+            ActivitySplit.user_id == user_id
+        ).all()
     }
     count = 0
     for row in rows:
@@ -94,9 +154,12 @@ def write_splits(user_id: str, rows: list[dict], db: Session) -> int:
         if not aid or snum is None:
             continue
         snum = int(snum)
-        if (aid, snum) in existing:
+        existing_obj = existing.get((aid, snum))
+        if existing_obj is not None:
+            if _fill_missing(existing_obj, row, _SPLIT_FILL_COLUMNS):
+                count += 1
             continue
-        db.add(ActivitySplit(
+        new_obj = ActivitySplit(
             user_id=user_id,
             activity_id=aid,
             split_num=snum,
@@ -105,11 +168,13 @@ def write_splits(user_id: str, rows: list[dict], db: Session) -> int:
             avg_power=_float(row.get("avg_power")),
             avg_hr=_float(row.get("avg_hr")),
             max_hr=_float(row.get("max_hr")),
-            avg_pace_min_km=_str(row.get("avg_pace_min_km")),
+            avg_pace_min_km=_pace_min_str(row),
+            avg_pace_sec_km=_float(row.get("avg_pace_sec_km")),
             avg_cadence=_float(row.get("avg_cadence")),
             elevation_change_m=_float(row.get("elevation_change_m")),
-        ))
-        existing.add((aid, snum))
+        )
+        db.add(new_obj)
+        existing[(aid, snum)] = new_obj
         count += 1
     return count
 
@@ -240,6 +305,102 @@ def write_daily_metrics(user_id: str, rows: list[dict], db: Session) -> int:
             ))
             count += 1
     return count
+
+
+def write_profile_thresholds(
+    user_id: str,
+    profile: dict,
+    db: Session,
+    source: str = "garmin",
+    as_of: date | None = None,
+) -> int:
+    """Write configured max/resting HR from a user-profile parse into fitness_data.
+
+    Keeps the user's configured Garmin HR thresholds authoritative over the
+    activity-max fallback in api.deps._resolve_thresholds.
+    """
+    if not profile:
+        return 0
+    when = as_of or date.today()
+    count = 0
+    # cp_watts is intentionally stored under the same `cp_estimate` metric
+    # type that Stryd uses, so the existing _resolve_thresholds logic picks
+    # the most recent value regardless of which source wrote it.
+    # Mixing Garmin and Stryd CP in the same account is documented as
+    # unreliable (~30% gap between the two systems); see docs/dev/gotchas.md.
+    _FITNESS_METRIC_KEY = {
+        "max_hr_bpm": "max_hr_bpm",
+        "rest_hr_bpm": "rest_hr_bpm",
+        "lthr_bpm": "lthr_bpm",
+        "cp_watts": "cp_estimate",
+    }
+    for key in ("max_hr_bpm", "rest_hr_bpm", "lthr_bpm", "cp_watts"):
+        val = profile.get(key)
+        if val is None:
+            continue
+        metric_type = _FITNESS_METRIC_KEY[key]
+        exists = db.query(FitnessData.id).filter(
+            FitnessData.user_id == user_id,
+            FitnessData.date == when,
+            FitnessData.metric_type == metric_type,
+        ).first()
+        if exists:
+            db.query(FitnessData).filter(
+                FitnessData.user_id == user_id,
+                FitnessData.date == when,
+                FitnessData.metric_type == metric_type,
+            ).update({"value": float(val), "source": source})
+        else:
+            db.add(FitnessData(
+                user_id=user_id, date=when,
+                metric_type=metric_type, value=float(val), source=source,
+            ))
+        count += 1
+    return count
+
+
+def update_cp_from_activities(user_id: str, db: Session, **kwargs) -> dict | None:
+    """Derive CP from the user's recent activity power and upsert a row.
+
+    Runs the 2-parameter hyperbolic fit (see
+    ``analysis.cp_from_activities.estimate_cp_from_activities``) on the
+    user's own best-effort power-vs-duration observations and writes the
+    resulting CP as a ``FitnessData`` row with ``source="activities"``.
+
+    Upserts on ``(user_id, date=as_of, metric_type="cp_estimate",
+    source="activities")`` so same-day re-runs (e.g. two syncs in an hour)
+    don't create duplicates. Never touches rows from other sources — the
+    user can still pick Stryd, Garmin, or Activities in the Settings
+    source selector; this just keeps the Activities option populated.
+
+    Returns the fit as a ``dict`` when successful, ``None`` when there
+    isn't enough data. ``None`` is not an error: a missing CP is always
+    better than a wrong CP, and any previous good row stays in place until
+    a future fit replaces it.
+    """
+    from analysis.cp_from_activities import estimate_cp_from_activities
+
+    result = estimate_cp_from_activities(user_id, db, **kwargs)
+    if result is None:
+        return None
+
+    existing = db.query(FitnessData).filter(
+        FitnessData.user_id == user_id,
+        FitnessData.date == result.as_of,
+        FitnessData.metric_type == "cp_estimate",
+        FitnessData.source == "activities",
+    ).first()
+    if existing:
+        existing.value = result.cp_watts
+    else:
+        db.add(FitnessData(
+            user_id=user_id,
+            date=result.as_of,
+            metric_type="cp_estimate",
+            source="activities",
+            value=result.cp_watts,
+        ))
+    return result.to_dict()
 
 
 def write_lactate_threshold(user_id: str, rows: list[dict], db: Session) -> int:

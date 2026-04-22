@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Users, Ticket, Copy, Check, Trash2, Plus, ShieldCheck, ChevronUp, ChevronDown, Eye } from 'lucide-react';
+import { Trans, useLingui } from '@lingui/react/macro';
 
 interface UserInfo {
   id: string;
@@ -48,6 +49,7 @@ interface InvitationInfo {
 
 export default function Admin() {
   const { isAdmin, email: currentEmail } = useAuth();
+  const { t } = useLingui();
   const [users, setUsers] = useState<UserInfo[]>([]);
   const [invitations, setInvitations] = useState<InvitationInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,14 +141,14 @@ export default function Admin() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        setDemoError(data?.detail || `Failed (HTTP ${res.status})`);
+        setDemoError(data?.detail || t`Failed (HTTP ${res.status})`);
       } else {
         setDemoEmail('');
         setDemoPassword('');
         fetchData();
       }
     } catch {
-      setDemoError('Network error. Is the server running?');
+      setDemoError(t`Network error. Is the server running?`);
     }
     setCreatingDemo(false);
   };
@@ -170,8 +172,8 @@ export default function Admin() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-foreground">Admin</h1>
-        <p className="text-sm text-muted-foreground mt-1">Manage users and invitation codes</p>
+        <h1 className="text-2xl font-bold text-foreground"><Trans>Admin</Trans></h1>
+        <p className="text-sm text-muted-foreground mt-1"><Trans>Manage users and invitation codes</Trans></p>
       </div>
 
       {/* Users */}
@@ -183,9 +185,9 @@ export default function Admin() {
             </div>
             <div>
               <CardTitle className="text-sm font-semibold text-foreground">
-                Users <Badge variant="secondary" className="ml-2">{users.length}</Badge>
+                <Trans>Users</Trans> <Badge variant="secondary" className="ml-2">{users.length}</Badge>
               </CardTitle>
-              <CardDescription className="text-xs">Registered accounts</CardDescription>
+              <CardDescription className="text-xs"><Trans>Registered accounts</Trans></CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -193,10 +195,10 @@ export default function Admin() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Registered</TableHead>
-                <TableHead className="w-32 text-right">Actions</TableHead>
+                <TableHead><Trans>Email</Trans></TableHead>
+                <TableHead><Trans>Role</Trans></TableHead>
+                <TableHead><Trans>Registered</Trans></TableHead>
+                <TableHead className="w-32 text-right"><Trans>Actions</Trans></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -205,21 +207,21 @@ export default function Admin() {
                   <TableCell className="font-medium">
                     {u.email}
                     {u.email === currentEmail && (
-                      <span className="text-xs text-muted-foreground ml-2">(you)</span>
+                      <span className="text-xs text-muted-foreground ml-2">(<Trans>you</Trans>)</span>
                     )}
                   </TableCell>
                   <TableCell>
                     {u.is_demo ? (
                       <div>
-                        <Badge variant="outline" className="text-xs text-amber-600 border-amber-500/40">Demo</Badge>
+                        <Badge variant="outline" className="text-xs text-amber-600 border-amber-500/40"><Trans>Demo</Trans></Badge>
                         {u.demo_of_email && (
-                          <span className="text-[10px] text-muted-foreground ml-1.5">mirrors {u.demo_of_email}</span>
+                          <span className="text-[10px] text-muted-foreground ml-1.5"><Trans>mirrors {u.demo_of_email}</Trans></span>
                         )}
                       </div>
                     ) : u.is_superuser ? (
-                      <Badge className="text-xs"><ShieldCheck className="h-3 w-3 mr-1" />Admin</Badge>
+                      <Badge className="text-xs"><ShieldCheck className="h-3 w-3 mr-1" /><Trans>Admin</Trans></Badge>
                     ) : (
-                      <Badge variant="secondary" className="text-xs">User</Badge>
+                      <Badge variant="secondary" className="text-xs"><Trans>User</Trans></Badge>
                     )}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground font-data">
@@ -234,12 +236,12 @@ export default function Admin() {
                             size="sm"
                             className="h-7 text-xs text-muted-foreground hover:text-foreground"
                             onClick={() => setRoleChangeUser(u)}
-                            title={u.is_superuser ? 'Demote to User' : 'Promote to Admin'}
+                            title={u.is_superuser ? t`Demote to User` : t`Promote to Admin`}
                           >
                             {u.is_superuser ? (
-                              <><ChevronDown className="h-3 w-3 mr-1" />Demote</>
+                              <><ChevronDown className="h-3 w-3 mr-1" /><Trans>Demote</Trans></>
                             ) : (
-                              <><ChevronUp className="h-3 w-3 mr-1" />Promote</>
+                              <><ChevronUp className="h-3 w-3 mr-1" /><Trans>Promote</Trans></>
                             )}
                           </Button>
                         )}
@@ -271,14 +273,14 @@ export default function Admin() {
               </div>
               <div>
                 <CardTitle className="text-sm font-semibold text-foreground">
-                  Invitation Codes <Badge variant="secondary" className="ml-2">{invitations.length}</Badge>
+                  <Trans>Invitation Codes</Trans> <Badge variant="secondary" className="ml-2">{invitations.length}</Badge>
                 </CardTitle>
-                <CardDescription className="text-xs">One-time codes for new user registration</CardDescription>
+                <CardDescription className="text-xs"><Trans>One-time codes for new user registration</Trans></CardDescription>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <Input
-                placeholder="Note (optional)"
+                placeholder={t`Note (optional)`}
                 value={inviteNote}
                 onChange={(e) => setInviteNote(e.target.value)}
                 className="h-8 w-40 text-xs"
@@ -286,7 +288,7 @@ export default function Admin() {
               />
               <Button size="sm" onClick={handleGenerateInvite}>
                 <Plus className="h-3 w-3 mr-1" />
-                Generate
+                <Trans>Generate</Trans>
               </Button>
             </div>
           </div>
@@ -296,7 +298,7 @@ export default function Admin() {
           {newCode && (
             <div className="flex items-center justify-between rounded-lg bg-primary/10 border border-primary/30 px-4 py-3 mb-4">
               <div>
-                <p className="text-xs text-muted-foreground">New invitation code:</p>
+                <p className="text-xs text-muted-foreground"><Trans>New invitation code:</Trans></p>
                 <p className="text-lg font-bold font-data text-primary tracking-wider">{newCode}</p>
               </div>
               <Button variant="outline" size="sm" onClick={() => copyCode(newCode)}>
@@ -308,11 +310,11 @@ export default function Admin() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Code</TableHead>
-                <TableHead>Note</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Used By</TableHead>
-                <TableHead>Created</TableHead>
+                <TableHead><Trans>Code</Trans></TableHead>
+                <TableHead><Trans>Note</Trans></TableHead>
+                <TableHead><Trans>Status</Trans></TableHead>
+                <TableHead><Trans>Used By</Trans></TableHead>
+                <TableHead><Trans>Created</Trans></TableHead>
                 <TableHead className="w-20"></TableHead>
               </TableRow>
             </TableHeader>
@@ -320,7 +322,7 @@ export default function Admin() {
               {invitations.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-6">
-                    No invitation codes yet. Generate one to invite a user.
+                    <Trans>No invitation codes yet. Generate one to invite a user.</Trans>
                   </TableCell>
                 </TableRow>
               ) : (
@@ -330,7 +332,7 @@ export default function Admin() {
                       <button
                         className="font-data text-sm tracking-wider hover:text-primary transition-colors"
                         onClick={() => copyCode(inv.code)}
-                        title="Click to copy"
+                        title={t`Click to copy`}
                       >
                         {inv.code}
                       </button>
@@ -338,11 +340,11 @@ export default function Admin() {
                     <TableCell className="text-xs text-muted-foreground">{inv.note || '—'}</TableCell>
                     <TableCell>
                       {inv.used_by ? (
-                        <Badge variant="secondary" className="text-[10px]">Used</Badge>
+                        <Badge variant="secondary" className="text-[10px]"><Trans>Used</Trans></Badge>
                       ) : inv.is_active ? (
-                        <Badge className="text-[10px] bg-primary/20 text-primary border-primary/30">Available</Badge>
+                        <Badge className="text-[10px] bg-primary/20 text-primary border-primary/30"><Trans>Available</Trans></Badge>
                       ) : (
-                        <Badge variant="outline" className="text-[10px] text-destructive">Revoked</Badge>
+                        <Badge variant="outline" className="text-[10px] text-destructive"><Trans>Revoked</Trans></Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{inv.used_by || '—'}</TableCell>
@@ -357,7 +359,7 @@ export default function Admin() {
                           className="h-7 text-xs text-muted-foreground hover:text-destructive"
                           onClick={() => handleRevokeInvite(inv.id)}
                         >
-                          Revoke
+                          <Trans>Revoke</Trans>
                         </Button>
                       )}
                     </TableCell>
@@ -377,9 +379,9 @@ export default function Admin() {
               <Eye className="h-4 w-4" />
             </div>
             <div>
-              <CardTitle className="text-sm font-semibold text-foreground">Demo Accounts</CardTitle>
+              <CardTitle className="text-sm font-semibold text-foreground"><Trans>Demo Accounts</Trans></CardTitle>
               <CardDescription className="text-xs">
-                Read-only accounts that mirror your dashboard data
+                <Trans>Read-only accounts that mirror your dashboard data</Trans>
               </CardDescription>
             </div>
           </div>
@@ -387,20 +389,20 @@ export default function Admin() {
         <CardContent>
           <div className="flex items-end gap-2 mb-4">
             <div className="space-y-1 flex-1">
-              <label className="text-xs text-muted-foreground">Email</label>
+              <label className="text-xs text-muted-foreground"><Trans>Email</Trans></label>
               <Input
                 type="email"
-                placeholder="demo@example.com"
+                placeholder={t`demo@example.com`}
                 value={demoEmail}
                 onChange={(e) => setDemoEmail(e.target.value)}
                 className="h-8 text-xs"
               />
             </div>
             <div className="space-y-1 flex-1">
-              <label className="text-xs text-muted-foreground">Password</label>
+              <label className="text-xs text-muted-foreground"><Trans>Password</Trans></label>
               <Input
                 type="password"
-                placeholder="demo-password"
+                placeholder={t`demo-password`}
                 value={demoPassword}
                 onChange={(e) => setDemoPassword(e.target.value)}
                 className="h-8 text-xs font-data"
@@ -412,15 +414,15 @@ export default function Admin() {
               disabled={creatingDemo || !demoEmail.trim() || !demoPassword.trim()}
             >
               <Plus className="h-3 w-3 mr-1" />
-              {creatingDemo ? 'Creating...' : 'Create'}
+              {creatingDemo ? <Trans>Creating...</Trans> : <Trans>Create</Trans>}
             </Button>
           </div>
           {demoError && (
             <p className="text-xs text-destructive mb-3">{demoError}</p>
           )}
           <p className="text-[10px] text-muted-foreground">
-            Demo users can browse your dashboard (Today, Training, Goal, History) but cannot change settings, sync data, or modify plans.
-            Share the email &amp; password with anyone you want to demo to.
+            <Trans>Demo users can browse your dashboard (Today, Training, Goal, History) but cannot change settings, sync data, or modify plans.
+            Share the email and password with anyone you want to demo to.</Trans>
           </p>
         </CardContent>
       </Card>
@@ -430,28 +432,28 @@ export default function Admin() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {roleChangeUser?.is_superuser ? 'Demote to User' : 'Promote to Admin'}
+              {roleChangeUser?.is_superuser ? <Trans>Demote to User</Trans> : <Trans>Promote to Admin</Trans>}
             </DialogTitle>
             <DialogDescription>
               {roleChangeUser?.is_superuser ? (
-                <>
+                <Trans>
                   <strong>{roleChangeUser?.email}</strong> will lose admin privileges.
                   They will no longer be able to manage users or invitation codes.
-                </>
+                </Trans>
               ) : (
-                <>
+                <Trans>
                   <strong>{roleChangeUser?.email}</strong> will gain admin privileges.
                   They will be able to manage all users, delete accounts, and generate invitation codes.
-                </>
+                </Trans>
               )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setRoleChangeUser(null)} disabled={changingRole}>
-              Cancel
+              <Trans>Cancel</Trans>
             </Button>
             <Button onClick={handleConfirmRoleChange} disabled={changingRole}>
-              {changingRole ? 'Updating...' : roleChangeUser?.is_superuser ? 'Demote' : 'Promote'}
+              {changingRole ? <Trans>Updating...</Trans> : roleChangeUser?.is_superuser ? <Trans>Demote</Trans> : <Trans>Promote</Trans>}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -461,18 +463,20 @@ export default function Admin() {
       <Dialog open={!!deleteUser} onOpenChange={(open) => { if (!open) setDeleteUser(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete User</DialogTitle>
+            <DialogTitle><Trans>Delete User</Trans></DialogTitle>
             <DialogDescription>
-              This will permanently delete <strong>{deleteUser?.email}</strong> and all their data
-              (activities, config, connections, plans). This cannot be undone.
+              <Trans>
+                This will permanently delete <strong>{deleteUser?.email}</strong> and all their data
+                (activities, config, connections, plans). This cannot be undone.
+              </Trans>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setDeleteUser(null)} disabled={deleting}>
-              Cancel
+              <Trans>Cancel</Trans>
             </Button>
             <Button variant="destructive" onClick={handleDeleteUser} disabled={deleting}>
-              {deleting ? 'Deleting...' : 'Delete User'}
+              {deleting ? <Trans>Deleting...</Trans> : <Trans>Delete User</Trans>}
             </Button>
           </DialogFooter>
         </DialogContent>

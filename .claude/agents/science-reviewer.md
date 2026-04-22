@@ -12,7 +12,7 @@ tools:
 
 # Science Reviewer
 
-You review code changes in trainsight's analysis layer for scientific rigor.
+You review code changes in Praxys's analysis layer for scientific rigor.
 The project's core rule: all training metrics, predictions, and insights must
 be grounded in exercise science.
 

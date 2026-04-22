@@ -1,5 +1,5 @@
 """Science framework endpoint — active theories, available options, recommendations."""
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from api.auth import get_data_user_id, require_write_access
@@ -40,20 +40,45 @@ def _theory_summary(theory) -> dict:
     }
 
 
+SUPPORTED_SCIENCE_LOCALES = {"en", "zh"}
+
+
+def _resolve_locale(config_language: str | None, request: Request | None) -> str | None:
+    """Pick the locale used for science text.
+
+    Preference order: explicit user config → `Accept-Language` header's first
+    supported prefix → English (None).
+    """
+    if config_language and config_language in SUPPORTED_SCIENCE_LOCALES:
+        return config_language
+    if request is not None:
+        header = request.headers.get("accept-language", "")
+        for raw in header.split(","):
+            prefix = raw.strip().split(";", 1)[0].split("-", 1)[0].lower()
+            if prefix in SUPPORTED_SCIENCE_LOCALES:
+                return prefix
+    return None
+
+
 @router.get("/science")
 def get_science(
+    request: Request,
     user_id: str = Depends(get_data_user_id),
     db: Session = Depends(get_db),
 ) -> dict:
     """Return active theories, all available options, and recommendations."""
     data = get_dashboard_data(user_id=user_id, db=db)
     config = load_config_from_db(user_id, db)
+    locale = _resolve_locale(config.language, request)
     science = data.get("science", {})
 
-    # Active theories
+    # Active theories — reload in requested locale so the user sees translated
+    # prose without the dashboard loader needing to know about locales.
     active = {}
+    from analysis.science import load_active_science
+    localized = load_active_science(config.science, config.zone_labels, locale=locale) if locale else science
     for pillar in PILLARS:
-        theory = science.get(pillar)
+        theory = localized.get(pillar)
         if theory:
             summary = _theory_summary(theory)
             if theory.tsb_zones_labeled:
@@ -67,7 +92,7 @@ def get_science(
     available = {}
     for pillar in PILLARS:
         available[pillar] = [
-            _theory_summary(t) for t in list_theories(pillar)
+            _theory_summary(t) for t in list_theories(pillar, locale=locale)
         ]
 
     # Available label sets

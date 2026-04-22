@@ -2,6 +2,7 @@ import { CheckCircle, Circle } from 'lucide-react';
 import type { Milestone } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Trans } from '@lingui/react/macro';
 
 interface Props {
   milestones: Milestone[];
@@ -22,10 +23,10 @@ export default function MilestoneTracker({ milestones, currentCp, targetCp }: Pr
         <div>
           <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
             <span>
-              Current: <span className="font-data text-foreground">{currentCp}W</span>
+              <Trans>Current</Trans>: <span className="font-data text-foreground">{currentCp}W</span>
             </span>
             <span>
-              Target: <span className="font-data text-foreground">{targetCp}W</span>
+              <Trans>Target</Trans>: <span className="font-data text-foreground">{targetCp}W</span>
             </span>
           </div>
           <Progress value={progressPct} className="h-3" />
@@ -54,7 +55,7 @@ export default function MilestoneTracker({ milestones, currentCp, targetCp }: Pr
               <span className="font-data text-sm text-foreground">{ms.cp}W</span>
               <span className="text-sm text-muted-foreground">{ms.marathon}</span>
               {isCurrent && (
-                <Badge className="ml-auto" variant="secondary">Current</Badge>
+                <Badge className="ml-auto" variant="secondary"><Trans>Current</Trans></Badge>
               )}
             </div>
           );

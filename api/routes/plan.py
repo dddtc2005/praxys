@@ -20,7 +20,24 @@ from db.session import get_db
 router = APIRouter()
 
 _DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
-_STRYD_PUSH_STATUS_PATH = os.path.join(_DATA_DIR, "ai", "stryd_push_status.json")
+_STRYD_PUSH_STATUS_DIR = os.path.join(_DATA_DIR, "ai", "stryd_push_status")
+
+
+def _stryd_push_status_path(user_id: str) -> str:
+    """Per-user push-status path.
+
+    Must be per-user: a shared file would let any caller of
+    ``GET /api/plan/stryd-status`` see every other user's workout IDs and
+    push timestamps. UUID user_ids keep filenames collision-free and
+    filesystem-safe.
+
+    A legacy single-file layout at ``data/ai/stryd_push_status.json`` may
+    still exist on older deployments — this code does not read or migrate
+    it. Operators should delete that orphan file on deploy; leaving it in
+    place only means historical push-state that the UI won't show. No user
+    data is lost.
+    """
+    return os.path.join(_STRYD_PUSH_STATUS_DIR, f"{user_id}.json")
 
 
 @router.get("/plan")
@@ -68,28 +85,57 @@ def get_plan(
     return {"workouts": workouts, "cp_current": cp_current}
 
 
-def _load_push_status() -> dict:
-    """Load the Stryd push status JSON. Returns {} on missing or corrupt file."""
-    if not os.path.exists(_STRYD_PUSH_STATUS_PATH):
+def _load_push_status(user_id: str) -> dict:
+    """Load a user's Stryd push status JSON.
+
+    Returns {} when the file is absent. On corruption, quarantines the file
+    (renames to ``*.corrupt-<timestamp>``) and returns {} — the subsequent
+    save would otherwise overwrite it with an empty dict and destroy any
+    recoverable content.
+    """
+    path = _stryd_push_status_path(user_id)
+    if not os.path.exists(path):
         return {}
     try:
-        with open(_STRYD_PUSH_STATUS_PATH) as f:
+        with open(path) as f:
             data = json.load(f)
             if not isinstance(data, dict):
                 raise ValueError(f"Expected dict, got {type(data).__name__}")
             return data
     except (json.JSONDecodeError, ValueError, OSError) as e:
-        logger.warning("Corrupt push status file %s: %s", _STRYD_PUSH_STATUS_PATH, e)
+        from datetime import datetime, timezone
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        quarantine = f"{path}.corrupt-{stamp}"
+        try:
+            os.replace(path, quarantine)
+            logger.error(
+                "Quarantined corrupt push status file for user=%s at %s: %s",
+                user_id, quarantine, e,
+            )
+        except OSError as rename_err:
+            logger.error(
+                "Corrupt push status file for user=%s at %s (quarantine failed: %s): %s",
+                user_id, path, rename_err, e,
+            )
         return {}
 
 
-def _save_push_status(status: dict) -> None:
-    """Save the Stryd push status JSON atomically via temp file + rename."""
-    os.makedirs(os.path.dirname(_STRYD_PUSH_STATUS_PATH), exist_ok=True)
-    tmp_path = _STRYD_PUSH_STATUS_PATH + ".tmp"
-    with open(tmp_path, "w") as f:
-        json.dump(status, f, indent=2)
-    os.replace(tmp_path, _STRYD_PUSH_STATUS_PATH)
+def _save_push_status(user_id: str, status: dict) -> None:
+    """Save a user's Stryd push status JSON atomically via temp file + rename."""
+    path = _stryd_push_status_path(user_id)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp_path = path + ".tmp"
+    try:
+        with open(tmp_path, "w") as f:
+            json.dump(status, f, indent=2)
+        os.replace(tmp_path, path)
+    except OSError:
+        # Don't leave a half-written tmp file behind on rename failures.
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 @router.get("/plan/stryd-status")
@@ -97,7 +143,7 @@ def get_stryd_push_status(
     user_id: str = Depends(get_data_user_id),
 ) -> dict:
     """Return push status for all workouts synced to Stryd."""
-    return _load_push_status()
+    return _load_push_status(user_id)
 
 
 class PushStrydRequest(BaseModel):
@@ -163,7 +209,7 @@ def push_plan_to_stryd(
             detail="Cannot determine Critical Power from your data. Ensure recent activities with power data are synced before pushing to Stryd.",
         )
 
-    push_status = _load_push_status()
+    push_status = _load_push_status(current_user_id)
     results = []
 
     for workout_date in request.workout_dates:
@@ -224,7 +270,7 @@ def push_plan_to_stryd(
             results.append({"date": workout_date, "status": "error", "error": str(e)})
 
     try:
-        _save_push_status(push_status)
+        _save_push_status(current_user_id, push_status)
     except OSError as e:
         logger.warning("Failed to save push status: %s", e)
 
@@ -264,10 +310,10 @@ def delete_stryd_workout(
         raise HTTPException(status_code=502, detail="Failed to delete from Stryd")
 
     # Remove from push status
-    push_status = _load_push_status()
+    push_status = _load_push_status(current_user_id)
     to_remove = [d for d, info in push_status.items() if info.get("workout_id") == workout_id]
     for d in to_remove:
         del push_status[d]
-    _save_push_status(push_status)
+    _save_push_status(current_user_id, push_status)
 
     return {"deleted": True, "workout_id": workout_id}

@@ -28,12 +28,13 @@ from fastapi_users.password import PasswordHelper
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 
+from api.auth_secrets import get_jwt_secret
+from api.env_compat import getenv_compat
 from api.invitations import (
     consume_invitation,
     find_valid_invitation,
     is_admin_email,
 )
-from api.users import SECRET
 from db.models import User
 from db.session import get_db
 
@@ -45,7 +46,7 @@ TENCENT_JSCODE_URL = "https://api.weixin.qq.com/sns/jscode2session"
 
 ACCESS_TOKEN_AUDIENCE = "fastapi-users:auth"
 ACCESS_TOKEN_LIFETIME_SECS = int(
-    os.environ.get("TRAINSIGHT_JWT_LIFETIME_SECS", str(7 * 24 * 3600))
+    getenv_compat("JWT_LIFETIME_SECS", str(7 * 24 * 3600)) or str(7 * 24 * 3600)
 )
 
 SETUP_TICKET_AUDIENCE = "trainsight:wechat-setup"
@@ -102,7 +103,7 @@ def _issue_access_token(user_id: str) -> str:
         "iat": now,
         "exp": now + timedelta(seconds=ACCESS_TOKEN_LIFETIME_SECS),
     }
-    return pyjwt.encode(payload, SECRET, algorithm="HS256")
+    return pyjwt.encode(payload, get_jwt_secret(), algorithm="HS256")
 
 
 def _mint_setup_ticket(openid: str, unionid: str | None) -> str:
@@ -114,7 +115,7 @@ def _mint_setup_ticket(openid: str, unionid: str | None) -> str:
         "iat": now,
         "exp": now + timedelta(seconds=SETUP_TICKET_LIFETIME_SECS),
     }
-    return pyjwt.encode(payload, SECRET, algorithm="HS256")
+    return pyjwt.encode(payload, get_jwt_secret(), algorithm="HS256")
 
 
 def _verify_setup_ticket(ticket: str) -> tuple[str, str | None]:
@@ -122,7 +123,7 @@ def _verify_setup_ticket(ticket: str) -> tuple[str, str | None]:
     try:
         payload = pyjwt.decode(
             ticket,
-            SECRET,
+            get_jwt_secret(),
             algorithms=["HS256"],
             audience=SETUP_TICKET_AUDIENCE,
         )

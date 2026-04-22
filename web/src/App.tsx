@@ -3,6 +3,8 @@ import { TooltipProvider } from './components/ui/tooltip';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { ScienceProvider } from './contexts/ScienceContext';
+import { LocaleProvider } from './contexts/LocaleContext';
+import LocaleSync from './contexts/LocaleSync';
 import Layout from './components/Layout';
 import Today from './pages/Today';
 import Training from './pages/Training';
@@ -33,35 +35,38 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <TooltipProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<LoginGuard />} />
-            <Route
-              element={
-                <RequireAuth>
-                  <SettingsProvider>
-                    <ScienceProvider>
-                      <Layout />
-                    </ScienceProvider>
-                  </SettingsProvider>
-                </RequireAuth>
-              }
-            >
-              <Route index element={<TodayOrSetup />} />
-              <Route path="setup" element={<Setup />} />
-              <Route path="training" element={<Training />} />
-              <Route path="goal" element={<Goal />} />
-              <Route path="history" element={<History />} />
-              <Route path="science" element={<Science />} />
-              <Route path="settings" element={<Settings />} />
-              <Route path="admin" element={<Admin />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
+    <LocaleProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<LoginGuard />} />
+              <Route
+                element={
+                  <RequireAuth>
+                    <SettingsProvider>
+                      <LocaleSync />
+                      <ScienceProvider>
+                        <Layout />
+                      </ScienceProvider>
+                    </SettingsProvider>
+                  </RequireAuth>
+                }
+              >
+                <Route index element={<TodayOrSetup />} />
+                <Route path="setup" element={<Setup />} />
+                <Route path="training" element={<Training />} />
+                <Route path="goal" element={<Goal />} />
+                <Route path="history" element={<History />} />
+                <Route path="science" element={<Science />} />
+                <Route path="settings" element={<Settings />} />
+                <Route path="admin" element={<Admin />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </AuthProvider>
+    </LocaleProvider>
   );
 }
 
@@ -87,7 +92,7 @@ function LoginGuard() {
     const rawCallback = params.get('cli_callback');
     const CLI_CALLBACK_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/callback/;
     if (rawCallback && CLI_CALLBACK_RE.test(rawCallback)) {
-      const token = localStorage.getItem('trainsight-auth-token');
+      const token = localStorage.getItem('praxys-auth-token') ?? localStorage.getItem('trainsight-auth-token');
       if (token) {
         window.location.href = `${rawCallback}?token=${encodeURIComponent(token)}`;
         return null;

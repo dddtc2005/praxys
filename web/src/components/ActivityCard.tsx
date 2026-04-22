@@ -5,14 +5,16 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import SplitBreakdown from '@/components/SplitBreakdown';
+import { Trans } from '@lingui/react/macro';
+import { useLocale } from '@/contexts/LocaleContext';
 
 interface Props {
   activity: Activity;
 }
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, locale: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString('en-US', {
+  return d.toLocaleDateString(locale === 'zh' ? 'zh-CN' : 'en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -37,6 +39,7 @@ function formatActivityType(type: string): string {
 
 export default function ActivityCard({ activity }: Props) {
   const [expanded, setExpanded] = useState(false);
+  const { locale } = useLocale();
 
   const hasSplits = activity.splits.length > 0;
 
@@ -51,7 +54,7 @@ export default function ActivityCard({ activity }: Props) {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
               <span className="text-sm text-muted-foreground">
-                {formatDate(activity.date)}
+                {formatDate(activity.date, locale)}
               </span>
               <Badge variant="secondary">
                 {formatActivityType(activity.activity_type)}
@@ -69,7 +72,7 @@ export default function ActivityCard({ activity }: Props) {
             {activity.distance_km != null && (
               <div>
                 <span className="text-xs text-muted-foreground uppercase tracking-wider">
-                  Distance
+                  <Trans>Distance</Trans>
                 </span>
                 <p className="font-data text-lg font-semibold text-foreground">
                   {activity.distance_km.toFixed(1)}{' '}
@@ -80,7 +83,7 @@ export default function ActivityCard({ activity }: Props) {
             {activity.duration_sec != null && (
               <div>
                 <span className="text-xs text-muted-foreground uppercase tracking-wider">
-                  Duration
+                  <Trans>Duration</Trans>
                 </span>
                 <p className="font-data text-lg font-semibold text-foreground">
                   {formatDuration(activity.duration_sec)}
@@ -90,7 +93,7 @@ export default function ActivityCard({ activity }: Props) {
             {activity.avg_power != null && (
               <div>
                 <span className="text-xs text-muted-foreground uppercase tracking-wider">
-                  Avg Power
+                  <Trans>Avg Power</Trans>
                 </span>
                 <p className="font-data text-lg font-semibold text-foreground">
                   {Math.round(activity.avg_power)}{' '}
@@ -101,7 +104,7 @@ export default function ActivityCard({ activity }: Props) {
             {activity.avg_hr != null && (
               <div>
                 <span className="text-xs text-muted-foreground uppercase tracking-wider">
-                  Avg HR
+                  <Trans>Avg HR</Trans>
                 </span>
                 <p className="font-data text-lg font-semibold text-foreground">
                   {Math.round(activity.avg_hr)}{' '}
@@ -115,14 +118,14 @@ export default function ActivityCard({ activity }: Props) {
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
             {activity.avg_pace_min_km != null && (
               <span>
-                Pace{' '}
+                <Trans>Pace</Trans>{' '}
                 <span className="font-data">{activity.avg_pace_min_km}</span>{' '}
                 /km
               </span>
             )}
             {activity.elevation_gain_m != null && (
               <span>
-                Elev{' '}
+                <Trans>Elev</Trans>{' '}
                 <span className="font-data">
                   {Math.round(activity.elevation_gain_m)}
                 </span>{' '}

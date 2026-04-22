@@ -56,14 +56,20 @@ async def get_user_db(session: AsyncSession = Depends(get_async_db)):
 # User Manager
 # ---------------------------------------------------------------------------
 
-SECRET = os.environ.get("TRAINSIGHT_JWT_SECRET", "dev-secret-change-in-production!!")
+from api.auth_secrets import get_jwt_secret
+from api.env_compat import getenv_compat
 
 
 class UserManager(BaseUserManager[User, str]):
-    """Custom user manager for Trainsight."""
+    """Custom user manager for Praxys."""
 
-    reset_password_token_secret = SECRET
-    verification_token_secret = SECRET
+    @property
+    def reset_password_token_secret(self) -> str:
+        return get_jwt_secret()
+
+    @property
+    def verification_token_secret(self) -> str:
+        return get_jwt_secret()
 
     async def on_after_register(
         self, user: User, request: Optional[Request] = None
@@ -91,9 +97,9 @@ bearer_transport = BearerTransport(tokenUrl="/api/auth/login")
 def get_jwt_strategy() -> JWTStrategy:
     """Create a JWT strategy with configurable lifetime."""
     lifetime = int(
-        os.environ.get("TRAINSIGHT_JWT_LIFETIME_SECS", str(7 * 24 * 3600))
+        getenv_compat("JWT_LIFETIME_SECS", str(7 * 24 * 3600)) or str(7 * 24 * 3600)
     )
-    return JWTStrategy(secret=SECRET, lifetime_seconds=lifetime)
+    return JWTStrategy(secret=get_jwt_secret(), lifetime_seconds=lifetime)
 
 
 auth_backend = AuthenticationBackend(

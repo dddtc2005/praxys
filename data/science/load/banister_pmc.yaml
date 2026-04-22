@@ -34,6 +34,10 @@ advanced_description: |
 
   **References:**
   - Banister (1975) "A systems model of training for athletic performance"
+  - Banister (1991) "Modeling elite athletic performance" — source of the
+    exponential k-weighted TRIMP (k_male 1.92, k_female 1.67)
+  - Morton, Fitz-Clarke & Banister (1990) "Modeling human performance in
+    running" — impulse-response model that consumes TRIMP
   - TrainingPeaks, "The Science of the Performance Manager"
 
 citations:
@@ -41,6 +45,15 @@ citations:
     title: "A systems model of training for athletic performance"
     year: 1975
     journal: "Australian Journal of Sports Medicine"
+  - key: banister1991
+    title: "Modeling elite athletic performance"
+    year: 1991
+    journal: "Physiological Testing of Elite Athletes (Human Kinetics), pp. 403–424"
+  - key: morton1990
+    title: "Modeling human performance in running"
+    year: 1990
+    journal: "Journal of Applied Physiology 69(3):1171-1177"
+    url: "https://doi.org/10.1152/jappl.1990.69.3.1171"
   - key: trainingpeaks_pmc
     title: "The Science of the Performance Manager"
     url: "https://www.trainingpeaks.com/learn/articles/the-science-of-the-performance-manager/"

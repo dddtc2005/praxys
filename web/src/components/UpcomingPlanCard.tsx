@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Trans, useLingui, Plural } from '@lingui/react/macro';
+import { useLocale } from '@/contexts/LocaleContext';
 
 const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
   easy:       { bg: 'bg-primary/15', text: 'text-primary' },
@@ -34,14 +36,14 @@ function formatType(type: string): string {
     .join(' ');
 }
 
-function formatDate(dateStr: string): { day: string; weekday: string; isToday: boolean } {
+function formatDate(dateStr: string, locale: string): { day: string; weekday: string; isToday: boolean } {
   const d = new Date(dateStr + 'T00:00:00');
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const isToday = d.getTime() === today.getTime();
   return {
     day: d.getDate().toString().padStart(2, '0'),
-    weekday: d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
+    weekday: d.toLocaleDateString(locale === 'zh' ? 'zh-CN' : 'en-US', { weekday: 'short' }).toUpperCase(),
     isToday,
   };
 }
@@ -119,7 +121,7 @@ function StrydStatusBadge({
             )}
           />
           <TooltipContent side="left">
-            <p className="text-xs">{error || 'Push failed'} — click to retry</p>
+            <p className="text-xs">{error || <Trans>Push failed</Trans>} — <Trans>click to retry</Trans></p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -145,7 +147,7 @@ function StrydStatusBadge({
             )}
           />
           <TooltipContent side="left">
-            <p className="text-xs">Re-push to Stryd</p>
+            <p className="text-xs"><Trans>Re-push to Stryd</Trans></p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -170,7 +172,7 @@ function StrydStatusBadge({
           )}
         />
         <TooltipContent side="left">
-          <p className="text-xs">Push to Stryd</p>
+          <p className="text-xs"><Trans>Push to Stryd</Trans></p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -190,7 +192,9 @@ function WorkoutRow({
   showStryd: boolean;
   onPushSingle: (date: string) => void;
 }) {
-  const { day, weekday, isToday } = formatDate(workout.date);
+  const { t } = useLingui();
+  const { locale } = useLocale();
+  const { day, weekday, isToday } = formatDate(workout.date, locale);
   const color = getTypeColor(workout.workout_type);
   const isRest = workout.workout_type.toLowerCase() === 'rest';
 
@@ -213,7 +217,7 @@ function WorkoutRow({
         <span className={`text-[10px] font-semibold tracking-wider ${
           isToday ? 'text-primary' : 'text-muted-foreground'
         }`}>
-          {isToday ? 'TODAY' : weekday}
+          {isToday ? t`TODAY` : weekday}
         </span>
         <span className={`font-data text-lg leading-tight ${
           isToday ? 'text-primary font-bold' : 'text-muted-foreground'
@@ -309,8 +313,8 @@ function ExpandableWorkoutList({
           className="mt-3 w-full text-center text-xs text-muted-foreground hover:text-primary transition-colors py-2"
         >
           {showAll
-            ? 'Show less'
-            : `Show ${workouts.length - INITIAL_COUNT} more workouts`}
+            ? <Trans>Show less</Trans>
+            : <Trans>Show {workouts.length - INITIAL_COUNT} more workouts</Trans>}
         </button>
       )}
     </div>
@@ -485,10 +489,10 @@ export default function UpcomingPlanCard() {
       <Card>
         <CardContent className="pt-4 flex items-center justify-between">
           <div>
-            <p className="text-sm text-destructive">Failed to load training plan</p>
+            <p className="text-sm text-destructive"><Trans>Failed to load training plan</Trans></p>
             <p className="text-xs text-muted-foreground">{error}</p>
           </div>
-          <Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button>
+          <Button variant="outline" size="sm" onClick={() => refetch()}><Trans>Retry</Trans></Button>
         </CardContent>
       </Card>
     );
@@ -505,11 +509,11 @@ export default function UpcomingPlanCard() {
     <Card>
       <CardHeader className="flex-row items-baseline justify-between space-y-0">
         <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Upcoming Plan
+          <Trans>Upcoming Plan</Trans>
         </CardTitle>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground font-data">
-            {data.workouts.length} workouts
+            <Plural value={data.workouts.length} one="# workout" other="# workouts" />
           </span>
           {hasStryd && (
             <Button
@@ -522,17 +526,17 @@ export default function UpcomingPlanCard() {
               {pushing ? (
                 <>
                   <SpinnerIcon className="h-3 w-3" />
-                  Pushing...
+                  <Trans>Pushing...</Trans>
                 </>
               ) : allPushed ? (
                 <>
                   <CheckIcon className="h-3 w-3" />
-                  Synced
+                  <Trans>Synced</Trans>
                 </>
               ) : (
                 <>
                   <UploadIcon className="h-3 w-3" />
-                  Push All
+                  <Trans>Push All</Trans>
                   {unpushedCount > 0 && (
                     <span className="font-data ml-0.5">({unpushedCount})</span>
                   )}

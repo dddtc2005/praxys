@@ -1,12 +1,12 @@
 # Plugin Test Scenarios
 
-Integration test scenarios for the Trainsight plugin. Each file is an independent
+Integration test scenarios for the Praxys plugin. Each file is an independent
 test case that can be executed in Claude Code or Copilot CLI.
 
 ## Prerequisites
 
 - Backend running: `python -m uvicorn api.main:app --reload`
-- Plugin installed: `claude plugin marketplace add ./plugins/marketplace.json && claude plugin install trainsight`
+- Plugin installed: `claude plugin marketplace add ./plugins/marketplace.json && claude plugin install praxys`
 - At least one platform connected and synced
 
 ## How to Run

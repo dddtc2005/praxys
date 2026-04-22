@@ -9,8 +9,8 @@ from typing_extensions import TypedDict
 logger = logging.getLogger(__name__)
 
 TrainingBase = Literal["power", "hr", "pace"]
-PlatformName = Literal["garmin", "stryd", "oura", "coros"]
-PlanSource = Literal["garmin", "stryd", "oura", "coros", "ai"]
+PlatformName = Literal["garmin", "stryd", "strava", "oura", "coros"]
+PlanSource = Literal["garmin", "stryd", "strava", "oura", "coros", "ai"]
 DataCategory = Literal["activities", "recovery", "fitness", "plan"]
 
 # Default zone boundaries as fractions of threshold value.
@@ -34,6 +34,7 @@ class PlatformCaps(TypedDict):
 PLATFORM_CAPABILITIES: dict[str, PlatformCaps] = {
     "garmin": {"activities": True, "recovery": True, "fitness": True, "plan": False},
     "stryd":  {"activities": True, "recovery": False, "fitness": True, "plan": True},
+    "strava": {"activities": True, "recovery": False, "fitness": False, "plan": False},
     "oura":   {"activities": False, "recovery": True, "fitness": False, "plan": False},
     "coros":  {"activities": True, "recovery": False, "fitness": True, "plan": False},
 }
@@ -104,6 +105,9 @@ class UserConfig:
     source_options: dict = field(default_factory=lambda: {
         "garmin_region": "international",  # "international" or "cn"
     })
+
+    # UI language preference: "en" | "zh" | None (None = auto-detect from browser)
+    language: str | None = None
 
     def __post_init__(self) -> None:
         """Validate cross-field constraints."""
@@ -232,6 +236,7 @@ def load_config_from_db(user_id: str, db) -> UserConfig:
         zone_labels=row.zone_labels or "standard",
         activity_routing=row.activity_routing or {"default": "garmin"},
         source_options=row.source_options or {},
+        language=getattr(row, "language", None),
     )
 
 
@@ -300,4 +305,5 @@ def save_config_to_db(user_id: str, config: UserConfig, db) -> None:
     row.zone_labels = config.zone_labels
     row.activity_routing = config.activity_routing
     row.source_options = config.source_options
+    row.language = config.language
     db.commit()

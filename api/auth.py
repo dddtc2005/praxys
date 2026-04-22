@@ -3,17 +3,15 @@
 Every request to a protected endpoint must include a valid Bearer token
 from the Authorization header. Tokens are issued by the /api/auth/login endpoint.
 """
-import os
 import logging
 
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
+from api.auth_secrets import get_jwt_secret
 from db.session import get_db
 
 logger = logging.getLogger(__name__)
-
-JWT_SECRET = os.environ.get("TRAINSIGHT_JWT_SECRET", "dev-secret-change-in-production!!")
 
 
 def get_current_user_id(request: Request, db: Session = Depends(get_db)) -> str:
@@ -27,7 +25,7 @@ def get_current_user_id(request: Request, db: Session = Depends(get_db)) -> str:
     import jwt
     try:
         payload = jwt.decode(
-            token, JWT_SECRET, algorithms=["HS256"],
+            token, get_jwt_secret(), algorithms=["HS256"],
             audience=["fastapi-users:auth"],
         )
         user_id = payload.get("sub")

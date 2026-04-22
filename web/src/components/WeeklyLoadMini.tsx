@@ -1,5 +1,6 @@
 import type { WeekLoad } from '@/types/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Trans } from '@lingui/react/macro';
 
 interface Props {
   weekLoad: WeekLoad;
@@ -26,7 +27,7 @@ export default function WeeklyLoadMini({ weekLoad }: Props) {
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Weekly Load
+          <Trans>Weekly Load</Trans>
         </CardTitle>
         {weekLoad.week_label && (
           <span className="text-[10px] text-muted-foreground font-data">{weekLoad.week_label}</span>
@@ -57,7 +58,7 @@ export default function WeeklyLoadMini({ weekLoad }: Props) {
           </div>
         )}
         {planned == null && (
-          <p className="text-xs text-muted-foreground">No planned load this week</p>
+          <p className="text-xs text-muted-foreground"><Trans>No planned load this week</Trans></p>
         )}
       </CardContent>
     </Card>

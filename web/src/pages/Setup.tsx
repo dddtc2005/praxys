@@ -1,9 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useSetupStatus } from '@/hooks/useSetupStatus';
 import { API_BASE, getAuthHeaders } from '@/hooks/useApi';
 import type { TrainingBase, SyncStatusResponse } from '@/types/api';
+import {
+  buildStravaReturnTo,
+  getStravaOAuthMessage,
+  getStravaOAuthResult,
+  startStravaOAuth,
+  stripStravaOAuthParams,
+} from '@/lib/strava-oauth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +21,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Check, Link2, RefreshCw, Gauge, Target, ChevronRight, Sparkles } from 'lucide-react';
 import GoalEditor from '@/components/GoalEditor';
+import { Trans, useLingui } from '@lingui/react/macro';
 
 // --- Platform metadata ---
 
@@ -49,6 +57,28 @@ function StrydWordmark({ className }: { className?: string }) {
         <linearGradient id="stryd_g4" x1="-5.4" y1="57.2" x2="433" y2="57.2" gradientUnits="userSpaceOnUse"><stop stopColor="#F77120"/><stop offset="1" stopColor="#FECA2F"/></linearGradient>
       </defs>
     </svg>
+  );
+}
+
+function StravaWordmark({ className }: { className?: string }) {
+  return (
+    <div
+      className={`inline-flex h-5 items-center gap-1.5 text-[#fc4c02] ${className ?? ''}`}
+      aria-label="Strava"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        className="h-5 w-[0.95rem] shrink-0"
+        aria-hidden="true"
+      >
+        <path d="M13.25 2 7.1 13.55h3.84l2.31-4.2 2.37 4.2h3.83L13.25 2Z" />
+        <path d="m10.47 15.18-2.2 4.02h4.4l-2.2-4.02Z" />
+      </svg>
+      <span className="text-[0.95rem] font-bold uppercase leading-none tracking-[0.08em]">
+        STRAVA
+      </span>
+    </div>
   );
 }
 
@@ -124,6 +154,14 @@ const PLATFORM_META: Record<string, {
     ],
     help: 'Use your Garmin Connect credentials.',
   },
+  strava: {
+    label: 'Strava',
+    wordmark: <StravaWordmark />,
+    categories: ['Activities'],
+    detail: 'Activities only: runs, rides, pace, heart rate, route data',
+    credFields: [],
+    help: 'Authorize Praxys with Strava in your browser. Praxys only syncs activities from Strava.',
+  },
   stryd: {
     label: 'Stryd',
     wordmark: <StrydWordmark />,
@@ -147,6 +185,8 @@ const PLATFORM_META: Record<string, {
   },
 };
 
+const CONNECTABLE_PLATFORMS = ['garmin', 'strava', 'stryd', 'oura'] as const;
+
 
 const BASE_CONFIG: Record<TrainingBase, { label: string; desc: string }> = {
   power: { label: 'Power', desc: 'Zones & load from Critical Power (best with Stryd)' },
@@ -164,15 +204,19 @@ const BACKFILL_OPTIONS = [
 // --- Component ---
 
 export default function Setup() {
+  const location = useLocation();
   const navigate = useNavigate();
   const { config, updateSettings, refetch: refetchSettings } = useSettings();
   const setup = useSetupStatus();
+  const { t } = useLingui();
 
   // Connection state
   const [connectPlatform, setConnectPlatform] = useState<string | null>(null);
   const [connectCreds, setConnectCreds] = useState<Record<string, string>>({});
   const [connectError, setConnectError] = useState('');
   const [connecting, setConnecting] = useState(false);
+  const [connectNotice, setConnectNotice] = useState('');
+  const [pendingPrimaryPlatform, setPendingPrimaryPlatform] = useState<string | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
     GARMIN_ACTIVITY_CATEGORIES.filter((c) => c.default).map((c) => c.key)
   );
@@ -200,6 +244,47 @@ export default function Setup() {
       navigate('/', { replace: true });
     }
   }, [setup.loading, setup.allDone, navigate]);
+
+  useEffect(() => {
+    const oauthResult = getStravaOAuthResult(location.search);
+    if (!oauthResult) return;
+
+    const cleanedLocation = `${location.pathname}${stripStravaOAuthParams(location.search)}${location.hash}`;
+    navigate(cleanedLocation, { replace: true });
+
+    if (oauthResult.status === 'connected') {
+      setConnectPlatform(null);
+      setConnectCreds({});
+      setConnectError('');
+      setConnectNotice(getStravaOAuthMessage(oauthResult));
+      setPendingPrimaryPlatform('strava');
+      setup.refetch();
+      refetchSettings();
+      return;
+    }
+
+    setConnectNotice('');
+    setConnectPlatform('strava');
+    setConnectError(getStravaOAuthMessage(oauthResult));
+  }, [location.hash, location.pathname, location.search, navigate, refetchSettings]);
+
+  useEffect(() => {
+    if (pendingPrimaryPlatform !== 'strava') return;
+    if (!setup.connectedPlatforms.includes('strava')) return;
+
+    const overlapping = setup.connectedPlatforms.filter(
+      (platform) => platform !== 'strava' && PLATFORM_META[platform]?.categories.includes('Activities')
+    );
+
+    if (overlapping.length > 0) {
+      setPrimaryPrompt({
+        category: 'activities',
+        options: ['strava', ...overlapping],
+      });
+    }
+
+    setPendingPrimaryPlatform(null);
+  }, [pendingPrimaryPlatform, setup.connectedPlatforms]);
 
   // Poll sync status while syncing
   useEffect(() => {
@@ -233,6 +318,7 @@ export default function Setup() {
     const platforms = setup.connectedPlatforms;
     if (platforms.includes('stryd')) return 'power';
     if (platforms.includes('garmin')) return 'hr';
+    if (platforms.includes('strava')) return 'pace';
     if (platforms.includes('oura')) return 'hr';
     return null;
   })();
@@ -252,6 +338,18 @@ export default function Setup() {
     if (!connectPlatform) return;
     setConnecting(true);
     setConnectError('');
+    setConnectNotice('');
+
+    if (connectPlatform === 'strava') {
+      try {
+        await startStravaOAuth(buildStravaReturnTo(location.pathname, location.search, location.hash));
+      } catch (err) {
+        setConnectError(err instanceof Error ? err.message : 'Network error');
+        setConnecting(false);
+      }
+      return;
+    }
+
     try {
       const res = await fetch(`${API_BASE}/api/settings/connections/${connectPlatform}`, {
         method: 'POST',
@@ -349,11 +447,11 @@ export default function Setup() {
     <div>
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-foreground">Set up Trainsight</h1>
+        <h1 className="text-2xl font-bold text-foreground"><Trans>Set up Praxys</Trans></h1>
         <p className="text-sm text-muted-foreground mt-1">
           {setup.completed === 0
-            ? 'Complete these steps to unlock your training insights'
-            : `${setup.completed} of ${setup.total} steps complete`}
+            ? <Trans>Complete these steps to unlock your training insights</Trans>
+            : <Trans>{setup.completed} of {setup.total} steps complete</Trans>}
         </p>
 
         {/* Progress bar */}
@@ -363,19 +461,25 @@ export default function Setup() {
             style={{ width: `${progressPct}%` }}
           />
         </div>
+
+        {connectNotice && (
+          <Alert className="mt-4 border-primary/30 bg-primary/5">
+            <AlertDescription className="text-sm text-primary">{connectNotice}</AlertDescription>
+          </Alert>
+        )}
       </div>
 
       <div className="space-y-4">
         {/* ===== STEP 1: Connect ===== */}
         <SetupCard
           stepNum={1}
-          title="Connect a platform"
-          description="Link at least one data source to start"
+          title={t`Connect a platform`}
+          description={t`Link at least one data source to start`}
           done={setup.hasConnection}
           icon={<Link2 className="h-4 w-4" />}
         >
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
-            {(['garmin', 'stryd', 'oura'] as const).map((platform) => {
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-4">
+            {CONNECTABLE_PLATFORMS.map((platform) => {
               const meta = PLATFORM_META[platform];
               const isConnected = setup.connectedPlatforms.includes(platform);
               return (
@@ -411,7 +515,7 @@ export default function Setup() {
                     ))}
                   </div>
                   {!isConnected && (
-                    <p className="text-xs text-primary mt-3 font-medium">Connect</p>
+                    <p className="text-xs text-primary mt-3 font-medium"><Trans>Connect</Trans></p>
                   )}
                 </button>
               );
@@ -422,11 +526,11 @@ export default function Setup() {
         {/* ===== STEP 2: Sync ===== */}
         <SetupCard
           stepNum={2}
-          title="Sync your data"
+          title={t`Sync your data`}
           description={
             !setup.hasConnection
-              ? 'Connect a platform first'
-              : 'Choose how much historical data to pull'
+              ? t`Connect a platform first`
+              : t`Choose how much historical data to pull`
           }
           done={setup.hasSyncedData}
           icon={<RefreshCw className="h-4 w-4" />}
@@ -436,7 +540,7 @@ export default function Setup() {
             <div className="mt-4 space-y-4">
               {/* Backfill range */}
               <div>
-                <Label className="text-xs text-muted-foreground mb-2 block">Sync history</Label>
+                <Label className="text-xs text-muted-foreground mb-2 block"><Trans>Sync history</Trans></Label>
                 <div className="flex flex-wrap gap-2">
                   {BACKFILL_OPTIONS.map((opt) => (
                     <button
@@ -451,7 +555,7 @@ export default function Setup() {
                       {opt.label}
                       {opt.recommended && (
                         <Badge variant="secondary" className="ml-1.5 text-[9px] px-1 py-0">
-                          Recommended
+                          <Trans>Recommended</Trans>
                         </Badge>
                       )}
                     </button>
@@ -468,10 +572,10 @@ export default function Setup() {
                   {syncing ? (
                     <span className="flex items-center gap-2">
                       <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                      Syncing...
+                      <Trans>Syncing...</Trans>
                     </span>
                   ) : (
-                    'Start sync'
+                    <Trans>Start sync</Trans>
                   )}
                 </Button>
               </div>
@@ -506,22 +610,22 @@ export default function Setup() {
               {syncDone && (
                 <Alert className="border-primary/30 bg-primary/5">
                   <AlertDescription className="text-sm text-primary">
-                    Sync complete! Your data is ready.
+                    <Trans>Sync complete! Your data is ready.</Trans>
                   </AlertDescription>
                 </Alert>
               )}
             </div>
           )}
           {setup.hasSyncedData && (
-            <p className="mt-3 text-sm text-primary font-medium">Data synced successfully</p>
+            <p className="mt-3 text-sm text-primary font-medium"><Trans>Data synced successfully</Trans></p>
           )}
         </SetupCard>
 
         {/* ===== STEP 3: Training Base ===== */}
         <SetupCard
           stepNum={3}
-          title="Choose training base"
-          description="How your zones and training load are calculated"
+          title={t`Choose training base`}
+          description={t`How your zones and training load are calculated`}
           done={setup.hasConnection}
           icon={<Gauge className="h-4 w-4" />}
           disabled={!setup.hasConnection}
@@ -547,7 +651,7 @@ export default function Setup() {
                   {isSuggested && (
                     <div className="flex items-center gap-1 mt-2">
                       <Sparkles className="h-3 w-3 text-primary" />
-                      <span className="text-[10px] text-primary font-medium">Recommended</span>
+                      <span className="text-[10px] text-primary font-medium"><Trans>Recommended</Trans></span>
                     </div>
                   )}
                 </button>
@@ -559,8 +663,8 @@ export default function Setup() {
         {/* ===== STEP 4: Goal ===== */}
         <SetupCard
           stepNum={4}
-          title="Set a goal"
-          description="Target a race or track continuous improvement"
+          title={t`Set a goal`}
+          description={t`Target a race or track continuous improvement`}
           done={!!setup.steps.find((s) => s.key === 'goal')?.done}
           icon={<Target className="h-4 w-4" />}
         >
@@ -568,19 +672,19 @@ export default function Setup() {
             {config?.goal?.race_date || (config?.goal?.target_time_sec && Number(config.goal.target_time_sec) > 0) ? (
               <div className="flex items-center justify-between">
                 <p className="text-sm text-primary font-medium">
-                  {config.goal.race_date ? 'Race goal' : 'Continuous improvement'} configured
+                  {config.goal.race_date ? <Trans>Race goal configured</Trans> : <Trans>Continuous improvement configured</Trans>}
                 </p>
                 <Button variant="ghost" size="sm" onClick={() => setGoalEditorOpen(true)}>
-                  Edit
+                  <Trans>Edit</Trans>
                 </Button>
               </div>
             ) : (
               <div className="flex items-center justify-between">
                 <p className="text-xs text-muted-foreground">
-                  Optional — you can always set this later from the Goal page
+                  <Trans>Optional — you can always set this later from the Goal page</Trans>
                 </p>
                 <Button variant="outline" size="sm" onClick={() => setGoalEditorOpen(true)}>
-                  Set goal
+                  <Trans>Set goal</Trans>
                 </Button>
               </div>
             )}
@@ -595,7 +699,7 @@ export default function Setup() {
             className="text-muted-foreground"
             onClick={() => navigate('/')}
           >
-            {setup.allDone ? 'Go to dashboard' : 'Skip for now'}
+            {setup.allDone ? <Trans>Go to dashboard</Trans> : <Trans>Skip for now</Trans>}
             <ChevronRight className="ml-1 h-4 w-4" />
           </Button>
         </div>
@@ -606,7 +710,7 @@ export default function Setup() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
-              Connect {connectPlatform ? PLATFORM_META[connectPlatform]?.label : ''}
+              <Trans>Connect {connectPlatform ? PLATFORM_META[connectPlatform]?.label : ''}</Trans>
             </DialogTitle>
             <DialogDescription>
               {connectPlatform && PLATFORM_META[connectPlatform]?.help}
@@ -616,7 +720,7 @@ export default function Setup() {
           {/* Show what this platform provides */}
           {connectPlatform && (
             <div className="pb-2">
-              <p className="text-xs text-muted-foreground mb-1.5">Will sync:</p>
+              <p className="text-xs text-muted-foreground mb-1.5"><Trans>Will sync:</Trans></p>
               <div className="flex flex-wrap gap-1.5">
                 {PLATFORM_META[connectPlatform].categories.map((cat) => (
                   <Badge key={cat} variant="secondary" className="text-xs">
@@ -633,7 +737,7 @@ export default function Setup() {
             </Alert>
           )}
 
-          {connectPlatform && (
+          {connectPlatform && connectPlatform !== 'strava' && (
             <form onSubmit={(e) => { e.preventDefault(); handleConnect(); }} className="space-y-4">
               {PLATFORM_META[connectPlatform].credFields.map((field) => (
                 <div key={field.key} className="space-y-2">
@@ -644,7 +748,7 @@ export default function Setup() {
                     value={connectCreds[field.key] || ''}
                     onChange={(e) => setConnectCreds({ ...connectCreds, [field.key]: e.target.value })}
                     disabled={connecting}
-                    autoComplete={field.type === 'password' ? 'current-password' : field.type}
+                    autoComplete={field.key.includes('token') ? 'off' : field.type === 'password' ? 'current-password' : field.type}
                   />
                 </div>
               ))}
@@ -652,7 +756,7 @@ export default function Setup() {
               {/* Garmin region + activity types */}
               {connectPlatform === 'garmin' && (
                 <div className="space-y-2">
-                  <Label>Region</Label>
+                  <Label><Trans>Region</Trans></Label>
                   <div className="flex gap-2">
                     {([['international', 'International'], ['cn', 'China']] as const).map(([value, label]) => (
                       <button
@@ -673,7 +777,7 @@ export default function Setup() {
               )}
               {connectPlatform === 'garmin' && (
                 <div className="space-y-2">
-                  <Label>Activity types to sync</Label>
+                  <Label><Trans>Activity types to sync</Trans></Label>
                   <div className="flex flex-wrap gap-1.5">
                     <button
                       type="button"
@@ -689,7 +793,7 @@ export default function Setup() {
                           : 'border-border bg-muted text-muted-foreground hover:text-foreground'
                       }`}
                     >
-                      All
+                      <Trans>All</Trans>
                     </button>
                     {GARMIN_ACTIVITY_CATEGORIES.map((cat) => {
                       const selected = selectedCategories.includes(cat.key);
@@ -716,20 +820,40 @@ export default function Setup() {
                     })}
                   </div>
                   <p className="text-[10px] text-muted-foreground">
-                    Cross-training activities affect your overall training load and recovery
+                    <Trans>Cross-training activities affect your overall training load and recovery</Trans>
                   </p>
                 </div>
               )}
 
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="ghost" onClick={() => setConnectPlatform(null)} disabled={connecting}>
-                  Cancel
+                  <Trans>Cancel</Trans>
                 </Button>
                 <Button type="submit" disabled={connecting}>
-                  {connecting ? 'Connecting...' : 'Connect'}
+                  {connecting ? <Trans>Connecting...</Trans> : <Trans>Connect</Trans>}
                 </Button>
               </div>
             </form>
+          )}
+
+          {connectPlatform === 'strava' && (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-border bg-muted/40 p-3">
+                <p className="text-sm font-medium text-foreground"><Trans>Activities-only connection</Trans></p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  <Trans>Continue in your browser to authorize Strava. Praxys imports activities from Strava, while recovery, fitness, and plans come from your other connected platforms.</Trans>
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="ghost" onClick={() => setConnectPlatform(null)} disabled={connecting}>
+                  <Trans>Cancel</Trans>
+                </Button>
+                <Button type="button" onClick={() => void handleConnect()} disabled={connecting}>
+                  {connecting ? <Trans>Redirecting...</Trans> : <Trans>Continue to Strava</Trans>}
+                </Button>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>
@@ -749,10 +873,12 @@ export default function Setup() {
       <Dialog open={!!primaryPrompt} onOpenChange={(open) => { if (!open) setPrimaryPrompt(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Choose primary source</DialogTitle>
+            <DialogTitle><Trans>Choose primary source</Trans></DialogTitle>
             <DialogDescription>
-              Multiple platforms provide <strong>{primaryPrompt?.category}</strong> data.
-              Which should be the primary source?
+              <Trans>
+                Multiple platforms provide <strong>{primaryPrompt?.category}</strong> data.
+                Which should be the primary source?
+              </Trans>
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-wrap gap-2 py-2">

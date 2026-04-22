@@ -16,6 +16,7 @@ from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
 from api.auth import get_data_user_id, require_write_access
+from api.env_compat import getenv_compat
 from api.views import utc_isoformat
 from db.session import get_db
 
@@ -42,7 +43,7 @@ class SyncRequest(BaseModel):
 _sync_status: dict[str, dict[str, dict]] = {}
 _sync_lock = threading.Lock()
 
-_DEFAULT_SOURCES = ["garmin", "stryd", "oura"]
+_DEFAULT_SOURCES = ["garmin", "strava", "stryd", "oura"]
 
 
 def _get_user_status(user_id: str) -> dict[str, dict]:
@@ -61,6 +62,48 @@ def _get_data_dir() -> str:
         "DATA_DIR",
         os.path.join(os.path.dirname(__file__), "..", "..", "data"),
     )
+
+
+def _garmin_token_root() -> str:
+    """Root directory that holds per-user Garmin token sub-directories."""
+    return os.path.join(
+        os.path.dirname(_get_data_dir()), "sync", ".garmin_tokens",
+    )
+
+
+def _garmin_token_dir(user_id: str) -> str:
+    """Per-user Garmin tokenstore path.
+
+    garminconnect.Garmin.login() loads any tokens it finds at this path from
+    disk without validating whose Garmin account they belong to, so a shared
+    directory would leak one user's authenticated session to the next caller.
+    """
+    return os.path.join(_garmin_token_root(), user_id)
+
+
+def clear_garmin_tokens(user_id: str) -> None:
+    """Remove cached Garmin OAuth tokens for a user.
+
+    Call whenever cached tokens should no longer be trusted: credential
+    rotation on connect, explicit disconnect, or user deletion. Leaves the
+    token root intact. Raises OSError on filesystem failure — callers decide
+    whether that's fatal (connect flow) or best-effort (post-delete cleanup).
+    Silencing failures here would re-open the cross-user leak the helper exists
+    to prevent.
+    """
+    import shutil
+    path = _garmin_token_dir(user_id)
+    if not os.path.isdir(path):
+        return
+    try:
+        shutil.rmtree(path)
+    except OSError:
+        logger.exception(
+            "Failed to clear Garmin tokenstore for user %s at %s — "
+            "stale tokens may still be reused on next sync.",
+            user_id, path,
+        )
+        raise
 
 
 def _get_credentials(user_id: str, platform: str, db: Session) -> dict | None:
@@ -87,6 +130,36 @@ def _get_credentials(user_id: str, platform: str, db: Session) -> dict | None:
                            user_id, platform, e)
 
     return None
+
+
+def _persist_credentials(user_id: str, platform: str, creds: dict, db: Session) -> None:
+    """Encrypt and persist updated platform credentials."""
+
+    from db.crypto import get_vault
+    from db.models import UserConnection
+
+    vault = get_vault()
+    encrypted_credentials, wrapped_dek = vault.encrypt(json.dumps(creds))
+    conn = db.query(UserConnection).filter(
+        UserConnection.user_id == user_id,
+        UserConnection.platform == platform,
+    ).first()
+    if conn is None:
+        return
+    conn.encrypted_credentials = encrypted_credentials
+    conn.wrapped_dek = wrapped_dek
+
+
+def _get_strava_client_config() -> tuple[str, str]:
+    """Load Strava OAuth client credentials from environment."""
+
+    client_id = getenv_compat("STRAVA_CLIENT_ID")
+    client_secret = getenv_compat("STRAVA_CLIENT_SECRET")
+    if not client_id or not client_secret:
+        raise RuntimeError(
+            "Strava OAuth is not configured. Set PRAXYS_STRAVA_CLIENT_ID and PRAXYS_STRAVA_CLIENT_SECRET."
+        )
+    return client_id, client_secret
 
 
 def _run_sync(user_id: str, source: str, creds: dict,
@@ -121,6 +194,9 @@ def _run_sync(user_id: str, source: str, creds: dict,
         if source == "garmin":
             counts = _sync_garmin(user_id, creds, from_date, db)
 
+        elif source == "strava":
+            counts = _sync_strava(user_id, creds, from_date, db)
+
         elif source == "stryd":
             counts = _sync_stryd(user_id, creds, from_date, db)
 
@@ -132,13 +208,32 @@ def _run_sync(user_id: str, source: str, creds: dict,
 
         db.commit()
 
+        # Refresh activity-derived CP on any sync that can change activity
+        # power observations (Garmin, Strava, Stryd — not Oura). The fit
+        # itself is cheap and idempotent; skipping Oura just avoids the
+        # no-op DB read.
+        if source in ("garmin", "strava", "stryd"):
+            try:
+                from db.sync_writer import update_cp_from_activities
+                fit = update_cp_from_activities(user_id, db)
+                if fit is not None:
+                    db.commit()
+                    logger.info(
+                        "Activity-derived CP for user %s: %.1fW (r²=%.2f, %d points)",
+                        user_id, fit["cp_watts"], fit["r_squared"], fit["point_count"],
+                    )
+            except Exception:
+                # CP refresh is best-effort; never let it break the sync.
+                logger.exception("Activity-derived CP refresh failed for user %s", user_id)
+                db.rollback()
+
         # Update last_sync on the connection record
         conn = db.query(UserConnection).filter(
             UserConnection.user_id == user_id,
             UserConnection.platform == source,
         ).first()
         if conn:
-            conn.last_sync = datetime.utcnow()
+            conn.last_sync = datetime.now(timezone.utc).replace(tzinfo=None)
             conn.status = "connected"
             db.commit()
 
@@ -182,15 +277,45 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
     from garminconnect import Garmin
     from sync.garmin_sync import (
         parse_activities, parse_splits, parse_daily_metrics,
-        parse_lactate_threshold, RATE_LIMIT_DELAY,
+        parse_lactate_threshold, parse_user_profile, parse_heart_rates,
+        parse_running_ftp, RATE_LIMIT_DELAY,
     )
     import time
 
-    client = Garmin(creds["email"], creds["password"],
-                    is_cn=creds.get("is_cn", False))
-    data_dir = _get_data_dir()
-    token_dir = os.path.join(os.path.dirname(data_dir), "sync", ".garmin_tokens")
-    client.login(token_dir)
+    # Region resolution: the Settings UI writes user_config.source_options.
+    # garmin_region, but the reconnect flow separately stores is_cn inside the
+    # encrypted credentials blob. These two values used to drift — a user
+    # could change the region in Settings, see it reflected in the UI, and
+    # still hit the wrong Garmin SSO because the sync read is_cn only from
+    # the encrypted blob. Prefer source_options as the authoritative setting;
+    # fall back to the legacy creds.is_cn for connections that predate the
+    # region toggle.
+    from analysis.config import load_config_from_db
+    user_config = load_config_from_db(user_id, db)
+    region = user_config.source_options.get("garmin_region")
+    if region in ("cn", "international"):
+        is_cn = region == "cn"
+    else:
+        is_cn = bool(creds.get("is_cn", False))
+
+    client = Garmin(creds["email"], creds["password"], is_cn=is_cn)
+    # The tokenstore must be per-user: garminconnect.Garmin.login() loads any
+    # tokens at that path without validating the account they belong to and
+    # only falls back to username/password if the files themselves are missing
+    # or malformed. A shared path would have every user's sync fetching the
+    # first-authenticated user's Garmin data.
+    token_dir = _garmin_token_dir(user_id)
+    os.makedirs(token_dir, exist_ok=True)
+    # garminconnect.login() delegates to garth.load(), which raises
+    # FileNotFoundError when the oauth1/oauth2 JSONs aren't present (it only
+    # catches AssertionError). Pass the tokenstore only when we have tokens
+    # to load; otherwise fall through to username/password auth. Dump after
+    # login so the next sync can skip credentials.
+    has_tokens = all(
+        os.path.isfile(os.path.join(token_dir, name))
+        for name in ("oauth1_token.json", "oauth2_token.json")
+    )
+    client.login(token_dir if has_tokens else None)
     try:
         client.garth.dump(token_dir)
     except AttributeError:
@@ -199,12 +324,11 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
     end = date.today().isoformat()
     start = from_date or (date.today() - timedelta(days=7)).isoformat()
 
-    # Read configured activity categories from user config.
-    # Garmin's search API only accepts top-level types (running, cycling, etc.)
-    # not subtypes (trail_running, treadmill_running). We fetch by top-level
-    # category — all subtypes are returned automatically.
-    from analysis.config import load_config_from_db
-    user_config = load_config_from_db(user_id, db)
+    # Read configured activity categories from user config (already loaded
+    # above for region resolution). Garmin's search API only accepts top-level
+    # types (running, cycling, etc.) not subtypes (trail_running,
+    # treadmill_running). We fetch by top-level category — all subtypes are
+    # returned automatically.
     categories = user_config.source_options.get(
         "garmin_activity_categories", ["running"]
     )
@@ -215,9 +339,15 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
         "swimming": "swimming",
         "hiking": "hiking",
         "walking": "walking",
-        "strength": "strength_training",
+        # "strength" intentionally absent: Garmin's API now rejects
+        # activityType=strength_training with "Activity type cannot be an
+        # activity sub type" (it was reclassified as a subtype of
+        # fitness_equipment). Users who selected Strength in Setup will
+        # have it fall through to the top-level query via the default
+        # mapping (``c`` maps to itself). The resulting 400 is logged at
+        # warning level and the other categories still sync fine.
     }
-    api_types = list({CATEGORY_TO_API_TYPE.get(c, c) for c in categories})
+    api_types = list({CATEGORY_TO_API_TYPE.get(c) for c in categories if CATEGORY_TO_API_TYPE.get(c)})
 
     # Fetch activities for each configured type
     raw_activities = []
@@ -226,15 +356,22 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
             batch = client.get_activities_by_date(start, end, activitytype=atype)
             raw_activities.extend(batch)
         except Exception as e:
-            logger.debug("Garmin activities for type %s: %s", atype, e)
+            logger.warning(
+                "Garmin activities fetch failed for user %s type %s: %s",
+                user_id, atype, e,
+            )
     activity_rows = parse_activities(raw_activities)
     act_count = sync_writer.write_activities(user_id, activity_rows, db)
 
-    # Splits (only for new activities)
+    # Splits — per-activity lap data. Splits drive interval intensity analysis
+    # (see CLAUDE.md: "Always use activity_splits.csv for intensity analysis").
+    # Per-activity misses are logged at debug, but a systemic failure would
+    # quietly lose intensity metrics, so we surface an aggregate warning.
     status = _get_user_status(user_id)
     activity_ids = [str(a.get("activityId", "")) for a in raw_activities]
     total = len(activity_ids)
     all_splits = []
+    split_failures = 0
     for idx, aid in enumerate(activity_ids):
         with _sync_lock:
             status["garmin"]["progress"] = f"Fetching splits: {idx + 1}/{total}"
@@ -243,10 +380,19 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
             all_splits.extend(parse_splits(aid, splits_data))
             time.sleep(RATE_LIMIT_DELAY)
         except Exception as e:
+            split_failures += 1
             logger.debug("Splits for %s: skipped (%s)", aid, e)
+    if total and split_failures >= max(3, total // 2):
+        logger.warning(
+            "Garmin splits fetch failed for %d of %d activities (user %s) — "
+            "intensity analysis will be missing for those runs",
+            split_failures, total, user_id,
+        )
     split_count = sync_writer.write_splits(user_id, all_splits, db)
 
-    # Lactate threshold
+    # Lactate threshold. Log at warning so intermittent failures surface
+    # instead of vanishing at debug level — the previous behaviour silently
+    # hid real failures when endpoints rejected the request.
     lt_count = 0
     try:
         lt_start = (date.today() - timedelta(days=365)).isoformat()
@@ -256,60 +402,213 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
             lt_rows = parse_lactate_threshold(client.get_lactate_threshold(latest=True))
         lt_count = sync_writer.write_lactate_threshold(user_id, lt_rows, db)
     except Exception as e:
-        logger.debug("Lactate threshold: skipped (%s)", e)
+        logger.warning("Garmin lactate threshold fetch failed for user %s: %s", user_id, e)
 
-    # Daily metrics + recovery (HRV, sleep, readiness)
+    # User profile + today's heart-rates → threshold inputs for _resolve_thresholds.
+    # Profile carries LTHR (and sometimes max HR). The profile endpoint does
+    # NOT return resting HR on International accounts — that comes from
+    # get_heart_rates(date), whose lastSevenDaysAvgRestingHeartRate is the
+    # stable reference we want for TRIMP's rest_hr.
+    profile_count = 0
+    try:
+        profile_raw = client.get_user_profile()
+        profile_parsed = parse_user_profile(profile_raw)
+    except Exception as e:
+        profile_parsed = {}
+        logger.warning("Garmin user profile fetch failed for user %s: %s", user_id, e)
+
+    today_str = date.today().isoformat()
+    try:
+        today_hr = client.get_heart_rates(today_str) or {}
+        hr_parsed = parse_heart_rates(today_hr)
+        rolling = hr_parsed.get("rolling_rest_hr")
+        if rolling is not None:
+            profile_parsed["rest_hr_bpm"] = rolling
+    except Exception as e:
+        logger.warning("Garmin heart_rates fetch failed for user %s: %s", user_id, e)
+
+    # Running FTP / Critical Power. Garmin exposes this at the same URL
+    # pattern as cycling FTP — garminconnect wraps cycling but not running,
+    # so we call the endpoint directly. Note: Garmin's native running power
+    # reads substantially higher than Stryd (~30% gap on the same athlete);
+    # see docs/dev/gotchas.md. For users who have both sources syncing, the
+    # latest write to fitness_data.cp_estimate wins — which can cause CP
+    # thresholds to whiplash between the two systems.
+    try:
+        rftp_raw = client.connectapi(
+            "/biometric-service/biometric/latestFunctionalThresholdPower/RUNNING"
+        )
+        rftp_parsed = parse_running_ftp(rftp_raw)
+        if rftp_parsed:
+            profile_parsed.update(rftp_parsed)
+    except Exception as e:
+        logger.warning("Garmin running FTP fetch failed for user %s: %s", user_id, e)
+
+    if profile_parsed:
+        try:
+            profile_count = sync_writer.write_profile_thresholds(
+                user_id, profile_parsed, db,
+            )
+        except Exception as e:
+            logger.warning(
+                "Garmin profile threshold write failed for user %s: %s", user_id, e,
+            )
+
+    # Daily metrics (VO2max, training status, readiness, race prediction).
+    # Kept independent of recovery so one endpoint failing (common on Garmin
+    # CN where some endpoints aren't live) doesn't wipe out the other.
     dm_count = 0
-    recovery_count = 0
+    tr = None
     try:
         today_str = date.today().isoformat()
         ts = client.get_training_status(today_str) or {}
-        tr = None
         try:
             tr = client.get_training_readiness(today_str)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Training readiness: skipped (%s)", e)
         rp = None
         try:
             rp = client.get_race_predictions()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Race predictions: skipped (%s)", e)
         dm_rows = parse_daily_metrics(today_str, ts, training_readiness=tr, race_predictions=rp)
         dm_count = sync_writer.write_daily_metrics(user_id, dm_rows, db)
+    except Exception as e:
+        logger.warning("Garmin daily metrics fetch failed for user %s: %s", user_id, e)
 
-        # Fetch HRV + sleep for recovery data (last 7 days for freshness)
+    # Recovery (HRV, sleep, readiness). Honour the same date window as the
+    # activity sync so a 6-month backfill doesn't leave us with a 7-day HRV
+    # trend. Cap to a year to avoid hammering Garmin if from_date is ancient.
+    recovery_count = 0
+    recovery_rows: list[dict] = []
+    try:
         from sync.garmin_sync import parse_garmin_recovery
-        from datetime import datetime as dt_cls
-        recovery_rows = []
-        for days_ago in range(7):
-            d = (date.today() - timedelta(days=days_ago)).isoformat()
+
+        start_date = date.fromisoformat(start)
+        today_date = date.today()
+        requested_days = (today_date - start_date).days + 1
+        total_days = max(1, min(requested_days, 365))
+        if requested_days > total_days:
+            logger.info(
+                "Garmin recovery backfill window capped at %d days for user %s "
+                "(requested %d)", total_days, user_id, requested_days,
+            )
+
+        # Circuit-breaker: if an endpoint rejects N consecutive times, stop
+        # calling it for the rest of the loop. Prevents a 180-day backfill
+        # with a systemic auth failure from spamming 360 debug lines and
+        # waiting RATE_LIMIT_DELAY×180 for nothing.
+        consec_break = 5
+        hrv_fail_streak = 0
+        sleep_fail_streak = 0
+        hr_fail_streak = 0
+        hrv_last_err: Exception | None = None
+        sleep_last_err: Exception | None = None
+        hr_last_err: Exception | None = None
+        hrv_aborted = False
+        sleep_aborted = False
+        hr_aborted = False
+
+        parse_failures = 0
+        for days_ago in range(total_days):
+            d = (today_date - timedelta(days=days_ago)).isoformat()
             hrv = None
             sleep = None
+            hr_daily = None
+            if not hrv_aborted:
+                try:
+                    hrv = client.get_hrv_data(d)
+                    hrv_fail_streak = 0
+                except Exception as e:
+                    hrv_fail_streak += 1
+                    hrv_last_err = e
+                    logger.debug("HRV for %s: skipped (%s)", d, e)
+                    if hrv_fail_streak >= consec_break:
+                        hrv_aborted = True
+                        logger.warning(
+                            "Garmin HRV aborted after %d consecutive failures "
+                            "for user %s: %s",
+                            hrv_fail_streak, user_id, hrv_last_err,
+                        )
+            if not sleep_aborted:
+                try:
+                    sleep = client.get_sleep_data(d)
+                    sleep_fail_streak = 0
+                except Exception as e:
+                    sleep_fail_streak += 1
+                    sleep_last_err = e
+                    logger.debug("Sleep for %s: skipped (%s)", d, e)
+                    if sleep_fail_streak >= consec_break:
+                        sleep_aborted = True
+                        logger.warning(
+                            "Garmin sleep aborted after %d consecutive failures "
+                            "for user %s: %s",
+                            sleep_fail_streak, user_id, sleep_last_err,
+                        )
+            if not hr_aborted:
+                try:
+                    hr_daily = client.get_heart_rates(d)
+                    hr_fail_streak = 0
+                except Exception as e:
+                    hr_fail_streak += 1
+                    hr_last_err = e
+                    logger.debug("Heart rates for %s: skipped (%s)", d, e)
+                    if hr_fail_streak >= consec_break:
+                        hr_aborted = True
+                        logger.warning(
+                            "Garmin heart_rates aborted after %d consecutive "
+                            "failures for user %s: %s",
+                            hr_fail_streak, user_id, hr_last_err,
+                        )
+            # Per-day try/except: keep one malformed Garmin payload from
+            # skipping the rest of the window. parse_garmin_recovery is
+            # hardened against the known null shapes, but Garmin's schema is
+            # undocumented and has regressed before — treat any parse error
+            # as "skip this day" rather than aborting the loop.
             try:
-                hrv = client.get_hrv_data(d)
-            except Exception:
-                pass
-            try:
-                sleep = client.get_sleep_data(d)
-            except Exception:
-                pass
-            row = parse_garmin_recovery(d, hrv_data=hrv, sleep_data=sleep, training_readiness=tr if days_ago == 0 else None)
+                row = parse_garmin_recovery(
+                    d, hrv_data=hrv, sleep_data=sleep,
+                    training_readiness=tr if days_ago == 0 else None,
+                    heart_rates=hr_daily,
+                )
+            except Exception as e:
+                parse_failures += 1
+                logger.debug("Recovery parse for %s: skipped (%s)", d, e)
+                row = None
             if row:
                 recovery_rows.append(row)
             time.sleep(RATE_LIMIT_DELAY)
+            if hrv_aborted and sleep_aborted and hr_aborted:
+                break
 
-        if recovery_rows:
-            # Write as recovery_data (same table as Oura)
+        if total_days and parse_failures >= max(3, total_days // 2):
+            logger.warning(
+                "Garmin recovery parse failed for %d of %d days (user %s) — "
+                "recovery trend will be incomplete",
+                parse_failures, total_days, user_id,
+            )
+    except Exception as e:
+        logger.warning("Garmin recovery fetch failed for user %s: %s", user_id, e)
+
+    # DB write is intentionally outside the fetch try/except so a DB error
+    # doesn't get mislabelled as a Garmin fetch failure.
+    if recovery_rows:
+        try:
+            # Sleep RHR feeds recovery_data per day for the HRV trend.
+            # fitness_data.rest_hr_bpm (the TRIMP reference) is written by
+            # write_profile_thresholds above — kept stable, not per-day noisy.
             recovery_count = sync_writer.write_recovery(
                 user_id, [], [], {}, db,
                 garmin_recovery=recovery_rows,
             )
-    except Exception as e:
-        logger.debug("Daily metrics/recovery: skipped (%s)", e)
+        except Exception as e:
+            logger.warning(
+                "Garmin recovery write failed for user %s: %s", user_id, e,
+            )
 
     return {"activities": act_count, "splits": split_count,
-            "lactate_threshold": lt_count, "daily_metrics": dm_count,
-            "recovery": recovery_count}
+            "lactate_threshold": lt_count, "profile": profile_count,
+            "daily_metrics": dm_count, "recovery": recovery_count}
 
 
 def _sync_stryd(user_id: str, creds: dict, from_date: str | None,
@@ -403,6 +702,59 @@ def _sync_stryd(user_id: str, creds: dict, from_date: str | None,
     plan_count = sync_writer.write_training_plan(user_id, plan_rows, "stryd", db)
 
     return {"activities": act_count, "splits": split_count, "cp_estimates": cp_count, "plan": plan_count}
+
+
+def _sync_strava(user_id: str, creds: dict, from_date: str | None, db) -> dict:
+    """Fetch Strava activity data and write directly to DB."""
+
+    import time as time_mod
+
+    from db import sync_writer
+    from sync.strava_sync import (
+        fetch_activities_api,
+        fetch_activity_laps,
+        refresh_access_token_if_needed,
+    )
+
+    client_id, client_secret = _get_strava_client_config()
+    creds, changed = refresh_access_token_if_needed(creds, client_id, client_secret)
+    if changed:
+        _persist_credentials(user_id, "strava", creds, db)
+        # Strava rotates refresh tokens. Commit the rotated credentials before
+        # any downstream activity/lap fetch can trigger a rollback.
+        db.commit()
+
+    access_token = creds.get("access_token")
+    if not access_token:
+        raise RuntimeError("Strava credentials missing access_token")
+
+    start = from_date or (date.today() - timedelta(days=14)).isoformat()
+    status = _get_user_status(user_id)
+
+    activity_rows, raw_activities = fetch_activities_api(access_token, start)
+    total = len(activity_rows)
+    with _sync_lock:
+        status["strava"]["progress"] = f"Writing {total} activities..."
+    for row in activity_rows:
+        row.setdefault("activity_type", "other")
+        row.setdefault("source", "strava")
+    act_count = sync_writer.write_activities(user_id, activity_rows, db)
+
+    all_splits = []
+    for idx, raw_act in enumerate(raw_activities):
+        activity_id = raw_act.get("id")
+        if not activity_id:
+            continue
+        with _sync_lock:
+            status["strava"]["progress"] = f"Fetching laps: {idx + 1}/{total}"
+        try:
+            all_splits.extend(fetch_activity_laps(str(activity_id), access_token))
+            time_mod.sleep(0.2)
+        except Exception as exc:
+            logger.debug("Strava laps for %s: skipped (%s)", activity_id, exc)
+    split_count = sync_writer.write_splits(user_id, all_splits, db)
+
+    return {"activities": act_count, "splits": split_count}
 
 
 def _sync_oura(user_id: str, creds: dict, from_date: str | None,

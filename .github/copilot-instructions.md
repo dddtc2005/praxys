@@ -1,4 +1,4 @@
-# Copilot Instructions — Trainsight
+# Copilot Instructions — Praxys
 
 ## Architecture
 
@@ -12,7 +12,7 @@ sync/*.py → db/sync_writer.py → SQLite → analysis/metrics.py → api/deps.
 - **analysis/data_loader.py**: All data loading lives here
 - **api/deps.py**: Data layer — `get_dashboard_data()` is the central function
 - **api/routes/**: Thin wrappers calling deps, all under `/api/` prefix; **all endpoints require JWT auth** except `/api/register` and `/api/token`
-- **plugins/trainsight/**: Skills (8 SKILL.md files) and MCP server
+- **plugins/praxys/**: Skills (8 SKILL.md files) and MCP server
 - **web/src/**: React + TypeScript + Tailwind v4 + Recharts
 
 ## Critical Rule: Split-Level Power Analysis

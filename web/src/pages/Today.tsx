@@ -12,6 +12,8 @@ import LastActivityCard from '@/components/LastActivityCard';
 import WeeklyLoadMini from '@/components/WeeklyLoadMini';
 import DataHint from '@/components/DataHint';
 import CliHint from '@/components/CliHint';
+import { Trans, useLingui } from '@lingui/react/macro';
+import { useLocale } from '@/contexts/LocaleContext';
 
 function TodaySkeleton() {
   return (
@@ -32,9 +34,11 @@ function TodaySkeleton() {
 
 export default function Today() {
   const { data, loading, error, refetch } = useApi<TodayResponse>('/api/today');
+  const { locale } = useLocale();
+  const { t } = useLingui();
 
   const now = new Date();
-  const dateStr = now.toLocaleDateString('en-US', {
+  const dateStr = now.toLocaleDateString(locale === 'zh' ? 'zh-CN' : 'en-US', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -46,10 +50,10 @@ export default function Today() {
   if (error) {
     return (
       <Alert variant="destructive" className="my-12">
-        <AlertTitle>Failed to load</AlertTitle>
+        <AlertTitle><Trans>Failed to load</Trans></AlertTitle>
         <AlertDescription className="flex items-center justify-between">
           <span>{error}</span>
-          <Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button>
+          <Button variant="outline" size="sm" onClick={() => refetch()}><Trans>Retry</Trans></Button>
         </AlertDescription>
       </Alert>
     );
@@ -63,7 +67,7 @@ export default function Today() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Today</h1>
+        <h1 className="text-2xl font-bold text-foreground"><Trans>Today</Trans></h1>
         <p className="text-sm text-muted-foreground mt-1">{dateStr}</p>
       </div>
 
@@ -79,8 +83,8 @@ export default function Today() {
       {/* Form sparkline — full width */}
       <DataHint
         sufficient={data.data_meta?.pmc_sufficient ?? true}
-        message="Not enough data for accurate form tracking"
-        hint="Sync at least 6 weeks of activity data to see your training form trend."
+        message={t`Not enough data for accurate form tracking`}
+        hint={t`Sync at least 6 weeks of activity data to see your training form trend.`}
       >
         <FormSparkline data={tsb_sparkline} scienceNote={data.science_notes?.load} />
       </DataHint>
@@ -97,7 +101,7 @@ export default function Today() {
       {warnings.length > 0 && (
         <div className="space-y-3">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Warnings
+            <Trans>Warnings</Trans>
           </h3>
           {warnings.map((w, i) => (
             <Alert key={i} className="border-accent-amber/30 bg-accent-amber/5 text-accent-amber [&>svg]:text-accent-amber">
@@ -110,8 +114,8 @@ export default function Today() {
 
       <CliHint
         skill="daily-brief"
-        title="AI Daily Brief"
-        description="Get personalized training recommendations, recovery assessment, and today's training signal with the Claude Code plugin."
+        title={t`AI Daily Brief`}
+        description={t`Get personalized training recommendations, recovery assessment, and today's training signal with the Claude Code plugin.`}
       />
     </div>
   );

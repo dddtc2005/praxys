@@ -1,4 +1,5 @@
 import { Sparkles } from 'lucide-react';
+import { Trans } from '@lingui/react/macro';
 
 interface CliHintProps {
   /** The skill command name (e.g., "daily-brief") */
@@ -9,7 +10,7 @@ interface CliHintProps {
   description: string;
 }
 
-const PLUGIN_URL = 'https://github.com/dddtc2005/trainsight';
+const PLUGIN_URL = 'https://github.com/dddtc2005/praxys';
 
 /**
  * Prominent card promoting the Claude Code plugin for AI-powered features.
@@ -27,7 +28,7 @@ export default function CliHint({ skill, title, description }: CliHintProps) {
           <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
           <div className="flex items-center gap-3 mt-2.5">
             <code className="rounded-md bg-accent-purple/10 border border-accent-purple/20 px-2.5 py-1 font-data text-xs text-accent-purple">
-              /trainsight:{skill}
+              /praxys:{skill}
             </code>
             <a
               href={PLUGIN_URL}
@@ -35,7 +36,7 @@ export default function CliHint({ skill, title, description }: CliHintProps) {
               rel="noopener noreferrer"
               className="text-[11px] text-muted-foreground hover:text-accent-purple transition-colors underline underline-offset-2"
             >
-              Get the Claude Code Plugin
+              <Trans>Get the Claude Code Plugin</Trans>
             </a>
           </div>
         </div>

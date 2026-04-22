@@ -8,10 +8,12 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Trans, useLingui } from '@lingui/react/macro';
 
 export default function Login() {
   const { login, register } = useAuth();
   const navigate = useNavigate();
+  const { t } = useLingui();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,7 +34,7 @@ export default function Login() {
     setError(null);
 
     if (!email.trim() || !password.trim()) {
-      setError('Email and password are required.');
+      setError(t`Email and password are required.`);
       return;
     }
 
@@ -47,7 +49,7 @@ export default function Login() {
     if (result.ok) {
       // If this was a CLI login flow, redirect token to the CLI's local server
       if (cliCallback) {
-        const token = localStorage.getItem('trainsight-auth-token');
+        const token = localStorage.getItem('praxys-auth-token') ?? localStorage.getItem('trainsight-auth-token');
         if (token) {
           window.location.href = `${cliCallback}?token=${encodeURIComponent(token)}`;
           return;
@@ -55,7 +57,7 @@ export default function Login() {
       }
       navigate('/', { replace: true });
     } else {
-      setError(result.error || 'An unexpected error occurred.');
+      setError(result.error || t`An unexpected error occurred.`);
     }
   };
 
@@ -63,16 +65,18 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center px-4 py-6 sm:px-6 lg:px-8 bg-background">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-xl font-bold text-foreground">Trainsight</CardTitle>
+          <CardTitle className="text-xl font-bold text-foreground">Praxys</CardTitle>
           <CardDescription>
-            {cliCallback ? 'Log in to connect your CLI plugin' : 'Power-based training dashboard'}
+            {cliCallback
+              ? <Trans>Log in to connect your CLI plugin</Trans>
+              : <Trans>Power-based training dashboard</Trans>}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as string); setError(null); }}>
             <TabsList className="w-full">
-              <TabsTrigger value="login" className="flex-1">Login</TabsTrigger>
-              <TabsTrigger value="register" className="flex-1">Register</TabsTrigger>
+              <TabsTrigger value="login" className="flex-1"><Trans>Login</Trans></TabsTrigger>
+              <TabsTrigger value="register" className="flex-1"><Trans>Register</Trans></TabsTrigger>
             </TabsList>
 
             <TabsContent value="login">
@@ -83,11 +87,11 @@ export default function Login() {
                   </Alert>
                 )}
                 <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
+                  <Label htmlFor="login-email"><Trans>Email</Trans></Label>
                   <Input
                     id="login-email"
                     type="email"
-                    placeholder="you@example.com"
+                    placeholder={t`you@example.com`}
                     autoComplete="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -95,7 +99,7 @@ export default function Login() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="login-password">Password</Label>
+                  <Label htmlFor="login-password"><Trans>Password</Trans></Label>
                   <Input
                     id="login-password"
                     type="password"
@@ -106,7 +110,7 @@ export default function Login() {
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={submitting}>
-                  {submitting ? 'Signing in...' : 'Sign in'}
+                  {submitting ? <Trans>Signing in...</Trans> : <Trans>Sign in</Trans>}
                 </Button>
               </form>
             </TabsContent>
@@ -119,11 +123,11 @@ export default function Login() {
                   </Alert>
                 )}
                 <div className="space-y-2">
-                  <Label htmlFor="register-email">Email</Label>
+                  <Label htmlFor="register-email"><Trans>Email</Trans></Label>
                   <Input
                     id="register-email"
                     type="email"
-                    placeholder="you@example.com"
+                    placeholder={t`you@example.com`}
                     autoComplete="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -131,7 +135,7 @@ export default function Login() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="register-password">Password</Label>
+                  <Label htmlFor="register-password"><Trans>Password</Trans></Label>
                   <Input
                     id="register-password"
                     type="password"
@@ -142,7 +146,7 @@ export default function Login() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="register-invitation">Invitation Code</Label>
+                  <Label htmlFor="register-invitation"><Trans>Invitation Code</Trans></Label>
                   <Input
                     id="register-invitation"
                     type="text"
@@ -153,11 +157,11 @@ export default function Login() {
                     className="font-data tracking-wider"
                   />
                   <p className="text-[10px] text-muted-foreground">
-                    Leave blank for the first account. Required after that.
+                    <Trans>Leave blank for the first account. Required after that.</Trans>
                   </p>
                 </div>
                 <Button type="submit" className="w-full" disabled={submitting}>
-                  {submitting ? 'Creating account...' : 'Create account'}
+                  {submitting ? <Trans>Creating account...</Trans> : <Trans>Create account</Trans>}
                 </Button>
               </form>
             </TabsContent>

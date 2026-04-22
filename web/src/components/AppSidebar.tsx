@@ -1,5 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { Sun, Moon, Monitor, TrendingUp, Target, Clock, FlaskConical, Settings, LogOut, ListChecks, ShieldCheck } from 'lucide-react';
+import { PraxysFlag } from '@/components/PraxysFlag';
 import {
   Sidebar,
   SidebarContent,
@@ -16,11 +17,18 @@ import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useSetupStatus } from '@/hooks/useSetupStatus';
+import { useLingui } from '@lingui/react/macro';
+import { msg } from '@lingui/core/macro';
+import type { MessageDescriptor } from '@lingui/core';
 
 
 const THEME_CYCLE = ['dark', 'light', 'system'] as const;
 const THEME_ICON = { dark: Moon, light: Sun, system: Monitor } as const;
-const THEME_LABEL = { dark: 'Dark', light: 'Light', system: 'System' } as const;
+const THEME_LABEL: Record<typeof THEME_CYCLE[number], MessageDescriptor> = {
+  dark: msg`Dark`,
+  light: msg`Light`,
+  system: msg`System`,
+};
 
 function UserInitials({ name, email }: { name?: string; email: string | null }) {
   let initials = '?';
@@ -45,21 +53,22 @@ export default function AppSidebar() {
   const { logout, email, isAdmin } = useAuth();
   const { config } = useSettings();
   const setup = useSetupStatus();
+  const { t, i18n } = useLingui();
   const displayName = config?.display_name || null;
 
   // Dynamic nav: show Setup instead of Today when onboarding is incomplete
   const homeItem = setup.allDone || setup.loading
-    ? { to: '/', icon: Sun, label: 'Today' }
-    : { to: '/', icon: ListChecks, label: `Setup (${setup.completed}/${setup.total})` };
+    ? { to: '/', icon: Sun, label: t`Today` }
+    : { to: '/', icon: ListChecks, label: `${t`Setup`} (${setup.completed}/${setup.total})` };
 
   const navItems = [
     homeItem,
-    { to: '/training', icon: TrendingUp, label: 'Training' },
-    { to: '/goal', icon: Target, label: 'Goal' },
-    { to: '/history', icon: Clock, label: 'Activities' },
-    { to: '/science', icon: FlaskConical, label: 'Science' },
-    { to: '/settings', icon: Settings, label: 'Settings' },
-    ...(isAdmin ? [{ to: '/admin', icon: ShieldCheck, label: 'Admin' }] : []),
+    { to: '/training', icon: TrendingUp, label: t`Training` },
+    { to: '/goal', icon: Target, label: t`Goal` },
+    { to: '/history', icon: Clock, label: t`Activities` },
+    { to: '/science', icon: FlaskConical, label: t`Science` },
+    { to: '/settings', icon: Settings, label: t`Settings` },
+    ...(isAdmin ? [{ to: '/admin', icon: ShieldCheck, label: t`Admin` }] : []),
   ];
 
   const cycleTheme = () => {
@@ -74,11 +83,9 @@ export default function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <div className="flex items-center gap-3 px-2 py-2">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/20">
-            <TrendingUp className="h-5 w-5 text-primary" />
-          </div>
+          <PraxysFlag className="h-8 w-8 shrink-0" />
           <span className="text-lg font-semibold text-foreground group-data-[collapsible=icon]:hidden">
-            Trainsight
+            Praxys
           </span>
         </div>
       </SidebarHeader>
@@ -129,15 +136,15 @@ export default function AppSidebar() {
         )}
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={cycleTheme} tooltip={`Theme: ${THEME_LABEL[theme]}`}>
+            <SidebarMenuButton onClick={cycleTheme} tooltip={`${t`Theme`}: ${i18n._(THEME_LABEL[theme])}`}>
               <ThemeIcon />
-              <span>{THEME_LABEL[theme]}</span>
+              <span>{i18n._(THEME_LABEL[theme])}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-              <SidebarMenuButton onClick={logout} tooltip="Log out">
+              <SidebarMenuButton onClick={logout} tooltip={t`Log out`}>
                 <LogOut />
-                <span>Log out</span>
+                <span>{t`Log out`}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
         </SidebarMenu>

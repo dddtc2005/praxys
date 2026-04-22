@@ -5,7 +5,7 @@
 **Deployed cloud app + local CLI plugin (recommended for all users):**
 - Web dashboard deployed on Azure (SWA + App Service)
 - Users register, connect platforms, sync, and view dashboard in the browser
-- CLI plugin (Claude Code / Copilot) connects to the deployed API via `TRAINSIGHT_URL`
+- CLI plugin (Claude Code / Copilot) connects to the deployed API via `PRAXYS_URL`
 - AI features (training plans, insights) run through the CLI plugin's MCP tools
 - Per-user data, encrypted credentials, background sync — all handled by the backend
 
@@ -17,7 +17,7 @@
 
 ## Joining an Existing Deployment
 
-If a Trainsight instance is already deployed and you want to contribute as a developer, you do not need to deploy your own. Ask the project admin for:
+If a Praxys instance is already deployed and you want to contribute as a developer, you do not need to deploy your own. Ask the project admin for:
 
 1. **Access to the Azure resource group** (`rg-trainsight`) — Contributor role is sufficient for most development tasks
 2. **An invitation code** — to register an account on the deployed instance
@@ -40,14 +40,14 @@ Edit `.env` and set at minimum:
 ```bash
 # Required: encryption key for platform credentials
 # Generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-TRAINSIGHT_LOCAL_ENCRYPTION_KEY=<your-generated-key>
+PRAXYS_LOCAL_ENCRYPTION_KEY=<your-generated-key>
 
 # Optional: JWT secret (tokens won't survive restarts without this)
 # Generate: python -c "import secrets; print(secrets.token_urlsafe(48))"
-TRAINSIGHT_JWT_SECRET=<your-generated-secret>
+PRAXYS_JWT_SECRET=<your-generated-secret>
 
 # Optional: admin email (registers without invitation, always admin)
-# TRAINSIGHT_ADMIN_EMAIL=you@example.com
+# PRAXYS_ADMIN_EMAIL=you@example.com
 ```
 
 ### 2. Install dependencies and start servers
@@ -73,7 +73,7 @@ The database (`data/trainsight.db`) is created automatically on first startup. N
 ## Prerequisites (Azure)
 
 - Azure subscription
-- GitHub repository (dddtc2005/trainsight)
+- GitHub repository (dddtc2005/praxys)
 - Azure CLI installed locally
 
 ## Azure Setup (One-Time)
@@ -158,7 +158,7 @@ az role assignment create \
 az staticwebapp create \
   --name swa-trainsight \
   --resource-group rg-trainsight \
-  --source https://github.com/dddtc2005/trainsight \
+  --source https://github.com/dddtc2005/praxys \
   --branch main \
   --app-location "web" \
   --output-location "dist"
@@ -184,7 +184,7 @@ az webapp cors add \
   --allowed-origins "https://swa-trainsight.azurestaticapps.net"
 ```
 
-For local development, FastAPI's `CORSMiddleware` is added automatically (allowing `localhost:5173`). This can be customized via the `TRAINSIGHT_CORS_ORIGINS` environment variable.
+For local development, FastAPI's `CORSMiddleware` is added automatically (allowing `localhost:5173`). This can be customized via the `PRAXYS_CORS_ORIGINS` environment variable.
 
 ## GitHub Configuration
 
@@ -211,7 +211,7 @@ az ad app federated-credential create \
   --parameters '{
     "name": "github-main",
     "issuer": "https://token.actions.githubusercontent.com",
-    "subject": "repo:dddtc2005/trainsight:ref:refs/heads/main",
+    "subject": "repo:dddtc2005/praxys:ref:refs/heads/main",
     "audiences": ["api://AzureADTokenExchange"]
   }'
 
@@ -231,7 +231,7 @@ Set via Azure Portal > App Service > Configuration > Application settings:
 | Variable | Value | Notes |
 |----------|-------|-------|
 | `DATA_DIR` | `/home/data` | Persistent storage path |
-| `TRAINSIGHT_JWT_SECRET` | (random 32+ char string) | JWT signing key |
+| `PRAXYS_JWT_SECRET` | (random 32+ char string) | JWT signing key |
 | `KEY_VAULT_URL` | `https://kv-trainsight.vault.azure.net/` | Key Vault URI |
 | `KEY_VAULT_KEY_NAME` | `credential-encryption-key` | RSA key name |
 
@@ -256,7 +256,7 @@ This means deploying a new version with additional model columns just works — 
 - **Backend** (`.github/workflows/deploy-backend.yml`) — triggers on changes to `api/`, `analysis/`, `sync/`, `db/`, `data/science/`, `tests/`, `requirements.txt`. Runs tests first, then deploys via OIDC to `trainsight-app`.
 - **Frontend** (`.github/workflows/deploy-frontend.yml`) — triggers on changes to `web/`; PR builds create staging environments.
 
-Background sync is handled by the backend scheduler (enabled by default; disable with `TRAINSIGHT_SYNC_SCHEDULER=false`) — no CI job needed.
+Background sync is handled by the backend scheduler (enabled by default; disable with `PRAXYS_SYNC_SCHEDULER=false`) — no CI job needed.
 
 ## CLI Plugin Setup
 
@@ -267,9 +267,9 @@ After deploying, users connect their CLI tools to the deployed backend:
 claude plugin marketplace add ./plugins/marketplace.json
 
 # Install the plugin
-claude plugin install trainsight
+claude plugin install praxys
 
-# The MCP server's TRAINSIGHT_URL env var (in .mcp.json) routes
+# The MCP server's PRAXYS_URL env var (in .mcp.json) routes
 # requests to the deployed API with JWT authentication.
 ```
 

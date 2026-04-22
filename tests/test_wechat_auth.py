@@ -115,10 +115,10 @@ def test_login_new_user_returns_setup_ticket(wechat_client):
     assert body["wechat_login_ticket"]
 
     # Ticket carries the openid under the right audience.
-    from api.users import SECRET
+    from api.auth_secrets import get_jwt_secret
     decoded = pyjwt.decode(
         body["wechat_login_ticket"],
-        SECRET,
+        get_jwt_secret(),
         algorithms=["HS256"],
         audience="trainsight:wechat-setup",
     )
@@ -399,7 +399,7 @@ def test_link_with_password_wrong_password_rejected(wechat_client):
 
 def test_link_with_expired_ticket_rejected(wechat_client):
     # Manually forge an expired ticket with the real secret.
-    from api.users import SECRET
+    from api.auth_secrets import get_jwt_secret
     expired = pyjwt.encode(
         {
             "sub": "openid-expired",
@@ -407,7 +407,7 @@ def test_link_with_expired_ticket_rejected(wechat_client):
             "iat": datetime.utcnow() - timedelta(hours=2),
             "exp": datetime.utcnow() - timedelta(hours=1),
         },
-        SECRET,
+        get_jwt_secret(),
         algorithm="HS256",
     )
     r = wechat_client.post(

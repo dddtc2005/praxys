@@ -1,0 +1,147 @@
+name: i18n — extract + translate zh
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/src/**'
+      - 'data/science/**'
+      - 'scripts/translate_missing.py'
+      - 'scripts/i18n_glossary.yaml'
+      - '.github/workflows/i18n.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'web/src/**'
+      - 'web/src/locales/**'
+  workflow_dispatch:
+
+jobs:
+  # Runs on every PR: fails if the source catalog in en/messages.po is out
+  # of date vs the <Trans>/t`/msg`` calls in the source tree. Forces devs to
+  # `npm run i18n:extract` before pushing so strings can't silently slip past
+  # the CI bot and land translated-only-on-main.
+  #
+  # Uses `npm install --no-audit --no-fund` rather than `npm ci` because
+  # @lingui/swc-plugin pulls in @napi-rs/wasm-runtime, which declares
+  # @emnapi/core/runtime as bundleDependencies — npm v11's strict `ci` mode
+  # rejects these as "missing from lock file" even though the lockfile is
+  # internally consistent. We don't need strict ci reproducibility for an
+  # extraction check; `npm install` is fast enough and lets the lockfile
+  # heal any new transitive pins.
+  extract-check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web deps
+        working-directory: web
+        run: npm install --no-audit --no-fund
+
+      - name: Run lingui extract
+        working-directory: web
+        run: npm run i18n:extract:ci
+
+      - name: Fail if source catalog is stale
+        run: |
+          # package-lock.json may legitimately change when npm install heals
+          # transitive pins — we only care whether the catalog drifted.
+          if ! git diff --exit-code -- web/src/locales/en/messages.po; then
+            echo "::error::web/src/locales/en/messages.po is out of date."
+            echo "::error::Run 'npm run i18n:extract' in web/ and commit the result."
+            exit 1
+          fi
+
+  # Runs on push to main: extracts, translates missing zh entries through
+  # Claude (with glossary + placeholder validation + cost cap), and opens
+  # a PR. Human reviews the zh diff before merging.
+  translate:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install web deps
+        # See extract-check job for why npm install vs npm ci.
+        working-directory: web
+        run: npm install --no-audit --no-fund
+
+      - name: Install translator deps
+        run: pip install anthropic pyyaml
+
+      - name: Extract source catalog
+        working-directory: web
+        run: npm run i18n:extract:ci
+
+      - name: Fill missing zh entries (catalog)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Cost cap — only translate this many entries per run. Remaining
+          # empties get filled on subsequent runs. Raise via repo secret or
+          # env override if you want bulk catch-up.
+          TRANSLATE_MAX: '100'
+        run: |
+          python scripts/translate_missing.py po \
+            --source web/src/locales/en/messages.po \
+            --target web/src/locales/zh/messages.po \
+            --language "Simplified Chinese"
+
+      - name: Fill missing zh science YAML
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python scripts/translate_missing.py yaml \
+            --source-dir data/science \
+            --target-dir data/science/zh \
+            --language "Simplified Chinese"
+
+      - name: Open pull request
+        uses: peter-evans/create-pull-request@v8
+        with:
+          commit-message: 'i18n: refresh zh translations'
+          title: 'i18n: refresh zh translations'
+          branch: i18n/refresh-zh
+          delete-branch: true
+          body: |
+            Automated translation refresh.
+
+            Review the diff in `web/src/locales/zh/messages.po` and
+            `data/science/zh/` before merging. The translator:
+            - Uses `scripts/i18n_glossary.yaml` for canonical terminology
+              (CP, 临界功率, 乳酸阈, etc.). Update the glossary if you want
+              a term rendered differently going forward.
+            - Preserves ICU placeholders (`{count}`, `{name, plural, ...}`)
+              and Lingui XML tags (`<0>`) — rejects translations that drop
+              or add them.
+            - Caps at `TRANSLATE_MAX` entries per run (default 100) so a
+              bulk re-translation can't burn the API budget in one shot.
+
+            If the diff looks off:
+            - Wrong term: edit the glossary row and re-run the workflow.
+            - Missing placeholder: leave empty; it retries next run. If the
+              rejection is chronic, the source string likely needs a
+              friendlier shape.
+            - Rewording of an edit: port the old zh from git history
+              (`git log -p -- web/src/locales/zh/messages.po`) since Lingui
+              extraction drops the old msgid when the English source is
+              edited.

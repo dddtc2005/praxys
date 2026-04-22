@@ -7,6 +7,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Trans } from '@lingui/react/macro';
 
 interface Props {
   splits: SplitData[];
@@ -32,7 +33,7 @@ function formatSplitDuration(sec: number | null): string {
 export default function SplitBreakdown({ splits, cpEstimate }: Props) {
   if (splits.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground py-2">No split data available.</p>
+      <p className="text-sm text-muted-foreground py-2"><Trans>No split data available.</Trans></p>
     );
   }
 
@@ -42,11 +43,11 @@ export default function SplitBreakdown({ splits, cpEstimate }: Props) {
         <TableHeader>
           <TableRow>
             <TableHead className="text-left">#</TableHead>
-            <TableHead className="text-right">Dist</TableHead>
-            <TableHead className="text-right">Duration</TableHead>
-            <TableHead className="text-right">Power</TableHead>
-            <TableHead className="text-right">HR</TableHead>
-            <TableHead className="text-right">Pace</TableHead>
+            <TableHead className="text-right"><Trans>Dist</Trans></TableHead>
+            <TableHead className="text-right"><Trans>Duration</Trans></TableHead>
+            <TableHead className="text-right"><Trans>Power</Trans></TableHead>
+            <TableHead className="text-right"><Trans>HR</Trans></TableHead>
+            <TableHead className="text-right"><Trans>Pace</Trans></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

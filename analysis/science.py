@@ -111,15 +111,32 @@ def _parse_tsb_zones(raw: list[dict] | None) -> list[TsbZone]:
     return [TsbZone(min=z.get("min"), max=z.get("max")) for z in raw]
 
 
-def load_theory(pillar: str, theory_id: str) -> Theory:
+def _locale_theory_path(pillar: str, theory_id: str, locale: str | None) -> str:
+    """Return the YAML path for a theory, preferring `<locale>/<pillar>/<id>.yaml`
+    and falling back to the English tree at `<pillar>/<id>.yaml`. Missing locales
+    are tolerated so partial translations still work.
+    """
+    if locale and locale != "en":
+        localized = os.path.join(_SCIENCE_DIR, locale, pillar, f"{theory_id}.yaml")
+        if os.path.exists(localized):
+            return localized
+    return os.path.join(_SCIENCE_DIR, pillar, f"{theory_id}.yaml")
+
+
+def load_theory(pillar: str, theory_id: str, locale: str | None = None) -> Theory:
     """Load a single theory YAML file.
+
+    When `locale` is set and a matching file exists under
+    `data/science/<locale>/<pillar>/<theory_id>.yaml` it takes precedence over
+    the English source. Missing translations silently fall back to English so
+    newly added theories keep working in every locale.
 
     Validates params against the pillar-specific Pydantic schema at load time.
     Raises pydantic.ValidationError if required fields are missing or wrong type.
     """
     from analysis.theory_schema import validate_theory_params
 
-    path = os.path.join(_SCIENCE_DIR, pillar, f"{theory_id}.yaml")
+    path = _locale_theory_path(pillar, theory_id, locale)
     if not os.path.exists(path):
         raise FileNotFoundError(f"Theory not found: {path}")
     with open(path, encoding="utf-8") as f:
@@ -166,21 +183,23 @@ def load_theory(pillar: str, theory_id: str) -> Theory:
     return theory
 
 
-def load_labels(label_id: str) -> LabelSet:
-    """Load a label set YAML file."""
-    path = os.path.join(_SCIENCE_DIR, "labels", f"{label_id}.yaml")
-    if not os.path.exists(path):
-        # Fall back to standard labels
-        path = os.path.join(_SCIENCE_DIR, "labels", "standard.yaml")
-        if not os.path.exists(path):
-            return LabelSet(id="standard", name="Standard")
-    with open(path, encoding="utf-8") as f:
-        data = yaml.safe_load(f)
-    return LabelSet(
-        id=data.get("id", label_id),
-        name=data.get("name", label_id),
-        tsb_zone_labels=data.get("tsb_zone_labels", []),
-    )
+def load_labels(label_id: str, locale: str | None = None) -> LabelSet:
+    """Load a label set YAML file with English fallback when `locale` is set."""
+    paths = []
+    if locale and locale != "en":
+        paths.append(os.path.join(_SCIENCE_DIR, locale, "labels", f"{label_id}.yaml"))
+    paths.append(os.path.join(_SCIENCE_DIR, "labels", f"{label_id}.yaml"))
+    paths.append(os.path.join(_SCIENCE_DIR, "labels", "standard.yaml"))
+    for path in paths:
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+            return LabelSet(
+                id=data.get("id", label_id),
+                name=data.get("name", label_id),
+                tsb_zone_labels=data.get("tsb_zone_labels", []),
+            )
+    return LabelSet(id="standard", name="Standard")
 
 
 def merge_zones_with_labels(
@@ -201,8 +220,12 @@ def merge_zones_with_labels(
     return result
 
 
-def list_theories(pillar: str) -> list[Theory]:
-    """List all available theories for a pillar."""
+def list_theories(pillar: str, locale: str | None = None) -> list[Theory]:
+    """List all available theories for a pillar, resolving each in `locale` first.
+
+    The English pillar directory is authoritative for *which* theories exist;
+    localized files only override the prose.
+    """
     pillar_dir = os.path.join(_SCIENCE_DIR, pillar)
     if not os.path.isdir(pillar_dir):
         return []
@@ -211,7 +234,7 @@ def list_theories(pillar: str) -> list[Theory]:
         if fname.endswith(".yaml") or fname.endswith(".yml"):
             theory_id = fname.rsplit(".", 1)[0]
             try:
-                theories.append(load_theory(pillar, theory_id))
+                theories.append(load_theory(pillar, theory_id, locale=locale))
             except (FileNotFoundError, KeyError, yaml.YAMLError) as e:
                 logger.warning("Failed to load theory %s/%s: %s", pillar, theory_id, e)
                 continue
@@ -238,19 +261,24 @@ def list_label_sets() -> list[LabelSet]:
 def load_active_science(
     science_choices: dict[str, str],
     zone_labels: str = "standard",
+    locale: str | None = None,
 ) -> dict[str, Theory]:
-    """Load the user's active theory for each pillar, with labels applied."""
-    labels = load_labels(zone_labels)
+    """Load the user's active theory for each pillar, with labels applied.
+
+    When `locale` is set, localized YAML overrides are applied transparently;
+    missing translations fall back to the English source so partial coverage
+    is safe to ship.
+    """
+    labels = load_labels(zone_labels, locale=locale)
     result = {}
     for pillar in PILLARS:
         theory_id = science_choices.get(pillar)
         if not theory_id:
-            # Use first available theory as fallback
-            available = list_theories(pillar)
+            available = list_theories(pillar, locale=locale)
             theory_id = available[0].id if available else None
         if theory_id:
             try:
-                theory = load_theory(pillar, theory_id)
+                theory = load_theory(pillar, theory_id, locale=locale)
                 if theory.tsb_zones:
                     theory.tsb_zones_labeled = merge_zones_with_labels(
                         theory.tsb_zones, labels

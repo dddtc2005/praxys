@@ -2,7 +2,7 @@
 
 Registration rules (from CLAUDE.md):
 1. Fresh DB (no users) → first register becomes admin, no invitation needed.
-2. TRAINSIGHT_ADMIN_EMAIL match → no invitation needed, becomes admin.
+2. PRAXYS_ADMIN_EMAIL match → no invitation needed, becomes admin.
 3. All others → must provide a valid, unused invitation code.
 
 These primitives exist so both the web-native registration route
@@ -11,11 +11,11 @@ These primitives exist so both the web-native registration route
 """
 from __future__ import annotations
 
-import os
 from datetime import datetime
 
 from sqlalchemy.orm import Session
 
+from api.env_compat import getenv_compat
 from db.models import Invitation, User
 
 
@@ -23,7 +23,7 @@ def is_admin_email(email: str | None) -> bool:
     """True if email matches the configured admin override."""
     if not email:
         return False
-    admin_email = os.environ.get("TRAINSIGHT_ADMIN_EMAIL", "")
+    admin_email = getenv_compat("ADMIN_EMAIL", "") or ""
     return bool(admin_email) and email.lower() == admin_email.lower()
 
 

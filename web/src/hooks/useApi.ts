@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
+import { KEYS, getCompatItem, removeCompatItem } from '../lib/storage-compat';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
-const TOKEN_KEY = 'trainsight-auth-token';
 
 interface UseApiResult<T> {
   data: T | null;
@@ -16,7 +16,7 @@ interface UseApiOptions {
 }
 
 function getAuthHeaders(): HeadersInit {
-  const token = localStorage.getItem(TOKEN_KEY);
+  const token = getCompatItem(KEYS.authToken.new, KEYS.authToken.legacy);
   if (token) {
     return { 'Authorization': `Bearer ${token}` };
   }
@@ -29,7 +29,7 @@ async function apiFetcher<T>(url: string): Promise<T> {
     headers: getAuthHeaders(),
   });
   if (res.status === 401) {
-    localStorage.removeItem(TOKEN_KEY);
+    removeCompatItem(KEYS.authToken.new, KEYS.authToken.legacy);
     window.location.href = '/login';
     // Return a never-resolving promise to prevent React Query from
     // retrying or surfacing an error flash during the redirect.

@@ -18,6 +18,7 @@ is worse than a noisy one.
 """
 from __future__ import annotations
 
+import io
 import json
 import os.path
 import sys
@@ -27,6 +28,10 @@ KNOWN_WRITE_TOOLS = {"Edit", "Write"}
 
 
 def main() -> int:
+    # On Windows, sys.stdin may default to a locale codepage (e.g. cp1252)
+    # that can't decode CJK characters embedded in the payload. Force UTF-8.
+    if isinstance(sys.stdin, io.TextIOWrapper) and sys.stdin.encoding.lower() not in {"utf-8", "utf8"}:
+        sys.stdin.reconfigure(encoding="utf-8", errors="replace")
     try:
         payload = json.load(sys.stdin)
     except json.JSONDecodeError as exc:
@@ -56,6 +61,10 @@ def main() -> int:
     norm = raw.replace("\\", "/").lower()
     base = os.path.basename(norm)
 
+    # Allow `.env.example` specifically — it's a template committed to git with
+    # no secrets. Still block `.env`, `.env.local`, `.env.production`, etc.
+    if base == ".env.example":
+        return 0
     if base == ".env" or base.startswith(".env."):
         _deny(f"env file '{base}'")
         return 2

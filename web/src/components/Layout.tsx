@@ -3,6 +3,7 @@ import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import AppSidebar from '@/components/AppSidebar';
 import { useAuth } from '@/hooks/useAuth';
 import { Eye } from 'lucide-react';
+import { Trans } from '@lingui/react/macro';
 
 export default function Layout() {
   const { isDemo } = useAuth();
@@ -25,7 +26,7 @@ export default function Layout() {
           <div className="flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-950/80 dark:bg-amber-950/90 backdrop-blur-md px-4 py-2 shadow-lg shadow-amber-900/20">
             <Eye className="h-3.5 w-3.5 text-amber-400 shrink-0" />
             <span className="text-xs font-medium text-amber-200 whitespace-nowrap">
-              Live demo — real training data, read-only
+              <Trans>Live demo — real training data, read-only</Trans>
             </span>
             <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
           </div>

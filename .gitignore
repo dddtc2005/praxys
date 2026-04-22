@@ -47,5 +47,7 @@ web/dist/
 .superpowers/
 docs/superpowers/
 
-# Screenshots
+# Screenshots (ad-hoc QA captures — committed screenshots live under
+# data/screenshots/ and docs/marketing/screenshots/)
 web/screenshot-*.png
+/screenshot-*.png

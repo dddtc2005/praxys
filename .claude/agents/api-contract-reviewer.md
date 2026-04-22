@@ -14,7 +14,7 @@ tools:
 
 # API Contract Reviewer
 
-Trainsight has no codegen between FastAPI and the React client. The Python
+Praxys has no codegen between FastAPI and the React client. The Python
 side builds a dict in `api/deps.py` → `get_dashboard_data()` (plus helpers
 in `api/views.py`), serves it through a route in `api/routes/`, and the
 frontend consumes it via `useApi<T>()` with `T` defined in
@@ -40,7 +40,7 @@ Your job is to verify the contract in both directions.
 - [ ] Every key the Python dict produces is present in the TS interface
 - [ ] Every TS field corresponds to a key the Python side actually returns
 - [ ] Snake_case on the Python side is preserved as snake_case on the TS
-      side (Trainsight does not camelCase-transform)
+      side (Praxys does not camelCase-transform)
 
 ### Types and nullability
 - [ ] `Optional[X]` / `X | None` on the Python side is typed as

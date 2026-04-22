@@ -1,0 +1,181 @@
+# Canonical translations for Trainsight domain terminology.
+# Injected into the translate_missing.py system prompt so CI runs stay
+# terminology-consistent across months. Add a row here before merging a PR
+# that introduces a new term; never change an existing row in a way that
+# reinterprets it without also sweeping the catalog.
+#
+# Format: one row per term. Leave a locale empty if the English form is
+# canonical (e.g., "HRV", "TSB", "CP" are acronyms that stay English in zh).
+
+terms:
+  # Training signals / categories
+  - en: Recovery
+    zh: 恢复
+    note: Also means "rest zone" in Coggan 5-zone. Distinct from "rest" (休息).
+  - en: Rest
+    zh: 休息
+  - en: Fresh
+    zh: 充分恢复
+    note: HRV-based status (Plews SWC), not "fresh" as in "just arrived".
+  - en: Fatigued
+    zh: 疲劳
+  - en: Normal
+    zh: 正常
+  - en: No Data
+    zh: 无数据
+  - en: Follow Plan
+    zh: 按计划进行
+  - en: Go Easy
+    zh: 轻松进行
+  - en: Modify
+    zh: 调整
+  - en: Adjust Workout
+    zh: 调整训练
+  - en: Reduce Intensity
+    zh: 降低强度
+  - en: Recovery Day
+    zh: 恢复日
+
+  # Training zones (Coggan 5-zone names)
+  - en: Endurance
+    zh: 耐力
+  - en: Tempo
+    zh: 节奏跑
+    note: Sustained sub-threshold pace.
+  - en: Threshold
+    zh: 乳酸阈
+    note: The physiological boundary, not the configuration setting.
+  - en: VO2max
+    zh: VO2max
+    note: Keep English. Chinese has no accepted short form.
+
+  # Workout phases (parsed workout structure)
+  - en: Warmup
+    zh: 热身
+  - en: Cooldown
+    zh: 放松
+  - en: Easy Run
+    zh: 轻松跑
+  - en: Steady
+    zh: 匀速
+  - en: Aerobic
+    zh: 有氧
+  - en: Rep
+    zh: 组
+    note: As in "Rep 1", "Rep 2" of an interval set.
+  - en: Main
+    zh: 主训练
+  - en: Run
+    zh: 跑步
+
+  # Metrics / training base
+  - en: Power
+    zh: 功率
+  - en: Pace
+    zh: 配速
+  - en: Heart Rate
+    zh: 心率
+  - en: Critical Power
+    zh: 临界功率
+  - en: Lactate Threshold HR
+    zh: 乳酸阈心率
+  - en: Threshold Pace
+    zh: 阈值配速
+  - en: Max HR
+    zh: 最大心率
+  - en: Resting HR
+    zh: 静息心率
+  - en: Distance
+    zh: 距离
+  - en: Duration
+    zh: 时长
+  - en: Elevation
+    zh: 爬升
+  - en: Volume
+    zh: 里程
+    note: Context-dependent; "weekly volume" = 周里程.
+
+  # Acronyms — keep English
+  - en: HRV
+    zh: HRV
+  - en: TSB
+    zh: TSB
+    note: Training Stress Balance. The Chinese rendering "训练压力平衡" is
+      too verbose for tight UI labels; keep English and let surrounding
+      context carry the meaning.
+  - en: CTL
+    zh: CTL
+  - en: ATL
+    zh: ATL
+  - en: RSS
+    zh: RSS
+  - en: rTSS
+    zh: rTSS
+  - en: TRIMP
+    zh: TRIMP
+  - en: LTHR
+    zh: LTHR
+    note: Used interchangeably with "Lactate Threshold HR"; when standalone
+      as a label keep English, when inside a sentence use 乳酸阈心率.
+  - en: CP
+    zh: CP
+  - en: FTP
+    zh: FTP
+  - en: VO2max
+    zh: VO2max
+
+  # Race distances
+  - en: Marathon
+    zh: 马拉松
+  - en: Half Marathon
+    zh: 半程马拉松
+  - en: 5K
+    zh: 5公里
+  - en: 10K
+    zh: 10公里
+  - en: 50K
+    zh: 50公里
+  - en: 100K
+    zh: 100公里
+
+  # UI chrome
+  - en: Settings
+    zh: 设置
+  - en: Today
+    zh: 今日
+  - en: Training
+    zh: 训练
+  - en: Goal
+    zh: 目标
+  - en: Science
+    zh: 科学
+    note: The app section name. In body prose, "training science" = 训练科学.
+  - en: Activities
+    zh: 活动
+  - en: Setup
+    zh: 设置向导
+    note: Disambiguate from "Settings" (设置) — Setup is the onboarding flow.
+  - en: Admin
+    zh: 管理
+  - en: Edit
+    zh: 编辑
+  - en: Cancel
+    zh: 取消
+  - en: Save
+    zh: 保存
+  - en: Retry
+    zh: 重试
+  - en: Connect
+    zh: 连接
+  - en: Disconnect
+    zh: 断开连接
+  - en: Sync
+    zh: 同步
+
+# Tone guidelines (also injected into the prompt):
+# - Prefer 您 over 你 for user-facing prose — this app is a professional
+#   training tool, not a casual product.
+# - Keep English technical names inline where Chinese rendering is verbose
+#   or unestablished (HRV, VO2max, CP).
+# - Match source punctuation style (ellipses, quote marks).
+# - Do not translate brand names: Trainsight, Garmin, Stryd, Oura, Stryd.

@@ -1,8 +1,10 @@
-# Trainsight
+# Praxys
 
-Power-based scientific training system for self-coached endurance athletes. Trainsight syncs data from Garmin, Stryd, and Oura Ring, computes training metrics (fitness/fatigue/form, zone analysis, CP trend, race predictions), and serves a modern web dashboard with AI-powered coaching skills.
+Sports science that meets you where you are. Praxys syncs data from Garmin, Stryd, and Oura Ring, computes training metrics (fitness/fatigue/form, zone analysis, CP trend, race predictions), and serves a modern web dashboard with AI-powered coaching skills — for elite athletes, serious amateurs, and curious beginners alike.
 
-![Trainsight — Train like it's a science.](data/screenshots/hero-showcase.png)
+![Praxys — Sports science that meets you where you are.](data/screenshots/hero-showcase.png)
+
+> **Note:** Praxys is the new name for the project formerly known as Trainsight. The on-disk database file (`trainsight.db`) and legacy `TRAINSIGHT_*` environment variables continue to work during the deprecation window — see `docs/brand/index.html` for the brand guideline.
 
 ## Usage Modes
 
@@ -19,7 +21,7 @@ pip install -r requirements.txt
 # 2. Configure environment
 cp .env.example .env
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-# Add the generated key as ENCRYPTION_KEY in .env
+# Add the generated key as PRAXYS_LOCAL_ENCRYPTION_KEY in .env
 
 # 3. Start the API server
 python -m uvicorn api.main:app --reload
@@ -34,6 +36,7 @@ For sample data without API credentials: `python scripts/seed_sample_data.py`
 
 ## Documentation
 
+- [Brand Guideline](docs/brand/index.html)
 - [Getting Started](docs/getting-started.md)
 - [Security](docs/security.md)
 - [Architecture](docs/dev/architecture.md)

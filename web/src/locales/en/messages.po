@@ -1,0 +1,1718 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-04-18 00:00+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
+
+#. placeholder {0}: findings.length
+#: src/components/AiInsightsCard.tsx:86
+msgid "{0, plural, one {# finding} other {# findings}}"
+msgstr "{0, plural, one {# finding} other {# findings}}"
+
+#. placeholder {0}: recommendations.length
+#: src/components/AiInsightsCard.tsx:92
+msgid "{0, plural, one {# recommendation} other {# recommendations}}"
+msgstr "{0, plural, one {# recommendation} other {# recommendations}}"
+
+#. placeholder {0}: data.workouts.length
+#: src/components/UpcomingPlanCard.tsx:516
+msgid "{0, plural, one {# workout} other {# workouts}}"
+msgstr "{0, plural, one {# workout} other {# workouts}}"
+
+#. placeholder {0}: rc.estimated_months.toFixed(1)
+#: src/pages/Goal.tsx:338
+msgid "{0} months"
+msgstr "{0} months"
+
+#. placeholder {0}: setup.completed
+#. placeholder {1}: setup.total
+#: src/pages/Setup.tsx:454
+msgid "{0} of {1} steps complete"
+msgstr "{0} of {1} steps complete"
+
+#. placeholder {0}: steps.length
+#: src/components/SetupChecklist.tsx:99
+msgid "{completed} of {0} steps complete"
+msgstr "{completed} of {0} steps complete"
+
+#: src/pages/Goal.tsx:116
+msgid "{distLabel} Countdown"
+msgstr "{distLabel} Countdown"
+
+#: src/pages/Goal.tsx:266
+msgid "{distLabel} Progress"
+msgstr "{distLabel} Progress"
+
+#: src/components/DiagnosisCard.tsx:59
+msgid "{topZoneName} / Quality"
+msgstr "{topZoneName} / Quality"
+
+#: src/pages/History.tsx:41
+msgid "{total, plural, one {# activity} other {# activities}}"
+msgstr "{total, plural, one {# activity} other {# activities}}"
+
+#. placeholder {0}: roleChangeUser?.email
+#: src/pages/Admin.tsx:444
+msgid "<0>{0}</0> will gain admin privileges. They will be able to manage all users, delete accounts, and generate invitation codes."
+msgstr "<0>{0}</0> will gain admin privileges. They will be able to manage all users, delete accounts, and generate invitation codes."
+
+#. placeholder {0}: roleChangeUser?.email
+#: src/pages/Admin.tsx:439
+msgid "<0>{0}</0> will lose admin privileges. They will no longer be able to manage users or invitation codes."
+msgstr "<0>{0}</0> will lose admin privileges. They will no longer be able to manage users or invitation codes."
+
+#: src/lib/display-labels.ts:67
+#: src/pages/Settings.tsx:207
+msgid "100 Mile"
+msgstr "100 Mile"
+
+#: src/lib/display-labels.ts:66
+#: src/pages/Settings.tsx:206
+msgid "100K"
+msgstr "100K"
+
+#: src/lib/display-labels.ts:63
+#: src/pages/Settings.tsx:201
+msgid "10K"
+msgstr "10K"
+
+#: src/lib/display-labels.ts:65
+#: src/pages/Settings.tsx:205
+msgid "50 Mile"
+msgstr "50 Mile"
+
+#: src/lib/display-labels.ts:64
+#: src/pages/Settings.tsx:204
+msgid "50K"
+msgstr "50K"
+
+#: src/lib/display-labels.ts:62
+#: src/pages/Settings.tsx:200
+msgid "5K"
+msgstr "5K"
+
+#: src/components/RecoveryPanel.tsx:112
+msgid "7d Trend"
+msgstr "7d Trend"
+
+#: src/components/ZoneAnalysisCard.tsx:44
+msgid "above"
+msgstr "above"
+
+#: src/pages/Admin.tsx:201
+msgid "Actions"
+msgstr "Actions"
+
+#: src/pages/Science.tsx:144
+msgid "Active"
+msgstr "Active"
+
+#: src/components/AppSidebar.tsx:68
+#: src/pages/History.tsx:38
+#: src/pages/Settings.tsx:98
+#: src/pages/Settings.tsx:105
+msgid "Activities"
+msgstr "Activities"
+
+#: src/pages/Settings.tsx:886
+#: src/pages/Setup.tsx:842
+msgid "Activities-only connection"
+msgstr "Activities-only connection"
+
+#: src/pages/Setup.tsx:780
+msgid "Activity types to sync"
+msgstr "Activity types to sync"
+
+#: src/components/charts/ComplianceChart.tsx:82
+#: src/components/ZoneAnalysisCard.tsx:64
+msgid "Actual"
+msgstr "Actual"
+
+#: src/components/SignalHero.tsx:16
+msgid "Adjust Workout"
+msgstr "Adjust Workout"
+
+#: src/components/AppSidebar.tsx:71
+#: src/pages/Admin.tsx:175
+#: src/pages/Admin.tsx:222
+msgid "Admin"
+msgstr "Admin"
+
+#: src/pages/Science.tsx:133
+msgid "Advanced"
+msgstr "Advanced"
+
+#: src/lib/phase-label.ts:13
+msgid "Aerobic"
+msgstr "Aerobic"
+
+#: src/components/AiInsightsCard.tsx:56
+msgid "AI Analysis"
+msgstr "AI Analysis"
+
+#: src/pages/Today.tsx:117
+msgid "AI Daily Brief"
+msgstr "AI Daily Brief"
+
+#: src/pages/Training.tsx:136
+msgid "AI Training Analysis"
+msgstr "AI Training Analysis"
+
+#: src/pages/Setup.tsx:796
+msgid "All"
+msgstr "All"
+
+#: src/pages/Login.tsx:60
+msgid "An unexpected error occurred."
+msgstr "An unexpected error occurred."
+
+#: src/pages/Goal.tsx:328
+msgid "Assessment"
+msgstr "Assessment"
+
+#: src/components/charts/FitnessFatigueChart.tsx:242
+msgid "ATL (Fatigue)"
+msgstr "ATL (Fatigue)"
+
+#: src/pages/Settings.tsx:610
+#: src/pages/Settings.tsx:1093
+msgid "Auto"
+msgstr "Auto"
+
+#: src/pages/Settings.tsx:668
+msgid "Auto sync frequency"
+msgstr "Auto sync frequency"
+
+#: src/pages/Settings.tsx:993
+msgid "Auto-merged"
+msgstr "Auto-merged"
+
+#: src/pages/Admin.tsx:345
+msgid "Available"
+msgstr "Available"
+
+#: src/components/ActivityCard.tsx:107
+msgid "Avg HR"
+msgstr "Avg HR"
+
+#: src/components/ActivityCard.tsx:96
+#: src/components/charts/SleepPerfChart.tsx:60
+msgid "Avg Power"
+msgstr "Avg Power"
+
+#: src/components/charts/SleepPerfChart.tsx:46
+#: src/components/charts/SleepPerfChart.tsx:49
+msgid "Avg Power (W)"
+msgstr "Avg Power (W)"
+
+#: src/components/DiagnosisCard.tsx:53
+msgid "Avg Work {intensityLabel}"
+msgstr "Avg Work {intensityLabel}"
+
+#: src/pages/Settings.tsx:651
+msgid "Backfill All"
+msgstr "Backfill All"
+
+#: src/pages/Settings.tsx:630
+msgid "Backfill..."
+msgstr "Backfill..."
+
+#. placeholder {0}: alternatives.find((t) => t.id === recommendation.recommended_id)?.name
+#. placeholder {1}: recommendation.reason
+#: src/pages/Science.tsx:156
+msgid "Based on your training, we suggest <0>{0}</0> — {1}"
+msgstr "Based on your training, we suggest <0>{0}</0> — {1}"
+
+#: src/components/RecoveryPanel.tsx:102
+msgid "Baseline"
+msgstr "Baseline"
+
+#: src/components/ZoneAnalysisCard.tsx:44
+msgid "below"
+msgstr "below"
+
+#. placeholder {0}: formatTime(rc.target_time_sec!)
+#: src/pages/Goal.tsx:265
+msgid "Building toward {0} {distLabel}"
+msgstr "Building toward {0} {distLabel}"
+
+#: src/pages/Admin.tsx:453
+#: src/pages/Admin.tsx:476
+#: src/pages/Settings.tsx:875
+#: src/pages/Settings.tsx:893
+#: src/pages/Settings.tsx:1121
+#: src/pages/Setup.tsx:830
+#: src/pages/Setup.tsx:850
+msgid "Cancel"
+msgstr "Cancel"
+
+#: src/components/SignalHero.tsx:17
+msgid "CAUTION"
+msgstr "CAUTION"
+
+#: src/components/SetupChecklist.tsx:67
+msgid "Change"
+msgstr "Change"
+
+#: src/pages/Goal.tsx:476
+msgid "Change Goal"
+msgstr "Change Goal"
+
+#: src/pages/Settings.tsx:814
+msgid "China"
+msgstr "China"
+
+#: src/pages/Setup.tsx:533
+msgid "Choose how much historical data to pull"
+msgstr "Choose how much historical data to pull"
+
+#: src/pages/Setup.tsx:876
+msgid "Choose primary source"
+msgstr "Choose primary source"
+
+#: src/components/SetupChecklist.tsx:63
+#: src/pages/Setup.tsx:627
+msgid "Choose training base"
+msgstr "Choose training base"
+
+#: src/pages/Settings.tsx:954
+msgid "Choose which platform to use for each data type"
+msgstr "Choose which platform to use for each data type"
+
+#: src/pages/Settings.tsx:654
+msgid "Clear"
+msgstr "Clear"
+
+#: src/pages/Admin.tsx:335
+msgid "Click to copy"
+msgstr "Click to copy"
+
+#: src/components/UpcomingPlanCard.tsx:124
+msgid "click to retry"
+msgstr "click to retry"
+
+#: src/pages/Admin.tsx:313
+msgid "Code"
+msgstr "Code"
+
+#: src/pages/Goal.tsx:199
+msgid "Comfortable"
+msgstr "Comfortable"
+
+#: src/components/WorkoutCard.tsx:100
+msgid "Coming Up"
+msgstr "Coming Up"
+
+#: src/components/SetupChecklist.tsx:98
+#: src/pages/Setup.tsx:453
+msgid "Complete these steps to unlock your training insights"
+msgstr "Complete these steps to unlock your training insights"
+
+#: src/pages/Settings.tsx:501
+msgid "Configure your training system"
+msgstr "Configure your training system"
+
+#: src/components/SetupChecklist.tsx:51
+#: src/pages/Settings.tsx:768
+#: src/pages/Settings.tsx:878
+#: src/pages/Setup.tsx:518
+#: src/pages/Setup.tsx:833
+msgid "Connect"
+msgstr "Connect"
+
+#. placeholder {0}: connectPlatform ? (PLATFORM_META[connectPlatform]?.label || connectPlatform) : ''
+#. placeholder {0}: connectPlatform ? PLATFORM_META[connectPlatform]?.label : ''
+#: src/pages/Settings.tsx:845
+#: src/pages/Setup.tsx:713
+msgid "Connect {0}"
+msgstr "Connect {0}"
+
+#: src/components/SetupChecklist.tsx:47
+#: src/pages/Setup.tsx:476
+msgid "Connect a platform"
+msgstr "Connect a platform"
+
+#: src/pages/Setup.tsx:532
+msgid "Connect a platform first"
+msgstr "Connect a platform first"
+
+#: src/pages/Training.tsx:128
+msgid "Connect a recovery source (like Oura Ring) and sync activities with power data."
+msgstr "Connect a recovery source (like Oura Ring) and sync activities with power data."
+
+#: src/pages/Settings.tsx:733
+msgid "Connected"
+msgstr "Connected"
+
+#: src/pages/Settings.tsx:625
+msgid "Connected Platforms"
+msgstr "Connected Platforms"
+
+#: src/pages/Settings.tsx:878
+#: src/pages/Setup.tsx:833
+msgid "Connecting..."
+msgstr "Connecting..."
+
+#: src/pages/Settings.tsx:888
+#: src/pages/Setup.tsx:844
+msgid "Continue in your browser to authorize Strava. Praxys imports activities from Strava, while recovery, fitness, and plans come from your other connected platforms."
+msgstr "Continue in your browser to authorize Strava. Praxys imports activities from Strava, while recovery, fitness, and plans come from your other connected platforms."
+
+#: src/pages/Settings.tsx:896
+#: src/pages/Setup.tsx:853
+msgid "Continue to Strava"
+msgstr "Continue to Strava"
+
+#: src/pages/Settings.tsx:1022
+msgid "Continuous Improvement"
+msgstr "Continuous Improvement"
+
+#: src/pages/Setup.tsx:675
+msgid "Continuous improvement configured"
+msgstr "Continuous improvement configured"
+
+#: src/lib/phase-label.ts:8
+msgid "Cooldown"
+msgstr "Cooldown"
+
+#: src/pages/Science.tsx:255
+msgid "Cosmetic — changes names and colors without affecting calculations"
+msgstr "Cosmetic — changes names and colors without affecting calculations"
+
+#: src/components/charts/CpTrendChart.tsx:40
+#: src/lib/display-labels.ts:56
+msgid "CP Trend"
+msgstr "CP Trend"
+
+#: src/pages/Admin.tsx:417
+msgid "Create"
+msgstr "Create"
+
+#: src/pages/Training.tsx:142
+msgid "Create a science-based 4-week training plan tailored to your fitness, recovery, and goals."
+msgstr "Create a science-based 4-week training plan tailored to your fitness, recovery, and goals."
+
+#: src/pages/Login.tsx:164
+msgid "Create account"
+msgstr "Create account"
+
+#: src/pages/Admin.tsx:317
+msgid "Created"
+msgstr "Created"
+
+#: src/pages/Login.tsx:164
+msgid "Creating account..."
+msgstr "Creating account..."
+
+#: src/pages/Admin.tsx:417
+msgid "Creating..."
+msgstr "Creating..."
+
+#: src/lib/display-labels.ts:52
+#: src/pages/Settings.tsx:141
+msgid "Critical Power"
+msgstr "Critical Power"
+
+#: src/pages/Setup.tsx:823
+msgid "Cross-training activities affect your overall training load and recovery"
+msgstr "Cross-training activities affect your overall training load and recovery"
+
+#: src/components/charts/FitnessFatigueChart.tsx:241
+msgid "CTL (Fitness)"
+msgstr "CTL (Fitness)"
+
+#: src/components/MilestoneTracker.tsx:26
+#: src/components/MilestoneTracker.tsx:58
+msgid "Current"
+msgstr "Current"
+
+#: src/pages/Goal.tsx:167
+msgid "Current {abbrev}"
+msgstr "Current {abbrev}"
+
+#: src/pages/Goal.tsx:373
+msgid "Current Fitness"
+msgstr "Current Fitness"
+
+#. placeholder {0}: config?.training_base || 'power'
+#: src/components/SetupChecklist.tsx:64
+msgid "Currently set to {0}-based training"
+msgstr "Currently set to {0}-based training"
+
+#: src/components/AppSidebar.tsx:28
+msgid "Dark"
+msgstr "Dark"
+
+#: src/pages/Settings.tsx:953
+msgid "Data Preferences"
+msgstr "Data Preferences"
+
+#: src/pages/Setup.tsx:620
+msgid "Data synced successfully"
+msgstr "Data synced successfully"
+
+#. placeholder {0}: rc.race_date ?? t`race day`
+#: src/pages/Goal.tsx:123
+msgid "days until {0}"
+msgstr "days until {0}"
+
+#: src/components/RecoveryPanel.tsx:27
+msgid "Declining"
+msgstr "Declining"
+
+#: src/pages/Admin.tsx:466
+#: src/pages/Admin.tsx:479
+msgid "Delete User"
+msgstr "Delete User"
+
+#: src/pages/Admin.tsx:479
+msgid "Deleting..."
+msgstr "Deleting..."
+
+#: src/pages/Admin.tsx:216
+msgid "Demo"
+msgstr "Demo"
+
+#: src/pages/Admin.tsx:382
+msgid "Demo Accounts"
+msgstr "Demo Accounts"
+
+#: src/pages/Admin.tsx:424
+msgid "Demo users can browse your dashboard (Today, Training, Goal, History) but cannot change settings, sync data, or modify plans. Share the email and password with anyone you want to demo to."
+msgstr "Demo users can browse your dashboard (Today, Training, Goal, History) but cannot change settings, sync data, or modify plans. Share the email and password with anyone you want to demo to."
+
+#: src/pages/Admin.tsx:405
+msgid "demo-password"
+msgstr "demo-password"
+
+#: src/pages/Admin.tsx:395
+msgid "demo@example.com"
+msgstr "demo@example.com"
+
+#: src/pages/Admin.tsx:242
+#: src/pages/Admin.tsx:456
+msgid "Demote"
+msgstr "Demote"
+
+#: src/pages/Admin.tsx:239
+#: src/pages/Admin.tsx:435
+msgid "Demote to User"
+msgstr "Demote to User"
+
+#: src/pages/Settings.tsx:830
+msgid "Disconnect"
+msgstr "Disconnect"
+
+#: src/pages/Goal.tsx:148
+#: src/pages/Goal.tsx:308
+#: src/pages/Goal.tsx:404
+msgid "Discussion"
+msgstr "Discussion"
+
+#: src/components/SplitBreakdown.tsx:46
+msgid "Dist"
+msgstr "Dist"
+
+#: src/components/ActivityCard.tsx:75
+#: src/pages/Settings.tsx:1026
+msgid "Distance"
+msgstr "Distance"
+
+#: src/components/ZoneAnalysisCard.tsx:92
+msgid "Distribution deviates from target"
+msgstr "Distribution deviates from target"
+
+#: src/pages/Settings.tsx:1073
+msgid "Drive your zone calculations and training load. Click to override."
+msgstr "Drive your zone calculations and training load. Click to override."
+
+#: src/components/ActivityCard.tsx:86
+#: src/components/SplitBreakdown.tsx:47
+msgid "Duration"
+msgstr "Duration"
+
+#: src/components/SignalHero.tsx:15
+msgid "EASY"
+msgstr "EASY"
+
+#: src/lib/phase-label.ts:11
+msgid "Easy Run"
+msgstr "Easy Run"
+
+#: src/pages/Settings.tsx:1012
+#: src/pages/Setup.tsx:678
+msgid "Edit"
+msgstr "Edit"
+
+#: src/components/ActivityCard.tsx:128
+msgid "Elev"
+msgstr "Elev"
+
+#: src/components/RecoveryPanel.tsx:32
+msgid "Elevated"
+msgstr "Elevated"
+
+#: src/pages/Admin.tsx:198
+#: src/pages/Admin.tsx:392
+#: src/pages/Login.tsx:90
+#: src/pages/Login.tsx:126
+msgid "Email"
+msgstr "Email"
+
+#: src/pages/Login.tsx:37
+msgid "Email and password are required."
+msgstr "Email and password are required."
+
+#: src/lib/display-labels.ts:43
+msgid "Endurance"
+msgstr "Endurance"
+
+#: src/pages/Settings.tsx:757
+msgid "Error"
+msgstr "Error"
+
+#: src/pages/Goal.tsx:336
+msgid "Estimated time to target"
+msgstr "Estimated time to target"
+
+#. placeholder {0}: option.hours
+#: src/pages/Settings.tsx:692
+msgid "Every <0>{0}</0> hours"
+msgstr "Every <0>{0}</0> hours"
+
+#. placeholder {0}: res.status
+#: src/pages/Admin.tsx:144
+msgid "Failed (HTTP {0})"
+msgstr "Failed (HTTP {0})"
+
+#: src/pages/Today.tsx:53
+msgid "Failed to load"
+msgstr "Failed to load"
+
+#: src/pages/History.tsx:50
+msgid "Failed to load activities"
+msgstr "Failed to load activities"
+
+#: src/pages/Goal.tsx:483
+msgid "Failed to load goal data"
+msgstr "Failed to load goal data"
+
+#: src/pages/Science.tsx:216
+msgid "Failed to load science data"
+msgstr "Failed to load science data"
+
+#: src/pages/Settings.tsx:314
+msgid "Failed to load settings"
+msgstr "Failed to load settings"
+
+#: src/pages/Training.tsx:52
+msgid "Failed to load training data"
+msgstr "Failed to load training data"
+
+#: src/components/UpcomingPlanCard.tsx:492
+msgid "Failed to load training plan"
+msgstr "Failed to load training plan"
+
+#: src/pages/Goal.tsx:53
+msgid "Falling"
+msgstr "Falling"
+
+#: src/components/RecoveryPanel.tsx:19
+msgid "Fatigued"
+msgstr "Fatigued"
+
+#: src/components/AiInsightsCard.tsx:104
+msgid "Findings"
+msgstr "Findings"
+
+#: src/pages/Settings.tsx:100
+#: src/pages/Settings.tsx:990
+msgid "Fitness"
+msgstr "Fitness"
+
+#: src/components/charts/FitnessFatigueChart.tsx:156
+msgid "Fitness / Fatigue / Form"
+msgstr "Fitness / Fatigue / Form"
+
+#: src/pages/Goal.tsx:221
+msgid "Fitness Trend"
+msgstr "Fitness Trend"
+
+#: src/pages/Goal.tsx:54
+msgid "Flat"
+msgstr "Flat"
+
+#: src/components/SignalHero.tsx:14
+msgid "Follow Plan"
+msgstr "Follow Plan"
+
+#: src/pages/Science.tsx:229
+msgid "Four pillars power your analysis. Each uses a published theory you can understand, verify, and change."
+msgstr "Four pillars power your analysis. Each uses a published theory you can understand, verify, and change."
+
+#: src/components/RecoveryPanel.tsx:17
+msgid "Fresh"
+msgstr "Fresh"
+
+#: src/pages/Goal.tsx:177
+msgid "Gap"
+msgstr "Gap"
+
+#: src/pages/Admin.tsx:291
+msgid "Generate"
+msgstr "Generate"
+
+#: src/pages/Training.tsx:141
+msgid "Generate Training Plan"
+msgstr "Generate Training Plan"
+
+#: src/pages/Training.tsx:137
+msgid "Get in-depth zone distribution analysis, training suggestions, and a personalized plan generated by AI."
+msgstr "Get in-depth zone distribution analysis, training suggestions, and a personalized plan generated by AI."
+
+#: src/pages/Today.tsx:118
+msgid "Get personalized training recommendations, recovery assessment, and today's training signal with the Claude Code plugin."
+msgstr "Get personalized training recommendations, recovery assessment, and today's training signal with the Claude Code plugin."
+
+#: src/components/SetupChecklist.tsx:94
+msgid "Get started with Praxys"
+msgstr "Get started with Praxys"
+
+#: src/components/SetupChecklist.tsx:94
+#~ msgid "Get started with Trainsight"
+#~ msgstr "Get started with Trainsight"
+
+#: src/components/CliHint.tsx:39
+msgid "Get the Claude Code Plugin"
+msgstr "Get the Claude Code Plugin"
+
+#: src/components/SignalHero.tsx:14
+msgid "GO"
+msgstr "GO"
+
+#: src/components/SignalHero.tsx:15
+msgid "Go Easy"
+msgstr "Go Easy"
+
+#: src/pages/Setup.tsx:702
+msgid "Go to dashboard"
+msgstr "Go to dashboard"
+
+#: src/components/AppSidebar.tsx:67
+#: src/pages/Settings.tsx:1007
+msgid "Goal"
+msgstr "Goal"
+
+#: src/pages/Goal.tsx:473
+msgid "Goal Tracker"
+msgstr "Goal Tracker"
+
+#: src/lib/display-labels.ts:61
+#: src/pages/Settings.tsx:202
+msgid "Half Marathon"
+msgstr "Half Marathon"
+
+#: src/lib/display-labels.ts:49
+#: src/pages/Settings.tsx:121
+msgid "Heart Rate"
+msgstr "Heart Rate"
+
+#: src/pages/Settings.tsx:630
+msgid "Hide backfill"
+msgstr "Hide backfill"
+
+#: src/components/AiInsightsCard.tsx:83
+msgid "Hide details"
+msgstr "Hide details"
+
+#: src/components/RecoveryPanel.tsx:129
+msgid "High variability"
+msgstr "High variability"
+
+#: src/pages/Settings.tsx:656
+msgid "Historical sync may take several minutes"
+msgstr "Historical sync may take several minutes"
+
+#: src/pages/Science.tsx:26
+msgid "How do we assess readiness to train?"
+msgstr "How do we assess readiness to train?"
+
+#: src/pages/Science.tsx:27
+msgid "How do we estimate race potential?"
+msgstr "How do we estimate race potential?"
+
+#: src/pages/Science.tsx:25
+msgid "How does training stress become fitness?"
+msgstr "How does training stress become fitness?"
+
+#: src/pages/Science.tsx:28
+msgid "How is intensity classified?"
+msgstr "How is intensity classified?"
+
+#: src/pages/Settings.tsx:670
+msgid "How often Praxys pulls new data in the background. Lower frequency uses less network and respects platform rate limits."
+msgstr "How often Praxys pulls new data in the background. Lower frequency uses less network and respects platform rate limits."
+
+#: src/pages/Settings.tsx:596
+#~ msgid "How often Trainsight pulls new data in the background. Lower frequency uses less network and respects platform rate limits."
+#~ msgstr "How often Trainsight pulls new data in the background. Lower frequency uses less network and respects platform rate limits."
+
+#: src/components/ScienceNote.tsx:10
+msgid "How this is calculated"
+msgstr "How this is calculated"
+
+#: src/pages/Settings.tsx:913
+#: src/pages/Setup.tsx:628
+msgid "How your zones and training load are calculated"
+msgstr "How your zones and training load are calculated"
+
+#: src/components/SplitBreakdown.tsx:49
+msgid "HR"
+msgstr "HR"
+
+#: src/components/RecoveryPanel.tsx:17
+msgid "HRV above baseline (Plews SWC)"
+msgstr "HRV above baseline (Plews SWC)"
+
+#: src/components/RecoveryPanel.tsx:84
+msgid "HRV Analysis"
+msgstr "HRV Analysis"
+
+#: src/components/RecoveryPanel.tsx:19
+msgid "HRV below threshold (Kiviniemi)"
+msgstr "HRV below threshold (Kiviniemi)"
+
+#: src/components/RecoveryPanel.tsx:18
+msgid "HRV within normal range"
+msgstr "HRV within normal range"
+
+#: src/components/RecoveryPanel.tsx:26
+msgid "Improving"
+msgstr "Improving"
+
+#: src/components/RecoveryPanel.tsx:20
+msgid "Insufficient HRV data for analysis"
+msgstr "Insufficient HRV data for analysis"
+
+#: src/pages/Settings.tsx:813
+msgid "International"
+msgstr "International"
+
+#: src/pages/Login.tsx:149
+msgid "Invitation Code"
+msgstr "Invitation Code"
+
+#: src/pages/Admin.tsx:276
+msgid "Invitation Codes"
+msgstr "Invitation Codes"
+
+#: src/lib/display-labels.ts:53
+msgid "Lactate Threshold HR"
+msgstr "Lactate Threshold HR"
+
+#: src/pages/Settings.tsx:593
+msgid "Language"
+msgstr "Language"
+
+#: src/components/LastActivityCard.tsx:43
+msgid "Last Activity"
+msgstr "Last Activity"
+
+#. placeholder {0}: new Date(status.last_sync).toLocaleString()
+#: src/pages/Settings.tsx:795
+msgid "Last synced {0}"
+msgstr "Last synced {0}"
+
+#: src/pages/Login.tsx:160
+msgid "Leave blank for the first account. Required after that."
+msgstr "Leave blank for the first account. Required after that."
+
+#: src/components/AppSidebar.tsx:29
+msgid "Light"
+msgstr "Light"
+
+#: src/pages/Setup.tsx:477
+msgid "Link at least one data source to start"
+msgstr "Link at least one data source to start"
+
+#: src/components/SetupChecklist.tsx:48
+msgid "Link Garmin, Strava, Stryd, or Oura to pull your training data"
+msgstr "Link Garmin, Strava, Stryd, or Oura to pull your training data"
+
+#: src/pages/Settings.tsx:626
+msgid "Link your training devices and services"
+msgstr "Link your training devices and services"
+
+#: src/components/Layout.tsx:29
+msgid "Live demo — real training data, read-only"
+msgstr "Live demo — real training data, read-only"
+
+#: src/pages/Science.tsx:25
+msgid "Load & Fitness"
+msgstr "Load & Fitness"
+
+#: src/pages/Login.tsx:71
+msgid "Log in to connect your CLI plugin"
+msgstr "Log in to connect your CLI plugin"
+
+#: src/components/AppSidebar.tsx:145
+#: src/components/AppSidebar.tsx:147
+msgid "Log out"
+msgstr "Log out"
+
+#: src/pages/Login.tsx:78
+msgid "Login"
+msgstr "Login"
+
+#: src/components/RecoveryPanel.tsx:33
+msgid "Low"
+msgstr "Low"
+
+#: src/pages/Settings.tsx:142
+msgid "LTHR"
+msgstr "LTHR"
+
+#: src/lib/display-labels.ts:57
+msgid "LTHR Trend"
+msgstr "LTHR Trend"
+
+#: src/lib/phase-label.ts:9
+msgid "Main"
+msgstr "Main"
+
+#: src/pages/Admin.tsx:176
+msgid "Manage users and invitation codes"
+msgstr "Manage users and invitation codes"
+
+#: src/pages/Settings.tsx:1096
+msgid "Manual"
+msgstr "Manual"
+
+#: src/lib/display-labels.ts:60
+#: src/pages/Goal.tsx:362
+#: src/pages/Settings.tsx:203
+#: src/pages/Settings.tsx:1028
+msgid "Marathon"
+msgstr "Marathon"
+
+#: src/pages/Settings.tsx:144
+msgid "Max HR"
+msgstr "Max HR"
+
+#: src/pages/Goal.tsx:317
+msgid "Milestones"
+msgstr "Milestones"
+
+#. placeholder {0}: u.demo_of_email
+#: src/pages/Admin.tsx:218
+msgid "mirrors {0}"
+msgstr "mirrors {0}"
+
+#: src/pages/Settings.tsx:1020
+msgid "Mode"
+msgstr "Mode"
+
+#: src/components/SignalHero.tsx:16
+msgid "MODIFY"
+msgstr "MODIFY"
+
+#. placeholder {0}: primaryPrompt?.category
+#: src/pages/Setup.tsx:878
+msgid "Multiple platforms provide <0>{0}</0> data. Which should be the primary source?"
+msgstr "Multiple platforms provide <0>{0}</0> data. Which should be the primary source?"
+
+#: src/pages/Training.tsx:113
+msgid "Need at least 3 activities with power data to plot a meaningful trend."
+msgstr "Need at least 3 activities with power data to plot a meaningful trend."
+
+#: src/pages/Goal.tsx:232
+#: src/pages/Goal.tsx:348
+#: src/pages/Goal.tsx:424
+msgid "Need at least 3 activities with power data."
+msgstr "Need at least 3 activities with power data."
+
+#: src/pages/Goal.tsx:172
+msgid "Needed {abbrev}"
+msgstr "Needed {abbrev}"
+
+#: src/pages/Admin.tsx:151
+msgid "Network error. Is the server running?"
+msgstr "Network error. Is the server running?"
+
+#: src/pages/Admin.tsx:301
+msgid "New invitation code:"
+msgstr "New invitation code:"
+
+#: src/pages/History.tsx:96
+msgid "Next"
+msgstr "Next"
+
+#: src/pages/Settings.tsx:674
+msgid "Next sync"
+msgstr "Next sync"
+
+#: src/pages/History.tsx:62
+msgid "No activities found."
+msgstr "No activities found."
+
+#: src/components/RecoveryPanel.tsx:20
+msgid "No Data"
+msgstr "No Data"
+
+#: src/pages/Settings.tsx:1048
+msgid "No goal set. Set a race target or distance goal to unlock predictions and countdown."
+msgstr "No goal set. Set a race target or distance goal to unlock predictions and countdown."
+
+#: src/pages/Admin.tsx:325
+msgid "No invitation codes yet. Generate one to invite a user."
+msgstr "No invitation codes yet. Generate one to invite a user."
+
+#: src/components/WeeklyLoadMini.tsx:61
+msgid "No planned load this week"
+msgstr "No planned load this week"
+
+#: src/components/SplitBreakdown.tsx:36
+msgid "No split data available."
+msgstr "No split data available."
+
+#: src/components/WorkoutCard.tsx:40
+msgid "No Workout"
+msgstr "No Workout"
+
+#: src/components/RecoveryPanel.tsx:18
+#: src/components/RecoveryPanel.tsx:31
+msgid "Normal"
+msgstr "Normal"
+
+#: src/pages/Settings.tsx:736
+msgid "Not connected"
+msgstr "Not connected"
+
+#: src/pages/Training.tsx:103
+msgid "Not enough data for accurate fitness tracking"
+msgstr "Not enough data for accurate fitness tracking"
+
+#: src/pages/Today.tsx:86
+msgid "Not enough data for accurate form tracking"
+msgstr "Not enough data for accurate form tracking"
+
+#: src/pages/Training.tsx:120
+msgid "Not enough data for weekly load comparison"
+msgstr "Not enough data for weekly load comparison"
+
+#: src/pages/Goal.tsx:232
+#: src/pages/Goal.tsx:348
+#: src/pages/Goal.tsx:424
+#: src/pages/Training.tsx:112
+msgid "Not enough data to show CP trend"
+msgstr "Not enough data to show CP trend"
+
+#: src/pages/Training.tsx:127
+msgid "Not enough data to show sleep vs performance"
+msgstr "Not enough data to show sleep vs performance"
+
+#: src/pages/Settings.tsx:1089
+msgid "Not set"
+msgstr "Not set"
+
+#: src/pages/Admin.tsx:314
+msgid "Note"
+msgstr "Note"
+
+#: src/pages/Admin.tsx:283
+msgid "Note (optional)"
+msgstr "Note (optional)"
+
+#: src/pages/History.tsx:88
+msgid "of"
+msgstr "of"
+
+#: src/pages/Admin.tsx:278
+msgid "One-time codes for new user registration"
+msgstr "One-time codes for new user registration"
+
+#: src/pages/Setup.tsx:684
+msgid "Optional — you can always set this later from the Goal page"
+msgstr "Optional — you can always set this later from the Goal page"
+
+#: src/components/WorkoutCard.tsx:82
+msgid "Options"
+msgstr "Options"
+
+#: src/components/RecoveryPanel.tsx:140
+msgid "Other Signals"
+msgstr "Other Signals"
+
+#: src/components/ActivityCard.tsx:121
+#: src/components/SplitBreakdown.tsx:50
+#: src/lib/display-labels.ts:50
+#: src/pages/Settings.tsx:130
+msgid "Pace"
+msgstr "Pace"
+
+#: src/pages/Admin.tsx:402
+#: src/pages/Login.tsx:102
+#: src/pages/Login.tsx:138
+msgid "Password"
+msgstr "Password"
+
+#: src/components/DiagnosisCard.tsx:47
+msgid "Peak Interval {intensityLabel}"
+msgstr "Peak Interval {intensityLabel}"
+
+#: src/pages/Settings.tsx:101
+#: src/pages/Settings.tsx:107
+msgid "Plan"
+msgstr "Plan"
+
+#: src/components/charts/ComplianceChart.tsx:71
+msgid "Planned"
+msgstr "Planned"
+
+#: src/components/WorkoutCard.tsx:54
+msgid "Planned Workout"
+msgstr "Planned Workout"
+
+#: src/components/SplitBreakdown.tsx:48
+#: src/lib/display-labels.ts:48
+#: src/pages/Settings.tsx:112
+msgid "Power"
+msgstr "Power"
+
+#: src/pages/Login.tsx:72
+msgid "Power-based training dashboard"
+msgstr "Power-based training dashboard"
+
+#: src/pages/Goal.tsx:132
+#: src/pages/Goal.tsx:272
+#: src/pages/Goal.tsx:398
+msgid "Predicted {distLabel}"
+msgstr "Predicted {distLabel}"
+
+#: src/pages/Goal.tsx:80
+msgid "Predicted using Riegel's formula (T₂ = T₁ × (D₂/D₁)^1.06), treating threshold pace as ~10K effort."
+msgstr "Predicted using Riegel's formula (T₂ = T₁ × (D₂/D₁)^1.06), treating threshold pace as ~10K effort."
+
+#: src/pages/Goal.tsx:75
+msgid "Predicted using Stryd race power model (5K at 103.8% CP, marathon at 89.9% CP)."
+msgstr "Predicted using Stryd race power model (5K at 103.8% CP, marathon at 89.9% CP)."
+
+#: src/pages/History.tsx:80
+msgid "Previous"
+msgstr "Previous"
+
+#. placeholder {0}: CAPABILITY_LABELS[cat] ? i18n._(CAPABILITY_LABELS[cat]) : cat
+#: src/pages/Settings.tsx:787
+msgid "Primary for {0}"
+msgstr "Primary for {0}"
+
+#: src/pages/Settings.tsx:105
+msgid "Primary source for workout data"
+msgstr "Primary source for workout data"
+
+#: src/pages/Settings.tsx:526
+msgid "Profile"
+msgstr "Profile"
+
+#: src/components/charts/FitnessFatigueChart.tsx:174
+msgid "Projected"
+msgstr "Projected"
+
+#: src/pages/Admin.tsx:244
+#: src/pages/Admin.tsx:456
+msgid "Promote"
+msgstr "Promote"
+
+#: src/pages/Admin.tsx:239
+#: src/pages/Admin.tsx:435
+msgid "Promote to Admin"
+msgstr "Promote to Admin"
+
+#: src/components/SetupChecklist.tsx:56
+msgid "Pull your latest activities, power data, and recovery metrics"
+msgstr "Pull your latest activities, power data, and recovery metrics"
+
+#: src/components/UpcomingPlanCard.tsx:539
+msgid "Push All"
+msgstr "Push All"
+
+#: src/components/UpcomingPlanCard.tsx:124
+msgid "Push failed"
+msgstr "Push failed"
+
+#: src/components/UpcomingPlanCard.tsx:175
+msgid "Push to Stryd"
+msgstr "Push to Stryd"
+
+#: src/components/UpcomingPlanCard.tsx:529
+msgid "Pushing..."
+msgstr "Pushing..."
+
+#: src/lib/display-labels.ts:68
+#: src/pages/Goal.tsx:104
+#: src/pages/Goal.tsx:245
+msgid "Race"
+msgstr "Race"
+
+#: src/pages/Settings.tsx:1033
+msgid "Race Date"
+msgstr "Race Date"
+
+#: src/pages/Goal.tsx:123
+msgid "race day"
+msgstr "race day"
+
+#: src/pages/Settings.tsx:1022
+msgid "Race Goal"
+msgstr "Race Goal"
+
+#: src/pages/Setup.tsx:675
+msgid "Race goal configured"
+msgstr "Race goal configured"
+
+#: src/pages/Science.tsx:27
+msgid "Race Prediction"
+msgstr "Race Prediction"
+
+#: src/components/ZoneAnalysisCard.tsx:63
+msgid "Range"
+msgstr "Range"
+
+#: src/components/UpcomingPlanCard.tsx:150
+msgid "Re-push to Stryd"
+msgstr "Re-push to Stryd"
+
+#: src/pages/Admin.tsx:384
+msgid "Read-only accounts that mirror your dashboard data"
+msgstr "Read-only accounts that mirror your dashboard data"
+
+#: src/pages/Goal.tsx:195
+msgid "Realistic Alternative Targets"
+msgstr "Realistic Alternative Targets"
+
+#: src/pages/Goal.tsx:157
+msgid "Reality Check"
+msgstr "Reality Check"
+
+#: src/components/AiInsightsCard.tsx:117
+msgid "Recommendations"
+msgstr "Recommendations"
+
+#: src/pages/Settings.tsx:696
+msgid "recommended"
+msgstr "recommended"
+
+#: src/pages/Setup.tsx:558
+#: src/pages/Setup.tsx:654
+msgid "Recommended"
+msgstr "Recommended"
+
+#: src/components/RecoveryPanel.tsx:42
+#: src/components/RecoveryPanel.tsx:43
+#: src/lib/display-labels.ts:42
+#: src/lib/phase-label.ts:16
+#: src/pages/Science.tsx:26
+#: src/pages/Settings.tsx:99
+#: src/pages/Settings.tsx:106
+msgid "Recovery"
+msgstr "Recovery"
+
+#: src/components/SignalHero.tsx:18
+msgid "Recovery Day"
+msgstr "Recovery Day"
+
+#: src/components/RecoveryPanel.tsx:75
+msgid "Recovery requires HRV data from a compatible device (for example Oura Ring or an HRV-capable chest strap). Connect one to enable recovery status and suggestions."
+msgstr "Recovery requires HRV data from a compatible device (for example Oura Ring or an HRV-capable chest strap). Connect one to enable recovery status and suggestions."
+
+#: src/components/RecoveryPanel.tsx:63
+msgid "Recovery Status"
+msgstr "Recovery Status"
+
+#: src/components/RecoveryPanel.tsx:184
+msgid "Recovery status uses ln(RMSSD) compared to your personal baseline. 'Fatigued' = below baseline mean minus 1 SD (Kiviniemi et al, 2007 threshold). 'Fresh' = above baseline mean plus 0.5 SD (Plews et al, 2012 smallest worthwhile change). The 7-day trend and CV are monitored per Plews — declining trend or CV above 10% signals autonomic disturbance. Sleep, RHR, and TSB are shown as informational context when HRV is available."
+msgstr "Recovery status uses ln(RMSSD) compared to your personal baseline. 'Fatigued' = below baseline mean minus 1 SD (Kiviniemi et al, 2007 threshold). 'Fresh' = above baseline mean plus 0.5 SD (Plews et al, 2012 smallest worthwhile change). The 7-day trend and CV are monitored per Plews — declining trend or CV above 10% signals autonomic disturbance. Sleep, RHR, and TSB are shown as informational context when HRV is available."
+
+#: src/pages/Settings.tsx:896
+#: src/pages/Setup.tsx:853
+msgid "Redirecting..."
+msgstr "Redirecting..."
+
+#: src/components/SignalHero.tsx:17
+msgid "Reduce Intensity"
+msgstr "Reduce Intensity"
+
+#: src/pages/Science.tsx:69
+msgid "References"
+msgstr "References"
+
+#: src/pages/Settings.tsx:803
+#: src/pages/Setup.tsx:759
+msgid "Region"
+msgstr "Region"
+
+#: src/pages/Login.tsx:79
+msgid "Register"
+msgstr "Register"
+
+#: src/pages/Admin.tsx:200
+msgid "Registered"
+msgstr "Registered"
+
+#: src/pages/Admin.tsx:190
+msgid "Registered accounts"
+msgstr "Registered accounts"
+
+#: src/lib/phase-label.ts:18
+msgid "Rep"
+msgstr "Rep"
+
+#: src/lib/phase-label.ts:17
+msgid "Rest"
+msgstr "Rest"
+
+#: src/components/SignalHero.tsx:18
+msgid "REST"
+msgstr "REST"
+
+#: src/pages/Settings.tsx:145
+msgid "Resting HR"
+msgstr "Resting HR"
+
+#: src/components/UpcomingPlanCard.tsx:495
+#: src/pages/Goal.tsx:486
+#: src/pages/History.tsx:53
+#: src/pages/Settings.tsx:316
+#: src/pages/Today.tsx:56
+#: src/pages/Training.tsx:55
+msgid "Retry"
+msgstr "Retry"
+
+#: src/pages/Admin.tsx:362
+msgid "Revoke"
+msgstr "Revoke"
+
+#: src/pages/Admin.tsx:347
+msgid "Revoked"
+msgstr "Revoked"
+
+#: src/pages/Goal.tsx:52
+msgid "Rising"
+msgstr "Rising"
+
+#: src/pages/Admin.tsx:199
+msgid "Role"
+msgstr "Role"
+
+#: src/lib/phase-label.ts:10
+msgid "Run"
+msgstr "Run"
+
+#: src/pages/Settings.tsx:1118
+msgid "Save"
+msgstr "Save"
+
+#: src/components/AppSidebar.tsx:69
+msgid "Science"
+msgstr "Science"
+
+#: src/components/SetupChecklist.tsx:71
+#: src/pages/Setup.tsx:666
+msgid "Set a goal"
+msgstr "Set a goal"
+
+#: src/components/SetupChecklist.tsx:75
+#: src/pages/Settings.tsx:1012
+#: src/pages/Setup.tsx:687
+msgid "Set goal"
+msgstr "Set goal"
+
+#: src/pages/Setup.tsx:450
+msgid "Set up Praxys"
+msgstr "Set up Praxys"
+
+#: src/pages/Setup.tsx:354
+#~ msgid "Set up Trainsight"
+#~ msgstr "Set up Trainsight"
+
+#: src/pages/Settings.tsx:567
+msgid "Set your name"
+msgstr "Set your name"
+
+#: src/components/AppSidebar.tsx:70
+#: src/pages/Settings.tsx:499
+msgid "Settings"
+msgstr "Settings"
+
+#: src/components/AppSidebar.tsx:62
+msgid "Setup"
+msgstr "Setup"
+
+#. placeholder {0}: workouts.length - INITIAL_COUNT
+#: src/components/UpcomingPlanCard.tsx:317
+msgid "Show {0} more workouts"
+msgstr "Show {0} more workouts"
+
+#: src/components/UpcomingPlanCard.tsx:316
+msgid "Show less"
+msgstr "Show less"
+
+#: src/pages/History.tsx:84
+msgid "Showing"
+msgstr "Showing"
+
+#: src/pages/Login.tsx:113
+msgid "Sign in"
+msgstr "Sign in"
+
+#: src/pages/Login.tsx:113
+msgid "Signing in..."
+msgstr "Signing in..."
+
+#: src/pages/Science.tsx:132
+msgid "Simple"
+msgstr "Simple"
+
+#: src/pages/Setup.tsx:702
+msgid "Skip for now"
+msgstr "Skip for now"
+
+#: src/components/RecoveryPanel.tsx:145
+msgid "Sleep"
+msgstr "Sleep"
+
+#: src/components/charts/SleepPerfChart.tsx:39
+#: src/components/charts/SleepPerfChart.tsx:42
+#: src/components/charts/SleepPerfChart.tsx:60
+msgid "Sleep Score"
+msgstr "Sleep Score"
+
+#: src/components/charts/SleepPerfChart.tsx:30
+msgid "Sleep Score vs Power"
+msgstr "Sleep Score vs Power"
+
+#: src/pages/Settings.tsx:106
+msgid "Sleep, HRV, readiness"
+msgstr "Sleep, HRV, readiness"
+
+#: src/components/ScienceNote.tsx:15
+#: src/pages/Goal.tsx:146
+#: src/pages/Goal.tsx:306
+#: src/pages/Goal.tsx:402
+msgid "Source"
+msgstr "Source"
+
+#: src/components/RecoveryPanel.tsx:25
+msgid "Stable"
+msgstr "Stable"
+
+#: src/pages/Setup.tsx:578
+msgid "Start sync"
+msgstr "Start sync"
+
+#: src/pages/Admin.tsx:315
+msgid "Status"
+msgstr "Status"
+
+#: src/lib/phase-label.ts:12
+msgid "Steady"
+msgstr "Steady"
+
+#: src/pages/Goal.tsx:205
+msgid "Stretch"
+msgstr "Stretch"
+
+#: src/components/DiagnosisCard.tsx:87
+msgid "Suggestions"
+msgstr "Suggestions"
+
+#: src/components/SetupChecklist.tsx:59
+#: src/pages/Settings.tsx:759
+msgid "Sync"
+msgstr "Sync"
+
+#: src/pages/Settings.tsx:633
+msgid "Sync All"
+msgstr "Sync All"
+
+#: src/pages/Training.tsx:121
+msgid "Sync at least 2 weeks of data to compare planned vs actual training load."
+msgstr "Sync at least 2 weeks of data to compare planned vs actual training load."
+
+#: src/pages/Training.tsx:104
+msgid "Sync at least 6 weeks of activity data to see meaningful fitness, fatigue, and form curves."
+msgstr "Sync at least 6 weeks of activity data to see meaningful fitness, fatigue, and form curves."
+
+#: src/pages/Today.tsx:87
+msgid "Sync at least 6 weeks of activity data to see your training form trend."
+msgstr "Sync at least 6 weeks of activity data to see your training form trend."
+
+#: src/pages/Setup.tsx:613
+msgid "Sync complete! Your data is ready."
+msgstr "Sync complete! Your data is ready."
+
+#: src/pages/Settings.tsx:641
+msgid "Sync from:"
+msgstr "Sync from:"
+
+#: src/pages/Setup.tsx:543
+msgid "Sync history"
+msgstr "Sync history"
+
+#: src/components/SetupChecklist.tsx:55
+#: src/pages/Setup.tsx:529
+msgid "Sync your data"
+msgstr "Sync your data"
+
+#: src/components/UpcomingPlanCard.tsx:534
+#: src/pages/Settings.tsx:755
+msgid "Synced"
+msgstr "Synced"
+
+#: src/pages/Settings.tsx:752
+msgid "Syncing"
+msgstr "Syncing"
+
+#: src/pages/Setup.tsx:575
+msgid "Syncing..."
+msgstr "Syncing..."
+
+#: src/components/AppSidebar.tsx:30
+msgid "System"
+msgstr "System"
+
+#: src/components/ZoneAnalysisCard.tsx:45
+msgid "target"
+msgstr "target"
+
+#: src/components/charts/CpTrendChart.tsx:77
+#: src/components/MilestoneTracker.tsx:29
+#: src/components/WorkoutTimeline.tsx:41
+#: src/components/ZoneAnalysisCard.tsx:65
+#: src/pages/Goal.tsx:139
+#: src/pages/Goal.tsx:277
+msgid "Target"
+msgstr "Target"
+
+#: src/components/SetupChecklist.tsx:72
+#: src/pages/Settings.tsx:1008
+#: src/pages/Setup.tsx:667
+msgid "Target a race or track continuous improvement"
+msgstr "Target a race or track continuous improvement"
+
+#: src/pages/Settings.tsx:1039
+msgid "Target Time"
+msgstr "Target Time"
+
+#: src/lib/display-labels.ts:44
+#: src/lib/phase-label.ts:14
+msgid "Tempo"
+msgstr "Tempo"
+
+#: src/components/AppSidebar.tsx:139
+msgid "Theme"
+msgstr "Theme"
+
+#. placeholder {0}: deleteUser?.email
+#: src/pages/Admin.tsx:468
+msgid "This will permanently delete <0>{0}</0> and all their data (activities, config, connections, plans). This cannot be undone."
+msgstr "This will permanently delete <0>{0}</0> and all their data (activities, config, connections, plans). This cannot be undone."
+
+#: src/lib/display-labels.ts:45
+#: src/lib/phase-label.ts:15
+msgid "Threshold"
+msgstr "Threshold"
+
+#: src/lib/display-labels.ts:54
+#: src/pages/Settings.tsx:143
+msgid "Threshold Pace"
+msgstr "Threshold Pace"
+
+#: src/lib/display-labels.ts:58
+msgid "Threshold Pace Trend"
+msgstr "Threshold Pace Trend"
+
+#: src/pages/Settings.tsx:1072
+msgid "Thresholds"
+msgstr "Thresholds"
+
+#: src/components/AppSidebar.tsx:61
+#: src/components/charts/FitnessFatigueChart.tsx:216
+#: src/components/RecoveryPanel.tsx:90
+#: src/pages/Today.tsx:70
+msgid "Today"
+msgstr "Today"
+
+#: src/components/UpcomingPlanCard.tsx:220
+msgid "TODAY"
+msgstr "TODAY"
+
+#: src/components/AppSidebar.tsx:66
+msgid "Training"
+msgstr "Training"
+
+#: src/pages/Settings.tsx:912
+msgid "Training Base"
+msgstr "Training Base"
+
+#: src/components/DiagnosisCard.tsx:34
+msgid "Training Diagnosis"
+msgstr "Training Diagnosis"
+
+#: src/pages/Training.tsx:67
+msgid "Training Insights"
+msgstr "Training Insights"
+
+#: src/pages/Settings.tsx:107
+msgid "Training plan & targets"
+msgstr "Training plan & targets"
+
+#: src/pages/Science.tsx:227
+msgid "Training Science"
+msgstr "Training Science"
+
+#: src/pages/Science.tsx:28
+msgid "Training Zones"
+msgstr "Training Zones"
+
+#: src/pages/Goal.tsx:413
+msgid "Trend"
+msgstr "Trend"
+
+#: src/components/charts/FitnessFatigueChart.tsx:243
+msgid "TSB (Form)"
+msgstr "TSB (Form)"
+
+#: src/pages/Goal.tsx:88
+msgid "Ultra distance power fractions (50K+) are estimates with limited research backing. Riegel's exponent is validated only up to marathon distance. Predictions beyond marathon carry significantly higher uncertainty due to factors like fueling, terrain, heat, and pacing strategy that dominate ultra performance but are not captured by power/pace models."
+msgstr "Ultra distance power fractions (50K+) are estimates with limited research backing. Riegel's exponent is validated only up to marathon distance. Predictions beyond marathon carry significantly higher uncertainty due to factors like fueling, terrain, heat, and pacing strategy that dominate ultra performance but are not captured by power/pace models."
+
+#: src/pages/Settings.tsx:579
+msgid "Units"
+msgstr "Units"
+
+#: src/components/UpcomingPlanCard.tsx:512
+msgid "Upcoming Plan"
+msgstr "Upcoming Plan"
+
+#: src/pages/Admin.tsx:456
+msgid "Updating..."
+msgstr "Updating..."
+
+#: src/pages/Science.tsx:175
+msgid "Use this"
+msgstr "Use this"
+
+#: src/pages/Admin.tsx:343
+msgid "Used"
+msgstr "Used"
+
+#: src/pages/Admin.tsx:316
+msgid "Used By"
+msgstr "Used By"
+
+#: src/pages/Admin.tsx:224
+msgid "User"
+msgstr "User"
+
+#: src/pages/Admin.tsx:188
+msgid "Users"
+msgstr "Users"
+
+#: src/pages/Science.tsx:85
+msgid "view"
+msgstr "view"
+
+#: src/pages/Settings.tsx:501
+msgid "Viewing configuration (read-only demo)"
+msgstr "Viewing configuration (read-only demo)"
+
+#: src/lib/display-labels.ts:46
+msgid "VO2max"
+msgstr "VO2max"
+
+#: src/pages/Settings.tsx:991
+msgid "VO2max, CP, LTHR, training status"
+msgstr "VO2max, CP, LTHR, training status"
+
+#: src/lib/phase-label.ts:7
+msgid "Warmup"
+msgstr "Warmup"
+
+#: src/pages/Today.tsx:104
+msgid "Warnings"
+msgstr "Warnings"
+
+#: src/components/WeeklyLoadMini.tsx:30
+msgid "Weekly Load"
+msgstr "Weekly Load"
+
+#: src/components/charts/ComplianceChart.tsx:38
+msgid "Weekly Load Compliance"
+msgstr "Weekly Load Compliance"
+
+#: src/pages/Training.tsx:68
+msgid "Weekly Review"
+msgstr "Weekly Review"
+
+#: src/components/DiagnosisCard.tsx:41
+msgid "Weekly Volume"
+msgstr "Weekly Volume"
+
+#: src/pages/Setup.tsx:723
+msgid "Will sync:"
+msgstr "Will sync:"
+
+#: src/pages/Admin.tsx:210
+msgid "you"
+msgstr "you"
+
+#: src/pages/Login.tsx:94
+#: src/pages/Login.tsx:130
+msgid "you@example.com"
+msgstr "you@example.com"
+
+#: src/pages/Settings.tsx:527
+msgid "Your identity in Praxys"
+msgstr "Your identity in Praxys"
+
+#: src/pages/Settings.tsx:453
+#~ msgid "Your identity in Trainsight"
+#~ msgstr "Your identity in Trainsight"
+
+#: src/pages/Settings.tsx:553
+msgid "Your name"
+msgstr "Your name"
+
+#: src/components/ZoneAnalysisCard.tsx:62
+msgid "Zone"
+msgstr "Zone"
+
+#: src/components/ZoneAnalysisCard.tsx:53
+msgid "Zone Analysis"
+msgstr "Zone Analysis"
+
+#: src/pages/Science.tsx:253
+msgid "Zone Labels"
+msgstr "Zone Labels"
+
+#: src/pages/Settings.tsx:113
+msgid "Zones & load from Critical Power"
+msgstr "Zones & load from Critical Power"
+
+#: src/pages/Settings.tsx:122
+msgid "Zones & load from Lactate Threshold HR"
+msgstr "Zones & load from Lactate Threshold HR"
+
+#: src/pages/Settings.tsx:131
+msgid "Zones & load from Threshold Pace"
+msgstr "Zones & load from Threshold Pace"

@@ -174,10 +174,12 @@ def _sync_connection(user_id: str, platform: str, db):
     creds = json.loads(creds_json)
 
     # Use the sync route's direct DB write functions
-    from api.routes.sync import _sync_garmin, _sync_stryd, _sync_oura
+    from api.routes.sync import _sync_garmin, _sync_strava, _sync_stryd, _sync_oura
 
     if platform == "garmin":
         counts = _sync_garmin(user_id, creds, None, db)
+    elif platform == "strava":
+        counts = _sync_strava(user_id, creds, None, db)
     elif platform == "stryd":
         counts = _sync_stryd(user_id, creds, None, db)
     elif platform == "oura":
@@ -187,6 +189,23 @@ def _sync_connection(user_id: str, platform: str, db):
         return
 
     db.commit()
+
+    # Refresh activity-derived CP after the sync — best-effort, never break
+    # the scheduled sync if the fit fails. Skipped for Oura since it writes
+    # no activity power.
+    if platform in ("garmin", "strava", "stryd"):
+        try:
+            from db.sync_writer import update_cp_from_activities
+            fit = update_cp_from_activities(user_id, db)
+            if fit is not None:
+                db.commit()
+                logger.info(
+                    "Activity-derived CP for user=%s: %.1fW (r²=%.2f, %d points)",
+                    user_id, fit["cp_watts"], fit["r_squared"], fit["point_count"],
+                )
+        except Exception:
+            logger.exception("Activity-derived CP refresh failed: user=%s", user_id)
+            db.rollback()
 
     # Update last_sync
     conn.last_sync = datetime.utcnow()

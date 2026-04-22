@@ -60,6 +60,13 @@ def parse_activities(raw_activities: list[dict]) -> list[dict]:
             val = a.get(f"hrTimeInZone_{z}")
             hr_zones[f"hr_zone{z}_sec"] = str(int(val)) if val is not None else ""
 
+        # Native Garmin running power is present on modern watches (Fenix 6+,
+        # FR 255/955/965, Epix) and when an HRM-Pro or Stryd pod is paired via
+        # ANT+. Older watches may only surface power through ConnectIQ (handled
+        # at the lap level in parse_splits).
+        avg_power_raw = a.get("averagePower")
+        max_power_raw = a.get("maxPower")
+
         rows.append({
             "activity_id": str(a.get("activityId", "")),
             "date": date_str,
@@ -68,6 +75,8 @@ def parse_activities(raw_activities: list[dict]) -> list[dict]:
             "distance_km": str(round(distance_m / 1000, 1)) if distance_m else "",
             "duration_sec": str(int(duration)) if duration else "",
             "avg_pace_min_km": avg_pace,
+            "avg_power": str(round(float(avg_power_raw), 1)) if avg_power_raw is not None else "",
+            "max_power": str(round(float(max_power_raw), 1)) if max_power_raw is not None else "",
             "avg_hr": str(int(a["averageHR"])) if a.get("averageHR") else "",
             "max_hr": str(int(a["maxHR"])) if a.get("maxHR") else "",
             "elevation_gain_m": str(a["elevationGain"]) if a.get("elevationGain") else "",
@@ -83,8 +92,14 @@ def parse_activities(raw_activities: list[dict]) -> list[dict]:
 def parse_splits(activity_id: str, splits_data: dict) -> list[dict]:
     """Parse per-lap split data from get_activity_splits() response.
 
-    Garmin returns laps as lapDTOs. ConnectIQ power (e.g. Stryd) appears in
-    connectIQMeasurement array with a specific developerFieldNumber.
+    Garmin returns laps as lapDTOs. Power comes from one of two sources, in
+    priority order:
+    1. Native Garmin running power (lap["averagePower"]) — present on modern
+       watches and when HRM-Pro / Stryd pod is paired via ANT+.
+    2. ConnectIQ developer field 10 — Stryd's ConnectIQ data-field convention,
+       used when the watch doesn't expose power natively. Field numbers are
+       defined per-app so the `developerFieldName` is checked to avoid
+       accepting a non-power field that happens to share the number.
     """
     rows = []
     laps = splits_data.get("lapDTOs", [])
@@ -102,13 +117,29 @@ def parse_splits(activity_id: str, splits_data: dict) -> list[dict]:
             secs = int(pace_sec_per_km % 60)
             avg_pace = f"{mins}:{secs:02d}"
 
-        # ConnectIQ power from Stryd — look in connectIQMeasurement array
+        # Prefer native Garmin power; fall back to ConnectIQ field 10.
         avg_power = ""
-        for ciq in lap.get("connectIQMeasurement", []):
-            if ciq.get("developerFieldNumber") == 10:
+        native_power = lap.get("averagePower")
+        if native_power is not None:
+            try:
+                avg_power = str(int(float(native_power)))
+            except (ValueError, TypeError):
+                pass
+        if not avg_power:
+            for ciq in lap.get("connectIQMeasurement", []):
+                if ciq.get("developerFieldNumber") != 10:
+                    continue
+                # Accept when the field name confirms power, or when no name
+                # is present (Stryd's historical payload). Reject if the name
+                # is set but clearly isn't power.
+                field_name = str(
+                    ciq.get("developerFieldName") or ciq.get("fieldName") or ""
+                ).lower()
+                if field_name and "power" not in field_name:
+                    continue
                 try:
                     avg_power = str(int(float(ciq["value"])))
-                except (ValueError, KeyError):
+                except (ValueError, KeyError, TypeError):
                     pass
                 break
 
@@ -131,6 +162,99 @@ def parse_splits(activity_id: str, splits_data: dict) -> list[dict]:
             "avg_power": avg_power,
         })
     return rows
+
+
+def parse_user_profile(profile: dict | None) -> dict:
+    """Extract LTHR and (when present) max HR from Garmin user profile.
+
+    Garmin's ``/userprofile-service/userprofile/user-settings`` payload nests
+    most fields under ``userData``. Confirmed fields on an International account
+    (2026-04): ``userData.lactateThresholdHeartRate``, ``userData.vo2MaxRunning``,
+    ``userData.lactateThresholdSpeed``. The endpoint does **not** return a
+    configured max HR or resting HR — those come from ``get_heart_rates(date)``,
+    not the profile. We keep a defensive check for ``maxHr`` variants in case
+    Garmin adds one later.
+    """
+    if not isinstance(profile, dict):
+        return {}
+
+    user_data = profile.get("userData")
+    if not isinstance(user_data, dict):
+        user_data = profile
+
+    result: dict[str, int] = {}
+
+    lthr = user_data.get("lactateThresholdHeartRate")
+    if lthr:
+        try:
+            result["lthr_bpm"] = int(float(lthr))
+        except (TypeError, ValueError):
+            pass
+
+    max_hr = (
+        user_data.get("maxHr")
+        or user_data.get("maxHeartRate")
+        or user_data.get("heartRateMax")
+    )
+    if max_hr:
+        try:
+            result["max_hr_bpm"] = int(float(max_hr))
+        except (TypeError, ValueError):
+            pass
+
+    return result
+
+
+def parse_running_ftp(payload: dict | None) -> dict:
+    """Extract Garmin's running Critical Power / Functional Threshold Power.
+
+    Shape (confirmed International 2026-04):
+        {"sport": "RUNNING", "functionalThresholdPower": 350,
+         "isStale": false, "calendarDate": "2026-03-21T17:27:44.759", ...}
+
+    Returns ``{"cp_watts": N}`` on success, empty dict otherwise. Filters
+    out stale values (Garmin flags measurements it can no longer trust).
+
+    Note: Garmin's native running power reads substantially higher than
+    Stryd's (observed ~32% gap on the same athlete). The two aren't
+    interchangeable — see docs/dev/gotchas.md.
+    """
+    if not isinstance(payload, dict):
+        return {}
+    if payload.get("isStale") is True:
+        return {}
+    val = payload.get("functionalThresholdPower")
+    if val is None:
+        return {}
+    try:
+        return {"cp_watts": float(val)}
+    except (TypeError, ValueError):
+        return {}
+
+
+def parse_heart_rates(hr_data: dict | None) -> dict:
+    """Extract RHR fields from ``get_heart_rates(date)`` response.
+
+    Returns a dict with (any of):
+        - ``resting_hr``: that day's overnight resting HR (``restingHeartRate``).
+        - ``rolling_rest_hr``: the trailing 7-day average, which Garmin uses
+          as the stable reference — appropriate for TRIMP's ``rest_hr`` input.
+    """
+    if not isinstance(hr_data, dict):
+        return {}
+    result: dict[str, int] = {}
+    for src_key, dst_key in (
+        ("restingHeartRate", "resting_hr"),
+        ("lastSevenDaysAvgRestingHeartRate", "rolling_rest_hr"),
+    ):
+        val = hr_data.get(src_key)
+        if val is None:
+            continue
+        try:
+            result[dst_key] = int(float(val))
+        except (TypeError, ValueError):
+            pass
+    return result
 
 
 def parse_daily_metrics(
@@ -177,7 +301,8 @@ def parse_garmin_recovery(
     date_str: str,
     hrv_data: dict | None = None,
     sleep_data: dict | None = None,
-    training_readiness: dict | None = None,
+    training_readiness: dict | list | None = None,
+    heart_rates: dict | None = None,
 ) -> dict | None:
     """Parse Garmin HRV, sleep, and readiness into a recovery_data row.
 
@@ -196,40 +321,74 @@ def parse_garmin_recovery(
         entry = training_readiness
         if isinstance(training_readiness, list) and training_readiness:
             entry = training_readiness[0]
-        score = entry.get("score")
-        if score is not None:
-            result["readiness_score"] = str(round(float(score)))
-            has_data = True
-
-    # HRV → hrv_ms (use lastNightAvg or lastNight5MinHigh)
-    if hrv_data:
-        summary = hrv_data.get("hrvSummary", hrv_data)
-        last_night = summary.get("lastNightAvg") or summary.get("lastNight5MinHigh")
-        if last_night is not None:
-            result["hrv_ms"] = str(round(float(last_night)))
-            has_data = True
-
-    # Sleep → sleep_score, total_sleep_hours, resting_hr
-    if sleep_data:
-        daily_sleep = sleep_data.get("dailySleepDTO", sleep_data)
-        sleep_score = daily_sleep.get("sleepScores", {}).get("overall", {}).get("value")
-        if sleep_score is None:
-            sleep_score = daily_sleep.get("sleepScore")
-        if sleep_score is not None:
-            result["sleep_score"] = str(round(float(sleep_score)))
-            has_data = True
-
-        sleep_sec = daily_sleep.get("sleepTimeSeconds")
-        if sleep_sec is not None:
-            result["total_sleep_hours"] = str(round(float(sleep_sec) / 3600, 1))
-            has_data = True
-
-        # Resting HR from sleep data
-        if "resting_hr" not in result:
-            rhr = daily_sleep.get("restingHeartRate")
-            if rhr is not None and float(rhr) > 20:  # Sanity check
-                result["resting_hr"] = str(round(float(rhr)))
+        if isinstance(entry, dict):
+            score = entry.get("score")
+            if score is not None:
+                result["readiness_score"] = str(round(float(score)))
                 has_data = True
+
+    # HRV → hrv_ms (use lastNightAvg or lastNight5MinHigh).
+    # Garmin returns nested keys (hrvSummary / dailySleepDTO / sleepScores)
+    # as explicit null on days the watch collected nothing — observed
+    # especially on Garmin CN. `.get("k", default)` does NOT apply the
+    # default for a present-but-null key, so each level needs an
+    # isinstance guard before chaining further .get() calls.
+    if isinstance(hrv_data, dict):
+        summary = hrv_data.get("hrvSummary") or hrv_data
+        if isinstance(summary, dict):
+            last_night = summary.get("lastNightAvg") or summary.get("lastNight5MinHigh")
+            if last_night is not None:
+                result["hrv_ms"] = str(round(float(last_night)))
+                has_data = True
+
+    # Sleep → sleep_score, total_sleep_hours. Note: International sleep
+    # payloads do NOT include restingHeartRate (only avgHeartRate during
+    # sleep). The authoritative RHR source is get_heart_rates(date) —
+    # passed in via the heart_rates kwarg.
+    if isinstance(sleep_data, dict):
+        daily_sleep = sleep_data.get("dailySleepDTO") or sleep_data
+        if isinstance(daily_sleep, dict):
+            sleep_scores = daily_sleep.get("sleepScores") or {}
+            overall = sleep_scores.get("overall") if isinstance(sleep_scores, dict) else None
+            sleep_score = overall.get("value") if isinstance(overall, dict) else None
+            if sleep_score is None:
+                sleep_score = daily_sleep.get("sleepScore")
+            if sleep_score is not None:
+                result["sleep_score"] = str(round(float(sleep_score)))
+                has_data = True
+
+            sleep_sec = daily_sleep.get("sleepTimeSeconds")
+            if sleep_sec is not None:
+                result["total_sleep_hours"] = str(round(float(sleep_sec) / 3600, 1))
+                has_data = True
+
+    # Resting HR: prefer get_heart_rates(date).restingHeartRate. Fall back to
+    # sleep data's legacy restingHeartRate (present on older payload shapes)
+    # only when heart_rates doesn't provide one.
+    rhr: float | None = None
+    if isinstance(heart_rates, dict):
+        hr_val = heart_rates.get("restingHeartRate")
+        if hr_val is not None:
+            try:
+                hr_val_f = float(hr_val)
+                if hr_val_f > 20:  # Sanity check — below 20 is sensor artefact
+                    rhr = hr_val_f
+            except (TypeError, ValueError):
+                pass
+    if rhr is None and isinstance(sleep_data, dict):
+        daily_sleep = sleep_data.get("dailySleepDTO") or sleep_data
+        if isinstance(daily_sleep, dict):
+            legacy = daily_sleep.get("restingHeartRate")
+            if legacy is not None:
+                try:
+                    legacy_f = float(legacy)
+                    if legacy_f > 20:
+                        rhr = legacy_f
+                except (TypeError, ValueError):
+                    pass
+    if rhr is not None:
+        result["resting_hr"] = str(round(rhr))
+        has_data = True
 
     return result if has_data else None
 

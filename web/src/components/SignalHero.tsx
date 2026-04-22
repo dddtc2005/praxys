@@ -1,16 +1,21 @@
 import { Card, CardContent } from '@/components/ui/card';
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react/macro';
+import type { MessageDescriptor } from '@lingui/core';
 
 interface Props {
   recommendation: string;
   reason: string;
 }
 
-const SIGNAL_MAP: Record<string, { label: string; subtitle: string; color: 'green' | 'amber' | 'red' }> = {
-  follow_plan: { label: 'GO', subtitle: 'Follow Plan', color: 'green' },
-  easy: { label: 'EASY', subtitle: 'Go Easy', color: 'amber' },
-  modify: { label: 'MODIFY', subtitle: 'Adjust Workout', color: 'amber' },
-  reduce_intensity: { label: 'CAUTION', subtitle: 'Reduce Intensity', color: 'amber' },
-  rest: { label: 'REST', subtitle: 'Recovery Day', color: 'red' },
+type SignalColor = 'green' | 'amber' | 'red';
+
+const SIGNAL_MAP: Record<string, { label: MessageDescriptor; subtitle: MessageDescriptor; color: SignalColor }> = {
+  follow_plan: { label: msg`GO`, subtitle: msg`Follow Plan`, color: 'green' },
+  easy: { label: msg`EASY`, subtitle: msg`Go Easy`, color: 'amber' },
+  modify: { label: msg`MODIFY`, subtitle: msg`Adjust Workout`, color: 'amber' },
+  reduce_intensity: { label: msg`CAUTION`, subtitle: msg`Reduce Intensity`, color: 'amber' },
+  rest: { label: msg`REST`, subtitle: msg`Recovery Day`, color: 'red' },
 };
 
 const COLOR_CLASSES = {
@@ -38,6 +43,7 @@ const COLOR_CLASSES = {
 };
 
 export default function SignalHero({ recommendation, reason }: Props) {
+  const { i18n } = useLingui();
   const signal = SIGNAL_MAP[recommendation] ?? SIGNAL_MAP.follow_plan;
   const colors = COLOR_CLASSES[signal.color];
 
@@ -54,12 +60,12 @@ export default function SignalHero({ recommendation, reason }: Props) {
               className={`absolute inset-0 rounded-full ${colors.bg} opacity-10 ${colors.glow}`}
             />
             <span className={`relative text-3xl font-bold font-data tracking-wider ${colors.text}`}>
-              {signal.label}
+              {i18n._(signal.label)}
             </span>
           </div>
 
           {/* Subtitle */}
-          <p className={`text-lg font-semibold ${colors.text}`}>{signal.subtitle}</p>
+          <p className={`text-lg font-semibold ${colors.text}`}>{i18n._(signal.subtitle)}</p>
 
           {/* Reason */}
           <p className="max-w-md text-center text-sm text-muted-foreground">{reason}</p>

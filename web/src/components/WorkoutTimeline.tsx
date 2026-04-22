@@ -1,5 +1,7 @@
 import type { WorkoutPhase, Intensity } from '@/lib/workout-parser';
+import { phaseLabel } from '@/lib/phase-label';
 import { useChartColors } from '@/hooks/useChartColors';
+import { useLingui, Trans } from '@lingui/react/macro';
 
 interface Props {
   phases: WorkoutPhase[];
@@ -17,6 +19,7 @@ const INTENSITY_HEIGHT: Record<Intensity, string> = {
 
 export default function WorkoutTimeline({ phases, powerMin, powerMax }: Props) {
   const chartColors = useChartColors();
+  const { i18n } = useLingui();
   const totalMin = phases.reduce((s, p) => s + p.duration_min, 0);
 
   if (totalMin <= 0 || phases.length === 0) return null;
@@ -35,7 +38,7 @@ export default function WorkoutTimeline({ phases, powerMin, powerMax }: Props) {
       {powerMin != null && powerMax != null && (
         <div className="flex justify-center mb-1.5">
           <span className="text-[10px] font-data text-muted-foreground">
-            Target: {powerMin}{'\u2013'}{powerMax} W
+            <Trans>Target</Trans>: {powerMin}{'\u2013'}{powerMax} W
           </span>
         </div>
       )}
@@ -46,6 +49,7 @@ export default function WorkoutTimeline({ phases, powerMin, powerMax }: Props) {
           const widthPct = (phase.duration_min / totalMin) * 100;
           const showLabel = widthPct > 12;
           const showDuration = widthPct > 18;
+          const label = phaseLabel(phase, i18n);
 
           return (
             <div
@@ -57,11 +61,11 @@ export default function WorkoutTimeline({ phases, powerMin, powerMax }: Props) {
                 borderRadius: i === 0 ? '6px 0 0 6px' : i === phases.length - 1 ? '0 6px 6px 0' : undefined,
                 minWidth: 4,
               }}
-              title={`${phase.label}: ${phase.duration_min}min`}
+              title={`${label}: ${phase.duration_min}min`}
             >
               {showLabel && (
                 <span className="text-[8px] font-semibold uppercase tracking-wider text-foreground/70 leading-none">
-                  {phase.label}
+                  {label}
                 </span>
               )}
               {showDuration && (

@@ -1,6 +1,6 @@
 # Security
 
-How Trainsight protects your data and credentials.
+How Praxys protects your data and credentials.
 
 ## Credential Encryption
 
@@ -31,19 +31,19 @@ The KEK is a **Fernet key** stored in your `.env` file (which is gitignored). Ge
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-Set as `TRAINSIGHT_LOCAL_ENCRYPTION_KEY` in `.env`. Without this key, encrypted credentials cannot be decrypted and syncs will fail after a restart.
+Set as `PRAXYS_LOCAL_ENCRYPTION_KEY` in `.env`. Without this key, encrypted credentials cannot be decrypted and syncs will fail after a restart.
 
 ## Authentication
 
 ### JWT Tokens
 
-User sessions use JSON Web Tokens (JWT) with a 7-day lifetime. Tokens are signed with a server-side secret (`TRAINSIGHT_JWT_SECRET`). Expired tokens are rejected and the user must log in again.
+User sessions use JSON Web Tokens (JWT) with a 7-day lifetime. Tokens are signed with a server-side secret (`PRAXYS_JWT_SECRET`). Expired tokens are rejected and the user must log in again.
 
 ### Two Types of Passwords
 
-Trainsight handles two distinct categories of passwords differently:
+Praxys handles two distinct categories of passwords differently:
 
-**Your Trainsight account password** — hashed with **Argon2id** (winner of the Password Hashing Competition, resistant to GPU and side-channel attacks). The raw password is never stored in plaintext. Used for JWT login only.
+**Your Praxys account password** — hashed with **Argon2id** (winner of the Password Hashing Competition, resistant to GPU and side-channel attacks). The raw password is never stored in plaintext. Used for JWT login only.
 
 **Platform credentials** (Garmin email+password, Stryd email+password, Oura personal access token) — encrypted with **envelope encryption** (per-user AES/Fernet DEK, wrapped by a KEK). These are never returned to the frontend, never logged, only decrypted in memory at sync time, and discarded immediately after the sync API call completes. See [Credential Encryption](#credential-encryption) above for the full scheme.
 
@@ -77,8 +77,8 @@ When running locally:
 
 ## What We Don't Do
 
-- **We don't sell your data.** Trainsight is a personal training tool, not an ad platform.
-- **We don't share data with third parties.** Your training data stays in your Trainsight instance.
+- **We don't sell your data.** Praxys is a personal training tool, not an ad platform.
+- **We don't share data with third parties.** Your training data stays in your Praxys instance.
 - **We don't store more than needed.** We store platform credentials only to sync your data. Activity data stays in your instance's database.
 - **We don't send data to AI services without your action.** AI features (training plans, insights) are triggered explicitly by you via the CLI plugin. No background AI processing.
 - **We don't track you.** No analytics, no telemetry, no usage tracking in the app.

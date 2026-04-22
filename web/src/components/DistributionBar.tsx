@@ -1,4 +1,6 @@
 import type { ZoneDistribution } from '@/types/api';
+import { useLingui } from '@lingui/react/macro';
+import { tDisplay } from '@/lib/display-labels';
 
 interface Props {
   distribution: ZoneDistribution[];
@@ -18,10 +20,11 @@ function getZoneColor(index: number, total: number) {
 }
 
 export default function DistributionBar({ distribution }: Props) {
+  const { i18n } = useLingui();
   const total = distribution.reduce((sum, d) => sum + d.actual_pct, 0);
 
   const zones = [...distribution].reverse().map((d, i) => ({
-    name: d.name,
+    name: tDisplay(d.name, i18n),
     pct: total > 0 ? d.actual_pct : 0,
     ...getZoneColor(distribution.length - 1 - i, distribution.length),
   }));

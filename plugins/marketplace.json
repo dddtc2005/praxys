@@ -1,19 +1,19 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "trainsight-local",
-  "description": "Trainsight local plugin marketplace for development",
+  "name": "praxys-local",
+  "description": "Praxys local plugin marketplace for development",
   "owner": {
     "name": "Fei Tao",
     "email": "dddtc2006@live.cn"
   },
   "plugins": [
     {
-      "name": "trainsight",
+      "name": "praxys",
       "version": "1.0.0",
-      "description": "Trainsight training dashboard — MCP tools for training data, daily briefs, race forecasts, and AI plan management",
-      "source": "./plugins/trainsight",
+      "description": "Praxys training dashboard — MCP tools for training data, daily briefs, race forecasts, and AI plan management",
+      "source": "./plugins/praxys",
       "category": "productivity",
-      "homepage": "https://github.com/dddtc2005/trainsight"
+      "homepage": "https://github.com/dddtc2005/praxys"
     }
   ]
 }

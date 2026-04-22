@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useSettings } from '@/contexts/SettingsContext';
 import { Link2, RefreshCw, Gauge, Target, Check } from 'lucide-react';
+import { Trans, useLingui } from '@lingui/react/macro';
 
 interface SetupChecklistProps {
   /** Whether data has been synced (last_activity exists or upcoming workouts present). */
@@ -21,6 +22,7 @@ interface Step {
 export default function SetupChecklist({ hasData }: SetupChecklistProps) {
   const navigate = useNavigate();
   const { config, effectiveThresholds } = useSettings();
+  const { t } = useLingui();
 
   // Derive completion state from settings context
   const hasConnection = Object.values(effectiveThresholds).some(
@@ -42,35 +44,35 @@ export default function SetupChecklist({ hasData }: SetupChecklistProps) {
   const steps: Step[] = [
     {
       key: 'connect',
-      label: 'Connect a platform',
-      description: 'Link Garmin, Stryd, or Oura to pull your training data',
+      label: t`Connect a platform`,
+      description: t`Link Garmin, Strava, Stryd, or Oura to pull your training data`,
       icon: <Link2 className="h-4 w-4" />,
       done: platformConnected,
-      action: { label: 'Connect', to: '/settings' },
+      action: { label: t`Connect`, to: '/settings' },
     },
     {
       key: 'sync',
-      label: 'Sync your data',
-      description: 'Pull your latest activities, power data, and recovery metrics',
+      label: t`Sync your data`,
+      description: t`Pull your latest activities, power data, and recovery metrics`,
       icon: <RefreshCw className="h-4 w-4" />,
       done: hasData,
-      action: { label: 'Sync', to: '/settings' },
+      action: { label: t`Sync`, to: '/settings' },
     },
     {
       key: 'base',
-      label: 'Choose training base',
-      description: `Currently set to ${config?.training_base || 'power'}-based training`,
+      label: t`Choose training base`,
+      description: t`Currently set to ${config?.training_base || 'power'}-based training`,
       icon: <Gauge className="h-4 w-4" />,
-      done: true, // Always done — has a default
-      action: { label: 'Change', to: '/settings' },
+      done: true,
+      action: { label: t`Change`, to: '/settings' },
     },
     {
       key: 'goal',
-      label: 'Set a goal',
-      description: 'Target a race or track continuous improvement',
+      label: t`Set a goal`,
+      description: t`Target a race or track continuous improvement`,
       icon: <Target className="h-4 w-4" />,
       done: !!goalConfigured,
-      action: { label: 'Set goal', to: '/goal' },
+      action: { label: t`Set goal`, to: '/goal' },
     },
   ];
 
@@ -89,12 +91,12 @@ export default function SetupChecklist({ hasData }: SetupChecklistProps) {
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
             <h2 className="text-lg font-semibold text-foreground">
-              Get started with Trainsight
+              <Trans>Get started with Praxys</Trans>
             </h2>
             <p className="text-sm text-muted-foreground mt-0.5">
               {completed === 0
-                ? 'Complete these steps to unlock your training insights'
-                : `${completed} of ${steps.length} steps complete`}
+                ? <Trans>Complete these steps to unlock your training insights</Trans>
+                : <Trans>{completed} of {steps.length} steps complete</Trans>}
             </p>
           </div>
           <span className="text-xs font-semibold font-data text-primary tabular-nums shrink-0 mt-1">

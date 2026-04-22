@@ -19,7 +19,7 @@ Register a new user. First user on a fresh database becomes admin without an inv
 }
 ```
 
-- `invitation_code` is optional for the first user (auto-admin) or if the email matches `TRAINSIGHT_ADMIN_EMAIL`
+- `invitation_code` is optional for the first user (auto-admin) or if the email matches `PRAXYS_ADMIN_EMAIL`
 
 **Response:**
 ```json
@@ -261,9 +261,18 @@ Training analysis and diagnosis.
     "projected_tsb": ["..."]
   },
   "cp_trend": { "dates": ["..."], "values": ["..."] },
-  "weekly_review": { "weeks": ["W10", "..."], "actual_rss": ["..."], "planned_rss": ["..."] },
+  "weekly_review": {
+    "weeks": ["W10", "..."],
+    "actual_load": ["..."],
+    "planned_load": ["..."],
+    "planned_estimated": false
+  },
   "workout_flags": [{ "date": "...", "flag": "good|bad", "reason": "..." }],
-  "sleep_perf": { "..." : "..." },
+  "sleep_perf": {
+    "pairs": [[85, 240.3], ["..."]],
+    "metric_label": "Avg Power",
+    "metric_unit": "W"
+  },
   "training_base": "power",
   "display": { "..." : "..." }
 }
@@ -281,13 +290,17 @@ Race prediction and goal tracking.
   "race_countdown": {
     "distance": "marathon",
     "distance_label": "Marathon",
-    "mode": "race_goal|cp_milestone",
+    "mode": "race_date|cp_milestone|continuous|none",
     "current_cp": 247.8,
+    "target_cp": 280.0,
     "predicted_time_sec": 13852,
     "target_time_sec": 10800,
     "cp_gap_watts": 70.0,
-    "status": "on_track|behind|unlikely",
-    "milestones": [{ "cp": 270, "marathon": "~3:50", "reached": false }]
+    "status": "on_track|close|behind|unlikely",
+    "prediction_method": "critical_power|riegel|none",
+    "prediction_theory": "Critical Power (Stryd Race Power)",
+    "milestones": [{ "cp": 270, "marathon": "~3:50", "reached": false }],
+    "reality_check": { "assessment": "...", "severity": "..." }
   },
   "cp_trend": { "dates": ["..."], "values": ["..."] },
   "cp_trend_data": { "direction": "improving|stable|falling", "slope_per_month": -3.9 },
@@ -296,6 +309,12 @@ Race prediction and goal tracking.
   "display": { "..." : "..." }
 }
 ```
+
+> **Units.** `latest_cp`, `current_cp`, `target_cp`, `cp_trend.values` are in the user's
+> base-native threshold unit (watts for power, bpm for HR, sec/km for pace).
+> Pair with `display.threshold_unit` to format. `actual_load` / `planned_load`
+> similarly carry RSS / TRIMP / rTSS depending on the training base; pair with
+> `display.load_label`.
 
 ## History
 

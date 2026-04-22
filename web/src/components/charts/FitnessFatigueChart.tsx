@@ -17,6 +17,7 @@ import ZoneLegend from '@/components/charts/ZoneLegend';
 import { useScience, tsbZoneFromConfig } from '@/contexts/ScienceContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useChartColors } from '@/hooks/useChartColors';
+import { Trans, useLingui } from '@lingui/react/macro';
 
 import type { ScienceNoteInfo } from '@/types/api';
 
@@ -82,6 +83,7 @@ function CustomTooltip({ active, payload, label, tsbZones, chartColors }: any) {
 
 export default function FitnessFatigueChart({ data, scienceNote }: Props) {
   const chartColors = useChartColors();
+  const { t } = useLingui();
   const { tsbZones } = useScience();
   const { chartData, yMin, yMax, hasProjection } = useMemo(() => {
     const hasProjData = !!(data.projected_dates?.length && data.projected_ctl?.length);
@@ -151,7 +153,7 @@ export default function FitnessFatigueChart({ data, scienceNote }: Props) {
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Fitness / Fatigue / Form
+          <Trans>Fitness / Fatigue / Form</Trans>
         </CardTitle>
         <div className="flex items-center gap-4 text-[11px]">
           <span className="flex items-center gap-1.5">
@@ -169,7 +171,7 @@ export default function FitnessFatigueChart({ data, scienceNote }: Props) {
           {hasProjection && (
             <span className="flex items-center gap-1.5">
               <span className="inline-block w-3 h-0.5 rounded-full opacity-60" style={{ backgroundColor: chartColors.projection, borderTop: `2px dashed ${chartColors.projection}` }} />
-              <span className="text-muted-foreground">Projected</span>
+              <span className="text-muted-foreground"><Trans>Projected</Trans></span>
             </span>
           )}
         </div>
@@ -211,7 +213,7 @@ export default function FitnessFatigueChart({ data, scienceNote }: Props) {
                 stroke={chartColors.projection}
                 strokeWidth={1}
                 strokeDasharray="3 3"
-                label={{ value: 'Today', position: 'top', fill: chartColors.projection, fontSize: 10 }}
+                label={{ value: t`Today`, position: 'top', fill: chartColors.projection, fontSize: 10 }}
               />
             )}
 
@@ -236,9 +238,9 @@ export default function FitnessFatigueChart({ data, scienceNote }: Props) {
 
             <Area type="monotone" dataKey="tsb" fill="url(#tsbAreaGrad)" stroke="none" connectNulls={false} isAnimationActive={false} />
 
-            <Line type="monotone" dataKey="ctl" stroke={chartColors.fitness} strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={false} name="CTL (Fitness)" />
-            <Line type="monotone" dataKey="atl" stroke={chartColors.fatigue} strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={false} name="ATL (Fatigue)" />
-            <Line type="monotone" dataKey="tsb" stroke={chartColors.form} strokeWidth={2.5} dot={false} connectNulls={false} isAnimationActive={false} name="TSB (Form)" />
+            <Line type="monotone" dataKey="ctl" stroke={chartColors.fitness} strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={false} name={t`CTL (Fitness)`} />
+            <Line type="monotone" dataKey="atl" stroke={chartColors.fatigue} strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={false} name={t`ATL (Fatigue)`} />
+            <Line type="monotone" dataKey="tsb" stroke={chartColors.form} strokeWidth={2.5} dot={false} connectNulls={false} isAnimationActive={false} name={t`TSB (Form)`} />
 
             {hasProjection && (
               <>

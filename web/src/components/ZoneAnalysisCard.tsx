@@ -1,6 +1,8 @@
 import type { ZoneDistribution, ZoneRange, DisplayConfig } from '@/types/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Trans, useLingui } from '@lingui/react/macro';
+import { tDisplay } from '@/lib/display-labels';
 
 interface Props {
   distribution: ZoneDistribution[];
@@ -29,6 +31,7 @@ function formatRange(range: ZoneRange): string {
 }
 
 export default function ZoneAnalysisCard({ distribution, zoneRanges, theoryName, display }: Props) {
+  const { t, i18n } = useLingui();
   const thresholdLabel = display ? `${display.threshold_abbrev}` : '';
 
   const rows = [...distribution].reverse();
@@ -38,8 +41,8 @@ export default function ZoneAnalysisCard({ distribution, zoneRanges, theoryName,
     .filter((d) => d.target_pct != null && Math.abs(d.actual_pct - d.target_pct!) > 5)
     .map((d) => {
       const diff = d.actual_pct - d.target_pct!;
-      const direction = diff > 0 ? 'above' : 'below';
-      return `${d.name}: ${d.actual_pct}% (${Math.abs(diff)}pp ${direction} ${d.target_pct}% target)`;
+      const direction = diff > 0 ? t`above` : t`below`;
+      return `${tDisplay(d.name, i18n)}: ${d.actual_pct}% (${Math.abs(diff)}pp ${direction} ${d.target_pct}% ${t`target`})`;
     });
 
   return (
@@ -47,7 +50,7 @@ export default function ZoneAnalysisCard({ distribution, zoneRanges, theoryName,
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Zone Analysis · {theoryName}
+            <Trans>Zone Analysis</Trans> · {theoryName}
           </CardTitle>
           {thresholdLabel && (
             <span className="text-xs text-muted-foreground font-data">{thresholdLabel}</span>
@@ -56,10 +59,10 @@ export default function ZoneAnalysisCard({ distribution, zoneRanges, theoryName,
       </CardHeader>
       <CardContent>
         <div className="flex items-center pb-2 mb-2 border-b border-border">
-          <span className="w-20 text-[10px] uppercase tracking-wider text-muted-foreground">Zone</span>
-          <span className="flex-1 text-[10px] uppercase tracking-wider text-muted-foreground">Range</span>
-          <span className="w-14 text-right text-[10px] uppercase tracking-wider text-muted-foreground">Actual</span>
-          <span className="w-14 text-right text-[10px] uppercase tracking-wider text-muted-foreground">Target</span>
+          <span className="w-20 text-[10px] uppercase tracking-wider text-muted-foreground"><Trans>Zone</Trans></span>
+          <span className="flex-1 text-[10px] uppercase tracking-wider text-muted-foreground"><Trans>Range</Trans></span>
+          <span className="w-14 text-right text-[10px] uppercase tracking-wider text-muted-foreground"><Trans>Actual</Trans></span>
+          <span className="w-14 text-right text-[10px] uppercase tracking-wider text-muted-foreground"><Trans>Target</Trans></span>
         </div>
 
         <div className="space-y-1.5">
@@ -68,7 +71,7 @@ export default function ZoneAnalysisCard({ distribution, zoneRanges, theoryName,
             const colorClass = getZoneTextColor(distribution.length - 1 - i, distribution.length);
             return (
               <div key={d.name} className="flex items-center">
-                <span className={`w-20 text-sm font-medium ${colorClass}`}>{d.name}</span>
+                <span className={`w-20 text-sm font-medium ${colorClass}`}>{tDisplay(d.name, i18n)}</span>
                 <span className="flex-1 text-sm text-muted-foreground font-data">
                   {range ? formatRange(range) : ''}
                 </span>
@@ -86,7 +89,7 @@ export default function ZoneAnalysisCard({ distribution, zoneRanges, theoryName,
         {alerts.length > 0 && (
           <Alert className="mt-4 border-accent-amber/30 bg-accent-amber/5">
             <AlertDescription className="text-sm text-accent-amber">
-              Distribution deviates from target: {alerts.join('; ')}
+              <Trans>Distribution deviates from target</Trans>: {alerts.join('; ')}
             </AlertDescription>
           </Alert>
         )}

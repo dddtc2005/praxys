@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { ChevronRight } from 'lucide-react';
 import WorkoutTimeline from '@/components/WorkoutTimeline';
 import { parseWorkoutStructure } from '@/lib/workout-parser';
+import { Trans, useLingui } from '@lingui/react/macro';
+import { useLocale } from '@/contexts/LocaleContext';
 
 interface Props {
   plan: PlanData;
@@ -19,21 +21,23 @@ function formatType(type: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function formatDay(dateStr: string): string {
+function formatDay(dateStr: string, locale: string): string {
   const d = new Date(dateStr);
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  return d.toLocaleDateString(locale === 'zh' ? 'zh-CN' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
 export default function WorkoutCard({ plan, alternatives, upcoming }: Props) {
   const [showAlts, setShowAlts] = useState(false);
   const [showUpcoming, setShowUpcoming] = useState(false);
+  const { t } = useLingui();
+  const { locale } = useLocale();
 
   const title = plan.workout_type
     ? plan.workout_type
         .split('_')
         .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
         .join(' ')
-    : 'No Workout';
+    : t`No Workout`;
 
   const details: string[] = [];
   if (plan.duration_min != null) details.push(`${plan.duration_min} min`);
@@ -47,7 +51,7 @@ export default function WorkoutCard({ plan, alternatives, upcoming }: Props) {
     <Card>
       <CardHeader>
         <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Planned Workout
+          <Trans>Planned Workout</Trans>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -75,7 +79,7 @@ export default function WorkoutCard({ plan, alternatives, upcoming }: Props) {
           <Collapsible open={showAlts} onOpenChange={setShowAlts} className="mt-4 border-t border-border pt-3">
             <CollapsibleTrigger className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors">
               <ChevronRight className={`h-3 w-3 transition-transform ${showAlts ? 'rotate-90' : ''}`} />
-              Options
+              <Trans>Options</Trans>
             </CollapsibleTrigger>
             <CollapsibleContent>
               <ul className="mt-2 space-y-1">
@@ -93,14 +97,14 @@ export default function WorkoutCard({ plan, alternatives, upcoming }: Props) {
           <Collapsible open={showUpcoming} onOpenChange={setShowUpcoming} className="mt-4 border-t border-border pt-3">
             <CollapsibleTrigger className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors">
               <ChevronRight className={`h-3 w-3 transition-transform ${showUpcoming ? 'rotate-90' : ''}`} />
-              Coming Up
+              <Trans>Coming Up</Trans>
             </CollapsibleTrigger>
             <CollapsibleContent>
               <div className="mt-2 space-y-1.5">
                 {upcoming.map((w, i) => (
                   <div key={i} className="flex items-center gap-2 text-sm">
                     <span className="text-[11px] font-data text-muted-foreground w-24 shrink-0">
-                      {formatDay(w.date)}
+                      {formatDay(w.date, locale)}
                     </span>
                     <Badge variant="secondary" className="text-[10px]">
                       {formatType(w.workout_type)}

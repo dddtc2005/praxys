@@ -1,8 +1,16 @@
 import type React from 'react';
 import { useState, useEffect, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useSettings } from '@/contexts/SettingsContext';
 import { API_BASE, getAuthHeaders } from '@/hooks/useApi';
-import type { TrainingBase, SyncStatusResponse } from '@/types/api';
+import type { TrainingBase, SyncStatusResponse, SettingsConfig } from '@/types/api';
+import {
+  buildStravaReturnTo,
+  getStravaOAuthMessage,
+  getStravaOAuthResult,
+  startStravaOAuth,
+  stripStravaOAuthParams,
+} from '@/lib/strava-oauth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +26,11 @@ import { Link2, Gauge, SlidersHorizontal, Target, Activity, User, Check, Clock }
 import GoalEditor from '@/components/GoalEditor';
 import { formatTime, formatPace } from '@/lib/format';
 import { useAuth } from '@/hooks/useAuth';
+import { useLocale } from '@/contexts/LocaleContext';
+import { detectBrowserLocale } from '@/lib/locale-detect';
+import { Trans, useLingui } from '@lingui/react/macro';
+import { msg } from '@lingui/core/macro';
+import type { MessageDescriptor } from '@lingui/core';
 
 // --- Constants ---
 
@@ -30,6 +43,23 @@ const PLATFORM_META: Record<string, { label: string; color: string; icon: React.
         <circle cx="12" cy="12" r="9" />
         <path d="M12 7v5l3 3" />
         <path d="M8 3.5l1 1M16 3.5l-1 1" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  strava: {
+    label: 'Strava',
+    color: '#fc4c02',
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        className="w-5 h-5"
+        aria-hidden="true"
+      >
+        <path d="M13.25 2 7.1 13.55h3.84l2.31-4.2 2.37 4.2h3.83L13.25 2Z" />
+        <path d="m10.47 15.18-2.2 4.02h4.4l-2.2-4.02Z" />
       </svg>
     ),
   },
@@ -64,23 +94,23 @@ const PLATFORM_META: Record<string, { label: string; color: string; icon: React.
   },
 };
 
-const CAPABILITY_LABELS: Record<string, string> = {
-  activities: 'Activities',
-  recovery: 'Recovery',
-  fitness: 'Fitness',
-  plan: 'Plan',
+const CAPABILITY_LABELS: Record<string, MessageDescriptor> = {
+  activities: msg`Activities`,
+  recovery: msg`Recovery`,
+  fitness: msg`Fitness`,
+  plan: msg`Plan`,
 };
 
-const PREFERENCE_CATEGORIES = [
-  { key: 'activities', label: 'Activities', desc: 'Primary source for workout data' },
-  { key: 'recovery', label: 'Recovery', desc: 'Sleep, HRV, readiness' },
-  { key: 'plan', label: 'Plan', desc: 'Training plan & targets' },
+const PREFERENCE_CATEGORIES: { key: string; label: MessageDescriptor; desc: MessageDescriptor }[] = [
+  { key: 'activities', label: msg`Activities`, desc: msg`Primary source for workout data` },
+  { key: 'recovery', label: msg`Recovery`, desc: msg`Sleep, HRV, readiness` },
+  { key: 'plan', label: msg`Plan`, desc: msg`Training plan & targets` },
 ];
 
-const BASE_CONFIG: Record<TrainingBase, { label: string; desc: string; icon: React.ReactNode }> = {
+const BASE_CONFIG: Record<TrainingBase, { label: MessageDescriptor; desc: MessageDescriptor; icon: React.ReactNode }> = {
   power: {
-    label: 'Power',
-    desc: 'Zones & load from Critical Power',
+    label: msg`Power`,
+    desc: msg`Zones & load from Critical Power`,
     icon: (
       <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
         <path d="M11.3 1.05a.75.75 0 01.4.9l-2.1 7.05h4.65a.75.75 0 01.58 1.22l-7.5 9a.75.75 0 01-1.28-.72l2.1-7.05H3.5a.75.75 0 01-.58-1.22l7.5-9a.75.75 0 01.88-.18z" />
@@ -88,8 +118,8 @@ const BASE_CONFIG: Record<TrainingBase, { label: string; desc: string; icon: Rea
     ),
   },
   hr: {
-    label: 'Heart Rate',
-    desc: 'Zones & load from Lactate Threshold HR',
+    label: msg`Heart Rate`,
+    desc: msg`Zones & load from Lactate Threshold HR`,
     icon: (
       <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
         <path d="M9.653 16.915l-.005-.003-.019-.01a20.8 20.8 0 01-1.162-.682 22.16 22.16 0 01-2.582-1.9C4.045 12.733 2 10.352 2 7.5a4.5 4.5 0 018-2.828A4.5 4.5 0 0118 7.5c0 2.852-2.044 5.233-3.885 6.82a22.05 22.05 0 01-3.744 2.582l-.019.01-.005.003h-.002z" />
@@ -97,8 +127,8 @@ const BASE_CONFIG: Record<TrainingBase, { label: string; desc: string; icon: Rea
     ),
   },
   pace: {
-    label: 'Pace',
-    desc: 'Zones & load from Threshold Pace',
+    label: msg`Pace`,
+    desc: msg`Zones & load from Threshold Pace`,
     icon: (
       <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clipRule="evenodd" />
@@ -107,15 +137,29 @@ const BASE_CONFIG: Record<TrainingBase, { label: string; desc: string; icon: Rea
   },
 };
 
-const THRESHOLD_FIELDS = [
-  { key: 'cp_watts', label: 'Critical Power', unit: 'W' },
-  { key: 'lthr_bpm', label: 'LTHR', unit: 'bpm' },
-  { key: 'threshold_pace_sec_km', label: 'Threshold Pace', unit: '/km', isPace: true },
-  { key: 'max_hr_bpm', label: 'Max HR', unit: 'bpm' },
-  { key: 'rest_hr_bpm', label: 'Resting HR', unit: 'bpm' },
+const THRESHOLD_FIELDS: { key: string; label: MessageDescriptor; unit: string; isPace?: boolean }[] = [
+  { key: 'cp_watts', label: msg`Critical Power`, unit: 'W' },
+  { key: 'lthr_bpm', label: msg`LTHR`, unit: 'bpm' },
+  { key: 'threshold_pace_sec_km', label: msg`Threshold Pace`, unit: '/km', isPace: true },
+  { key: 'max_hr_bpm', label: msg`Max HR`, unit: 'bpm' },
+  { key: 'rest_hr_bpm', label: msg`Resting HR`, unit: 'bpm' },
 ];
 
-const CONNECTABLE_PLATFORMS = ['garmin', 'stryd', 'oura'] as const;
+/** Hook returning a ``source → label`` function for fitness-data source
+ *  names. Connected platforms capitalise their brand name; the special
+ *  ``activities`` source — computed in-app from your own power-vs-duration
+ *  — gets a translated, descriptive label so the option reads as a
+ *  distinct choice rather than a connected platform. Hook form is required
+ *  so ``t\`…\``` receives the active Lingui translator. */
+function useThresholdSourceLabel() {
+  const { t } = useLingui();
+  return (source: string): string => {
+    if (source === 'activities') return t`From activities`;
+    return source.charAt(0).toUpperCase() + source.slice(1);
+  };
+}
+
+const CONNECTABLE_PLATFORMS = ['garmin', 'strava', 'stryd', 'oura'] as const;
 const SYNC_INTERVAL_OPTIONS = [
   { hours: 6,  recommended: true },
   { hours: 12, recommended: false },
@@ -130,6 +174,10 @@ const PLATFORM_CRED_FIELDS: Record<string, { fields: { key: string; label: strin
       { key: 'password', label: 'Password', type: 'password' },
     ],
     help: 'Use your Garmin Connect credentials.',
+  },
+  strava: {
+    fields: [],
+    help: 'Authorize Praxys with Strava in your browser. Praxys only syncs activities from Strava.',
   },
   stryd: {
     fields: [
@@ -162,24 +210,33 @@ function SectionHeader({ icon, title, description }: { icon: React.ReactNode; ti
   );
 }
 
-const DISTANCE_LABELS: Record<string, string> = {
-  '5k': '5K', '10k': '10K', half: 'Half Marathon', marathon: 'Marathon',
-  '50k': '50K', '50mi': '50 Mile', '100k': '100K', '100mi': '100 Mile',
+const DISTANCE_LABELS: Record<string, MessageDescriptor> = {
+  '5k': msg`5K`,
+  '10k': msg`10K`,
+  half: msg`Half Marathon`,
+  marathon: msg`Marathon`,
+  '50k': msg`50K`,
+  '50mi': msg`50 Mile`,
+  '100k': msg`100K`,
+  '100mi': msg`100 Mile`,
 };
 
 // --- Component ---
 
 export default function Settings() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const {
     config, platformCapabilities, availableProviders, availableBases,
-    effectiveThresholds, loading, error, updateSettings, refetch,
+    effectiveThresholds, detectedThresholds, loading, error, updateSettings, refetch,
   } = useSettings();
   const { email: authEmail, isDemo } = useAuth();
+  const { setLocale } = useLocale();
+  const { t, i18n } = useLingui();
+  const thresholdSourceLabel = useThresholdSourceLabel();
 
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
-  const [editingThreshold, setEditingThreshold] = useState<string | null>(null);
-  const [thresholdInput, setThresholdInput] = useState('');
   const [syncStatus, setSyncStatus] = useState<SyncStatusResponse>({});
   const [backfillDate, setBackfillDate] = useState('');
   const [showBackfill, setShowBackfill] = useState(false);
@@ -187,6 +244,14 @@ export default function Settings() {
   const [connectCreds, setConnectCreds] = useState<Record<string, string>>({});
   const [connectError, setConnectError] = useState('');
   const [connecting, setConnecting] = useState(false);
+  const [stravaNotice, setStravaNotice] = useState('');
+  // Garmin region is captured with the credentials because International and
+  // CN are two independent account systems. Defaults to the current value so
+  // the dialog comes up pre-filled when the user is re-entering credentials
+  // without intending to switch regions.
+  const [connectRegion, setConnectRegion] = useState<'international' | 'cn'>(
+    String(config?.source_options?.garmin_region) === 'cn' ? 'cn' : 'international'
+  );
   const [goalEditorOpen, setGoalEditorOpen] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
@@ -222,6 +287,31 @@ export default function Settings() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    const oauthResult = getStravaOAuthResult(location.search);
+    if (!oauthResult) return;
+
+    const cleanedLocation = `${location.pathname}${stripStravaOAuthParams(location.search)}${location.hash}`;
+    navigate(cleanedLocation, { replace: true });
+
+    if (oauthResult.status === 'connected') {
+      setConnectPlatform(null);
+      setConnectCreds({});
+      setConnectError('');
+      setStravaNotice(getStravaOAuthMessage(oauthResult));
+      refetch();
+      fetch(`${API_BASE}/api/sync/status`, { headers: getAuthHeaders() })
+        .then((r) => r.json())
+        .then((data: SyncStatusResponse) => setSyncStatus(data))
+        .catch(() => {});
+      return;
+    }
+
+    setStravaNotice('');
+    setConnectPlatform('strava');
+    setConnectError(getStravaOAuthMessage(oauthResult));
+  }, [location.hash, location.pathname, location.search, navigate, refetch]);
+
   if (loading) {
     return (
       <div className="space-y-6 py-6">
@@ -241,9 +331,9 @@ export default function Settings() {
     return (
       <Card className="text-center">
         <CardContent className="pt-6">
-          <p className="text-destructive font-semibold mb-2">Failed to load settings</p>
+          <p className="text-destructive font-semibold mb-2"><Trans>Failed to load settings</Trans></p>
           <p className="text-sm text-muted-foreground mb-3">{error}</p>
-          <Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button>
+          <Button variant="outline" size="sm" onClick={() => refetch()}><Trans>Retry</Trans></Button>
         </CardContent>
       </Card>
     );
@@ -274,16 +364,27 @@ export default function Settings() {
     setSaving(false);
   };
 
-  const handleThresholdSave = async (key: string) => {
-    const val = parseFloat(thresholdInput);
-    if (isNaN(val) || val <= 0) { setEditingThreshold(null); return; }
+  // Writes only to preferences.threshold_sources; never to config.thresholds.
+  const handleThresholdSourceChange = async (
+    metricType: string,
+    source: string,
+  ) => {
     setSaving(true);
     try {
-      await updateSettings({ thresholds: { ...config.thresholds, [key]: val, source: 'manual' } });
+      const current = (config.preferences?.threshold_sources as Record<string, string>) || {};
+      await updateSettings({
+        preferences: {
+          ...config.preferences,
+          threshold_sources: { ...current, [metricType]: source },
+        } as SettingsConfig['preferences'],
+      });
       flash('Saved');
-    } catch { flash('Error'); }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'unknown';
+      console.error('threshold source change failed', { metricType, source, err });
+      flash(`Error saving ${metricType} source: ${msg}`);
+    }
     setSaving(false);
-    setEditingThreshold(null);
     refetch();
   };
 
@@ -297,15 +398,6 @@ export default function Settings() {
       const res = await fetch(`${API_BASE}/api/sync/status`, { headers: getAuthHeaders() });
       setSyncStatus(await res.json());
     } catch { /* ignore */ }
-  };
-
-  const handleRegionChange = async (region: string) => {
-    setSaving(true);
-    try {
-      await updateSettings({ source_options: { ...config.source_options, garmin_region: region } });
-      flash('Saved');
-    } catch { flash('Error'); }
-    setSaving(false);
   };
 
   const handleSyncIntervalChange = async (value: string | null) => {
@@ -333,18 +425,51 @@ export default function Settings() {
     if (!connectPlatform) return;
     setConnecting(true);
     setConnectError('');
+    setStravaNotice('');
+
+    if (connectPlatform === 'strava') {
+      try {
+        await startStravaOAuth(buildStravaReturnTo(location.pathname, location.search, location.hash));
+      } catch (err) {
+        setConnectError(err instanceof Error ? err.message : 'Network error');
+        setConnecting(false);
+      }
+      return;
+    }
+
     try {
+      const body: Record<string, unknown> = { ...connectCreds };
+      // Garmin has two independent account systems (International vs CN) that
+      // sit behind different SSO endpoints. Capture the region with the
+      // credentials so the sync client targets the right one and the Settings
+      // read-only label stays accurate.
+      if (connectPlatform === 'garmin') {
+        body.is_cn = connectRegion === 'cn';
+      }
       const res = await fetch(`${API_BASE}/api/settings/connections/${connectPlatform}`, {
         method: 'POST',
         headers: { ...getAuthHeaders() as Record<string, string>, 'Content-Type': 'application/json' },
-        body: JSON.stringify(connectCreds),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok || data.status === 'error') {
         setConnectError(data.message || `Failed to connect (HTTP ${res.status})`);
       } else {
+        // Mirror the region into source_options so _sync_garmin (which reads
+        // source_options.garmin_region first) stays consistent with the
+        // encrypted is_cn we just wrote. Otherwise a reconnect that changes
+        // region would leave the two fields disagreeing.
+        if (connectPlatform === 'garmin') {
+          await updateSettings({
+            source_options: {
+              ...(config?.source_options || {}),
+              garmin_region: connectRegion,
+            },
+          });
+        }
         setConnectPlatform(null);
         setConnectCreds({});
+        setConnectRegion('international');
         refetch();
         // Refresh sync status
         fetch(`${API_BASE}/api/sync/status`, { headers: getAuthHeaders() })
@@ -414,14 +539,19 @@ export default function Settings() {
     <div>
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+        <h1 className="text-2xl font-bold text-foreground"><Trans>Settings</Trans></h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {isDemo ? 'Viewing configuration (read-only demo)' : 'Configure your training system'}
+          {isDemo ? <Trans>Viewing configuration (read-only demo)</Trans> : <Trans>Configure your training system</Trans>}
         </p>
         {saveMsg && (
           <p className={`text-xs mt-2 font-medium ${saveMsg === 'Saved' ? 'text-primary' : 'text-destructive'}`}>
             {saveMsg}
           </p>
+        )}
+        {stravaNotice && (
+          <Alert className="mt-4 border-primary/30 bg-primary/5">
+            <AlertDescription className="text-sm text-primary">{stravaNotice}</AlertDescription>
+          </Alert>
         )}
       </div>
 
@@ -436,8 +566,8 @@ export default function Settings() {
                 <User className="h-4 w-4" />
               </div>
               <div>
-                <CardTitle className="text-sm font-semibold text-foreground">Profile</CardTitle>
-                <CardDescription className="text-xs">Your identity in Trainsight</CardDescription>
+                <CardTitle className="text-sm font-semibold text-foreground"><Trans>Profile</Trans></CardTitle>
+                <CardDescription className="text-xs"><Trans>Your identity in Praxys</Trans></CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -463,7 +593,7 @@ export default function Settings() {
                           if (e.key === 'Enter') handleNameSave();
                           if (e.key === 'Escape') setEditingName(false);
                         }}
-                        placeholder="Your name"
+                        placeholder={t`Your name`}
                         className="h-8 w-48 text-sm"
                         autoFocus
                       />
@@ -477,7 +607,7 @@ export default function Settings() {
                       className="text-left group"
                     >
                       <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
-                        {config.display_name || <span className="text-muted-foreground italic font-normal">Set your name</span>}
+                        {config.display_name || <span className="text-muted-foreground italic font-normal"><Trans>Set your name</Trans></span>}
                       </p>
                     </button>
                   )}
@@ -489,7 +619,7 @@ export default function Settings() {
 
               {/* Unit system */}
               <div className="flex items-center gap-3 sm:ml-auto">
-                <Label className="text-xs text-muted-foreground">Units</Label>
+                <Label className="text-xs text-muted-foreground"><Trans>Units</Trans></Label>
                 <ToggleGroup
                   value={[config.unit_system || 'metric']}
                   onValueChange={(v) => {
@@ -500,6 +630,32 @@ export default function Settings() {
                   <ToggleGroupItem value="imperial" size="sm" disabled={saving}>mi</ToggleGroupItem>
                 </ToggleGroup>
               </div>
+
+              {/* Language */}
+              <div className="flex items-center gap-3">
+                <Label className="text-xs text-muted-foreground"><Trans>Language</Trans></Label>
+                <Select
+                  value={config.language ?? 'auto'}
+                  onValueChange={async (v) => {
+                    if (v === 'auto') {
+                      await updateSettings({ language: null });
+                      await setLocale(detectBrowserLocale());
+                    } else if (v === 'en' || v === 'zh') {
+                      await updateSettings({ language: v });
+                      await setLocale(v);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-32 h-8 text-xs" disabled={saving}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">{t`Auto`}</SelectItem>
+                    <SelectItem value="en">English</SelectItem>
+                    <SelectItem value="zh">中文</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -509,15 +665,15 @@ export default function Settings() {
         <div className="flex items-center justify-between">
           <SectionHeader
             icon={<Link2 className="h-4 w-4" />}
-            title="Connected Platforms"
-            description="Link your training devices and services"
+            title={t`Connected Platforms`}
+            description={t`Link your training devices and services`}
           />
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => setShowBackfill(!showBackfill)}>
-              {showBackfill ? 'Hide backfill' : 'Backfill...'}
+              {showBackfill ? <Trans>Hide backfill</Trans> : <Trans>Backfill...</Trans>}
             </Button>
             <Button size="sm" onClick={() => handleSync()} disabled={anySyncing}>
-              Sync All
+              <Trans>Sync All</Trans>
             </Button>
           </div>
         </div>
@@ -525,7 +681,7 @@ export default function Settings() {
         {showBackfill && (
           <Card className="mb-4">
             <CardContent className="pt-4 flex items-center gap-3 flex-wrap">
-              <label className="text-xs text-muted-foreground">Sync from:</label>
+              <label className="text-xs text-muted-foreground"><Trans>Sync from:</Trans></label>
               <Input
                 type="date"
                 value={backfillDate}
@@ -535,12 +691,12 @@ export default function Settings() {
               {backfillDate && (
                 <>
                   <Button variant="secondary" size="sm" onClick={() => handleSync()} disabled={anySyncing}>
-                    Backfill All
+                    <Trans>Backfill All</Trans>
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => setBackfillDate('')}>
-                    Clear
+                    <Trans>Clear</Trans>
                   </Button>
-                  <span className="text-xs text-accent-amber">Historical sync may take several minutes</span>
+                  <span className="text-xs text-accent-amber"><Trans>Historical sync may take several minutes</Trans></span>
                 </>
               )}
             </CardContent>
@@ -552,14 +708,13 @@ export default function Settings() {
             <div className="flex items-start gap-2.5">
               <Clock className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
               <div>
-                <p className="text-sm font-medium text-foreground">Auto sync frequency</p>
+                <p className="text-sm font-medium text-foreground"><Trans>Auto sync frequency</Trans></p>
                 <p className="text-xs text-muted-foreground">
-                  How often Trainsight pulls new data in the background. Lower frequency
-                  uses less network and respects platform rate limits.
+                  <Trans>How often Praxys pulls new data in the background. Lower frequency uses less network and respects platform rate limits.</Trans>
                 </p>
                 {nextSyncLabel && (
                   <p className="text-xs text-muted-foreground mt-1.5">
-                    Next sync <span className="font-data text-foreground">~{nextSyncLabel}</span>
+                    <Trans>Next sync</Trans> <span className="font-data text-foreground">~{nextSyncLabel}</span>
                   </p>
                 )}
               </div>
@@ -577,11 +732,11 @@ export default function Settings() {
                   <SelectItem key={option.hours} value={String(option.hours)}>
                     <span className="flex items-center gap-2">
                       <span>
-                        Every <span className="font-data">{option.hours}</span> hours
+                        <Trans>Every <span className="font-data">{option.hours}</span> hours</Trans>
                       </span>
                       {option.recommended && (
                         <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                          recommended
+                          <Trans>recommended</Trans>
                         </span>
                       )}
                     </span>
@@ -592,7 +747,7 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
           {CONNECTABLE_PLATFORMS.map((platform) => {
             const meta = PLATFORM_META[platform] || { label: platform, color: '#64748b', icon: null };
             const caps = platformCapabilities[platform] || {};
@@ -618,10 +773,10 @@ export default function Settings() {
                           {isConnected ? (
                             <>
                               <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                              <span className="text-xs text-muted-foreground">Connected</span>
+                              <span className="text-xs text-muted-foreground"><Trans>Connected</Trans></span>
                             </>
                           ) : (
-                            <span className="text-xs text-muted-foreground">Not connected</span>
+                            <span className="text-xs text-muted-foreground"><Trans>Not connected</Trans></span>
                           )}
                         </div>
                       </div>
@@ -637,23 +792,30 @@ export default function Settings() {
                           {isSyncing ? (
                             <span className="flex items-center gap-1.5">
                               <span className="h-3 w-3 animate-spin rounded-full border border-primary border-t-transparent" />
-                              <span className="text-xs">{status?.progress || 'Syncing'}</span>
+                              <span className="text-xs">{status?.progress || t`Syncing`}</span>
                             </span>
                           ) : status?.status === 'done' ? (
-                            <span className="text-primary">Synced</span>
+                            <span className="text-primary"><Trans>Synced</Trans></span>
                           ) : status?.status === 'error' ? (
-                            <span className="text-destructive" title={status.error || ''}>Error</span>
+                            <span className="text-destructive" title={status.error || ''}><Trans>Error</Trans></span>
                           ) : (
-                            'Sync'
+                            <Trans>Sync</Trans>
                           )}
                         </Button>
                       </div>
                     ) : (
                       <Button
                         size="sm"
-                        onClick={() => { setConnectPlatform(platform); setConnectCreds({}); setConnectError(''); }}
+                        onClick={() => {
+                          setConnectPlatform(platform);
+                          setConnectCreds({});
+                          setConnectError('');
+                          setConnectRegion(
+                            String(config?.source_options?.garmin_region) === 'cn' ? 'cn' : 'international'
+                          );
+                        }}
                       >
-                        Connect
+                        <Trans>Connect</Trans>
                       </Button>
                     )}
                   </div>
@@ -663,7 +825,7 @@ export default function Settings() {
                       .filter(([, supported]) => supported)
                       .map(([cap]) => (
                         <Badge key={cap} variant="secondary" className="text-xs font-normal">
-                          {CAPABILITY_LABELS[cap] || cap}
+                          {CAPABILITY_LABELS[cap] ? i18n._(CAPABILITY_LABELS[cap]) : cap}
                         </Badge>
                       ))}
                   </div>
@@ -672,7 +834,7 @@ export default function Settings() {
                     <div className="flex flex-wrap gap-1.5">
                       {prefs.map((cat) => (
                         <Badge key={cat} className="text-xs">
-                          Primary for {cat}
+                          <Trans>Primary for {CAPABILITY_LABELS[cat] ? i18n._(CAPABILITY_LABELS[cat]) : cat}</Trans>
                         </Badge>
                       ))}
                     </div>
@@ -680,7 +842,7 @@ export default function Settings() {
 
                   {isConnected && status?.last_sync && (
                     <p className="text-xs text-muted-foreground">
-                      Last synced {new Date(status.last_sync).toLocaleString()}
+                      <Trans>Last synced {new Date(status.last_sync).toLocaleString()}</Trans>
                     </p>
                   )}
 
@@ -688,21 +850,16 @@ export default function Settings() {
                     <>
                       <Separator />
                       <div className="flex items-center justify-between">
-                        <Label className="text-xs text-muted-foreground">Region</Label>
-                        <Select
-                          value={String(config.source_options?.garmin_region || 'international')}
-                          onValueChange={(v) => { if (v) handleRegionChange(v); }}
-                          disabled={saving}
-                        >
-                          <SelectTrigger className="w-32 h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="international">International</SelectItem>
-                            <SelectItem value="cn">China</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <Label className="text-xs text-muted-foreground"><Trans>Region</Trans></Label>
+                        <span className="text-xs font-medium">
+                          {String(config.source_options?.garmin_region) === 'cn'
+                            ? <Trans>China</Trans>
+                            : <Trans>International</Trans>}
+                        </span>
                       </div>
+                      <p className="text-[10px] text-muted-foreground -mt-1">
+                        <Trans>Garmin International and Garmin China are separate accounts. To switch, disconnect and reconnect with the other account.</Trans>
+                      </p>
                     </>
                   )}
 
@@ -715,7 +872,7 @@ export default function Settings() {
                         className="text-xs text-muted-foreground hover:text-destructive self-start"
                         onClick={() => handleDisconnect(platform)}
                       >
-                        Disconnect
+                        <Trans>Disconnect</Trans>
                       </Button>
                     </>
                   )}
@@ -730,7 +887,7 @@ export default function Settings() {
       <Dialog open={!!connectPlatform} onOpenChange={(open) => { if (!open) setConnectPlatform(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Connect {connectPlatform ? (PLATFORM_META[connectPlatform]?.label || connectPlatform) : ''}</DialogTitle>
+            <DialogTitle><Trans>Connect {connectPlatform ? (PLATFORM_META[connectPlatform]?.label || connectPlatform) : ''}</Trans></DialogTitle>
             <DialogDescription>
               {connectPlatform && PLATFORM_CRED_FIELDS[connectPlatform]?.help}
             </DialogDescription>
@@ -740,7 +897,7 @@ export default function Settings() {
               <AlertDescription>{connectError}</AlertDescription>
             </Alert>
           )}
-          {connectPlatform && PLATFORM_CRED_FIELDS[connectPlatform] && (
+          {connectPlatform && connectPlatform !== 'strava' && PLATFORM_CRED_FIELDS[connectPlatform] && (
             <form
               onSubmit={(e) => { e.preventDefault(); handleConnect(); }}
               className="space-y-4"
@@ -754,19 +911,62 @@ export default function Settings() {
                     value={connectCreds[field.key] || ''}
                     onChange={(e) => setConnectCreds({ ...connectCreds, [field.key]: e.target.value })}
                     disabled={connecting}
-                    autoComplete={field.type === 'password' ? 'current-password' : field.type}
+                    autoComplete={field.key.includes('token') ? 'off' : field.type === 'password' ? 'current-password' : field.type}
                   />
                 </div>
               ))}
+              {connectPlatform === 'garmin' && (
+                <div className="space-y-2">
+                  <Label><Trans>Region</Trans></Label>
+                  <div className="flex gap-2">
+                    {([['international', t`International`], ['cn', t`China`]] as const).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setConnectRegion(value)}
+                        disabled={connecting}
+                        className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all border ${
+                          connectRegion === value
+                            ? 'border-primary/40 bg-primary/10 text-primary'
+                            : 'border-border bg-muted text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    <Trans>Garmin International and Garmin China are separate account systems. Pick the one your credentials belong to.</Trans>
+                  </p>
+                </div>
+              )}
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="ghost" onClick={() => setConnectPlatform(null)} disabled={connecting}>
-                  Cancel
+                  <Trans>Cancel</Trans>
                 </Button>
                 <Button type="submit" disabled={connecting}>
-                  {connecting ? 'Connecting...' : 'Connect'}
+                  {connecting ? <Trans>Connecting...</Trans> : <Trans>Connect</Trans>}
                 </Button>
               </div>
             </form>
+          )}
+          {connectPlatform === 'strava' && (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-border bg-muted/40 p-3">
+                <p className="text-sm font-medium text-foreground"><Trans>Activities-only connection</Trans></p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  <Trans>Continue in your browser to authorize Strava. Praxys imports activities from Strava, while recovery, fitness, and plans come from your other connected platforms.</Trans>
+                </p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="ghost" onClick={() => setConnectPlatform(null)} disabled={connecting}>
+                  <Trans>Cancel</Trans>
+                </Button>
+                <Button type="button" onClick={() => void handleConnect()} disabled={connecting}>
+                  {connecting ? <Trans>Redirecting...</Trans> : <Trans>Continue to Strava</Trans>}
+                </Button>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>
@@ -779,8 +979,8 @@ export default function Settings() {
               <Gauge className="h-4 w-4" />
             </div>
             <div>
-              <CardTitle className="text-sm font-semibold text-foreground">Training Base</CardTitle>
-              <CardDescription className="text-xs">How your zones and training load are calculated</CardDescription>
+              <CardTitle className="text-sm font-semibold text-foreground"><Trans>Training Base</Trans></CardTitle>
+              <CardDescription className="text-xs"><Trans>How your zones and training load are calculated</Trans></CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -802,13 +1002,33 @@ export default function Settings() {
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <span className={isActive ? 'text-primary' : 'text-muted-foreground'}>{info.icon}</span>
-                    <p className="font-semibold text-base text-foreground">{info.label}</p>
+                    <p className="font-semibold text-base text-foreground">{i18n._(info.label)}</p>
                   </div>
-                  <p className={`text-xs ${isActive ? 'text-foreground/70' : 'text-muted-foreground'}`}>{info.desc}</p>
+                  <p className={`text-xs ${isActive ? 'text-foreground/70' : 'text-muted-foreground'}`}>{i18n._(info.desc)}</p>
                 </button>
               );
             })}
           </div>
+          {config.training_base === 'power' && !connections.includes('stryd') && (
+            <div
+              className="mt-4 rounded-lg border border-accent-cobalt/30 bg-accent-cobalt/5 p-3"
+              style={{ borderLeftWidth: '3px', borderLeftColor: 'var(--color-accent-cobalt)' }}
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--color-accent-cobalt)' }}>
+                <Trans>Note on Garmin native power</Trans>
+              </p>
+              <p className="text-xs text-foreground">
+                <Trans>
+                  Garmin native running power reads ~30% higher than Stryd for
+                  the same athlete — they measure different things. Zones and
+                  benchmarks calibrated on Stryd (most coach references, most
+                  training literature) will not directly transfer. Your power
+                  data will still be internally consistent for tracking progress,
+                  but don't compare CP values across the two systems.
+                </Trans>
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -820,8 +1040,8 @@ export default function Settings() {
               <SlidersHorizontal className="h-4 w-4" />
             </div>
             <div>
-              <CardTitle className="text-sm font-semibold text-foreground">Data Preferences</CardTitle>
-              <CardDescription className="text-xs">Choose which platform to use for each data type</CardDescription>
+              <CardTitle className="text-sm font-semibold text-foreground"><Trans>Data Preferences</Trans></CardTitle>
+              <CardDescription className="text-xs"><Trans>Choose which platform to use for each data type</Trans></CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -835,8 +1055,8 @@ export default function Settings() {
             return (
               <div key={key} className="flex items-center justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground">{label}</p>
-                  <p className="text-xs text-muted-foreground">{desc}</p>
+                  <p className="text-sm font-medium text-foreground">{i18n._(label)}</p>
+                  <p className="text-xs text-muted-foreground">{i18n._(desc)}</p>
                 </div>
                 <ToggleGroup
                   value={[current]}
@@ -857,10 +1077,10 @@ export default function Settings() {
 
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">Fitness</p>
-              <p className="text-xs text-muted-foreground">VO2max, CP, LTHR, training status</p>
+              <p className="text-sm font-medium text-foreground"><Trans>Fitness</Trans></p>
+              <p className="text-xs text-muted-foreground"><Trans>VO2max, CP, LTHR, training status</Trans></p>
             </div>
-            <Badge variant="secondary">Auto-merged</Badge>
+            <Badge variant="secondary"><Trans>Auto-merged</Trans></Badge>
           </div>
         </CardContent>
       </Card>
@@ -874,12 +1094,12 @@ export default function Settings() {
                 <Target className="h-4 w-4" />
               </div>
               <div>
-                <CardTitle className="text-sm font-semibold text-foreground">Goal</CardTitle>
-                <CardDescription className="text-xs">Target a race or track continuous improvement</CardDescription>
+                <CardTitle className="text-sm font-semibold text-foreground"><Trans>Goal</Trans></CardTitle>
+                <CardDescription className="text-xs"><Trans>Target a race or track continuous improvement</Trans></CardDescription>
               </div>
             </div>
             <Button variant="outline" size="sm" onClick={() => setGoalEditorOpen(true)}>
-              {config.goal?.race_date || config.goal?.target_time_sec ? 'Edit' : 'Set goal'}
+              {config.goal?.race_date || config.goal?.target_time_sec ? <Trans>Edit</Trans> : <Trans>Set goal</Trans>}
             </Button>
           </div>
         </CardHeader>
@@ -887,26 +1107,26 @@ export default function Settings() {
           {config.goal?.race_date || config.goal?.target_time_sec ? (
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
               <div>
-                <p className="text-xs text-muted-foreground">Mode</p>
+                <p className="text-xs text-muted-foreground"><Trans>Mode</Trans></p>
                 <p className="text-sm font-medium text-foreground">
-                  {config.goal.race_date ? 'Race Goal' : 'Continuous Improvement'}
+                  {config.goal.race_date ? <Trans>Race Goal</Trans> : <Trans>Continuous Improvement</Trans>}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Distance</p>
+                <p className="text-xs text-muted-foreground"><Trans>Distance</Trans></p>
                 <p className="text-sm font-medium text-foreground">
-                  {DISTANCE_LABELS[config.goal.distance ?? ''] || config.goal.distance || 'Marathon'}
+                  {DISTANCE_LABELS[config.goal.distance ?? ''] ? i18n._(DISTANCE_LABELS[config.goal.distance ?? '']) : (config.goal.distance || t`Marathon`)}
                 </p>
               </div>
               {config.goal.race_date && (
                 <div>
-                  <p className="text-xs text-muted-foreground">Race Date</p>
+                  <p className="text-xs text-muted-foreground"><Trans>Race Date</Trans></p>
                   <p className="text-sm font-medium font-data text-foreground">{config.goal.race_date}</p>
                 </div>
               )}
               {Number(config.goal.target_time_sec) > 0 && (
                 <div>
-                  <p className="text-xs text-muted-foreground">Target Time</p>
+                  <p className="text-xs text-muted-foreground"><Trans>Target Time</Trans></p>
                   <p className="text-sm font-medium font-data text-foreground">
                     {formatTime(Number(config.goal.target_time_sec))}
                   </p>
@@ -915,7 +1135,7 @@ export default function Settings() {
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              No goal set. Set a race target or distance goal to unlock predictions and countdown.
+              <Trans>No goal set. Set a race target or distance goal to unlock predictions and countdown.</Trans>
             </p>
           )}
         </CardContent>
@@ -931,7 +1151,11 @@ export default function Settings() {
         onSave={handleGoalSave}
       />
 
-      {/* ===== SECTION 5: Thresholds ===== */}
+      {/* ===== SECTION 5: Thresholds =====
+           Read-only by design: every value comes from a connected source
+           or a calculation on the user's own data. When a metric has more
+           than one source (e.g. Stryd + Garmin for CP), the user picks
+           which source to use — they never type a value. */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2.5">
@@ -939,8 +1163,10 @@ export default function Settings() {
               <Activity className="h-4 w-4" />
             </div>
             <div>
-              <CardTitle className="text-sm font-semibold text-foreground">Thresholds</CardTitle>
-              <CardDescription className="text-xs">Drive your zone calculations and training load. Click to override.</CardDescription>
+              <CardTitle className="text-sm font-semibold text-foreground"><Trans>Thresholds</Trans></CardTitle>
+              <CardDescription className="text-xs">
+                <Trans>Drive your zone calculations and training load. Values come from connected sources; pick which source to use when you have more than one.</Trans>
+              </CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -953,61 +1179,63 @@ export default function Settings() {
                 ? formatPace(value, config.unit_system as 'metric' | 'imperial' || 'metric')
                 : value;
               const origin = effective?.origin ?? 'none';
-              const isEditing = editingThreshold === key;
 
-              let badgeVariant: 'default' | 'secondary' | 'outline' = 'secondary';
-              let badgeText = 'Not set';
-              if (origin.startsWith('auto')) {
-                badgeVariant = 'default';
-                badgeText = origin.replace('auto (', '').replace(')', '');
-                badgeText = `Auto · ${badgeText.charAt(0).toUpperCase() + badgeText.slice(1)}`;
-              } else if (origin === 'manual') {
-                badgeVariant = 'outline';
-                badgeText = 'Manual';
-              }
+              // Threshold key -> metric_type in fitness_data (used as the
+              // key under preferences.threshold_sources).
+              const metricType = ({
+                cp_watts: 'cp_estimate',
+                lthr_bpm: 'lthr_bpm',
+                threshold_pace_sec_km: 'lt_pace_sec_km',
+                max_hr_bpm: 'max_hr_bpm',
+                rest_hr_bpm: 'rest_hr_bpm',
+              } as Record<string, string>)[key] || key;
+
+              const detected = detectedThresholds[key];
+              const options = detected?.options ?? [];
+              const currentSource = origin.startsWith('auto')
+                ? origin.replace('auto (', '').replace(')', '')
+                : null;
+
+              const badgeText = origin.startsWith('auto') && currentSource
+                ? thresholdSourceLabel(currentSource)
+                : t`Not set`;
+              const badgeVariant: 'default' | 'secondary' = origin.startsWith('auto') ? 'default' : 'secondary';
 
               return (
                 <div key={key} className="rounded-xl bg-muted p-3 flex flex-col">
-                  <p className="text-xs text-muted-foreground mb-2">{label}</p>
-
-                  {isEditing ? (
-                    <div className="flex flex-col gap-1.5">
-                      <Input
-                        type="number"
-                        value={thresholdInput}
-                        onChange={(e) => setThresholdInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleThresholdSave(key);
-                          if (e.key === 'Escape') setEditingThreshold(null);
-                        }}
-                        autoFocus
-                        className="text-xl font-bold font-data"
-                      />
-                      <div className="flex gap-1">
-                        <Button size="sm" className="flex-1" onClick={() => handleThresholdSave(key)}>
-                          Save
-                        </Button>
-                        <Button variant="ghost" size="sm" className="flex-1" onClick={() => setEditingThreshold(null)}>
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        setEditingThreshold(key);
-                        setThresholdInput(value != null ? String(value) : '');
-                      }}
-                      className="text-left group flex-1 flex flex-col"
+                  <p className="text-xs text-muted-foreground mb-2">{i18n._(label)}</p>
+                  <p className="text-2xl font-bold font-data text-foreground">
+                    {value != null ? (isPace ? displayValue : value) : '\u2014'}
+                    <span className="text-xs font-normal text-muted-foreground ml-1">
+                      {value != null && !isPace ? unit : ''}
+                    </span>
+                  </p>
+                  {options.length > 1 ? (
+                    <Select
+                      value={currentSource ?? options[0].source}
+                      onValueChange={(v) => handleThresholdSourceChange(metricType, v)}
+                      disabled={saving}
                     >
-                      <p className="text-2xl font-bold font-data text-foreground group-hover:text-primary transition-colors">
-                        {value != null ? (isPace ? displayValue : value) : '—'}
-                        <span className="text-xs font-normal text-muted-foreground ml-1">{value != null && !isPace ? unit : ''}</span>
-                      </p>
-                      <Badge variant={badgeVariant} className="mt-auto self-start text-[10px]">
-                        {badgeText}
-                      </Badge>
-                    </button>
+                      <SelectTrigger className="h-7 text-[11px] mt-auto">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {options.map((opt) => (
+                          <SelectItem key={opt.source} value={opt.source} className="text-xs">
+                            {thresholdSourceLabel(opt.source)}
+                            <span className="text-muted-foreground ml-1 font-data">
+                              ({isPace
+                                ? formatPace(opt.value, config.unit_system as 'metric' | 'imperial' || 'metric')
+                                : `${opt.value} ${unit}`})
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Badge variant={badgeVariant} className="mt-auto self-start text-[10px]">
+                      {badgeText}
+                    </Badge>
                   )}
                 </div>
               );

@@ -78,6 +78,7 @@ def init_db():
     _migrations = [
         ("user_config", "unit_system", "VARCHAR(10) DEFAULT 'metric'"),
         ("user_config", "display_name", "VARCHAR(100) DEFAULT ''"),
+        ("user_config", "language", "VARCHAR(10) DEFAULT NULL"),
         ("users", "is_demo", "BOOLEAN NOT NULL DEFAULT 0"),
         ("users", "demo_of", "VARCHAR(36) DEFAULT NULL"),
         ("users", "wechat_openid", "VARCHAR(64) DEFAULT NULL"),

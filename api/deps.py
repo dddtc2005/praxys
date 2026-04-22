@@ -28,6 +28,8 @@ from analysis.metrics import (
     diagnose_training,
     get_distance_config,
     compute_rss,
+    compute_trimp,
+    compute_rtss,
     analyze_recovery,
     project_tsb,
 )
@@ -54,61 +56,90 @@ def _ensure_env():
 def _resolve_thresholds(
     config, data_dir: str = None, user_id: str = None, db=None,
 ) -> ThresholdEstimate:
-    """Build ThresholdEstimate from config + auto-detect from fitness providers.
+    """Build ThresholdEstimate from sensor data.
 
-    When user_id and db are provided, extracts thresholds from the DB fitness
-    data. Otherwise falls back to file-based provider detection.
+    When ``user_id`` and ``db`` are provided, thresholds come from
+    ``fitness_data`` rows written by the sync pipelines. No arbitrary
+    user-entered numbers are accepted — every value traces back to a
+    connected source (Stryd, Garmin, Oura) or a calculation we perform from
+    that source's data. This is the "no guesswork" rule from CLAUDE.md's
+    Scientific Rigor section, applied to threshold resolution.
+
+    Source preference: when more than one provider writes the same metric
+    (notably CP, where Stryd and Garmin disagree by ~30%), pick the row
+    whose ``source`` matches the user's selection. Selection order:
+
+        1. Explicit: ``preferences.threshold_sources[metric_type]`` if set.
+        2. Default: whichever source produces the athlete's *activity* data
+           (``preferences.activities``). This keeps CP consistent with the
+           activities the user is viewing.
+        3. Fallback: latest row by date regardless of source.
     """
     if user_id and db:
-        # DB path: extract latest thresholds from fitness_data table
         result = ThresholdEstimate()
         from db.models import FitnessData
+
+        activity_source = config.preferences.get("activities") or None
+        threshold_sources = config.preferences.get("threshold_sources") or {}
+
+        def _latest(metric_type: str) -> float | None:
+            """Pick the best fitness_data row for this metric.
+
+            Preferred-source-first, fall back to latest-by-date if the
+            preferred source has no rows (or its rows have null/zero values).
+            """
+            preferred = (
+                threshold_sources.get(metric_type)
+                or activity_source
+            )
+            base = db.query(FitnessData).filter(
+                FitnessData.user_id == user_id,
+                FitnessData.metric_type == metric_type,
+                FitnessData.value.isnot(None),
+            )
+            if preferred:
+                row = (
+                    base.filter(FitnessData.source == preferred)
+                    .order_by(FitnessData.date.desc())
+                    .first()
+                )
+                if row and row.value:
+                    return float(row.value)
+                # Preferred source exists in the user's preferences but has no
+                # rows. Log at debug so the surprising-but-correct fallback
+                # ("I picked Stryd, why am I seeing Garmin's value?") is
+                # visible to anyone tailing the server log.
+                logger.debug(
+                    "_resolve_thresholds: preferred source %r for %s has no "
+                    "data; falling back to latest-by-date", preferred, metric_type,
+                )
+            row = base.order_by(FitnessData.date.desc()).first()
+            return float(row.value) if row and row.value else None
+
         _METRIC_MAP = {
             "cp_estimate": "cp_watts",
             "lthr_bpm": "lthr_bpm",
             "lt_pace_sec_km": "threshold_pace_sec_km",
+            "max_hr_bpm": "max_hr_bpm",
+            "rest_hr_bpm": "rest_hr_bpm",
         }
         for db_metric, est_attr in _METRIC_MAP.items():
-            row = (
-                db.query(FitnessData)
-                .filter(
-                    FitnessData.user_id == user_id,
-                    FitnessData.metric_type == db_metric,
-                    FitnessData.value.isnot(None),
-                )
-                .order_by(FitnessData.date.desc())
-                .first()
-            )
-            if row and row.value:
-                setattr(result, est_attr, float(row.value))
+            val = _latest(db_metric)
+            if val is not None:
+                setattr(result, est_attr, val)
 
-        # Also look for max_hr and resting_hr
-        for db_metric, est_attr in [("max_hr_bpm", "max_hr_bpm"), ("rest_hr_bpm", "rest_hr_bpm")]:
-            row = (
-                db.query(FitnessData)
-                .filter(
-                    FitnessData.user_id == user_id,
-                    FitnessData.metric_type == db_metric,
-                    FitnessData.value.isnot(None),
-                )
-                .order_by(FitnessData.date.desc())
-                .first()
-            )
-            if row and row.value:
-                setattr(result, est_attr, float(row.value))
-
-        # Apply manual overrides from config
-        t = config.thresholds
-        if t.get("cp_watts"):
-            result.cp_watts = float(t["cp_watts"])
-        if t.get("lthr_bpm"):
-            result.lthr_bpm = float(t["lthr_bpm"])
-        if t.get("threshold_pace_sec_km"):
-            result.threshold_pace_sec_km = float(t["threshold_pace_sec_km"])
-        if t.get("max_hr_bpm"):
-            result.max_hr_bpm = float(t["max_hr_bpm"])
-        if t.get("rest_hr_bpm"):
-            result.rest_hr_bpm = float(t["rest_hr_bpm"])
+        # Derived fallback: Garmin writes per-activity max_hr but no
+        # max_hr_bpm fitness_data record, so TRIMP would be skipped for
+        # HR-base users without this.
+        if result.max_hr_bpm is None:
+            from db.models import Activity
+            from sqlalchemy import func
+            max_hr = db.query(func.max(Activity.max_hr)).filter(
+                Activity.user_id == user_id,
+                Activity.max_hr.isnot(None),
+            ).scalar()
+            if max_hr:
+                result.max_hr_bpm = float(max_hr)
 
         return result
 
@@ -179,6 +210,130 @@ def _compute_daily_load(
     return daily.astype(float)
 
 
+def _parse_pace_str(value) -> float | None:
+    """Parse a plan pace string ("4:30", "4:30/km", "4:30 min/km") → sec/km.
+
+    Also accepts a bare number interpreted as sec/km. Returns None for
+    empty / unparseable values.
+    """
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        v = float(value)
+        return v if v > 0 else None
+    text = str(value).strip()
+    if not text:
+        return None
+    # Strip trailing units (most-specific first so "min/km" goes before "/km").
+    for suffix in ("min/km", "mi/km", "/km", "min", "sec"):
+        while text.endswith(suffix):
+            text = text[: -len(suffix)].strip()
+    if ":" in text:
+        try:
+            minutes, seconds = text.split(":", 1)
+            total = int(minutes) * 60 + float(seconds)
+            return total if total > 0 else None
+        except ValueError:
+            return None
+    try:
+        v = float(text)
+        return v if v > 0 else None
+    except ValueError:
+        return None
+
+
+def _plan_workout_load(
+    row, dur_sec: float, training_base: str, thresholds: ThresholdEstimate,
+) -> float:
+    """Estimate the load score (RSS / TRIMP / rTSS) for one planned workout.
+
+    Uses the midpoint of the target range for the configured base. Falls
+    back to a flat ~60 units/hour estimate when the plan row has no
+    targets for the active base (we still don't want the CTL/ATL projection
+    to flatline just because the plan lacks intensity hints).
+    """
+    if dur_sec <= 0:
+        return 0.0
+
+    def _midpoint(lo, hi) -> float | None:
+        if lo is not None and hi is not None and lo > 0 and hi > 0:
+            return (lo + hi) / 2
+        if hi is not None and hi > 0:
+            return hi * 0.85  # conservative fallback when only max is set
+        if lo is not None and lo > 0:
+            return lo
+        return None
+
+    def _num(v) -> float | None:
+        if v is None:
+            return None
+        try:
+            n = pd.to_numeric(pd.Series([v]), errors="coerce").iloc[0]
+        except (TypeError, ValueError):
+            return None
+        if pd.isna(n) or n <= 0:
+            return None
+        return float(n)
+
+    if training_base == "power" and thresholds.cp_watts and thresholds.cp_watts > 0:
+        avg_p = _midpoint(_num(row.get("target_power_min")), _num(row.get("target_power_max")))
+        if avg_p:
+            return compute_rss(dur_sec, avg_p, thresholds.cp_watts)
+    elif training_base == "hr" and thresholds.max_hr_bpm and thresholds.max_hr_bpm > 0:
+        avg_hr = _midpoint(_num(row.get("target_hr_min")), _num(row.get("target_hr_max")))
+        if avg_hr:
+            rest_hr = thresholds.rest_hr_bpm or 60
+            return compute_trimp(dur_sec, avg_hr, rest_hr, thresholds.max_hr_bpm)
+    elif training_base == "pace" and thresholds.threshold_pace_sec_km:
+        p_fast = _parse_pace_str(row.get("target_pace_min"))
+        p_slow = _parse_pace_str(row.get("target_pace_max"))
+        avg_pace = _midpoint(p_fast, p_slow)
+        if avg_pace:
+            return compute_rtss(dur_sec, avg_pace, thresholds.threshold_pace_sec_km)
+
+    # ESTIMATE: plan row has no targets we can use for this base — assume
+    # a moderate ~60 units/hour. Note that RSS / TRIMP / rTSS are NOT
+    # formally equated at 60 units/hour; 60 lands in a roughly tempo-ish
+    # band for each scale (RSS and rTSS at IF ≈ 0.77; TRIMP at ~0.70 HR
+    # reserve) which is coincidence, not derivation. Use this only so the
+    # projection curve keeps moving when we have no better signal, and
+    # flag the compliance chart via ``planned_estimated`` so the user
+    # knows the number is a placeholder.
+    return (dur_sec / 3600) * 60
+
+
+def _plan_row_duration_sec(row) -> float:
+    dur_min = pd.to_numeric(
+        pd.Series([row.get("planned_duration_min", 0)]), errors="coerce"
+    ).iloc[0]
+    return float(dur_min) * 60 if pd.notna(dur_min) and dur_min > 0 else 0.0
+
+
+def _has_base_targets(row, training_base: str) -> bool:
+    """Whether the plan row provides usable intensity targets for ``training_base``.
+
+    Used to flag ``planned_estimated`` when we had to fall back to a flat
+    units-per-hour rate instead of computing from real targets.
+    """
+    def _pos(v) -> bool:
+        try:
+            n = pd.to_numeric(pd.Series([v]), errors="coerce").iloc[0]
+        except (TypeError, ValueError):
+            return False
+        return bool(pd.notna(n) and n > 0)
+
+    if training_base == "power":
+        return _pos(row.get("target_power_min")) or _pos(row.get("target_power_max"))
+    if training_base == "hr":
+        return _pos(row.get("target_hr_min")) or _pos(row.get("target_hr_max"))
+    if training_base == "pace":
+        return (
+            _parse_pace_str(row.get("target_pace_min")) is not None
+            or _parse_pace_str(row.get("target_pace_max")) is not None
+        )
+    return False
+
+
 def _estimate_plan_daily_loads(
     plan: pd.DataFrame,
     start_date: date,
@@ -188,8 +343,8 @@ def _estimate_plan_daily_loads(
 ) -> list[float]:
     """Estimate daily load for each of the next *days* days from the plan.
 
-    For days with no planned workout, load is 0.
-    Uses target power midpoint × planned duration to estimate RSS.
+    For days with no planned workout, load is 0. The load unit follows
+    ``training_base``: RSS for power, TRIMP for HR, rTSS for pace.
     """
     loads = [0.0] * days
     if plan.empty:
@@ -202,28 +357,8 @@ def _estimate_plan_daily_loads(
             continue
         day_load = 0.0
         for _, row in day_plan.iterrows():
-            dur_min = pd.to_numeric(
-                pd.Series([row.get("planned_duration_min", 0)]), errors="coerce"
-            ).iloc[0]
-            dur_sec = float(dur_min) * 60 if pd.notna(dur_min) and dur_min > 0 else 0
-            if dur_sec <= 0:
-                continue
-
-            # Estimate power from plan targets
-            p_min = pd.to_numeric(pd.Series([row.get("target_power_min")]), errors="coerce").iloc[0]
-            p_max = pd.to_numeric(pd.Series([row.get("target_power_max")]), errors="coerce").iloc[0]
-            if pd.notna(p_min) and pd.notna(p_max) and p_min > 0:
-                avg_power = (float(p_min) + float(p_max)) / 2
-            elif pd.notna(p_max) and p_max > 0:
-                avg_power = float(p_max) * 0.85  # conservative estimate
-            else:
-                avg_power = None
-
-            if avg_power and thresholds.cp_watts and thresholds.cp_watts > 0:
-                day_load += compute_rss(dur_sec, avg_power, thresholds.cp_watts)
-            elif dur_sec > 0:
-                # Fallback: estimate ~60 RSS per hour (moderate effort)
-                day_load += (dur_sec / 3600) * 60
+            dur_sec = _plan_row_duration_sec(row)
+            day_load += _plan_workout_load(row, dur_sec, training_base, thresholds)
         loads[i] = day_load
     return loads
 
@@ -267,11 +402,21 @@ def _build_compliance(
     plan: pd.DataFrame,
     training_base: str = "power",
     daily_load: pd.Series | None = None,
-    thresholds: "ThresholdConfig | None" = None,
+    thresholds: ThresholdEstimate | None = None,
 ) -> dict:
-    """Build weekly compliance data for chart using the configured training base."""
+    """Build weekly compliance data for chart using the configured training base.
+
+    ``actual_load`` / ``planned_load`` carry the load in the unit appropriate
+    to the training base (RSS for power, TRIMP for HR, rTSS for pace). The
+    frontend pairs the numbers with ``display.load_label``.
+    """
     if merged.empty:
-        return {"weeks": [], "planned_rss": [], "actual_rss": []}
+        return {
+            "weeks": [],
+            "planned_load": [],
+            "actual_load": [],
+            "planned_estimated": False,
+        }
 
     # Use the computed daily load series if available
     if daily_load is not None and not daily_load.empty:
@@ -296,7 +441,9 @@ def _build_compliance(
         else []
     )
 
-    # Compute planned weekly RSS from training plan
+    # Compute planned weekly load from training plan — in the unit of the
+    # active training base (RSS / TRIMP / rTSS). Uses the same per-workout
+    # estimator as the projection (``_plan_workout_load``) so the two agree.
     planned_weekly: list[float] = []
     planned_estimated = False
     plan_copy = pd.DataFrame()
@@ -308,32 +455,18 @@ def _build_compliance(
             plan_copy["_week"] = plan_copy["_date"].dt.isocalendar().week
             plan_copy["_year"] = plan_copy["_date"].dt.isocalendar().year
 
-            # Estimate per-workout load from plan targets
             plan_loads = []
             for _, row in plan_copy.iterrows():
-                dur_min = pd.to_numeric(
-                    pd.Series([row.get("planned_duration_min", 0)]), errors="coerce"
-                ).iloc[0]
-                dur_sec = float(dur_min) * 60 if pd.notna(dur_min) and dur_min > 0 else 0
+                dur_sec = _plan_row_duration_sec(row)
                 if dur_sec <= 0:
                     plan_loads.append(0.0)
                     continue
-                p_min = pd.to_numeric(pd.Series([row.get("target_power_min")]), errors="coerce").iloc[0]
-                p_max = pd.to_numeric(pd.Series([row.get("target_power_max")]), errors="coerce").iloc[0]
-                if pd.notna(p_min) and pd.notna(p_max) and p_min > 0:
-                    avg_power = (float(p_min) + float(p_max)) / 2
-                elif pd.notna(p_max) and p_max > 0:
-                    avg_power = float(p_max) * 0.85
-                else:
-                    avg_power = None
-                cp = thresholds.cp_watts if thresholds and thresholds.cp_watts else None
-                if avg_power and cp and cp > 0:
-                    plan_loads.append(compute_rss(dur_sec, avg_power, cp))
-                else:
-                    # Fallback: ~60 RSS per hour. This is a rough estimate
-                    # when power targets are unavailable.
-                    plan_loads.append((dur_sec / 3600) * 60)
+                # Detect fallback so the frontend can caveat "estimated" plans.
+                before_fallback = _has_base_targets(row, training_base)
+                load = _plan_workout_load(row, dur_sec, training_base, thresholds)
+                if not before_fallback:
                     planned_estimated = True
+                plan_loads.append(load)
             plan_copy["_load"] = plan_loads
             weekly_planned = plan_copy.groupby(["_year", "_week"])["_load"].sum()
 
@@ -357,8 +490,8 @@ def _build_compliance(
 
     return {
         "weeks": weeks[-8:],
-        "actual_rss": [round(float(v), 1) for v in weekly_actual.values][-8:],
-        "planned_rss": aligned_planned[-8:] if aligned_planned else [],
+        "actual_load": [round(float(v), 1) for v in weekly_actual.values][-8:],
+        "planned_load": aligned_planned[-8:] if aligned_planned else [],
         "planned_estimated": planned_estimated,
     }
 
@@ -435,10 +568,31 @@ def _build_workout_flags(
     return flags[-10:]
 
 
-def _build_sleep_perf(merged: pd.DataFrame, sleep: pd.DataFrame) -> list:
-    """Build sleep score vs power output scatter data."""
-    if merged.empty or sleep.empty or "avg_power" not in merged.columns:
-        return []
+def _build_sleep_perf(
+    merged: pd.DataFrame, sleep: pd.DataFrame, training_base: str = "power",
+) -> dict:
+    """Build sleep score vs performance-metric scatter data.
+
+    The Y-axis metric follows the user's training base:
+      - power: ``avg_power`` (W)
+      - hr:    ``avg_hr`` (bpm)
+      - pace:  ``avg_pace_sec_km`` (lower = better)
+
+    Returns ``{"pairs": [[sleep, metric], ...], "metric_label", "metric_unit"}``.
+    An empty ``pairs`` list with the correct metadata is returned when no
+    paired rows are available, so the frontend can still label the
+    empty-state hint correctly.
+    """
+    if training_base == "hr":
+        metric_col, unit, label = "avg_hr", "bpm", "Avg HR"
+    elif training_base == "pace":
+        metric_col, unit, label = "avg_pace_sec_km", "sec/km", "Avg Pace"
+    else:
+        metric_col, unit, label = "avg_power", "W", "Avg Power"
+
+    empty: dict = {"pairs": [], "metric_label": label, "metric_unit": unit}
+    if merged.empty or sleep.empty or metric_col not in merged.columns:
+        return empty
     merged_copy = merged.copy()
     sleep_copy = sleep.copy()
     merged_copy["_date"] = pd.to_datetime(merged_copy["date"]).dt.date
@@ -451,23 +605,63 @@ def _build_sleep_perf(merged: pd.DataFrame, sleep: pd.DataFrame) -> list:
         suffixes=("", "_sleep"),
     )
     if joined.empty or "sleep_score" not in joined.columns:
-        return []
+        return empty
     pairs: list[list] = []
     for _, row in joined.iterrows():
         try:
             score = float(row["sleep_score"])
-            power = float(row["avg_power"])
-            if score > 0 and power > 0:
-                pairs.append([score, round(power, 1)])
+            value = float(row[metric_col])
+            if score > 0 and value > 0:
+                pairs.append([score, round(value, 1)])
         except (ValueError, TypeError):
             continue
-    return pairs
+    return {"pairs": pairs, "metric_label": label, "metric_unit": unit}
+
+
+def _select_prediction_method(
+    training_base: str,
+    prediction_theory_id: str | None,
+    *,
+    has_cp: bool,
+    has_pace: bool,
+) -> str | None:
+    """Pick a race-prediction model for the given training base and data.
+
+    This is a **data-provenance safety gate**, not a physiological claim.
+    A CP-model prediction is scientifically fine for an HR-trained athlete
+    who has a clean Stryd power meter; the reason we still refuse it is
+    that we can't yet distinguish "real Stryd CP" from "Garmin native FTP
+    estimate" in ``cp_watts``. Pairing an inflated Garmin FTP with
+    Stryd-via-CIQ activity-level power produces wildly-fast bogus
+    predictions (the 2:22 marathon bug), so for non-power bases we stay on
+    Riegel until a proper ``cp_source`` provenance field exists.
+
+    - **power** users run the CP model when CP watts are available. If they
+      have explicitly picked ``riegel`` and have a threshold pace, honor it.
+      Otherwise fall back to Riegel, or None.
+    - **hr / pace** users only ever use Riegel. ``critical_power`` being
+      the global default science theory is not a reliable opt-in signal,
+      so we don't honor it here.
+    """
+    if training_base == "power":
+        if prediction_theory_id == "riegel" and has_pace:
+            return "riegel"
+        if has_cp:
+            return "critical_power"
+        if has_pace:
+            return "riegel"
+        return None
+    # HR / pace
+    if has_pace:
+        return "riegel"
+    return None
 
 
 def _build_race_countdown(
     race_date_str: str,
     target_time_sec: int | None,
-    latest_cp: float | None,
+    latest_threshold: float | None,
+    latest_cp_watts: float | None,
     power_pace_pairs: list[tuple[float, float]],
     cp_trend_data: dict,
     today: date,
@@ -478,30 +672,41 @@ def _build_race_countdown(
     training_base: str = "power",
     threshold_pace: float | None = None,
     riegel_exponent: float | None = None,
+    prediction_method: str | None = None,
     prediction_theory_name: str | None = None,
 ) -> dict:
     """Build race countdown / CP milestone payload depending on config.
 
-    For power base: uses power-pace model for predictions.
-    For HR/pace bases: uses Riegel formula from threshold pace.
-    The prediction method is determined by the user's science theory selection.
+    ``training_base`` (power/hr/pace) controls display units and which target
+    threshold (if any) is meaningful — LTHR is never a race-pace target, so
+    HR-base users get no ``target_cp``. ``prediction_method`` selects the
+    prediction MODEL ("critical_power" or "riegel") independently of the
+    training base: a power-base user may have picked Riegel, and an HR-base
+    user falls back to Riegel because the CP model needs watts.
+
+    ``latest_threshold`` is the display value in base-native units
+    (W / bpm / sec·km⁻¹). ``latest_cp_watts`` is CP in watts or ``None`` —
+    used for all power-based formulas so LTHR/LT pace are never treated as
+    watts.
     """
     is_inverted = training_base == "pace"
 
-    # Predicted time — uses prediction theory selection
+    # Predicted time — pick the MODEL requested, regardless of training_base
     predicted_time: float | None = None
-    prediction_method = "none"
-    if training_base == "power" and latest_cp:
-        predicted_time = predict_marathon_time(latest_cp, power_pace_pairs, power_fraction, distance_km)
-        prediction_method = "critical_power"
-    elif threshold_pace:
-        predicted_time = predict_time_from_pace(threshold_pace, distance_km, riegel_exponent)
-        prediction_method = "riegel"
+    if prediction_method == "critical_power" and latest_cp_watts:
+        predicted_time = predict_marathon_time(
+            latest_cp_watts, power_pace_pairs, power_fraction, distance_km,
+        )
+    elif prediction_method == "riegel" and threshold_pace:
+        predicted_time = predict_time_from_pace(
+            threshold_pace, distance_km, riegel_exponent,
+        )
+    effective_method = prediction_method if predicted_time is not None else "none"
 
     common = {
         "distance": distance_key,
         "distance_label": distance_label,
-        "prediction_method": prediction_method,
+        "prediction_method": effective_method,
         "prediction_theory": prediction_theory_name,
     }
 
@@ -521,16 +726,25 @@ def _build_race_countdown(
             else:
                 race_status = "behind"
 
-        # Needed threshold — only for power/pace (LTHR can't be meaningfully targeted)
+        # Needed threshold matches training_base display units.
+        # Power: watts (needs CP + power-pace pairs). Pace: sec/km (Riegel
+        # inversion). HR: no meaningful target — LTHR isn't a trainable
+        # race-pace knob.
         needed_threshold: float | None = None
-        if target_time_sec and training_base != "hr":
-            if training_base == "power" and power_pace_pairs:
-                needed_threshold = required_cp_for_time(target_time_sec, power_pace_pairs, power_fraction, distance_km)
-            elif threshold_pace:
+        current_for_check: float | None = None
+        if training_base == "power" and latest_cp_watts and power_pace_pairs:
+            current_for_check = latest_cp_watts
+            if target_time_sec:
+                needed_threshold = required_cp_for_time(
+                    target_time_sec, power_pace_pairs, power_fraction, distance_km,
+                )
+        elif training_base == "pace" and threshold_pace:
+            current_for_check = threshold_pace
+            if target_time_sec:
                 needed_threshold = required_pace_for_time(target_time_sec, distance_km)
 
         race_reality = race_honesty_check(
-            latest_cp,
+            current_for_check,
             needed_threshold,
             days_left,
             cp_trend_data,
@@ -550,8 +764,9 @@ def _build_race_countdown(
         }
 
     if target_time_sec:
-        # Continuous improvement with a time target
-        # For HR base: show time predictions only (LTHR can't be meaningfully targeted)
+        # Continuous improvement with a time target.
+        # HR base: LTHR is not a trainable race-pace target — surface the
+        # predicted time only and let the trend do the talking.
         if training_base == "hr":
             direction = cp_trend_data.get("direction", "unknown")
             severity = "on_track" if direction == "rising" else ("behind" if direction == "falling" else "close")
@@ -571,16 +786,22 @@ def _build_race_countdown(
                 },
             }
 
-        # For power/pace: derive threshold target and track progress
+        # Power / pace: derive the target threshold in base-native units.
         target_threshold: float | None = None
-        if training_base == "power" and power_pace_pairs:
-            target_threshold = required_cp_for_time(target_time_sec, power_pace_pairs, power_fraction, distance_km)
-        elif threshold_pace:
+        current_for_milestone: float | None = None
+        if training_base == "power" and latest_cp_watts and power_pace_pairs:
+            target_threshold = required_cp_for_time(
+                target_time_sec, power_pace_pairs, power_fraction, distance_km,
+            )
+            current_for_milestone = latest_cp_watts
+        elif training_base == "pace" and threshold_pace:
             target_threshold = required_pace_for_time(target_time_sec, distance_km)
+            current_for_milestone = threshold_pace
 
-        if target_threshold and latest_cp:
+        if target_threshold and current_for_milestone:
             milestone_result = cp_milestone_check(
-                latest_cp, target_threshold, cp_trend_data, threshold_inverted=is_inverted,
+                current_for_milestone, target_threshold, cp_trend_data,
+                threshold_inverted=is_inverted,
             )
         else:
             milestone_result = {
@@ -591,7 +812,7 @@ def _build_race_countdown(
         return {
             **common,
             "mode": "cp_milestone",
-            "current_cp": latest_cp,
+            "current_cp": current_for_milestone,
             "target_cp": target_threshold,
             "target_time_sec": target_time_sec,
             "predicted_time_sec": predicted_time,
@@ -602,7 +823,7 @@ def _build_race_countdown(
             "reality_check": milestone_result,
         }
 
-    # Continuous improvement, no target
+    # Continuous improvement, no target — show current threshold in base units.
     direction = cp_trend_data.get("direction", "unknown")
     slope = cp_trend_data.get("slope_per_month", 0)
     severity = "on_track" if direction == "rising" else ("behind" if direction == "falling" else "close")
@@ -610,7 +831,7 @@ def _build_race_countdown(
         **common,
         "mode": "continuous",
         "status": severity,
-        "current_cp": latest_cp,
+        "current_cp": latest_threshold,
         "predicted_time_sec": predicted_time,
         "cp_trend_summary": {
             "direction": direction,
@@ -935,9 +1156,16 @@ def _build_threshold_trend_chart(
 
 def _build_warnings(
     recovery_analysis: dict, current_tsb: float,
-    config, data_dir: str = None, latest_cp: float | None = None,
+    config, data_dir: str = None, latest_cp_watts: float | None = None,
 ) -> list[str]:
-    """Collect health/training warnings."""
+    """Collect health/training warnings.
+
+    ``latest_cp_watts`` must be CP in watts (not a base-native threshold):
+    ``check_plan_staleness`` compares it against ``cp_at_generation`` which
+    is stored in watts at plan-generation time. Passing an LTHR in bpm here
+    produces a nonsense drift percentage and a "power targets may be
+    inaccurate" warning on HR-base users who have no power targets at all.
+    """
     warnings: list[str] = []
     hrv_info = recovery_analysis.get("hrv") or {}
     if hrv_info.get("trend") == "declining":
@@ -948,7 +1176,7 @@ def _build_warnings(
         warnings.append(f"High fatigue (TSB = {current_tsb:.0f})")
     if config.preferences.get("plan") == "ai" and data_dir:
         from api.ai import check_plan_staleness
-        warnings.extend(check_plan_staleness(data_dir, latest_cp))
+        warnings.extend(check_plan_staleness(data_dir, latest_cp_watts))
     return warnings
 
 
@@ -1081,9 +1309,18 @@ def get_dashboard_data(user_id: str = None, db=None) -> dict:
         for i in range(projection_days)
     ]
 
-    # Threshold data (CP / LTHR / pace trend)
+    # Threshold data (CP / LTHR / pace trend). ``latest_cp`` here is the
+    # base-native threshold: watts for power, bpm for HR, sec/km for pace.
     latest_cp, cp_trend_data, cp_values, power_pace_pairs = _compute_threshold_data(
         merged, config, data_dir=data_dir, user_id=user_id, db=db,
+    )
+
+    # CP-in-watts for power-based formulas. HR/pace users' ``latest_cp`` is
+    # NOT watts (it's LTHR or LT pace), so we must never feed it into
+    # predict_marathon_time / required_cp_for_time. The source of truth for
+    # actual CP watts is the resolved threshold from sensor data.
+    latest_cp_watts = (
+        thresholds.cp_watts if thresholds.cp_watts and thresholds.cp_watts > 0 else None
     )
 
     # Goal + race prediction
@@ -1106,34 +1343,28 @@ def get_dashboard_data(user_id: str = None, db=None) -> dict:
             dist_config = {**dist_config, "power_fraction": theory_fraction}
         theory_exponent = prediction_theory.params.get("riegel_exponent")
 
-    # Determine prediction method based on science theory selection.
-    # The prediction theory is independent of training base:
-    # - "critical_power" theory → uses CP + power-pace model (requires power data)
-    # - "riegel" theory → uses threshold pace + Riegel formula (requires pace data)
-    # Falls back to the other model if the selected one lacks data.
-    if prediction_theory_id == "critical_power" and latest_cp:
-        prediction_base = "power"
-    elif prediction_theory_id == "riegel" and threshold_pace:
-        prediction_base = "pace"
-    elif latest_cp:
-        # Fallback: user selected Riegel but no pace data, use CP if available
-        prediction_base = "power"
-    elif threshold_pace:
-        # Fallback: user selected CP but no power data, use Riegel if pace available
-        prediction_base = "pace"
-    else:
-        prediction_base = config.training_base
+    prediction_method = _select_prediction_method(
+        config.training_base,
+        prediction_theory_id,
+        has_cp=bool(latest_cp_watts),
+        has_pace=bool(threshold_pace),
+    )
 
     race_countdown = _build_race_countdown(
-        race_date_str, target_time_sec, latest_cp, power_pace_pairs,
-        cp_trend_data, today,
+        race_date_str, target_time_sec,
+        latest_threshold=latest_cp,
+        latest_cp_watts=latest_cp_watts,
+        power_pace_pairs=power_pace_pairs,
+        cp_trend_data=cp_trend_data,
+        today=today,
         distance_km=dist_config["km"],
         power_fraction=dist_config["power_fraction"],
         distance_label=dist_config["label"],
         distance_key=distance_key,
-        training_base=prediction_base,
+        training_base=config.training_base,
         threshold_pace=threshold_pace,
         riegel_exponent=theory_exponent,
+        prediction_method=prediction_method,
         prediction_theory_name=prediction_theory.name if prediction_theory else None,
     )
 
@@ -1184,8 +1415,8 @@ def get_dashboard_data(user_id: str = None, db=None) -> dict:
     # Supplementary data
     weekly_review = _build_compliance(merged, plan, config.training_base, daily_load, thresholds)
     workout_flags = _build_workout_flags(merged, recovery, config.training_base)
-    sleep_perf = _build_sleep_perf(merged, recovery)
-    warnings = _build_warnings(recovery_analysis, current_tsb, config, data_dir=data_dir, latest_cp=latest_cp)
+    sleep_perf = _build_sleep_perf(merged, recovery, config.training_base)
+    warnings = _build_warnings(recovery_analysis, current_tsb, config, data_dir=data_dir, latest_cp_watts=latest_cp_watts)
 
     # Diagnosis
     splits = data["splits"]
@@ -1197,7 +1428,7 @@ def get_dashboard_data(user_id: str = None, db=None) -> dict:
     # Data sufficiency metadata — helps frontend decide what to show
     activity_count = len(merged) if not merged.empty else 0
     data_days = (today - earliest).days if not merged.empty else 0
-    cp_point_count = len(cp_trend_data.get("dates", [])) if cp_trend_data else 0
+    cp_point_count = len(cp_trend_chart.get("dates", [])) if cp_trend_chart else 0
     has_recovery = not recovery.empty if hasattr(recovery, 'empty') else bool(recovery)
 
     data_meta = {

@@ -1,4 +1,9 @@
-"""SQLAlchemy ORM models for the Trainsight database."""
+"""SQLAlchemy ORM models for the Praxys database.
+
+The on-disk SQLite filename is still `trainsight.db` — we keep the legacy
+filename to avoid user-data migration risk. Only the codebase-level brand
+references have been renamed.
+"""
 from datetime import date, datetime
 from uuid import uuid4
 
@@ -82,6 +87,7 @@ class UserConfig(Base):
     zone_labels = Column(String(50), default="standard")
     activity_routing = Column(JSON, default=dict)
     source_options = Column(JSON, default=dict)
+    language = Column(String(10), nullable=True)
 
     user = relationship("User", back_populates="config")
 
