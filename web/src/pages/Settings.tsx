@@ -1,8 +1,16 @@
 import type React from 'react';
 import { useState, useEffect, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useSettings } from '@/contexts/SettingsContext';
 import { API_BASE, getAuthHeaders } from '@/hooks/useApi';
 import type { TrainingBase, SyncStatusResponse } from '@/types/api';
+import {
+  buildStravaReturnTo,
+  getStravaOAuthMessage,
+  getStravaOAuthResult,
+  startStravaOAuth,
+  stripStravaOAuthParams,
+} from '@/lib/strava-oauth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +43,23 @@ const PLATFORM_META: Record<string, { label: string; color: string; icon: React.
         <circle cx="12" cy="12" r="9" />
         <path d="M12 7v5l3 3" />
         <path d="M8 3.5l1 1M16 3.5l-1 1" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  strava: {
+    label: 'Strava',
+    color: '#fc4c02',
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        className="w-5 h-5"
+        aria-hidden="true"
+      >
+        <path d="M13.25 2 7.1 13.55h3.84l2.31-4.2 2.37 4.2h3.83L13.25 2Z" />
+        <path d="m10.47 15.18-2.2 4.02h4.4l-2.2-4.02Z" />
       </svg>
     ),
   },
@@ -120,7 +145,7 @@ const THRESHOLD_FIELDS: { key: string; label: MessageDescriptor; unit: string; i
   { key: 'rest_hr_bpm', label: msg`Resting HR`, unit: 'bpm' },
 ];
 
-const CONNECTABLE_PLATFORMS = ['garmin', 'stryd', 'oura'] as const;
+const CONNECTABLE_PLATFORMS = ['garmin', 'strava', 'stryd', 'oura'] as const;
 const SYNC_INTERVAL_OPTIONS = [
   { hours: 6,  recommended: true },
   { hours: 12, recommended: false },
@@ -135,6 +160,10 @@ const PLATFORM_CRED_FIELDS: Record<string, { fields: { key: string; label: strin
       { key: 'password', label: 'Password', type: 'password' },
     ],
     help: 'Use your Garmin Connect credentials.',
+  },
+  strava: {
+    fields: [],
+    help: 'Authorize Praxys with Strava in your browser. Praxys only syncs activities from Strava.',
   },
   stryd: {
     fields: [
@@ -181,6 +210,8 @@ const DISTANCE_LABELS: Record<string, MessageDescriptor> = {
 // --- Component ---
 
 export default function Settings() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const {
     config, platformCapabilities, availableProviders, availableBases,
     effectiveThresholds, loading, error, updateSettings, refetch,
@@ -200,6 +231,7 @@ export default function Settings() {
   const [connectCreds, setConnectCreds] = useState<Record<string, string>>({});
   const [connectError, setConnectError] = useState('');
   const [connecting, setConnecting] = useState(false);
+  const [stravaNotice, setStravaNotice] = useState('');
   const [goalEditorOpen, setGoalEditorOpen] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
@@ -234,6 +266,31 @@ export default function Settings() {
       .then((data: SyncStatusResponse) => setSyncStatus(data))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const oauthResult = getStravaOAuthResult(location.search);
+    if (!oauthResult) return;
+
+    const cleanedLocation = `${location.pathname}${stripStravaOAuthParams(location.search)}${location.hash}`;
+    navigate(cleanedLocation, { replace: true });
+
+    if (oauthResult.status === 'connected') {
+      setConnectPlatform(null);
+      setConnectCreds({});
+      setConnectError('');
+      setStravaNotice(getStravaOAuthMessage(oauthResult));
+      refetch();
+      fetch(`${API_BASE}/api/sync/status`, { headers: getAuthHeaders() })
+        .then((r) => r.json())
+        .then((data: SyncStatusResponse) => setSyncStatus(data))
+        .catch(() => {});
+      return;
+    }
+
+    setStravaNotice('');
+    setConnectPlatform('strava');
+    setConnectError(getStravaOAuthMessage(oauthResult));
+  }, [location.hash, location.pathname, location.search, navigate, refetch]);
 
   if (loading) {
     return (
@@ -346,6 +403,18 @@ export default function Settings() {
     if (!connectPlatform) return;
     setConnecting(true);
     setConnectError('');
+    setStravaNotice('');
+
+    if (connectPlatform === 'strava') {
+      try {
+        await startStravaOAuth(buildStravaReturnTo(location.pathname, location.search, location.hash));
+      } catch (err) {
+        setConnectError(err instanceof Error ? err.message : 'Network error');
+        setConnecting(false);
+      }
+      return;
+    }
+
     try {
       const res = await fetch(`${API_BASE}/api/settings/connections/${connectPlatform}`, {
         method: 'POST',
@@ -435,6 +504,11 @@ export default function Settings() {
           <p className={`text-xs mt-2 font-medium ${saveMsg === 'Saved' ? 'text-primary' : 'text-destructive'}`}>
             {saveMsg}
           </p>
+        )}
+        {stravaNotice && (
+          <Alert className="mt-4 border-primary/30 bg-primary/5">
+            <AlertDescription className="text-sm text-primary">{stravaNotice}</AlertDescription>
+          </Alert>
         )}
       </div>
 
@@ -630,7 +704,7 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
           {CONNECTABLE_PLATFORMS.map((platform) => {
             const meta = PLATFORM_META[platform] || { label: platform, color: '#64748b', icon: null };
             const caps = platformCapabilities[platform] || {};
@@ -778,7 +852,7 @@ export default function Settings() {
               <AlertDescription>{connectError}</AlertDescription>
             </Alert>
           )}
-          {connectPlatform && PLATFORM_CRED_FIELDS[connectPlatform] && (
+          {connectPlatform && connectPlatform !== 'strava' && PLATFORM_CRED_FIELDS[connectPlatform] && (
             <form
               onSubmit={(e) => { e.preventDefault(); handleConnect(); }}
               className="space-y-4"
@@ -792,7 +866,7 @@ export default function Settings() {
                     value={connectCreds[field.key] || ''}
                     onChange={(e) => setConnectCreds({ ...connectCreds, [field.key]: e.target.value })}
                     disabled={connecting}
-                    autoComplete={field.type === 'password' ? 'current-password' : field.type}
+                    autoComplete={field.key.includes('token') ? 'off' : field.type === 'password' ? 'current-password' : field.type}
                   />
                 </div>
               ))}
@@ -805,6 +879,24 @@ export default function Settings() {
                 </Button>
               </div>
             </form>
+          )}
+          {connectPlatform === 'strava' && (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-border bg-muted/40 p-3">
+                <p className="text-sm font-medium text-foreground"><Trans>Activities-only connection</Trans></p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  <Trans>Continue in your browser to authorize Strava. Praxys imports activities from Strava, while recovery, fitness, and plans come from your other connected platforms.</Trans>
+                </p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="ghost" onClick={() => setConnectPlatform(null)} disabled={connecting}>
+                  <Trans>Cancel</Trans>
+                </Button>
+                <Button type="button" onClick={() => void handleConnect()} disabled={connecting}>
+                  {connecting ? <Trans>Redirecting...</Trans> : <Trans>Continue to Strava</Trans>}
+                </Button>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>

@@ -65,6 +65,21 @@ def _fill_missing(obj, row: dict, columns: tuple[str, ...]) -> bool:
     return touched
 
 
+def _pace_min_str(row: dict) -> str | None:
+    """Prefer an explicit pace string, else derive one from sec/km."""
+    pace_min = _str(row.get("avg_pace_min_km"))
+    if pace_min:
+        return pace_min
+
+    pace_sec = _float(row.get("avg_pace_sec_km"))
+    if pace_sec is None or pace_sec <= 0:
+        return None
+
+    total_seconds = int(round(pace_sec))
+    minutes, seconds = divmod(total_seconds, 60)
+    return f"{minutes}:{seconds:02d}"
+
+
 def write_activities(user_id: str, rows: list[dict], db: Session) -> int:
     """Write activity rows to DB.
 
@@ -101,7 +116,8 @@ def write_activities(user_id: str, rows: list[dict], db: Session) -> int:
             max_power=_float(row.get("max_power")),
             avg_hr=_float(row.get("avg_hr")),
             max_hr=_float(row.get("max_hr")),
-            avg_pace_min_km=_str(row.get("avg_pace_min_km")),
+            avg_pace_min_km=_pace_min_str(row),
+            avg_pace_sec_km=_float(row.get("avg_pace_sec_km")),
             elevation_gain_m=_float(row.get("elevation_gain_m")),
             avg_cadence=_float(row.get("avg_cadence")),
             training_effect=_float(row.get("aerobic_te") or row.get("training_effect")),
@@ -152,7 +168,8 @@ def write_splits(user_id: str, rows: list[dict], db: Session) -> int:
             avg_power=_float(row.get("avg_power")),
             avg_hr=_float(row.get("avg_hr")),
             max_hr=_float(row.get("max_hr")),
-            avg_pace_min_km=_str(row.get("avg_pace_min_km")),
+            avg_pace_min_km=_pace_min_str(row),
+            avg_pace_sec_km=_float(row.get("avg_pace_sec_km")),
             avg_cadence=_float(row.get("avg_cadence")),
             elevation_change_m=_float(row.get("elevation_change_m")),
         )
