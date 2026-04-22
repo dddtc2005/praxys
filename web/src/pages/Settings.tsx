@@ -369,15 +369,6 @@ export default function Settings() {
     } catch { /* ignore */ }
   };
 
-  const handleRegionChange = async (region: string) => {
-    setSaving(true);
-    try {
-      await updateSettings({ source_options: { ...config.source_options, garmin_region: region } });
-      flash('Saved');
-    } catch { flash('Error'); }
-    setSaving(false);
-  };
-
   const handleSyncIntervalChange = async (value: string | null) => {
     if (!value) return;
     const hours = parseInt(value, 10);
@@ -801,20 +792,15 @@ export default function Settings() {
                       <Separator />
                       <div className="flex items-center justify-between">
                         <Label className="text-xs text-muted-foreground"><Trans>Region</Trans></Label>
-                        <Select
-                          value={String(config.source_options?.garmin_region || 'international')}
-                          onValueChange={(v) => { if (v) handleRegionChange(v); }}
-                          disabled={saving}
-                        >
-                          <SelectTrigger className="w-32 h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="international">{t`International`}</SelectItem>
-                            <SelectItem value="cn">{t`China`}</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <span className="text-xs font-medium">
+                          {String(config.source_options?.garmin_region) === 'cn'
+                            ? <Trans>China</Trans>
+                            : <Trans>International</Trans>}
+                        </span>
                       </div>
+                      <p className="text-[10px] text-muted-foreground -mt-1">
+                        <Trans>Garmin International and Garmin China are separate accounts. To switch, disconnect and reconnect with the other account.</Trans>
+                      </p>
                     </>
                   )}
 
