@@ -33,6 +33,21 @@ function authHeader(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+const LOGIN_PAGE = 'pages/login/index';
+
+function isOnLoginPage(): boolean {
+  // Taro.getCurrentPages() returns the in-memory page stack; the top of
+  // the stack is the active page. Route strings are stored without a
+  // leading slash.
+  try {
+    const pages = Taro.getCurrentPages();
+    const top = pages[pages.length - 1];
+    return top?.route === LOGIN_PAGE;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Redirect to the login page when the stored JWT is rejected. We relaunch
  * instead of navigateTo so the login page can't be dismissed back into
@@ -40,7 +55,7 @@ function authHeader(): Record<string, string> {
  */
 function redirectToLogin(): void {
   Taro.removeStorageSync(TOKEN_KEY);
-  Taro.reLaunch({ url: '/pages/login/index' }).catch(() => {
+  Taro.reLaunch({ url: `/${LOGIN_PAGE}` }).catch(() => {
     // If the current page is already /pages/login/index the reLaunch
     // rejects with "redundant"; that's fine — we're already there.
   });
@@ -72,7 +87,18 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
   const status = response.statusCode;
   if (status === 401 && !options.skipAuthRedirect) {
+    // If we're already on the login page, don't relaunch (would be a no-op
+    // that rejects with "redundant") and don't return a never-settling
+    // Promise — that would hang the caller's loading state forever.
+    // Instead, clear the dead token and surface the 401 as a real error so
+    // the login page's effect can react to it.
+    if (isOnLoginPage()) {
+      Taro.removeStorageSync(TOKEN_KEY);
+      throw { status: 401, detail: 'UNAUTHENTICATED' } as ApiError;
+    }
     redirectToLogin();
+    // The reLaunch unmounts the caller — the never-settling promise keeps
+    // the awaiter from resolving into discarded state.
     return new Promise<T>(() => {});
   }
 

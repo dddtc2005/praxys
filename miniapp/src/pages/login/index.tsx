@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, Button, Input } from '@tarojs/components';
 import Taro, { useDidShow } from '@tarojs/taro';
 
@@ -23,32 +23,44 @@ export default function LoginPage() {
   const [stage, setStage] = useState<Stage>({ kind: 'loading' });
   useDidShow(() => applyThemeChrome());
 
-  // On mount, run the login exchange once. `hasRun` prevents a double-run
-  // from React.StrictMode / hot reload during development.
-  useEffect(() => {
-    let hasRun = false;
-    async function run() {
-      if (hasRun) return;
-      hasRun = true;
-      try {
-        const result = await runLaunchLogin();
-        if (result.status === 'ok' && result.access_token) {
-          saveToken(result.access_token);
-          Taro.reLaunch({ url: '/pages/today/index' });
-          return;
-        }
-        if (result.status === 'needs_setup' && result.wechat_login_ticket) {
-          setStage({ kind: 'choose', ticket: result.wechat_login_ticket });
-          return;
-        }
-        setStage({ kind: 'error', message: 'Unexpected login response' });
-      } catch (e) {
-        const msg = (e as Partial<ApiError>)?.detail ?? String(e);
-        setStage({ kind: 'error', message: msg });
+  // Guard against React.StrictMode double-invocation: a let/const inside the
+  // effect would be reinitialized on each invocation, defeating the purpose.
+  // A useRef survives both invocations so the second call aborts early.
+  // Tencent's js_code is single-use (see api/routes/wechat.py), so letting
+  // both run would burn the code and the second exchange would 40163.
+  const inFlight = useRef(false);
+
+  const runLogin = useCallback(async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    try {
+      const result = await runLaunchLogin();
+      if (result.status === 'ok' && result.access_token) {
+        saveToken(result.access_token);
+        Taro.reLaunch({ url: '/pages/today/index' });
+        return;
       }
+      if (result.status === 'needs_setup' && result.wechat_login_ticket) {
+        setStage({ kind: 'choose', ticket: result.wechat_login_ticket });
+        return;
+      }
+      setStage({ kind: 'error', message: 'Unexpected login response' });
+    } catch (e) {
+      const msg = (e as Partial<ApiError>)?.detail ?? String(e);
+      setStage({ kind: 'error', message: msg });
+    } finally {
+      inFlight.current = false;
     }
-    void run();
   }, []);
+
+  useEffect(() => {
+    void runLogin();
+  }, [runLogin]);
+
+  const onRetry = () => {
+    setStage({ kind: 'loading' });
+    void runLogin();
+  };
 
   if (stage.kind === 'loading') {
     return (
@@ -63,10 +75,7 @@ export default function LoginPage() {
       <View className={`login-root ${themeClassName()}`}>
         <Text className="login-title ts-destructive">Sign-in failed</Text>
         <Text className="login-detail">{stage.message}</Text>
-        <Button
-          className="ts-button"
-          onClick={() => setStage({ kind: 'loading' })}
-        >
+        <Button className="ts-button" onClick={onRetry}>
           Retry
         </Button>
       </View>
