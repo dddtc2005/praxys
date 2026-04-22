@@ -208,6 +208,25 @@ def _run_sync(user_id: str, source: str, creds: dict,
 
         db.commit()
 
+        # Refresh activity-derived CP on any sync that can change activity
+        # power observations (Garmin, Strava, Stryd — not Oura). The fit
+        # itself is cheap and idempotent; skipping Oura just avoids the
+        # no-op DB read.
+        if source in ("garmin", "strava", "stryd"):
+            try:
+                from db.sync_writer import update_cp_from_activities
+                fit = update_cp_from_activities(user_id, db)
+                if fit is not None:
+                    db.commit()
+                    logger.info(
+                        "Activity-derived CP for user %s: %.1fW (r²=%.2f, %d points)",
+                        user_id, fit["cp_watts"], fit["r_squared"], fit["point_count"],
+                    )
+            except Exception:
+                # CP refresh is best-effort; never let it break the sync.
+                logger.exception("Activity-derived CP refresh failed for user %s", user_id)
+                db.rollback()
+
         # Update last_sync on the connection record
         conn = db.query(UserConnection).filter(
             UserConnection.user_id == user_id,

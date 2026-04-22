@@ -145,6 +145,15 @@ const THRESHOLD_FIELDS: { key: string; label: MessageDescriptor; unit: string; i
   { key: 'rest_hr_bpm', label: msg`Resting HR`, unit: 'bpm' },
 ];
 
+/** Human-friendly label for a fitness_data `source` value.
+ *  Connected platforms use their brand name; the special `activities`
+ *  source — computed in-app from your own power-vs-duration — gets a
+ *  descriptive label so the option reads as a distinct choice. */
+function thresholdSourceLabel(source: string): string {
+  if (source === 'activities') return 'From activities';
+  return source.charAt(0).toUpperCase() + source.slice(1);
+}
+
 const CONNECTABLE_PLATFORMS = ['garmin', 'strava', 'stryd', 'oura'] as const;
 const SYNC_INTERVAL_OPTIONS = [
   { hours: 6,  recommended: true },
@@ -1182,7 +1191,7 @@ export default function Settings() {
                 : null;
 
               const badgeText = origin.startsWith('auto') && currentSource
-                ? `${currentSource.charAt(0).toUpperCase()}${currentSource.slice(1)}`
+                ? thresholdSourceLabel(currentSource)
                 : t`Not set`;
               const badgeVariant: 'default' | 'secondary' = origin.startsWith('auto') ? 'default' : 'secondary';
 
@@ -1207,7 +1216,7 @@ export default function Settings() {
                       <SelectContent>
                         {options.map((opt) => (
                           <SelectItem key={opt.source} value={opt.source} className="text-xs">
-                            {opt.source.charAt(0).toUpperCase()}{opt.source.slice(1)}
+                            {thresholdSourceLabel(opt.source)}
                             <span className="text-muted-foreground ml-1 font-data">
                               ({isPace
                                 ? formatPace(opt.value, config.unit_system as 'metric' | 'imperial' || 'metric')

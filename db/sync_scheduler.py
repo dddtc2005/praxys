@@ -190,6 +190,23 @@ def _sync_connection(user_id: str, platform: str, db):
 
     db.commit()
 
+    # Refresh activity-derived CP after the sync — best-effort, never break
+    # the scheduled sync if the fit fails. Skipped for Oura since it writes
+    # no activity power.
+    if platform in ("garmin", "strava", "stryd"):
+        try:
+            from db.sync_writer import update_cp_from_activities
+            fit = update_cp_from_activities(user_id, db)
+            if fit is not None:
+                db.commit()
+                logger.info(
+                    "Activity-derived CP for user=%s: %.1fW (r²=%.2f, %d points)",
+                    user_id, fit["cp_watts"], fit["r_squared"], fit["point_count"],
+                )
+        except Exception:
+            logger.exception("Activity-derived CP refresh failed: user=%s", user_id)
+            db.rollback()
+
     # Update last_sync
     conn.last_sync = datetime.utcnow()
     conn.status = "connected"
