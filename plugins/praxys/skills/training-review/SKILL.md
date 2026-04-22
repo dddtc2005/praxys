@@ -99,8 +99,9 @@ Present findings with visual indicators:
 
 From `weekly_review`:
 - `weeks`: week labels
-- `actual_rss`: actual weekly load
-- `planned_rss`: planned weekly load (if plan exists)
+- `actual_load`: actual weekly load (RSS for power base, TRIMP for HR, rTSS for pace)
+- `planned_load`: planned weekly load (if plan exists), same unit as actual_load
+- `planned_estimated`: `true` when plan targets were missing for the base and we used a fallback rate
 
 Show last 4-8 weeks as a compact comparison.
 

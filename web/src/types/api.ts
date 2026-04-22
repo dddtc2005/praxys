@@ -321,8 +321,9 @@ export interface CpTrendChart {
 
 export interface WeeklyReview {
   weeks: string[];
-  actual_rss: number[];
-  planned_rss: number[];
+  actual_load: number[];
+  planned_load: number[];
+  planned_estimated?: boolean;
 }
 
 export interface WorkoutFlag {
@@ -348,13 +349,19 @@ export interface ScienceNoteInfo {
 
 export type ScienceNotes = Record<string, ScienceNoteInfo>;
 
+export interface SleepPerfData {
+  pairs: [number, number][];
+  metric_label: string;
+  metric_unit: string;
+}
+
 export interface TrainingResponse {
   diagnosis: DiagnosisData;
   fitness_fatigue: TimeSeriesData;
   cp_trend: CpTrendChart;
   weekly_review: WeeklyReview;
   workout_flags: WorkoutFlag[];
-  sleep_perf: [number, number][];
+  sleep_perf: SleepPerfData;
   training_base?: TrainingBase;
   display?: DisplayConfig;
   data_meta?: DataMeta;
@@ -371,16 +378,24 @@ export interface RaceCountdown {
   mode: 'race_date' | 'cp_milestone' | 'continuous' | 'none';
   race_date?: string;
   days_left?: number;
-  predicted_time_sec?: number;
-  target_time_sec?: number;
-  current_cp?: number;
-  target_cp?: number;
-  cp_gap_watts?: number;
+  predicted_time_sec?: number | null;
+  target_time_sec?: number | null;
+  /** Current threshold in base-native units (W / bpm / sec·km⁻¹).
+   *  Pair with `display.threshold_unit` to format. */
+  current_cp?: number | null;
+  /** Target threshold in the same base-native units as `current_cp`.
+   *  Always null for HR-base users (LTHR is not a trainable race target). */
+  target_cp?: number | null;
+  cp_gap_watts?: number | null;
   status: string;
   milestones?: Milestone[];
   estimated_months?: number | null;
   distance?: string;
   distance_label?: string;
+  /** Which prediction MODEL actually produced `predicted_time_sec`. */
+  prediction_method?: 'critical_power' | 'riegel' | 'none';
+  /** Display name of the science theory, if the active set has one. */
+  prediction_theory?: string | null;
   cp_trend_summary?: {
     direction: string;
     slope_per_month: number;
@@ -389,10 +404,10 @@ export interface RaceCountdown {
     assessment: string;
     severity: string;
     trend_note?: string;
-    cp_gap_watts?: number;
-    cp_gap_pct?: number;
-    current_cp?: number;
-    needed_cp?: number;
+    cp_gap_watts?: number | null;
+    cp_gap_pct?: number | null;
+    current_cp?: number | null;
+    needed_cp?: number | null;
     realistic_targets?: {
       comfortable: number;
       stretch: number;
@@ -412,6 +427,10 @@ export interface GoalResponse {
   race_countdown: RaceCountdown;
   cp_trend: CpTrendChart;
   cp_trend_data: CpTrendData;
+  /** Current threshold in base-native units (W / bpm / sec·km⁻¹).
+   *  Name kept as `latest_cp` for backwards compatibility — pair with
+   *  `display.threshold_unit` to format. Do NOT feed directly into any
+   *  power formula: for that, use the backend-computed watts path. */
   latest_cp: number | null;
   training_base?: TrainingBase;
   display?: DisplayConfig;

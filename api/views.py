@@ -82,8 +82,8 @@ def upcoming_workouts(plan_df: pd.DataFrame | None, limit: int = 3) -> list[dict
 def week_load(weekly_review: dict) -> dict | None:
     """Extract current week load vs plan."""
     weeks = weekly_review.get("weeks", [])
-    actual = weekly_review.get("actual_rss", [])
-    planned = weekly_review.get("planned_rss", [])
+    actual = weekly_review.get("actual_load", [])
+    planned = weekly_review.get("planned_load", [])
     if not weeks or not actual:
         return None
     return {
