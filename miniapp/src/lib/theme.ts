@@ -36,7 +36,12 @@ export function setThemePreference(theme: ThemePref): void {
 
 /**
  * Returns the concrete theme to render. For 'auto', reads the WeChat
- * client's current theme.
+ * client's current theme; falls back to 'light' (the Praxys default)
+ * when the system setting is unreadable or reports dark.
+ *
+ * NOTE — the fallback here used to be 'dark'. Both the web app and the
+ * mini program default to light as of the brand-alignment pass; the
+ * authoritative source is web/index.html's first-paint script.
  *
  * Uses getSystemInfoSync despite the deprecation warning because Taro
  * 4.2.0's runtime wrapper only forwards getSystemInfoSync — the newer
@@ -48,10 +53,10 @@ export function resolveTheme(pref: ThemePref = getThemePreference()): ResolvedTh
   if (pref === 'dark' || pref === 'light') return pref;
   try {
     const info = Taro.getSystemInfoSync() as { theme?: string };
-    if (info.theme === 'light') return 'light';
-    return 'dark';
+    if (info.theme === 'dark') return 'dark';
+    return 'light';
   } catch {
-    return 'dark';
+    return 'light';
   }
 }
 

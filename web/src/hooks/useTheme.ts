@@ -4,7 +4,7 @@ import { KEYS, getCompatItem, setCompatItem } from '../lib/storage-compat';
 type Theme = 'light' | 'dark' | 'system';
 
 function getSystemPreference(): 'light' | 'dark' {
-  if (typeof window === 'undefined' || !window.matchMedia) return 'dark';
+  if (typeof window === 'undefined' || !window.matchMedia) return 'light';
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
@@ -24,7 +24,7 @@ function applyTheme(resolved: 'light' | 'dark') {
 function readStoredTheme(): Theme {
   const stored = getCompatItem(KEYS.theme.new, KEYS.theme.legacy);
   if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
-  return 'dark';
+  return 'light';
 }
 
 function writeStoredTheme(theme: Theme) {

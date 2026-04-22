@@ -70,11 +70,11 @@ page {
     'Helvetica Neue', Arial, sans-serif;
   font-size: 28rpx;
   line-height: 1.5;
-  // Default page element to dark; the theme class on the root View
-  // paints over this, but this avoids a flash of wrong colour during
-  // first paint before React mounts.
-  background-color: #0d1220;
-  color: #e8ebf0;
+  // Default page element to light (the Praxys default); the theme
+  // class on the root View paints over this, but this avoids a flash
+  // of wrong colour during first paint before React mounts.
+  background-color: #faf9f5;
+  color: #15192a;
 }
 
 .ts-container {

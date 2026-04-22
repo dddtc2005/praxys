@@ -6,8 +6,8 @@ If the code in `web/src/index.css` diverges from this, the brand guide wins and 
 
 ## Theme
 
-- Light + dark themes via `.dark` class on `<html>`. Default stored preference is dark (the brand guide shows light as the print default; the product runs dark-first).
-- Theme is 3-state (`light` | `dark` | `system`) via `useTheme`; toggle in the sidebar footer cycles Dark → Light → System.
+- Light + dark themes via `.dark` class on `<html>`. **Default is light**, matching the brand guide's print default; users can switch to dark or system via the sidebar footer toggle.
+- Theme is 3-state (`light` | `dark` | `system`) via `useTheme`; toggle in the sidebar footer cycles Light → Dark → System.
 - `localStorage` key: `praxys-theme` (legacy `trainsight-theme` dual-read for 90 days post-rebrand).
 - An inline script in `index.html` prevents flash-of-wrong-theme on load.
 - shadcn's CSS variable system (`--background`, `--card`, `--primary`, etc.) is the single source of truth for surface colors.

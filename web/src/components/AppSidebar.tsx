@@ -22,7 +22,7 @@ import { msg } from '@lingui/core/macro';
 import type { MessageDescriptor } from '@lingui/core';
 
 
-const THEME_CYCLE = ['dark', 'light', 'system'] as const;
+const THEME_CYCLE = ['light', 'dark', 'system'] as const;
 const THEME_ICON = { dark: Moon, light: Sun, system: Monitor } as const;
 const THEME_LABEL: Record<typeof THEME_CYCLE[number], MessageDescriptor> = {
   dark: msg`Dark`,
