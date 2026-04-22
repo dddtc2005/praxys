@@ -323,7 +323,7 @@ def write_profile_thresholds(
         return 0
     when = as_of or date.today()
     count = 0
-    for key in ("max_hr_bpm", "rest_hr_bpm"):
+    for key in ("max_hr_bpm", "rest_hr_bpm", "lthr_bpm"):
         val = profile.get(key)
         if val is None:
             continue

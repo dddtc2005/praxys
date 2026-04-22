@@ -165,11 +165,15 @@ def parse_splits(activity_id: str, splits_data: dict) -> list[dict]:
 
 
 def parse_user_profile(profile: dict | None) -> dict:
-    """Extract configured max HR and resting HR from Garmin user profile.
+    """Extract LTHR and (when present) max HR from Garmin user profile.
 
-    The user-settings endpoint returns a nested structure. Fields live under
-    ``userData`` on the modern API but Garmin has shipped several shapes over
-    time, so we check a couple of alternate names and a top-level fallback.
+    Garmin's ``/userprofile-service/userprofile/user-settings`` payload nests
+    most fields under ``userData``. Confirmed fields on an International account
+    (2026-04): ``userData.lactateThresholdHeartRate``, ``userData.vo2MaxRunning``,
+    ``userData.lactateThresholdSpeed``. The endpoint does **not** return a
+    configured max HR or resting HR — those come from ``get_heart_rates(date)``,
+    not the profile. We keep a defensive check for ``maxHr`` variants in case
+    Garmin adds one later.
     """
     if not isinstance(profile, dict):
         return {}
@@ -179,6 +183,14 @@ def parse_user_profile(profile: dict | None) -> dict:
         user_data = profile
 
     result: dict[str, int] = {}
+
+    lthr = user_data.get("lactateThresholdHeartRate")
+    if lthr:
+        try:
+            result["lthr_bpm"] = int(float(lthr))
+        except (TypeError, ValueError):
+            pass
+
     max_hr = (
         user_data.get("maxHr")
         or user_data.get("maxHeartRate")
@@ -190,17 +202,31 @@ def parse_user_profile(profile: dict | None) -> dict:
         except (TypeError, ValueError):
             pass
 
-    rhr = (
-        user_data.get("restingHeartRate")
-        or user_data.get("restHr")
-        or profile.get("restingHeartRate")
-    )
-    if rhr:
+    return result
+
+
+def parse_heart_rates(hr_data: dict | None) -> dict:
+    """Extract RHR fields from ``get_heart_rates(date)`` response.
+
+    Returns a dict with (any of):
+        - ``resting_hr``: that day's overnight resting HR (``restingHeartRate``).
+        - ``rolling_rest_hr``: the trailing 7-day average, which Garmin uses
+          as the stable reference — appropriate for TRIMP's ``rest_hr`` input.
+    """
+    if not isinstance(hr_data, dict):
+        return {}
+    result: dict[str, int] = {}
+    for src_key, dst_key in (
+        ("restingHeartRate", "resting_hr"),
+        ("lastSevenDaysAvgRestingHeartRate", "rolling_rest_hr"),
+    ):
+        val = hr_data.get(src_key)
+        if val is None:
+            continue
         try:
-            result["rest_hr_bpm"] = int(float(rhr))
+            result[dst_key] = int(float(val))
         except (TypeError, ValueError):
             pass
-
     return result
 
 
@@ -249,6 +275,7 @@ def parse_garmin_recovery(
     hrv_data: dict | None = None,
     sleep_data: dict | None = None,
     training_readiness: dict | list | None = None,
+    heart_rates: dict | None = None,
 ) -> dict | None:
     """Parse Garmin HRV, sleep, and readiness into a recovery_data row.
 
@@ -287,7 +314,10 @@ def parse_garmin_recovery(
                 result["hrv_ms"] = str(round(float(last_night)))
                 has_data = True
 
-    # Sleep → sleep_score, total_sleep_hours, resting_hr
+    # Sleep → sleep_score, total_sleep_hours. Note: International sleep
+    # payloads do NOT include restingHeartRate (only avgHeartRate during
+    # sleep). The authoritative RHR source is get_heart_rates(date) —
+    # passed in via the heart_rates kwarg.
     if isinstance(sleep_data, dict):
         daily_sleep = sleep_data.get("dailySleepDTO") or sleep_data
         if isinstance(daily_sleep, dict):
@@ -305,12 +335,33 @@ def parse_garmin_recovery(
                 result["total_sleep_hours"] = str(round(float(sleep_sec) / 3600, 1))
                 has_data = True
 
-            # Resting HR from sleep data
-            if "resting_hr" not in result:
-                rhr = daily_sleep.get("restingHeartRate")
-                if rhr is not None and float(rhr) > 20:  # Sanity check
-                    result["resting_hr"] = str(round(float(rhr)))
-                    has_data = True
+    # Resting HR: prefer get_heart_rates(date).restingHeartRate. Fall back to
+    # sleep data's legacy restingHeartRate (present on older payload shapes)
+    # only when heart_rates doesn't provide one.
+    rhr: float | None = None
+    if isinstance(heart_rates, dict):
+        hr_val = heart_rates.get("restingHeartRate")
+        if hr_val is not None:
+            try:
+                hr_val_f = float(hr_val)
+                if hr_val_f > 20:  # Sanity check — below 20 is sensor artefact
+                    rhr = hr_val_f
+            except (TypeError, ValueError):
+                pass
+    if rhr is None and isinstance(sleep_data, dict):
+        daily_sleep = sleep_data.get("dailySleepDTO") or sleep_data
+        if isinstance(daily_sleep, dict):
+            legacy = daily_sleep.get("restingHeartRate")
+            if legacy is not None:
+                try:
+                    legacy_f = float(legacy)
+                    if legacy_f > 20:
+                        rhr = legacy_f
+                except (TypeError, ValueError):
+                    pass
+    if rhr is not None:
+        result["resting_hr"] = str(round(rhr))
+        has_data = True
 
     return result if has_data else None
 

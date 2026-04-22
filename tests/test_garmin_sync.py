@@ -4,6 +4,7 @@ from sync.garmin_sync import (
     parse_activities,
     parse_daily_metrics,
     parse_garmin_recovery,
+    parse_heart_rates,
     parse_splits,
     parse_user_profile,
 )
@@ -281,29 +282,86 @@ def test_parse_splits_ignores_connectiq_non_power_field():
     assert rows[0]["avg_power"] == ""
 
 
-# --- User profile (max HR + resting HR thresholds) ---
+# --- User profile (LTHR + max HR thresholds) ---
+# Garmin's user-settings endpoint does NOT return resting HR — that lives in
+# get_heart_rates(date). Profile carries LTHR and (occasionally) a maxHr.
 
 
-def test_parse_user_profile_extracts_max_and_rest_hr():
-    profile = {"userData": {"maxHr": 188, "restingHeartRate": 48}}
-    assert parse_user_profile(profile) == {"max_hr_bpm": 188, "rest_hr_bpm": 48}
+def test_parse_user_profile_extracts_lthr_from_real_shape():
+    """The actual Garmin /userprofile-service/userprofile/user-settings payload
+    (International, 2026-04) has LTHR under userData.lactateThresholdHeartRate.
+    """
+    profile = {
+        "userData": {
+            "lactateThresholdHeartRate": 172,
+            "vo2MaxRunning": 55.0,
+            "thresholdHeartRateAutoDetected": True,
+        },
+    }
+    assert parse_user_profile(profile) == {"lthr_bpm": 172}
 
 
-def test_parse_user_profile_handles_alternate_field_names():
-    profile = {"userData": {"heartRateMax": 192.0, "restHr": 50}}
-    assert parse_user_profile(profile) == {"max_hr_bpm": 192, "rest_hr_bpm": 50}
+def test_parse_user_profile_extracts_max_hr_when_present():
+    """Defensive: if a future Garmin shape adds maxHr to the profile, pick it up."""
+    profile = {"userData": {"maxHr": 188, "lactateThresholdHeartRate": 170}}
+    assert parse_user_profile(profile) == {"max_hr_bpm": 188, "lthr_bpm": 170}
+
+
+def test_parse_user_profile_handles_alternate_max_hr_names():
+    profile = {"userData": {"heartRateMax": 192.0}}
+    assert parse_user_profile(profile) == {"max_hr_bpm": 192}
 
 
 def test_parse_user_profile_without_userdata_wrapper():
     """Some Garmin responses put fields at top level instead of nested."""
-    profile = {"maxHeartRate": 185, "restingHeartRate": 52}
-    assert parse_user_profile(profile) == {"max_hr_bpm": 185, "rest_hr_bpm": 52}
+    profile = {"maxHeartRate": 185, "lactateThresholdHeartRate": 170}
+    assert parse_user_profile(profile) == {"max_hr_bpm": 185, "lthr_bpm": 170}
 
 
 def test_parse_user_profile_empty_or_invalid():
     assert parse_user_profile(None) == {}
     assert parse_user_profile({}) == {}
     assert parse_user_profile({"userData": {"maxHr": "not a number"}}) == {}
+
+
+def test_parse_user_profile_does_not_pull_rest_hr_from_profile():
+    """Regression: profile must not pretend to return rest HR. Garmin's
+    profile endpoint has no resting-HR field; that data comes from
+    get_heart_rates. A parser that guesses rest_hr here would write
+    garbage into fitness_data.rest_hr_bpm."""
+    # Even when a profile-shaped dict contains a top-level restingHeartRate
+    # (which real Garmin profiles don't), the parser ignores it.
+    profile = {"userData": {"lactateThresholdHeartRate": 172}, "restingHeartRate": 46}
+    out = parse_user_profile(profile)
+    assert "rest_hr_bpm" not in out
+
+
+# --- Heart rates (RHR sources) ---
+
+
+def test_parse_heart_rates_extracts_rhr_and_rolling_avg():
+    """Real shape from get_heart_rates(date) on International, 2026-04."""
+    hr = {
+        "maxHeartRate": 95,  # daily max — NOT lifetime max, we ignore it
+        "minHeartRate": 45,
+        "restingHeartRate": 46,
+        "lastSevenDaysAvgRestingHeartRate": 47,
+    }
+    assert parse_heart_rates(hr) == {"resting_hr": 46, "rolling_rest_hr": 47}
+
+
+def test_parse_heart_rates_handles_partial_payload():
+    """Some days Garmin returns only the rolling average, no daily value yet."""
+    assert parse_heart_rates({"lastSevenDaysAvgRestingHeartRate": 48}) == {
+        "rolling_rest_hr": 48,
+    }
+
+
+def test_parse_heart_rates_handles_missing_and_invalid():
+    assert parse_heart_rates(None) == {}
+    assert parse_heart_rates({}) == {}
+    assert parse_heart_rates({"restingHeartRate": None}) == {}
+    assert parse_heart_rates({"restingHeartRate": "N/A"}) == {}
 
 
 # --- Recovery parser robustness ---
@@ -423,6 +481,41 @@ def test_parse_garmin_recovery_ignores_unreasonable_rhr(bad_rhr):
     )
     assert row is not None
     assert "resting_hr" not in row
+
+
+def test_parse_garmin_recovery_uses_heart_rates_rhr():
+    """When get_heart_rates(date) is available, its restingHeartRate is the
+    authoritative source — even if sleep data lacks one (International)."""
+    row = parse_garmin_recovery(
+        "2026-04-22",
+        sleep_data={"dailySleepDTO": {"sleepScore": 80, "avgHeartRate": 49}},
+        heart_rates={"restingHeartRate": 46, "lastSevenDaysAvgRestingHeartRate": 47},
+    )
+    assert row is not None
+    assert row["resting_hr"] == "46"
+    assert row["sleep_score"] == "80"
+
+
+def test_parse_garmin_recovery_heart_rates_wins_over_sleep():
+    """If both sources provide RHR, heart_rates (the dedicated endpoint) wins."""
+    row = parse_garmin_recovery(
+        "2026-04-22",
+        sleep_data={"dailySleepDTO": {"sleepScore": 80, "restingHeartRate": 58}},
+        heart_rates={"restingHeartRate": 46},
+    )
+    assert row is not None
+    assert row["resting_hr"] == "46"
+
+
+def test_parse_garmin_recovery_falls_back_to_sleep_rhr_when_no_heart_rates():
+    """Legacy payload shape where sleep carries RHR — keep it working."""
+    row = parse_garmin_recovery(
+        "2026-04-22",
+        sleep_data={"dailySleepDTO": {"sleepScore": 80, "restingHeartRate": 52}},
+        heart_rates=None,
+    )
+    assert row is not None
+    assert row["resting_hr"] == "52"
 
 
 def test_parse_garmin_recovery_raises_on_non_numeric_string():
