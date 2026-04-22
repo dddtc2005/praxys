@@ -92,6 +92,17 @@ const PLATFORM_META: Record<string, { label: string; color: string; icon: React.
       </svg>
     ),
   },
+  intervals_icu: {
+    label: 'intervals.icu',
+    color: '#ff6600',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-6 h-6">
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <path d="M3 10h18M8 2v4M16 2v4" strokeLinecap="round" />
+        <path d="M7 14l2 2 3-3M13 16h5" strokeLinecap="round" strokeWidth="1.25" />
+      </svg>
+    ),
+  },
 };
 
 const CAPABILITY_LABELS: Record<string, MessageDescriptor> = {
@@ -159,7 +170,7 @@ function useThresholdSourceLabel() {
   };
 }
 
-const CONNECTABLE_PLATFORMS = ['garmin', 'strava', 'stryd', 'oura'] as const;
+const CONNECTABLE_PLATFORMS = ['garmin', 'strava', 'stryd', 'oura', 'intervals_icu'] as const;
 const SYNC_INTERVAL_OPTIONS = [
   { hours: 6,  recommended: true },
   { hours: 12, recommended: false },
@@ -191,6 +202,13 @@ const PLATFORM_CRED_FIELDS: Record<string, { fields: { key: string; label: strin
       { key: 'token', label: 'Personal Access Token', type: 'password' },
     ],
     help: 'Generate a token at cloud.ouraring.com/personal-access-tokens.',
+  },
+  intervals_icu: {
+    fields: [
+      { key: 'athlete_id', label: 'Athlete ID', type: 'text' },
+      { key: 'api_key', label: 'API Key', type: 'password' },
+    ],
+    help: 'Find your Athlete ID on intervals.icu (the "iNNN" in your profile URL). Generate an API key at intervals.icu → Settings → Developer Settings. Recommended for users without Garmin / Stryd / Strava accounts.',
   },
 };
 
