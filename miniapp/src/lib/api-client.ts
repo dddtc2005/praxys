@@ -9,14 +9,16 @@ import Taro from '@tarojs/taro';
  *   API_BASE=http://192.168.1.5:8000 npm run build:weapp
  *
  * The value is baked into the bundle via `defineConstants` in
- * config/index.ts — mini programs don't have runtime environment
- * variables, so this has to happen at compile time.
+ * config/index.ts, which runs `process.env.API_BASE` through webpack's
+ * DefinePlugin — so the reference below is substituted with a string
+ * literal at compile time. No runtime `process` access happens inside
+ * WeChat (where `process` is undefined), which is why the old
+ * `typeof process !== 'undefined'` guard was a bug: it evaluated to
+ * false at runtime and silently fell through to the fallback.
  *
  * Default: localhost:8000 (matches `uvicorn api.main:app --reload`).
  */
-export const API_BASE: string =
-  (typeof process !== 'undefined' && (process.env.API_BASE as string | undefined)) ||
-  'http://localhost:8000';
+export const API_BASE: string = process.env.API_BASE || 'http://localhost:8000';
 
 export const TOKEN_KEY = 'trainsight-auth-token';
 
