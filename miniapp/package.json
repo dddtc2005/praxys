@@ -9,14 +9,14 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@tarojs/components": "4.1.7",
-    "@tarojs/helper": "4.1.7",
-    "@tarojs/plugin-framework-react": "4.1.7",
-    "@tarojs/plugin-platform-weapp": "4.1.7",
-    "@tarojs/react": "^4.1.7",
-    "@tarojs/runtime": "4.1.7",
-    "@tarojs/shared": "4.1.7",
-    "@tarojs/taro": "4.1.7",
+    "@tarojs/components": "4.2.0",
+    "@tarojs/helper": "4.2.0",
+    "@tarojs/plugin-framework-react": "4.2.0",
+    "@tarojs/plugin-platform-weapp": "4.2.0",
+    "@tarojs/react": "^4.2.0",
+    "@tarojs/runtime": "4.2.0",
+    "@tarojs/shared": "4.2.0",
+    "@tarojs/taro": "4.2.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -25,11 +25,11 @@
     "@babel/preset-env": "^7.25.4",
     "@babel/preset-react": "^7.24.7",
     "@babel/preset-typescript": "^7.24.7",
-    "@tarojs/cli": "4.1.7",
-    "@tarojs/webpack5-runner": "4.1.7",
+    "@tarojs/cli": "4.2.0",
+    "@tarojs/webpack5-runner": "4.2.0",
     "@types/react": "^18.3.12",
     "@types/webpack-env": "^1.18.5",
-    "babel-preset-taro": "4.1.7",
+    "babel-preset-taro": "4.2.0",
     "sass": "^1.80.4",
     "typescript": "^5.6.3"
   }
