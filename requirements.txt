@@ -1,4 +1,9 @@
-garminconnect>=0.2.19
+# Minimum 0.3.0 for Cloudflare-compatible SSO (browser-like User-Agent
+# headers + curl_cffi for TLS fingerprinting). Earlier versions pull in
+# garth <0.7, which sends GCM-iOS-5.7.2.1 as the UA with no browser
+# headers and auto-retries on 429 — Cloudflare rejects that and escalates
+# the block.
+garminconnect>=0.3.0
 requests>=2.31.0
 python-dotenv>=1.0.0
 pandas>=2.1.0
