@@ -111,3 +111,85 @@ def test_match_activities():
     assert row1["avg_power"] == 245.0
     row2 = merged[merged["activity_id"] == "2"].iloc[0]
     assert pd.isna(row2["avg_power"])
+
+
+def test_load_data_from_db_filters_recovery_by_preference(tmp_path):
+    """When preferences.recovery is set, load_data_from_db filters
+    recovery_data to only that source."""
+    from datetime import date as D
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session as SASession
+
+    from analysis.data_loader import load_data_from_db
+    from db.models import Base, RecoveryData, User, UserConfig
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with SASession(engine) as db:
+        db.add(User(id="u1", email="t@e.com", hashed_password="x"))
+        db.add(UserConfig(
+            user_id="u1",
+            preferences={"recovery": "intervals_icu"},
+        ))
+        # Same date, two sources — preference should pick intervals_icu
+        db.add(RecoveryData(user_id="u1", date=D(2026, 4, 20),
+                            readiness_score=75, source="oura"))
+        db.add(RecoveryData(user_id="u1", date=D(2026, 4, 20),
+                            readiness_score=82, source="intervals_icu"))
+        db.commit()
+
+        result = load_data_from_db("u1", db)
+
+    rec = result["recovery"]
+    assert not rec.empty
+    assert list(rec["source"]) == ["intervals_icu"]
+    assert float(rec.iloc[0]["readiness_score"]) == 82
+
+
+def test_load_data_from_db_returns_all_recovery_when_no_preference(tmp_path):
+    """When preferences.recovery is unset, return all recovery rows
+    (backward-compatible behavior)."""
+    from datetime import date as D
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session as SASession
+
+    from analysis.data_loader import load_data_from_db
+    from db.models import Base, RecoveryData, User, UserConfig
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with SASession(engine) as db:
+        db.add(User(id="u2", email="t2@e.com", hashed_password="x"))
+        db.add(UserConfig(user_id="u2", preferences={}))
+        db.add(RecoveryData(user_id="u2", date=D(2026, 4, 20),
+                            readiness_score=75, source="oura"))
+        db.add(RecoveryData(user_id="u2", date=D(2026, 4, 20),
+                            readiness_score=82, source="intervals_icu"))
+        db.commit()
+
+        result = load_data_from_db("u2", db)
+
+    rec = result["recovery"]
+    assert len(rec) == 2
+
+
+def test_load_data_from_db_returns_all_recovery_when_no_config():
+    """If UserConfig row is absent entirely, don't crash — return all rows."""
+    from datetime import date as D
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session as SASession
+
+    from analysis.data_loader import load_data_from_db
+    from db.models import Base, RecoveryData, User
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with SASession(engine) as db:
+        db.add(User(id="u3", email="t3@e.com", hashed_password="x"))
+        db.add(RecoveryData(user_id="u3", date=D(2026, 4, 20),
+                            readiness_score=75, source="oura"))
+        db.commit()
+
+        result = load_data_from_db("u3", db)
+
+    assert len(result["recovery"]) == 1

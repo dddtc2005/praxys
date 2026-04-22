@@ -336,13 +336,24 @@ def load_data_from_db(user_id: str, db: Session) -> dict[str, pd.DataFrame]:
         params={"uid": user_id},
     )
 
-    # Recovery: reconstruct from recovery_data table
-    recovery = pd.read_sql(
-        "SELECT * FROM recovery_data WHERE user_id = :uid ORDER BY date",
-        db.bind,
-        params={"uid": user_id},
-        parse_dates=["date"],
-    )
+    # Recovery: reconstruct from recovery_data table.
+    # When UserConfig.preferences["recovery"] is set, filter to that source
+    # so same-date rows from a secondary source don't pollute the pivot.
+    recovery_source = _recovery_source_for(user_id, db)
+    if recovery_source:
+        recovery = pd.read_sql(
+            "SELECT * FROM recovery_data WHERE user_id = :uid AND source = :src ORDER BY date",
+            db.bind,
+            params={"uid": user_id, "src": recovery_source},
+            parse_dates=["date"],
+        )
+    else:
+        recovery = pd.read_sql(
+            "SELECT * FROM recovery_data WHERE user_id = :uid ORDER BY date",
+            db.bind,
+            params={"uid": user_id},
+            parse_dates=["date"],
+        )
     if "date" in recovery.columns and not recovery.empty:
         recovery["date"] = pd.to_datetime(recovery["date"]).dt.date
 
@@ -378,6 +389,31 @@ def load_data_from_db(user_id: str, db: Session) -> dict[str, pd.DataFrame]:
         "fitness": fitness,
         "plan": plan,
     }
+
+
+def _recovery_source_for(user_id: str, db) -> str | None:
+    """Return UserConfig.preferences['recovery'] for this user, or None.
+
+    Handles the cases where UserConfig is missing, preferences is not a dict,
+    or the key is absent/empty.
+    """
+    try:
+        from db.models import UserConfig
+    except ImportError:
+        return None
+    try:
+        row = db.query(UserConfig.preferences).filter(
+            UserConfig.user_id == user_id,
+        ).first()
+    except Exception:
+        return None
+    if not row:
+        return None
+    prefs = row[0]
+    if not isinstance(prefs, dict):
+        return None
+    value = prefs.get("recovery")
+    return value if value else None
 
 
 def _pivot_fitness(raw: pd.DataFrame) -> pd.DataFrame:
