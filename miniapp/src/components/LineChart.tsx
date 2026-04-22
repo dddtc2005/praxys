@@ -89,7 +89,7 @@ export default function LineChart({
           const canvas = entry.node as HTMLCanvasElement & { width: number; height: number };
           const ctx = canvas.getContext('2d') as CanvasRenderingContext2D | null;
           if (!ctx) return;
-          const dpr = Taro.getSystemInfoSync().pixelRatio || 1;
+          const dpr = Taro.getWindowInfo().pixelRatio || 1;
           const cssWidth = entry.width as number;
           const cssHeight = entry.height as number;
           canvas.width = cssWidth * dpr;

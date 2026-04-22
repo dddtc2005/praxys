@@ -36,12 +36,13 @@ export function setThemePreference(theme: ThemePref): void {
 
 /**
  * Returns the concrete theme to render. For 'auto', reads the WeChat
- * client's current theme via getSystemInfoSync.
+ * client's current theme via getAppBaseInfo (the non-deprecated
+ * replacement for getSystemInfoSync().theme).
  */
 export function resolveTheme(pref: ThemePref = getThemePreference()): ResolvedTheme {
   if (pref === 'dark' || pref === 'light') return pref;
   try {
-    const info = Taro.getSystemInfoSync() as { theme?: string };
+    const info = Taro.getAppBaseInfo() as { theme?: string };
     if (info.theme === 'light') return 'light';
     return 'dark';
   } catch {
