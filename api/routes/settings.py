@@ -273,9 +273,9 @@ class StravaOAuthStartRequest(BaseModel):
 def _jwt_secret() -> str:
     """Return the signing secret used for short-lived Strava OAuth state."""
 
-    from api.auth import JWT_SECRET
+    from api.auth_secrets import get_jwt_secret
 
-    return JWT_SECRET
+    return get_jwt_secret()
 
 
 def _validate_web_origin(raw_origin: str | None) -> str:
