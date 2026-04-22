@@ -37,6 +37,7 @@ PLATFORM_CAPABILITIES: dict[str, PlatformCaps] = {
     "strava": {"activities": True, "recovery": False, "fitness": False, "plan": False},
     "oura":   {"activities": False, "recovery": True, "fitness": False, "plan": False},
     "coros":  {"activities": True, "recovery": False, "fitness": True, "plan": False},
+    "intervals_icu": {"activities": True, "recovery": True, "fitness": True, "plan": False},
 }
 
 

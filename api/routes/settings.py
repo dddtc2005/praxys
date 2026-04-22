@@ -343,8 +343,10 @@ class ConnectPlatformRequest(BaseModel):
     refresh_token: str | None = None
     expires_at: int | None = None
     scope: str | None = None
-    athlete_id: int | None = None
+    athlete_id: int | str | None = None
     athlete_username: str | None = None
+    # intervals.icu
+    api_key: str | None = None
 
 
 class StravaOAuthStartRequest(BaseModel):
@@ -633,11 +635,47 @@ def connect_platform(
                 "username": body.athlete_username,
             },
         }
+    elif platform == "intervals_icu":
+        if not body.athlete_id or not body.api_key:
+            return {"status": "error", "message": "athlete_id and api_key required"}
+        from sync import intervals_icu_sync
+        creds = {"athlete_id": str(body.athlete_id), "api_key": body.api_key}
+        try:
+            intervals_icu_sync.fetch_athlete_profile_api(creds)
+        except intervals_icu_sync.IntervalsIcuUnauthorized:
+            return {"status": "error", "message": "Invalid intervals.icu credentials"}
+        except intervals_icu_sync.IntervalsIcuError as exc:
+            return {"status": "error", "message": f"intervals.icu reachable but errored: {exc}"}
     else:
         return {"status": "error", "message": f"Unsupported platform: {platform}"}
 
     _upsert_connection_credentials(user_id, platform, creds, db)
     db.commit()
+
+    # Auto-populate user preferences on first-connect when no other source
+    # is connected. setdefault preserves existing pins.
+    if platform == "intervals_icu":
+        from db.models import UserConfig as UserConfigModel, UserConnection
+        other_connected = db.query(UserConnection).filter(
+            UserConnection.user_id == user_id,
+            UserConnection.platform != "intervals_icu",
+            UserConnection.status == "connected",
+        ).count()
+        if other_connected == 0:
+            cfg = db.query(UserConfigModel).filter_by(user_id=user_id).first()
+            if cfg is not None:
+                prefs = dict(cfg.preferences or {})
+                prefs.setdefault("activities", "intervals_icu")
+                prefs.setdefault("recovery", "intervals_icu")
+                thresholds = dict(prefs.get("threshold_sources") or {})
+                for metric in (
+                    "cp_estimate", "lthr", "threshold_pace_sec_km",
+                    "max_hr", "running_ftp",
+                ):
+                    thresholds.setdefault(metric, "intervals_icu")
+                prefs["threshold_sources"] = thresholds
+                cfg.preferences = prefs
+                db.commit()
 
     # Invalidate cached OAuth tokens AFTER the new credentials are persisted:
     # if we cleared first and the commit then failed, the next sync would
