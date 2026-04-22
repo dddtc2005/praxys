@@ -2,16 +2,20 @@
 
 Registration rules live in api/invitations.py and are shared with the
 WeChat registration route (api/routes/wechat.py).
+
+Admin email (ADMIN_EMAIL env, via getenv_compat) bypasses invitation
+checks — see api/invitations.py::is_admin_email.
 """
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from api.invitations import (
-    consume_invitation,
+    claim_invitation,
     find_valid_invitation,
     is_admin_email,
 )
@@ -36,7 +40,8 @@ async def register(
     """Register a new user.
 
     First user on a fresh DB becomes admin without an invitation code.
-    Subsequent users must provide a valid invitation code.
+    Subsequent users must provide a valid invitation code, unless their
+    email matches ADMIN_EMAIL (see api/invitations.py).
     """
     from db.models import User
 
@@ -92,13 +97,37 @@ async def register(
 
         try:
             user = await user_manager.create(user_create)
-        except Exception as e:
-            raise HTTPException(400, detail=str(e))
+        except IntegrityError:
+            # Race: another request just registered the same email.
+            logger.exception("register integrity error for %s", body.email)
+            raise HTTPException(409, detail="REGISTER_USER_ALREADY_EXISTS")
+        except HTTPException:
+            raise
+        except Exception:
+            # Any other failure is a server bug, not a user error. Log it
+            # and surface an opaque 500 so we don't leak internals.
+            logger.exception("register failed for %s", body.email)
+            raise HTTPException(500, detail="REGISTER_CREATE_FAILED")
 
         await async_session.commit()
 
+    # Atomically claim the invitation. If we lose the race to another
+    # registration using the same code, delete the user we just created
+    # so they can't sneak in without a valid claim.
     if invitation:
-        consume_invitation(db, invitation, user.id)
+        claimed = claim_invitation(db, body.invitation_code, user.id)
+        if not claimed:
+            logger.warning(
+                "invitation race lost after user creation — rolling back user %s",
+                user.id,
+            )
+            # Use a fresh async session; the previous one is closed.
+            async with AsyncSessionLocal() as cleanup_session:
+                await cleanup_session.execute(
+                    UserModel.__table__.delete().where(UserModel.id == user.id)
+                )
+                await cleanup_session.commit()
+            raise HTTPException(400, detail="REGISTER_INVALID_INVITATION")
 
     return {
         "id": user.id,

@@ -30,8 +30,10 @@ from sqlalchemy.orm import Session
 
 from api.auth_secrets import get_jwt_secret
 from api.env_compat import getenv_compat
+from sqlalchemy.exc import IntegrityError
+
 from api.invitations import (
-    consume_invitation,
+    claim_invitation,
     find_valid_invitation,
     is_admin_email,
 )
@@ -368,13 +370,34 @@ async def wechat_register(
         async_session.add(new_user)
         try:
             await async_session.flush()
-        except Exception as exc:
+        except IntegrityError:
+            # Race: another request just bound the same openid or email.
             await async_session.rollback()
-            raise HTTPException(400, detail=str(exc))
+            logger.exception("wechat_register integrity error for openid=%s", openid)
+            raise HTTPException(409, detail="WECHAT_REGISTER_CONFLICT")
+        except Exception:
+            # Anything else is a server bug — log it, don't leak the repr.
+            await async_session.rollback()
+            logger.exception("wechat_register failed for openid=%s", openid)
+            raise HTTPException(500, detail="WECHAT_REGISTER_FAILED")
         new_user_id = new_user.id
         await async_session.commit()
 
+    # Atomically claim the invitation. If we lose the race to another
+    # registration using the same code, delete the user we just created
+    # so a WeChat account without a valid invitation can't sneak in.
     if invitation:
-        consume_invitation(db, invitation, new_user_id)
+        claimed = claim_invitation(db, body.invitation_code, new_user_id)
+        if not claimed:
+            logger.warning(
+                "invitation race lost after wechat user creation — rolling back %s",
+                new_user_id,
+            )
+            async with AsyncSessionLocal() as cleanup_session:
+                await cleanup_session.execute(
+                    User.__table__.delete().where(User.id == new_user_id)
+                )
+                await cleanup_session.commit()
+            raise HTTPException(400, detail="REGISTER_INVALID_INVITATION")
 
     return WeChatAuthResponse(access_token=_issue_access_token(new_user_id))

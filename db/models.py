@@ -45,7 +45,9 @@ class User(Base):
 
     # WeChat Mini Program identity. openid is per-app, unionid spans apps under the
     # same WeChat Open Platform account. We keep email NOT NULL for FastAPI-Users
-    # compatibility; WeChat-only users get a synthetic "wechat_<openid>@trainsight.local".
+    # compatibility; WeChat-only users get the synthetic sentinel "wechat:<openid>"
+    # (see api/routes/wechat.py::_synthetic_email — unquoted colon cannot collide
+    # with a real RFC-5322 address).
     wechat_openid = Column(String(64), unique=True, index=True, nullable=True)
     wechat_unionid = Column(String(64), index=True, nullable=True)
     wechat_nickname = Column(String(100), nullable=True)

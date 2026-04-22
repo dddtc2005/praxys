@@ -2,7 +2,8 @@
 
 Registration rules (from CLAUDE.md):
 1. Fresh DB (no users) → first register becomes admin, no invitation needed.
-2. PRAXYS_ADMIN_EMAIL match → no invitation needed, becomes admin.
+2. ADMIN_EMAIL (read via getenv_compat, i.e. PRAXYS_ADMIN_EMAIL or legacy
+   TRAINSIGHT_ADMIN_EMAIL) match → no invitation needed, becomes admin.
 3. All others → must provide a valid, unused invitation code.
 
 These primitives exist so both the web-native registration route
@@ -11,8 +12,9 @@ These primitives exist so both the web-native registration route
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from api.env_compat import getenv_compat
@@ -33,7 +35,14 @@ def count_users(db: Session) -> int:
 
 
 def find_valid_invitation(db: Session, code: str | None) -> Invitation | None:
-    """Look up an active, unused invitation by code. Returns None if not found."""
+    """Look up an active, unused invitation by code. Returns None if not found.
+
+    Note: this is a pre-check only. The authoritative "is this code free
+    for me to claim?" answer comes from claim_invitation(), which performs
+    the update atomically. A caller that relies on find_valid_invitation
+    alone is racy — two concurrent registrations can both see the same
+    unused invitation here and both proceed to create users.
+    """
     if not code:
         return None
     return (
@@ -47,8 +56,34 @@ def find_valid_invitation(db: Session, code: str | None) -> Invitation | None:
     )
 
 
-def consume_invitation(db: Session, invitation: Invitation, user_id: str) -> None:
-    """Mark an invitation as used by the given user. Commits the transaction."""
-    invitation.used_by = user_id
-    invitation.used_at = datetime.utcnow()
+def claim_invitation(db: Session, code: str, user_id: str) -> bool:
+    """Atomically claim an invitation for a user.
+
+    Returns True if the claim succeeded (the invitation was active and
+    unused, and is now marked used by this user). Returns False if no
+    matching unused invitation exists — either the code is wrong, the
+    invitation was deactivated, or a concurrent registration won the race.
+
+    Callers MUST treat a False return as a hard failure: if a user was
+    already created before calling this, that user should be rolled back
+    or deleted, because they hold no valid invitation.
+
+    Implementation: single UPDATE with a WHERE clause that also enforces
+    the unused-ness check. SQLite 3.35+ (shipped 2021) guarantees this is
+    atomic, so two concurrent transactions cannot both get rowcount=1.
+    """
+    stmt = (
+        update(Invitation)
+        .where(
+            Invitation.code == code.strip().upper(),
+            Invitation.is_active == True,  # noqa: E712
+            Invitation.used_by.is_(None),
+        )
+        .values(
+            used_by=user_id,
+            used_at=datetime.now(timezone.utc),
+        )
+    )
+    result = db.execute(stmt)
     db.commit()
+    return result.rowcount == 1
