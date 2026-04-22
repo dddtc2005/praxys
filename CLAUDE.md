@@ -70,6 +70,11 @@ All training metrics, predictions, and insights must be grounded in exercise sci
 - **Recharts** for all charts — colors from `web/src/lib/chart-theme.ts`
 - Data numbers use `font-data` CSS class (JetBrains Mono, tabular-nums)
 
+### Git
+- **Commit / PR subjects state what the change does**, e.g. `Fix Garmin first-time sync…`. This repo is standalone (pushes to `dddtc2005/praxys`) — don't prefix with the folder name. The outer pensieve repo's `trail-running:` convention exists because that repo hosts multiple top-level projects; it doesn't apply here.
+- Commit body explains the *why* (motivation, root cause, trade-off). The diff shows the *what*.
+- Never put sensitive content (credentials, `.env` values, personal data) in commit messages or PR descriptions.
+
 ## Frontend Design System
 
 ### Theme
