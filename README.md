@@ -1,6 +1,6 @@
 # Praxys
 
-Sports science that meets you where you are. Praxys syncs data from Garmin, Stryd, and Oura Ring, computes training metrics (fitness/fatigue/form, zone analysis, CP trend, race predictions), and serves a modern web dashboard with AI-powered coaching skills — for elite athletes, serious amateurs, and curious beginners alike.
+Sports science that meets you where you are. Praxys syncs data from Garmin, Stryd, Oura Ring, and intervals.icu, computes training metrics (fitness/fatigue/form, zone analysis, CP trend, race predictions), and serves a modern web dashboard with AI-powered coaching skills — for elite athletes, serious amateurs, and curious beginners alike.
 
 ![Praxys — Sports science that meets you where you are.](data/screenshots/hero-showcase.png)
 

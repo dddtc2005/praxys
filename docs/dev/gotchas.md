@@ -137,3 +137,13 @@ All per-source sync errors surface at `logger.warning` or above, not `debug`. De
 - Splits: warning when ≥ max(3, total/2) activities fail.
 - Recovery parse: warning when ≥ max(3, total/2) days fail.
 - HRV / sleep endpoints: circuit-break + warning after 5 consecutive failures.
+
+## intervals.icu
+
+- **Cadence is single-leg.** `sync/intervals_icu_sync.py::_parse_activity` multiplies running cadence by 2 to match Praxys' double-leg spm convention. Changing this silently will double-count steps and wreck form-score calculations.
+- **Splits come from `icu_intervals`, not raw device laps.** intervals.icu's API exposes its own post-processed intervals (types: WORK/RECOVERY/etc.) via `GET /api/v1/activity/{id}?intervals=true`. Manual lap-button presses on the athlete's watch are **not** reflected in this field. Per-interval elevation is also not exposed — `activity_splits.elevation_change_m` stays NULL for this source.
+- **`threshold_pace` is meters per second.** intervals.icu's sportSettings return `threshold_pace` in m/s (SI unit), not sec/km. `_parse_thresholds` converts: `sec_per_km = 1000 / m_per_s`. A bare 4.08 m/s value stored unconverted would be interpreted as near-sprint pace — easy to get wrong silently.
+- **No deep/REM sleep split.** `recovery_data.deep_sleep_sec` and `rem_sleep_sec` are always NULL for intervals.icu rows.
+- **Activity IDs are prefixed with `icu_`.** Prevents collisions with Garmin/Strava numeric IDs.
+- **HTTP Basic auth uses literal username `"API_KEY"`** with the PAT as password. Using `athlete_id:PAT` instead returns 403. The `athlete_id` only appears in URL path segments.
+- **Threshold metric_type names follow Praxys canonicals**, not intervals.icu names: `cp_estimate` (from intervals.icu `ftp`), `lthr_bpm` (from `lthr`), `lt_pace_sec_km` (from converted `threshold_pace`), `max_hr_bpm` (from `max_hr`). See `_parse_thresholds`.

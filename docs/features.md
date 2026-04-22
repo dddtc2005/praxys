@@ -101,3 +101,16 @@ Swappable training theories backed by published research. Each theory is a YAML 
 | Garmin Connect | Activities, splits, daily metrics (VO2max, RHR), lactate threshold |
 | Stryd | Power data, running dynamics, CP estimates, training plan |
 | Oura Ring | Sleep scores/stages, readiness, HRV, resting HR |
+| intervals.icu | Activities with intervals, wellness (sleep/HRV/RHR), thresholds from aggregated device data |
+
+### intervals.icu
+
+intervals.icu is a training analytics platform that aggregates data from many devices and apps (Wahoo, Coros, Polar, Garmin, Apple Watch, and more). For users whose primary device isn't supported directly by Praxys, intervals.icu is the recommended data source.
+
+Praxys syncs from intervals.icu:
+
+- **Activities** with post-processed intervals (`icu_intervals`) mapped to Praxys `activity_splits`. intervals.icu's intervals are WORK/RECOVERY classifications, not raw device laps — manual watch lap presses are not reflected.
+- **Wellness** (sleep duration, sleep score, HRV, resting HR, readiness) written to `recovery_data`.
+- **Thresholds** from the athlete's Run sportSettings (FTP → CP estimate, LTHR, threshold pace converted from m/s → sec/km, max HR) written to `fitness_data`.
+
+Connect in Settings → intervals.icu with your Athlete ID and API key.

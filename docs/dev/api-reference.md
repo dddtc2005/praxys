@@ -498,6 +498,54 @@ Disconnect a platform and delete stored credentials.
 { "status": "disconnected", "platform": "garmin" }
 ```
 
+### POST /api/settings/connections/intervals_icu
+
+Connect intervals.icu by storing Athlete ID and API key.
+
+**Request body:**
+```json
+{
+  "athlete_id": "12345",
+  "api_key": "your-pat-here"
+}
+```
+
+Validates via `GET https://intervals.icu/api/v1/athlete/{id}` with HTTP Basic auth.
+
+**Response:**
+```json
+{ "status": "connected", "platform": "intervals_icu" }
+```
+
+**Error codes:**
+- `400 INVALID_CREDENTIALS` — API key or athlete ID invalid (validation failed)
+- `409 ALREADY_CONNECTED` — intervals.icu already connected for this user
+
+### DELETE /api/settings/connections/intervals_icu
+
+Disconnect intervals.icu and remove stored credentials. If any `user_config.preferences` entry pointed to `intervals_icu`, falls back to the next available connected source with priority: `stryd > garmin > strava` (activities / thresholds) and `oura > garmin` (recovery).
+
+**Response:**
+```json
+{ "status": "disconnected", "platform": "intervals_icu" }
+```
+
+### POST /api/sync/intervals_icu
+
+Trigger sync for intervals.icu. Runs in background; status observable via `GET /api/sync/status`.
+
+**Request body (optional):**
+```json
+{ "from_date": "2025-01-01" }
+```
+
+**Response:**
+```json
+{ "status": "queued" }
+```
+
+Background scheduler syncs intervals.icu on the same 6/12/24-hour user-configured interval as other platforms.
+
 ## Science
 
 ### GET /api/science
