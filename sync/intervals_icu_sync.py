@@ -381,3 +381,69 @@ def fetch_wellness_api(
         params=params,
     ) or []
     return _parse_wellness(raw)
+
+
+from dataclasses import dataclass
+from datetime import date as _date
+
+
+@dataclass
+class SyncResult:
+    activities_written: int = 0
+    splits_written: int = 0
+    wellness_written: int = 0
+    thresholds_written: int = 0
+
+
+def sync_all(
+    *,
+    user_id: str,
+    credentials: dict,
+    db,
+    since: _date,
+    today: _date | None = None,
+) -> SyncResult:
+    """Orchestrate all intervals.icu sync work for one user.
+
+    Fetches activities in the date window, then per-activity intervals,
+    then wellness, then athlete profile thresholds. Writes everything
+    through db.sync_writer helpers. Returns per-table counts.
+    """
+    from db.sync_writer import (
+        write_activities,
+        write_fitness,
+        write_recovery_rows,
+        write_splits_replace,
+    )
+
+    today = today or _date.today()
+    from_str = since.isoformat()
+    to_str = today.isoformat()
+
+    result = SyncResult()
+
+    activity_rows, raw_activities = fetch_activities_api(credentials, from_str, to_str)
+    result.activities_written = write_activities(user_id, activity_rows, db)
+
+    all_split_rows: list[dict] = []
+    for raw in raw_activities:
+        raw_id = str(raw.get("id") or "")
+        if not raw_id:
+            continue
+        activity_type = _map_activity_type(str(raw.get("type") or ""))
+        try:
+            split_rows = fetch_activity_laps(raw_id, credentials, activity_type=activity_type)
+        except IntervalsIcuError as exc:
+            logger.warning("intervals.icu laps fetch failed for %s: %s", raw_id, exc)
+            continue
+        all_split_rows.extend(split_rows)
+    result.splits_written = write_splits_replace(user_id, all_split_rows, db)
+
+    wellness_rows = fetch_wellness_api(credentials, from_str, to_str)
+    result.wellness_written = write_recovery_rows(user_id, wellness_rows, "intervals_icu", db)
+
+    profile = fetch_athlete_profile_api(credentials)
+    threshold_rows = _parse_thresholds(profile, today)
+    result.thresholds_written = write_fitness(user_id, threshold_rows, "intervals_icu", db)
+
+    return result

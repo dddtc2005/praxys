@@ -463,3 +463,111 @@ def write_training_plan(user_id: str, rows: list[dict], source: str,
         ))
         count += 1
     return count
+
+
+def write_splits_replace(user_id: str, rows: list[dict], db: Session) -> int:
+    """Replace all splits for the activity_ids appearing in `rows`.
+
+    Unlike ``write_splits`` (which fills missing fields on existing rows),
+    this delete-then-inserts per activity_id. intervals.icu splits may
+    change count across syncs as the user edits intervals.
+    """
+    if not rows:
+        return 0
+    aids = {_str(r.get("activity_id")) for r in rows if r.get("activity_id")}
+    aids.discard(None)
+    db.query(ActivitySplit).filter(
+        ActivitySplit.user_id == user_id,
+        ActivitySplit.activity_id.in_(aids),
+    ).delete(synchronize_session=False)
+
+    count = 0
+    for row in rows:
+        aid = _str(row.get("activity_id"))
+        if not aid:
+            continue
+        db.add(ActivitySplit(
+            user_id=user_id,
+            activity_id=aid,
+            split_num=int(row.get("split_num") or 0),
+            distance_km=_float(row.get("distance_km")),
+            duration_sec=_float(row.get("duration_sec")),
+            avg_power=_float(row.get("avg_power")),
+            avg_hr=_float(row.get("avg_hr")),
+            max_hr=_float(row.get("max_hr")),
+            avg_pace_min_km=_pace_min_str(row),
+            avg_pace_sec_km=_float(row.get("avg_pace_sec_km")),
+            avg_cadence=_float(row.get("avg_cadence")),
+            elevation_change_m=_float(row.get("elevation_change_m")),
+        ))
+        count += 1
+    db.commit()
+    return count
+
+
+def write_recovery_rows(
+    user_id: str, rows: list[dict], source: str, db: Session
+) -> int:
+    """Upsert recovery_data rows by (user_id, date, source).
+
+    Generic per-source writer, as opposed to ``write_recovery`` which has
+    Oura/Garmin-specific row-shape assumptions.
+    """
+    if not rows:
+        return 0
+    count = 0
+    for row in rows:
+        d = _parse_date(row.get("date"))
+        if d is None:
+            continue
+        existing = db.query(RecoveryData).filter_by(
+            user_id=user_id, date=d, source=source,
+        ).first()
+        values = dict(
+            readiness_score=_float(row.get("readiness_score")),
+            hrv_avg=_float(row.get("hrv_avg")),
+            resting_hr=_float(row.get("resting_hr")),
+            sleep_score=_float(row.get("sleep_score")),
+            total_sleep_sec=_float(row.get("total_sleep_sec")),
+            deep_sleep_sec=_float(row.get("deep_sleep_sec")),
+            rem_sleep_sec=_float(row.get("rem_sleep_sec")),
+            body_temp_delta=_float(row.get("body_temp_delta")),
+        )
+        if existing:
+            for k, v in values.items():
+                if v is not None:
+                    setattr(existing, k, v)
+        else:
+            db.add(RecoveryData(user_id=user_id, date=d, source=source, **values))
+        count += 1
+    db.commit()
+    return count
+
+
+def write_fitness(
+    user_id: str, rows: list[dict], source: str, db: Session
+) -> int:
+    """Upsert fitness_data rows by (user_id, date, metric_type, source)."""
+    if not rows:
+        return 0
+    count = 0
+    for row in rows:
+        d = _parse_date(row.get("date"))
+        metric_type = _str(row.get("metric_type"))
+        if d is None or not metric_type:
+            continue
+        existing = db.query(FitnessData).filter_by(
+            user_id=user_id, date=d, metric_type=metric_type, source=source,
+        ).first()
+        value = _float(row.get("value"))
+        if existing:
+            if value is not None:
+                existing.value = value
+        else:
+            db.add(FitnessData(
+                user_id=user_id, date=d, metric_type=metric_type,
+                source=source, value=value, value_str=_str(row.get("value_str")),
+            ))
+        count += 1
+    db.commit()
+    return count
