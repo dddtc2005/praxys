@@ -115,9 +115,20 @@ const PLATFORM_META: Record<string, {
     ],
     help: 'Generate a token at cloud.ouraring.com/personal-access-tokens.',
   },
+  intervals_icu: {
+    label: 'intervals.icu',
+    wordmark: <span className="font-semibold text-lg">intervals.icu</span>,
+    categories: ['Activities', 'Recovery', 'Fitness'],
+    detail: 'Recommended when you don\'t have Garmin, Stryd, or Strava — aggregates from Wahoo, Coros, Polar, Apple Watch, and more',
+    credFields: [
+      { key: 'athlete_id', label: 'Athlete ID', type: 'text' },
+      { key: 'api_key', label: 'API Key', type: 'password' },
+    ],
+    help: 'Find your Athlete ID on your intervals.icu profile (the "iNNN" in the URL). Generate an API key at intervals.icu → Settings → Developer Settings.',
+  },
 };
 
-const CONNECTABLE_PLATFORMS = ['garmin', 'strava', 'stryd', 'oura'] as const;
+const CONNECTABLE_PLATFORMS = ['garmin', 'strava', 'stryd', 'oura', 'intervals_icu'] as const;
 
 
 // Training-base keys used by `BASE_CONFIG` below. Display labels come from
