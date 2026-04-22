@@ -74,4 +74,5 @@ def _ensure_registered() -> None:
     import analysis.providers.strava  # noqa: F401
     import analysis.providers.oura  # noqa: F401
     import analysis.providers.ai  # noqa: F401
+    import analysis.providers.intervals_icu  # noqa: F401
     _registered = True
