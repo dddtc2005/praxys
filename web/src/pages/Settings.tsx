@@ -145,13 +145,18 @@ const THRESHOLD_FIELDS: { key: string; label: MessageDescriptor; unit: string; i
   { key: 'rest_hr_bpm', label: msg`Resting HR`, unit: 'bpm' },
 ];
 
-/** Human-friendly label for a fitness_data `source` value.
- *  Connected platforms use their brand name; the special `activities`
- *  source — computed in-app from your own power-vs-duration — gets a
- *  descriptive label so the option reads as a distinct choice. */
-function thresholdSourceLabel(source: string): string {
-  if (source === 'activities') return 'From activities';
-  return source.charAt(0).toUpperCase() + source.slice(1);
+/** Hook returning a ``source → label`` function for fitness-data source
+ *  names. Connected platforms capitalise their brand name; the special
+ *  ``activities`` source — computed in-app from your own power-vs-duration
+ *  — gets a translated, descriptive label so the option reads as a
+ *  distinct choice rather than a connected platform. Hook form is required
+ *  so ``t\`…\``` receives the active Lingui translator. */
+function useThresholdSourceLabel() {
+  const { t } = useLingui();
+  return (source: string): string => {
+    if (source === 'activities') return t`From activities`;
+    return source.charAt(0).toUpperCase() + source.slice(1);
+  };
 }
 
 const CONNECTABLE_PLATFORMS = ['garmin', 'strava', 'stryd', 'oura'] as const;
@@ -228,6 +233,7 @@ export default function Settings() {
   const { email: authEmail, isDemo } = useAuth();
   const { setLocale } = useLocale();
   const { t, i18n } = useLingui();
+  const thresholdSourceLabel = useThresholdSourceLabel();
 
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');

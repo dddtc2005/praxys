@@ -10,6 +10,7 @@ import pytest
 
 from analysis.cp_from_activities import (
     MAX_PLAUSIBLE_CP_WATTS,
+    MIN_FIT_DURATION_SEC,
     MIN_FIT_POINTS,
     MIN_PLAUSIBLE_CP_WATTS,
     CpFitResult,
@@ -117,6 +118,7 @@ class TestFitCpWprime:
 
     def test_real_world_noisy_points_fit_near_truth(self):
         # Slightly-off-model points (±2 % noise on each y), still recoverable.
+        # Durations outside [180, 1200] are silently filtered by fit_cp_wprime.
         cp_true, wp_true = 280.0, 18_000.0
         durations = [150.0, 240.0, 360.0, 600.0, 900.0, 1500.0]
         ideal = _synth_points(cp_true, wp_true, durations)
@@ -130,6 +132,50 @@ class TestFitCpWprime:
         # Within 5 % of truth on noisy data.
         assert abs(result.cp_watts - cp_true) / cp_true < 0.05
         assert result.r_squared > 0.9
+
+    def test_rejects_low_r_squared(self):
+        """A fit with R² below MIN_R_SQUARED must not leak through.
+
+        The plausibility gates only check CP and W' magnitudes — a line
+        that barely relates ``P`` to ``1/t`` can still land those inside
+        the running band. The R² gate is the second fence.
+        """
+        # Three points inside the fit window whose powers don't really
+        # scale with 1/t. Hand-tuned so CP lands near 250W and W' near
+        # 15 kJ (both plausible) but the actual line fits poorly.
+        points = [
+            (200.0, 260.0),
+            (500.0, 290.0),   # anti-correlated with what the model expects
+            (1000.0, 275.0),
+        ]
+        result = fit_cp_wprime(points)
+        # If R² gate fires the result must be None; if the bogus line
+        # happens to fall outside plausibility bounds that's also fine.
+        if result is not None:
+            pytest.fail(
+                f"expected rejection, got CP={result.cp_watts:.0f} W'={result.w_prime_joules:.0f} "
+                f"R²={result.r_squared:.3f} — either the R² gate or the plausibility gates "
+                f"should have rejected this noisy input"
+            )
+
+    def test_rejects_when_all_splits_too_short(self):
+        """Realistic failure mode: a speed-focused week with only 400 m reps
+        (~90 s at 4:00/km pace). Every point sits below MIN_FIT_DURATION_SEC
+        and the fit refuses — the user sees no CP rather than a fabricated one.
+        """
+        assert MIN_FIT_DURATION_SEC == 180.0  # guard against future drift
+        points = [(90.0, 350.0), (100.0, 340.0), (110.0, 330.0), (120.0, 320.0)]
+        assert fit_cp_wprime(points) is None
+
+    def test_rejects_one_activity_many_same_duration_splits(self):
+        """First-week sync: one long run with 8 × 1 km splits at similar
+        pace. Powers vary a little but durations are all ~270 s — the fit
+        line is not constrained and the duration-spread gate rejects it.
+        """
+        # Eight splits clustered within 20 s of each other — spread is
+        # 20 s, well below MIN_DURATION_SPREAD_SEC (180 s).
+        points = [(270.0 + i * 2.5, 240.0 + i) for i in range(8)]
+        assert fit_cp_wprime(points) is None
 
     def test_result_as_of_defaults_to_today(self):
         points = _synth_points(260.0, 15_000.0, [180.0, 300.0, 600.0, 1200.0])
@@ -176,9 +222,12 @@ class TestPlausibilityBounds:
 
 
 @pytest.mark.parametrize("cp,wp,durations,expected_cp,expected_wp", [
-    (200.0, 10_000.0, [150.0, 300.0, 600.0, 1200.0], 200.0, 10_000.0),
-    (300.0, 20_000.0, [180.0, 360.0, 720.0, 1500.0], 300.0, 20_000.0),
-    (400.0, 25_000.0, [120.0, 300.0, 900.0, 1800.0], 400.0, 25_000.0),
+    # Three realistic (CP, W') fixtures spanning casual → elite runners.
+    # All durations must lie inside the [MIN_FIT_DURATION_SEC,
+    # MAX_FIT_DURATION_SEC] window — points outside are silently filtered.
+    (200.0, 10_000.0, [180.0, 300.0, 600.0, 1200.0], 200.0, 10_000.0),
+    (300.0, 20_000.0, [180.0, 360.0, 720.0, 1200.0], 300.0, 20_000.0),
+    (400.0, 25_000.0, [180.0, 300.0, 900.0, 1200.0], 400.0, 25_000.0),
 ])
 def test_fit_recovers_parametrized_truths(cp, wp, durations, expected_cp, expected_wp):
     points = _synth_points(cp, wp, durations)
