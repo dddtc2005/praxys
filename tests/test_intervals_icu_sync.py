@@ -72,3 +72,95 @@ def test_request_429_exhausts_retries(mock_get, mock_sleep):
     with pytest.raises(IntervalsIcuRateLimited):
         _request("/athlete/i1", credentials={"athlete_id": "i1", "api_key": "k"})
     assert mock_get.call_count == 4  # MAX_RETRIES
+
+
+import json
+from pathlib import Path
+
+FIXTURE_DIR = Path(__file__).parent.parent / "data" / "sample" / "intervals_icu"
+
+
+def _load_fixture(name: str):
+    return json.loads((FIXTURE_DIR / name).read_text())
+
+
+def test_parse_activity_applies_icu_prefix_to_id():
+    from sync.intervals_icu_sync import _parse_activity
+    activity = _load_fixture("activities.json")[0]
+    row = _parse_activity(activity)
+    assert row["activity_id"] == "icu_i9000001"
+    assert row["source"] == "intervals_icu"
+
+
+def test_parse_activity_uses_local_date_prefix_only():
+    from sync.intervals_icu_sync import _parse_activity
+    activity = _load_fixture("activities.json")[0]
+    row = _parse_activity(activity)
+    assert row["date"] == "2026-04-18"
+
+
+def test_parse_activity_maps_run_to_running():
+    from sync.intervals_icu_sync import _parse_activity
+    activity = _load_fixture("activities.json")[0]
+    row = _parse_activity(activity)
+    assert row["activity_type"] == "running"
+
+
+def test_parse_activity_converts_meters_and_computes_pace():
+    from sync.intervals_icu_sync import _parse_activity
+    activity = _load_fixture("activities.json")[0]
+    row = _parse_activity(activity)
+    # 10050m = 10.05km
+    assert float(row["distance_km"]) == pytest.approx(10.05, abs=0.001)
+    # 3120s / 10.05km ~ 310.4 sec/km
+    assert float(row["avg_pace_sec_km"]) == pytest.approx(310.4, abs=0.5)
+
+
+def test_parse_activity_prefers_icu_average_watts_over_average_watts():
+    from sync.intervals_icu_sync import _parse_activity
+    activity = _load_fixture("activities.json")[0].copy()
+    activity["icu_average_watts"] = 280
+    activity["average_watts"] = 220
+    row = _parse_activity(activity)
+    assert float(row["avg_power"]) == 280
+
+
+def test_parse_activity_doubles_cadence_for_run():
+    """intervals.icu reports single-leg cadence; Praxys stores double-leg spm."""
+    from sync.intervals_icu_sync import _parse_activity
+    activity = _load_fixture("activities.json")[0]
+    # fixture has average_cadence=87.5 single-leg -> 175 spm
+    row = _parse_activity(activity)
+    assert float(row["avg_cadence"]) == pytest.approx(175.0, abs=0.1)
+
+
+def test_parse_activity_leaves_derived_load_metrics_null():
+    """Per scientific-rigor principle, Praxys computes RSS/TRIMP itself."""
+    from sync.intervals_icu_sync import _parse_activity
+    activity = _load_fixture("activities.json")[0]
+    row = _parse_activity(activity)
+    assert row.get("rss") in (None, "")
+    assert row.get("trimp") in (None, "")
+    assert row.get("training_effect") in (None, "")
+
+
+def test_parse_activity_with_null_power_yields_empty_strings():
+    from sync.intervals_icu_sync import _parse_activity
+    activity = _load_fixture("activities.json")[1]  # the null-power run
+    row = _parse_activity(activity)
+    assert row["avg_power"] in (None, "")
+    assert row["max_power"] in (None, "")
+
+
+def test_parse_activity_maps_virtual_run_to_running():
+    """V4 verified: VirtualRun activity type maps to running."""
+    from sync.intervals_icu_sync import _parse_activity
+    activity = {
+        "id": "i9900001",
+        "start_date_local": "2026-04-19T08:00:00",
+        "type": "VirtualRun",
+        "distance": 5000.0,
+        "moving_time": 1800,
+    }
+    row = _parse_activity(activity)
+    assert row["activity_type"] == "running"

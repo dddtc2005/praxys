@@ -109,3 +109,91 @@ def _request(
     if isinstance(last_error, requests.HTTPError) and "429" in str(last_error):
         raise IntervalsIcuRateLimited(str(last_error))
     raise IntervalsIcuServerError(str(last_error) if last_error else "unknown")
+
+
+# Normalize intervals.icu sport types to Praxys canonical types.
+# V4 verified (2026-04-22): athlete i302653 returned Run, VirtualRun, TrailRun,
+# Ride, VirtualRide, VirtualRow, Hike, Walk. Include additional common types.
+_SPORT_TYPE_MAP = {
+    "run": "running",
+    "virtualrun": "running",
+    "trailrun": "trail_running",
+    "walk": "walking",
+    "hike": "hiking",
+    "ride": "cycling",
+    "virtualride": "cycling",
+    "ebikeride": "cycling",
+    "virtualrow": "rowing",
+    "row": "rowing",
+    "swim": "swimming",
+    "openwaterswim": "swimming",
+    "workout": "strength",
+    "weighttraining": "strength",
+}
+
+
+def _round_or_empty(val: Any, decimals: int = 1) -> str:
+    """Round numeric -> str, or return empty string for missing values."""
+    if val is None or val == "":
+        return ""
+    try:
+        return str(round(float(val), decimals))
+    except (TypeError, ValueError):
+        return ""
+
+
+def _map_activity_type(raw_type: str) -> str:
+    key = str(raw_type).replace(" ", "").replace("_", "").lower()
+    return _SPORT_TYPE_MAP.get(key, "other")
+
+
+def _parse_activity(activity: dict) -> dict:
+    """Convert one intervals.icu activity summary to Praxys canonical row shape.
+
+    Key transformations:
+    - id prefixed with 'icu_' to avoid cross-source ID collision
+    - distance m -> km
+    - cadence single-leg -> double-leg (x 2) for running
+    - icu_average_watts preferred over average_watts (Stryd-style running power)
+    - training_load, training_effect intentionally left null — Praxys recomputes
+    """
+    raw_id = str(activity.get("id") or "")
+    start_local = str(activity.get("start_date_local") or "")
+    sport_type = str(activity.get("type") or "")
+    activity_type = _map_activity_type(sport_type)
+
+    distance_m = float(activity.get("distance") or 0)
+    moving_time = float(activity.get("moving_time") or 0)
+    distance_km = round(distance_m / 1000, 3) if distance_m > 0 else 0.0
+    avg_pace_sec_km = (
+        round(moving_time / distance_km, 1)
+        if distance_km > 0 and moving_time > 0
+        else None
+    )
+
+    avg_power = activity.get("icu_average_watts")
+    if avg_power in (None, ""):
+        avg_power = activity.get("average_watts")
+
+    raw_cadence = activity.get("average_cadence")
+    avg_cadence_spm = (
+        float(raw_cadence) * 2 if raw_cadence not in (None, "") and activity_type == "running"
+        else raw_cadence
+    )
+
+    return {
+        "activity_id": f"icu_{raw_id}",
+        "date": start_local[:10],
+        "start_time": start_local,
+        "activity_type": activity_type,
+        "distance_km": str(distance_km) if distance_km > 0 else "",
+        "duration_sec": str(moving_time) if moving_time > 0 else "",
+        "avg_power": _round_or_empty(avg_power),
+        "max_power": _round_or_empty(activity.get("max_watts")),
+        "avg_hr": _round_or_empty(activity.get("average_heartrate")),
+        "max_hr": _round_or_empty(activity.get("max_heartrate")),
+        "avg_pace_sec_km": _round_or_empty(avg_pace_sec_km),
+        "elevation_gain_m": _round_or_empty(activity.get("total_elevation_gain")),
+        "avg_cadence": _round_or_empty(avg_cadence_spm),
+        "source": "intervals_icu",
+    }
