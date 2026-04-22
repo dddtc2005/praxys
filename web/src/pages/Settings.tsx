@@ -349,11 +349,7 @@ export default function Settings() {
     setSaving(false);
   };
 
-  // Threshold source selection. Manual numeric overrides were removed in
-  // the clean-break migration (2026-04) — every threshold must now come
-  // from a connected source or a calculation we perform on the user's own
-  // data. This handler switches which source to read from; it never writes
-  // a value.
+  // Writes only to preferences.threshold_sources; never to config.thresholds.
   const handleThresholdSourceChange = async (
     metricType: string,
     source: string,
@@ -368,8 +364,10 @@ export default function Settings() {
         } as SettingsConfig['preferences'],
       });
       flash('Saved');
-    } catch {
-      flash('Error');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'unknown';
+      console.error('threshold source change failed', { metricType, source, err });
+      flash(`Error saving ${metricType} source: ${msg}`);
     }
     setSaving(false);
     refetch();
@@ -1139,9 +1137,10 @@ export default function Settings() {
       />
 
       {/* ===== SECTION 5: Thresholds =====
-           Read-only by design: every value here comes from a connected
-           source or a calculation on the user's own data. Arbitrary manual
-           numeric overrides were removed in the clean-break migration. */}
+           Read-only by design: every value comes from a connected source
+           or a calculation on the user's own data. When a metric has more
+           than one source (e.g. Stryd + Garmin for CP), the user picks
+           which source to use — they never type a value. */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2.5">

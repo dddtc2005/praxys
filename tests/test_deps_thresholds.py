@@ -140,13 +140,22 @@ def test_resolve_thresholds_ignores_legacy_manual_values(db_with_user):
     db.commit()
 
     config = _fake_config()
-    # Simulate a user who previously entered 195 as a manual override.
-    # The resolver should ignore this and use the activity fallback (190).
-    config.thresholds = {"max_hr_bpm": 195, "cp_watts": 999, "lthr_bpm": 999}
+    # Simulate a user who previously entered manual values for every
+    # threshold. The resolver must ignore all of them and use the activity
+    # fallback (190) for max_hr; the other metrics have no data so remain None.
+    config.thresholds = {
+        "max_hr_bpm": 195,
+        "cp_watts": 999,
+        "lthr_bpm": 999,
+        "threshold_pace_sec_km": 240,
+        "rest_hr_bpm": 40,
+    }
     result = _resolve_thresholds(config, user_id=user_id, db=db)
     assert result.max_hr_bpm == 190.0, "activity fallback should win over legacy manual value"
-    assert result.cp_watts is None, "legacy manual cp_watts must be ignored"
-    assert result.lthr_bpm is None, "legacy manual lthr_bpm must be ignored"
+    assert result.cp_watts is None
+    assert result.lthr_bpm is None
+    assert result.threshold_pace_sec_km is None
+    assert result.rest_hr_bpm is None
 
 
 def test_resolve_thresholds_picks_preferred_source_when_multiple_present(db_with_user):

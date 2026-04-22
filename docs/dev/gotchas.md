@@ -68,25 +68,45 @@ Why they differ:
 
 Neither is "wrong", but **zones calibrated on one don't transfer**.
 Most published training literature and coach references are calibrated
-on Stryd. If a user has both sources connected, the latest write to
-`fitness_data.cp_estimate` wins in `_resolve_thresholds` — which can
-make CP whiplash between the two systems. Open issue: source-aware CP
-resolution (honour `preferences.activities` when picking between Stryd
-and Garmin `cp_estimate` rows) — not implemented yet.
+on Stryd. When a user has both sources connected, the resolver picks
+between them using the threshold-source-selection rules below.
 
 The Settings → Training Base UI shows a cobalt-bordered note when the
 user picks Power without Stryd connected, so the user knows the
 numbers aren't directly comparable to Stryd-calibrated references.
 
-### Max HR resolution
+## Threshold resolution
 
-`_resolve_thresholds` in `api/deps.py` resolves `max_hr_bpm` in this order:
+`_resolve_thresholds` in `api/deps.py` never accepts arbitrary user-entered
+numeric values — every threshold traces back to a connected source or a
+calculation we run on the user's own data. Manual numeric overrides were
+removed from the schema; the `thresholds` field in `PUT /api/settings`
+bodies is accepted for API compat but silently discarded (with an INFO log
+so stragglers are findable).
 
-1. `config.thresholds.max_hr_bpm` (manual user override in Settings).
-2. `fitness_data.max_hr_bpm` row for this user (written by `write_profile_thresholds` from Garmin user profile).
-3. `max(Activity.max_hr)` across the user's activities — last-resort fallback for users with no profile value.
+Selection order for each threshold (`cp_watts`, `lthr_bpm`,
+`threshold_pace_sec_km`, `max_hr_bpm`, `rest_hr_bpm`):
 
-Without #3, HR-base users with Garmin-only sync had `thresholds.max_hr_bpm = None` → TRIMP returned `None` → every daily load was 0 → empty fitness/fatigue chart.
+1. **Explicit** — `preferences.threshold_sources[metric_type]` if that
+   source has any rows for that metric.
+2. **Default** — `preferences.activities` (the primary activity source).
+   Keeps CP aligned with the activities the user is viewing.
+3. **Fallback** — latest `fitness_data` row by date, regardless of source.
+   When the preferred source has no data the resolver falls back here and
+   emits a DEBUG log so the "why am I seeing Garmin's value when I picked
+   Stryd?" case is traceable.
+
+Special case for `max_hr_bpm`: if `fitness_data` has no `max_hr_bpm` row
+at all, the resolver derives it from `max(Activity.max_hr)`. This is a
+calculation on the user's own data (not a guess), so it fits the
+"connected source or calculated by us" rule. Without this, HR-base users
+with Garmin-only sync had `max_hr_bpm = None` → TRIMP returned `None` →
+every daily load was 0 → empty fitness/fatigue chart.
+
+The UI in Settings renders a read-only value plus a source selector
+(populated from `options[]` on the `GET /api/settings` response) when a
+metric has more than one source. Single-source or zero-source metrics
+render read-only with a source badge.
 
 ### Tokenstore lifecycle
 

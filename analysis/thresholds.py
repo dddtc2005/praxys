@@ -50,30 +50,18 @@ def detect_thresholds(connections: list[str], data_dir: str) -> dict[str, dict[s
 def resolve_thresholds_to_estimate(
     config_thresholds: dict, connections: list[str], data_dir: str,
 ) -> ThresholdEstimate:
-    """Build ThresholdEstimate from auto-detect + manual config overrides.
+    """Build ThresholdEstimate from auto-detected provider values only.
 
-    Auto-detects from connected providers, then applies manual overrides.
-    Used by deps.py for metric computation.
+    File-based fallback path. ``config_thresholds`` is accepted for call-site
+    compatibility with api.deps._resolve_thresholds but its numeric values
+    are **not** applied — manual numeric overrides are no longer supported.
+    Source selection lives in ``preferences.threshold_sources`` on the DB
+    path; the file path doesn't support multi-source disambiguation.
     """
+    _ = config_thresholds  # intentionally unused; see docstring
     detected = detect_thresholds(connections, data_dir)
     result = ThresholdEstimate()
-
-    # Apply auto-detected values
     for key in ("cp_watts", "lthr_bpm", "threshold_pace_sec_km", "max_hr_bpm", "rest_hr_bpm"):
         if key in detected:
             setattr(result, key, detected[key]["value"])
-
-    # Manual overrides from config
-    t = config_thresholds
-    if t.get("cp_watts"):
-        result.cp_watts = float(t["cp_watts"])
-    if t.get("lthr_bpm"):
-        result.lthr_bpm = float(t["lthr_bpm"])
-    if t.get("threshold_pace_sec_km"):
-        result.threshold_pace_sec_km = float(t["threshold_pace_sec_km"])
-    if t.get("max_hr_bpm"):
-        result.max_hr_bpm = float(t["max_hr_bpm"])
-    if t.get("rest_hr_bpm"):
-        result.rest_hr_bpm = float(t["rest_hr_bpm"])
-
     return result

@@ -84,7 +84,7 @@ def _resolve_thresholds(
             """Pick the best fitness_data row for this metric.
 
             Preferred-source-first, fall back to latest-by-date if the
-            preferred source has no rows.
+            preferred source has no rows (or its rows have null/zero values).
             """
             preferred = (
                 threshold_sources.get(metric_type)
@@ -103,10 +103,17 @@ def _resolve_thresholds(
                 )
                 if row and row.value:
                     return float(row.value)
+                # Preferred source exists in the user's preferences but has no
+                # rows. Log at debug so the surprising-but-correct fallback
+                # ("I picked Stryd, why am I seeing Garmin's value?") is
+                # visible to anyone tailing the server log.
+                logger.debug(
+                    "_resolve_thresholds: preferred source %r for %s has no "
+                    "data; falling back to latest-by-date", preferred, metric_type,
+                )
             row = base.order_by(FitnessData.date.desc()).first()
             return float(row.value) if row and row.value else None
 
-        # Sensor-derived thresholds (Stryd/Garmin/Oura write into these).
         _METRIC_MAP = {
             "cp_estimate": "cp_watts",
             "lthr_bpm": "lthr_bpm",
@@ -119,11 +126,9 @@ def _resolve_thresholds(
             if val is not None:
                 setattr(result, est_attr, val)
 
-        # Calculated fallback: derive max_hr_bpm from the highest max_hr
-        # recorded across activities when no profile-based value exists.
-        # This is a computation we perform on the user's own data (not a
-        # guess), so it fits the "connected source or calculated by us"
-        # rule even without a dedicated max-HR sensor reading.
+        # Derived fallback: Garmin writes per-activity max_hr but no
+        # max_hr_bpm fitness_data record, so TRIMP would be skipped for
+        # HR-base users without this.
         if result.max_hr_bpm is None:
             from db.models import Activity
             from sqlalchemy import func

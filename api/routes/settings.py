@@ -96,14 +96,17 @@ def _detect_thresholds_from_db(user_id: str, db) -> dict:
     ]
 
     for metric_type, threshold_key, default_source in metric_map:
-        # Latest value per distinct source. Use a subquery-less approach: pull
-        # all rows, group in Python. For typical users this is <100 rows.
+        # Filter null-date rows at the DB level so the invariant "rows[0]
+        # is the latest" holds regardless of SQLite's NULL-ordering quirks.
+        # Python-side per-source grouping: <100 rows per user in practice,
+        # so a subquery-less approach keeps this readable.
         rows = (
             db.query(FitnessData)
             .filter(
                 FitnessData.user_id == user_id,
                 FitnessData.metric_type == metric_type,
                 FitnessData.value.isnot(None),
+                FitnessData.date.isnot(None),
             )
             .order_by(FitnessData.date.desc())
             .all()
@@ -117,20 +120,28 @@ def _detect_thresholds_from_db(user_id: str, db) -> dict:
             # the most recent row per source.
             if src not in seen_sources:
                 seen_sources[src] = row
-        options = [
-            {
-                "source": src,
-                "value": round(float(r.value), 1),
-                "date": r.date.isoformat() if r.date else None,
-            }
-            for src, r in seen_sources.items()
-        ]
-        # Sort options by date descending so the UI defaults list to newest-first.
+        options: list[dict] = []
+        for src, r in seen_sources.items():
+            try:
+                options.append({
+                    "source": src,
+                    "value": round(float(r.value), 1),
+                    "date": r.date.isoformat() if r.date else None,
+                })
+            except (TypeError, ValueError) as exc:
+                # One malformed row mustn't blank out the whole Settings page.
+                logger.warning(
+                    "detect_thresholds: skipping row %s for user %s (%s=%r): %s",
+                    r.id, user_id, metric_type, r.value, exc,
+                )
+        if not options:
+            continue
         options.sort(key=lambda o: o["date"] or "", reverse=True)
-        latest = rows[0]
+        # Use options[0] rather than rows[0] so the displayed value always
+        # matches one of the options the UI will render.
         result[threshold_key] = {
-            "value": round(float(latest.value), 1),
-            "source": latest.source or default_source,
+            "value": options[0]["value"],
+            "source": options[0]["source"],
             "options": options,
         }
 
@@ -164,17 +175,20 @@ def resolve_thresholds(
 ) -> dict:
     """Pick the effective value for each threshold from detected sources.
 
-    ``config_thresholds`` is accepted for backwards compat but its numeric
-    values are no longer honoured — the clean-break migration ignores legacy
-    manual overrides. Selection order:
+    ``config_thresholds`` is ignored (kept in the signature so callers don't
+    break; remove on the next major API version). Manual numeric overrides
+    are not supported — source selection lives in ``threshold_sources``.
 
-        1. Explicit: ``threshold_sources[metric_type]`` if the option exists.
-        2. Default: ``activity_source`` — keeps CP consistent with the
+    Selection order:
+        1. Explicit: ``threshold_sources[metric_type]`` if that source has
+           an entry in ``options``.
+        2. Default: ``activity_source`` — keeps CP aligned with the
            activities the user is viewing.
-        3. Fallback: the ``options`` list is already date-sorted, so index 0
-           is the latest row.
+        3. Fallback: ``options[0]``. _detect_thresholds_from_db sorts
+           options by date desc, so this is the most recent row.
     """
-    # metric_type names map 1:1 to threshold keys for everything except CP.
+    _ = config_thresholds  # intentionally unused
+    # metric_type keys match fitness_data.metric_type for all but CP.
     threshold_to_metric = {
         "cp_watts": "cp_estimate",
         "lthr_bpm": "lthr_bpm",
@@ -195,8 +209,19 @@ def resolve_thresholds(
         picked = None
         if preferred:
             picked = next((o for o in options if o["source"] == preferred), None)
+            if picked is None:
+                # User chose a source that has no data yet; log so the
+                # apparent mismatch between selection and displayed value
+                # is visible in server logs.
+                logger.debug(
+                    "resolve_thresholds: preferred source %r for %s has no data; "
+                    "falling back to latest (%s=%s)",
+                    preferred, metric_type, options[0]["source"], options[0]["value"],
+                )
         if picked is None:
-            picked = options[0]  # latest
+            # latest — invariant maintained by _detect_thresholds_from_db's
+            # `options.sort(key=...date, reverse=True)`.
+            picked = options[0]
         effective[key] = {
             "value": picked["value"],
             "origin": f"auto ({picked['source']})",
@@ -257,11 +282,17 @@ def update_settings(
         config.connections = body.connections
     if body.preferences is not None:
         config.preferences.update(body.preferences)
-    # `thresholds` updates are silently ignored: the clean-break migration
-    # (2026-04) removed manual numeric overrides. Source selection now lives
-    # in `preferences.threshold_sources`. Accepting the key keeps the API
-    # compatible with clients that still send it; the body is discarded.
-    _ = body.thresholds  # noqa: intentional no-op
+    # `thresholds` updates are accepted-and-dropped: manual numeric overrides
+    # are no longer supported; source selection lives in
+    # ``preferences.threshold_sources``. Kept in the schema for API compat
+    # with older clients. A non-empty payload means a client still thinks it
+    # can write numeric thresholds — log so we can find it.
+    if body.thresholds:
+        logger.info(
+            "settings.update: discarding legacy thresholds payload "
+            "(user %s, keys=%s)",
+            user_id, sorted(body.thresholds.keys()),
+        )
     if body.zones is not None:
         config.zones.update(body.zones)
     if body.goal is not None:
