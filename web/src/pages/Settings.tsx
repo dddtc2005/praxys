@@ -985,6 +985,26 @@ export default function Settings() {
               );
             })}
           </div>
+          {config.training_base === 'power' && !connections.includes('stryd') && (
+            <div
+              className="mt-4 rounded-lg border border-accent-cobalt/30 bg-accent-cobalt/5 p-3"
+              style={{ borderLeftWidth: '3px', borderLeftColor: 'var(--color-accent-cobalt)' }}
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--color-accent-cobalt)' }}>
+                <Trans>Note on Garmin native power</Trans>
+              </p>
+              <p className="text-xs text-foreground">
+                <Trans>
+                  Garmin native running power reads ~30% higher than Stryd for
+                  the same athlete — they measure different things. Zones and
+                  benchmarks calibrated on Stryd (most coach references, most
+                  training literature) will not directly transfer. Your power
+                  data will still be internally consistent for tracking progress,
+                  but don't compare CP values across the two systems.
+                </Trans>
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 

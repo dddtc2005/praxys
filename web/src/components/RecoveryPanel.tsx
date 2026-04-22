@@ -158,7 +158,7 @@ export default function RecoveryPanel({ recovery, theoryMeta, analysis }: Props)
                 </p>
                 <div className="flex items-baseline gap-1">
                   <span className="text-lg font-bold font-data text-foreground">
-                    {analysis?.resting_hr ?? '--'}
+                    {analysis?.resting_hr != null ? Math.round(analysis.resting_hr) : '--'}
                   </span>
                   {analysis?.resting_hr != null && (
                     <span className="text-[9px] text-muted-foreground">bpm</span>

@@ -323,25 +323,37 @@ def write_profile_thresholds(
         return 0
     when = as_of or date.today()
     count = 0
-    for key in ("max_hr_bpm", "rest_hr_bpm", "lthr_bpm"):
+    # cp_watts is intentionally stored under the same `cp_estimate` metric
+    # type that Stryd uses, so the existing _resolve_thresholds logic picks
+    # the most recent value regardless of which source wrote it.
+    # Mixing Garmin and Stryd CP in the same account is documented as
+    # unreliable (~30% gap between the two systems); see docs/dev/gotchas.md.
+    _FITNESS_METRIC_KEY = {
+        "max_hr_bpm": "max_hr_bpm",
+        "rest_hr_bpm": "rest_hr_bpm",
+        "lthr_bpm": "lthr_bpm",
+        "cp_watts": "cp_estimate",
+    }
+    for key in ("max_hr_bpm", "rest_hr_bpm", "lthr_bpm", "cp_watts"):
         val = profile.get(key)
         if val is None:
             continue
+        metric_type = _FITNESS_METRIC_KEY[key]
         exists = db.query(FitnessData.id).filter(
             FitnessData.user_id == user_id,
             FitnessData.date == when,
-            FitnessData.metric_type == key,
+            FitnessData.metric_type == metric_type,
         ).first()
         if exists:
             db.query(FitnessData).filter(
                 FitnessData.user_id == user_id,
                 FitnessData.date == when,
-                FitnessData.metric_type == key,
+                FitnessData.metric_type == metric_type,
             ).update({"value": float(val), "source": source})
         else:
             db.add(FitnessData(
                 user_id=user_id, date=when,
-                metric_type=key, value=float(val), source=source,
+                metric_type=metric_type, value=float(val), source=source,
             ))
         count += 1
     return count

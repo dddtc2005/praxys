@@ -5,6 +5,7 @@ from sync.garmin_sync import (
     parse_daily_metrics,
     parse_garmin_recovery,
     parse_heart_rates,
+    parse_running_ftp,
     parse_splits,
     parse_user_profile,
 )
@@ -362,6 +363,37 @@ def test_parse_heart_rates_handles_missing_and_invalid():
     assert parse_heart_rates({}) == {}
     assert parse_heart_rates({"restingHeartRate": None}) == {}
     assert parse_heart_rates({"restingHeartRate": "N/A"}) == {}
+
+
+# --- Running FTP / Critical Power ---
+
+
+def test_parse_running_ftp_happy_path():
+    """Real shape from /biometric-service/biometric/latestFunctionalThresholdPower/RUNNING."""
+    payload = {
+        "sport": "RUNNING",
+        "functionalThresholdPower": 350,
+        "isStale": False,
+        "calendarDate": "2026-03-21T17:27:44.759",
+    }
+    assert parse_running_ftp(payload) == {"cp_watts": 350.0}
+
+
+def test_parse_running_ftp_skips_stale():
+    """Garmin flags isStale=True when it no longer trusts the value; don't write it."""
+    payload = {
+        "sport": "RUNNING",
+        "functionalThresholdPower": 350,
+        "isStale": True,
+    }
+    assert parse_running_ftp(payload) == {}
+
+
+def test_parse_running_ftp_missing_or_invalid():
+    assert parse_running_ftp(None) == {}
+    assert parse_running_ftp({}) == {}
+    assert parse_running_ftp({"functionalThresholdPower": None}) == {}
+    assert parse_running_ftp({"functionalThresholdPower": "N/A"}) == {}
 
 
 # --- Recovery parser robustness ---

@@ -205,6 +205,33 @@ def parse_user_profile(profile: dict | None) -> dict:
     return result
 
 
+def parse_running_ftp(payload: dict | None) -> dict:
+    """Extract Garmin's running Critical Power / Functional Threshold Power.
+
+    Shape (confirmed International 2026-04):
+        {"sport": "RUNNING", "functionalThresholdPower": 350,
+         "isStale": false, "calendarDate": "2026-03-21T17:27:44.759", ...}
+
+    Returns ``{"cp_watts": N}`` on success, empty dict otherwise. Filters
+    out stale values (Garmin flags measurements it can no longer trust).
+
+    Note: Garmin's native running power reads substantially higher than
+    Stryd's (observed ~32% gap on the same athlete). The two aren't
+    interchangeable — see docs/dev/gotchas.md.
+    """
+    if not isinstance(payload, dict):
+        return {}
+    if payload.get("isStale") is True:
+        return {}
+    val = payload.get("functionalThresholdPower")
+    if val is None:
+        return {}
+    try:
+        return {"cp_watts": float(val)}
+    except (TypeError, ValueError):
+        return {}
+
+
 def parse_heart_rates(hr_data: dict | None) -> dict:
     """Extract RHR fields from ``get_heart_rates(date)`` response.
 

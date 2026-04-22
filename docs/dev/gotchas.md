@@ -46,6 +46,38 @@ Two different RHR values for two different purposes:
 
 Don't cross-wire them: overnight RHR as the TRIMP threshold would inject daily noise into every workout's load calculation.
 
+### Running power: Garmin native vs Stryd are not interchangeable
+
+Garmin exposes a running FTP (their "Critical Power" for running) at
+`/biometric-service/biometric/latestFunctionalThresholdPower/RUNNING`
+— the same URL pattern garminconnect wraps as `get_cycling_ftp()` but
+for `RUNNING`. We sync that into `fitness_data.cp_estimate` (source
+`garmin`). Observed gap vs Stryd on the same athlete: **~30% higher on
+Garmin** (e.g. Garmin 350W vs Stryd 265W).
+
+Why they differ:
+
+- **Stryd** is a foot-mounted pod (3-axis accelerometer + gyroscope +
+  barometer) measuring foot-strike mechanics directly. It's been
+  research-validated against treadmill mechanical power; outputs scale
+  close to mechanical work on the runner.
+- **Garmin native running power** is a model-based estimate from
+  wrist / HRM-Pro accelerometer + pace + gradient. It rolls in
+  metabolic cost estimates, so the numbers are higher than raw
+  mechanical work and run noticeably different on hills.
+
+Neither is "wrong", but **zones calibrated on one don't transfer**.
+Most published training literature and coach references are calibrated
+on Stryd. If a user has both sources connected, the latest write to
+`fitness_data.cp_estimate` wins in `_resolve_thresholds` — which can
+make CP whiplash between the two systems. Open issue: source-aware CP
+resolution (honour `preferences.activities` when picking between Stryd
+and Garmin `cp_estimate` rows) — not implemented yet.
+
+The Settings → Training Base UI shows a cobalt-bordered note when the
+user picks Power without Stryd connected, so the user knows the
+numbers aren't directly comparable to Stryd-calibrated references.
+
 ### Max HR resolution
 
 `_resolve_thresholds` in `api/deps.py` resolves `max_hr_bpm` in this order:

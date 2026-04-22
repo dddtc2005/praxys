@@ -259,7 +259,7 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
     from sync.garmin_sync import (
         parse_activities, parse_splits, parse_daily_metrics,
         parse_lactate_threshold, parse_user_profile, parse_heart_rates,
-        RATE_LIMIT_DELAY,
+        parse_running_ftp, RATE_LIMIT_DELAY,
     )
     import time
 
@@ -407,6 +407,23 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
             profile_parsed["rest_hr_bpm"] = rolling
     except Exception as e:
         logger.warning("Garmin heart_rates fetch failed for user %s: %s", user_id, e)
+
+    # Running FTP / Critical Power. Garmin exposes this at the same URL
+    # pattern as cycling FTP — garminconnect wraps cycling but not running,
+    # so we call the endpoint directly. Note: Garmin's native running power
+    # reads substantially higher than Stryd (~30% gap on the same athlete);
+    # see docs/dev/gotchas.md. For users who have both sources syncing, the
+    # latest write to fitness_data.cp_estimate wins — which can cause CP
+    # thresholds to whiplash between the two systems.
+    try:
+        rftp_raw = client.connectapi(
+            "/biometric-service/biometric/latestFunctionalThresholdPower/RUNNING"
+        )
+        rftp_parsed = parse_running_ftp(rftp_raw)
+        if rftp_parsed:
+            profile_parsed.update(rftp_parsed)
+    except Exception as e:
+        logger.warning("Garmin running FTP fetch failed for user %s: %s", user_id, e)
 
     if profile_parsed:
         try:

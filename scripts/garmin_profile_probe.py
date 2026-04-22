@@ -119,3 +119,98 @@ try:
     dump(f"get_sleep_data({yesterday}) — sleep/HR fields", sleep_y)
 except Exception as e:
     print(f"get_sleep_data yesterday failed: {e}")
+
+# --- Hunt for Garmin's running Critical Power / Threshold Power ---
+# Known cycling is via get_cycling_ftp. Running CP isn't a first-class
+# method; probe the profile (all keys), max_metrics, personal records,
+# userprofile_settings, and the training-status payload.
+
+
+def dump_all(label, payload):
+    """Dump EVERY leaf key — not just HR-filtered — so we can spot the
+    running-power / critical-power fields."""
+    print(f"\n===== {label} (full) =====")
+    if payload is None:
+        print("  <None>")
+        return
+    shown = 0
+    for path, typ, sample in _flatten_keys(payload):
+        k = path.lower()
+        if any(tag in k for tag in (
+            "power", "ftp", "critical", "threshold", "vo2", "running",
+        )):
+            print(f"  {path}: ({typ}) {sample}")
+            shown += 1
+    if shown == 0:
+        print("  (no power/ftp/critical/threshold/vo2/running keys found)")
+
+
+try:
+    max_m = client.get_max_metrics(today)
+    dump_all("get_max_metrics(today)", max_m)
+except Exception as e:
+    print(f"get_max_metrics failed: {e}")
+
+try:
+    pr = client.get_personal_record()
+    dump_all("get_personal_record()", pr)
+except Exception as e:
+    print(f"get_personal_record failed: {e}")
+
+try:
+    settings = client.get_userprofile_settings()
+    dump_all("get_userprofile_settings()", settings)
+except Exception as e:
+    print(f"get_userprofile_settings failed: {e}")
+
+try:
+    ts = client.get_training_status(today)
+    dump_all("get_training_status(today)", ts)
+except Exception as e:
+    print(f"get_training_status failed: {e}")
+
+try:
+    cycling_ftp = client.get_cycling_ftp()
+    print(f"\n===== get_cycling_ftp() =====")
+    print(f"  {cycling_ftp!r}")
+except Exception as e:
+    print(f"get_cycling_ftp failed: {e}")
+
+# Candidate raw endpoints for running CP / threshold power. Garmin doesn't
+# wrap this in garminconnect but the web /modern/report/-39/running/current
+# report page clearly fetches it from somewhere.
+candidates = [
+    "/biometric-service/biometric/threshold/runningPower",
+    "/biometric-service/biometric/threshold/running_power",
+    "/biometric-service/biometric/criticalPower/running",
+    "/biometric-service/biometric/ftp/running",
+    "/biometric-service/biometric/runningPower",
+    "/biometric-service/biometric/running/threshold/power",
+    "/biometric-service/stats/threshold/running/power",
+    "/biometric-service/stats/running/threshold/power",
+    "/userprofile-service/userprofile/power/running",
+    "/userprofile-service/userprofile/runningPower",
+    # The -39 report endpoint
+    "/userreportbuilder-service/reportbuilder/report/-39/running/current",
+    "/reportbuilder-service/reportbuilder/report/-39/running/current",
+    "/userreportbuilder-service/report/-39/running/current",
+    "/fitnessstats-service/activity/threshold",
+]
+print("\n===== Raw endpoint probe - running CP/FTP =====")
+for path in candidates:
+    try:
+        resp = client.connectapi(path)
+        if resp:
+            print(f"  OK {path}: {type(resp).__name__}")
+            if isinstance(resp, dict):
+                for k, v in list(resp.items())[:10]:
+                    print(f"      {k}: {v!r}"[:100])
+            elif isinstance(resp, list):
+                print(f"      list len={len(resp)}, first: {resp[0] if resp else None}")
+            else:
+                print(f"      {resp!r}"[:200])
+        else:
+            print(f"  -- {path}: empty")
+    except Exception as e:
+        msg = str(e)[:80]
+        print(f"  NO {path}: {msg}")
