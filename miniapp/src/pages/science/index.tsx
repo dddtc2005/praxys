@@ -61,7 +61,7 @@ export default function SciencePage() {
   return (
     <View className={`sci-root ${themeClassName()}`}>
       <Text className="sci-intro">
-        Trainsight's numbers come from published research. These are the
+        Praxys's numbers come from published research. These are the
         theories currently powering your dashboard, plus the alternatives
         you could switch to on the web.
       </Text>

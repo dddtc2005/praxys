@@ -17,15 +17,15 @@ export default defineAppConfig({
   ],
   window: {
     backgroundTextStyle: 'dark',
-    navigationBarBackgroundColor: '#0a0e27',
-    navigationBarTitleText: 'Trainsight',
+    navigationBarBackgroundColor: '#0d1220',
+    navigationBarTitleText: 'Praxys',
     navigationBarTextStyle: 'white',
-    backgroundColor: '#0a0e27',
+    backgroundColor: '#0d1220',
   },
   tabBar: {
     color: '#8b93a7',
-    selectedColor: '#44d08e',
-    backgroundColor: '#0a0e27',
+    selectedColor: '#00ff87',
+    backgroundColor: '#0d1220',
     borderStyle: 'black',
     list: [
       { pagePath: 'pages/today/index', text: 'Today' },

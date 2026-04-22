@@ -117,7 +117,7 @@ export default function GoalPage() {
             showLegend={false}
             dates={data.cp_trend.dates}
             series={[
-              { label: 'CP', color: '#44d08e', values: data.cp_trend.values, fill: true },
+              { label: 'CP', color: '#00ff87', values: data.cp_trend.values, fill: true },
             ]}
           />
         </View>

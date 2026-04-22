@@ -1,8 +1,8 @@
 {
   "miniprogramRoot": "dist/",
-  "projectname": "trainsight-miniapp",
-  "description": "Trainsight — power-based training analytics",
-  "appid": "touristappid",
+  "projectname": "praxys-miniapp",
+  "description": "Praxys — 个性化耐力训练平台",
+  "appid": "wx65e36494e7cf3ffb",
   "setting": {
     "urlCheck": true,
     "es6": false,

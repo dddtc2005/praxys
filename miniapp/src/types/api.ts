@@ -36,7 +36,7 @@ export interface ScienceResponse {
   label_sets: { id: string; name: string }[];
   recommendations: PillarRecommendation[];
 }
-export type PlatformName = 'garmin' | 'stryd' | 'oura' | 'coros';
+export type PlatformName = 'garmin' | 'strava' | 'stryd' | 'oura' | 'coros';
 export type PlanSourceName = PlatformName | 'ai';
 export type DataCategory = 'activities' | 'recovery' | 'fitness' | 'plan';
 
@@ -279,8 +279,9 @@ export interface CpTrendChart {
 
 export interface WeeklyReview {
   weeks: string[];
-  actual_rss: number[];
-  planned_rss: number[];
+  actual_load: number[];
+  planned_load: number[];
+  planned_estimated?: boolean;
 }
 
 export interface WorkoutFlag {
@@ -306,13 +307,19 @@ export interface ScienceNoteInfo {
 
 export type ScienceNotes = Record<string, ScienceNoteInfo>;
 
+export interface SleepPerfData {
+  pairs: [number, number][];
+  metric_label: string;
+  metric_unit: string;
+}
+
 export interface TrainingResponse {
   diagnosis: DiagnosisData;
   fitness_fatigue: TimeSeriesData;
   cp_trend: CpTrendChart;
   weekly_review: WeeklyReview;
   workout_flags: WorkoutFlag[];
-  sleep_perf: [number, number][];
+  sleep_perf: SleepPerfData;
   training_base?: TrainingBase;
   display?: DisplayConfig;
   data_meta?: DataMeta;

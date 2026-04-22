@@ -214,7 +214,7 @@ function SignalCard({
 
 /**
  * Map a TSB value to a textual zone name + an accent class. Thresholds are
- * the widely-used Banister-style bands; Trainsight's science page shows
+ * the widely-used Banister-style bands; Praxys's science page shows
  * exact zone boundaries for whichever load theory is active, so this
  * headline is a quick-glance summary, not the source of truth.
  *

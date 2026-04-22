@@ -104,7 +104,7 @@ export default function TrainingPage() {
               showLegend={false}
               dates={cp_trend.dates}
               series={[
-                { label: 'CP', color: '#44d08e', values: cp_trend.values, fill: true },
+                { label: 'CP', color: '#00ff87', values: cp_trend.values, fill: true },
               ]}
             />
           )}
@@ -120,7 +120,7 @@ export default function TrainingPage() {
             showZeroLine
             dates={fitness_fatigue.dates}
             series={[
-              { label: 'Fitness (CTL)', color: '#44d08e', values: fitness_fatigue.ctl },
+              { label: 'Fitness (CTL)', color: '#00ff87', values: fitness_fatigue.ctl },
               { label: 'Fatigue (ATL)', color: '#ef4444', values: fitness_fatigue.atl },
               { label: 'Form (TSB)', color: '#3b82f6', values: fitness_fatigue.tsb },
             ]}

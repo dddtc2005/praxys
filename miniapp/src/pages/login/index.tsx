@@ -76,9 +76,9 @@ export default function LoginPage() {
   if (stage.kind === 'choose') {
     return (
       <View className={`login-root ${themeClassName()}`}>
-        <Text className="login-title">Welcome to Trainsight</Text>
+        <Text className="login-title">Welcome to Praxys</Text>
         <Text className="login-detail">
-          Let's connect your WeChat to a Trainsight account.
+          Let's connect your WeChat to a Praxys account.
         </Text>
         <Button
           className="ts-button login-cta"
@@ -149,13 +149,13 @@ function LinkForm({ ticket, onBack }: FormProps) {
     <View className={`login-root ${themeClassName()}`}>
       <Text className="login-title">Link your account</Text>
       <Text className="login-detail">
-        Enter the email + password you use on trainsight.app.
+        Enter the email + password you use on praxys.app.
       </Text>
       <Input
         className="ts-input login-input"
         type="text"
         placeholder="email"
-        placeholderStyle="color: #6b7394;"
+        placeholderStyle="color: #8b93a7;"
         value={email}
         onInput={(e) => setEmail(e.detail.value)}
       />
@@ -163,7 +163,7 @@ function LinkForm({ ticket, onBack }: FormProps) {
         className="ts-input login-input"
         password
         placeholder="password"
-        placeholderStyle="color: #6b7394;"
+        placeholderStyle="color: #8b93a7;"
         value={password}
         onInput={(e) => setPassword(e.detail.value)}
       />
@@ -211,14 +211,14 @@ function RegisterForm({ ticket, onBack }: FormProps) {
     <View className={`login-root ${themeClassName()}`}>
       <Text className="login-title">Create your account</Text>
       <Text className="login-detail">
-        Trainsight is invite-only while in beta. Email + password are optional
+        Praxys is invite-only while in beta. Email + password are optional
         (you can add them later to also log in on the web).
       </Text>
       <Input
         className="ts-input login-input"
         type="text"
         placeholder="invitation code (required)"
-        placeholderStyle="color: #6b7394;"
+        placeholderStyle="color: #8b93a7;"
         value={invitationCode}
         onInput={(e) => setInvitationCode(e.detail.value.toUpperCase())}
       />
@@ -226,7 +226,7 @@ function RegisterForm({ ticket, onBack }: FormProps) {
         className="ts-input login-input"
         type="text"
         placeholder="email (optional)"
-        placeholderStyle="color: #6b7394;"
+        placeholderStyle="color: #8b93a7;"
         value={email}
         onInput={(e) => setEmail(e.detail.value)}
       />
@@ -234,7 +234,7 @@ function RegisterForm({ ticket, onBack }: FormProps) {
         className="ts-input login-input"
         password
         placeholder="password (optional)"
-        placeholderStyle="color: #6b7394;"
+        placeholderStyle="color: #8b93a7;"
         value={password}
         onInput={(e) => setPassword(e.detail.value)}
       />

@@ -1,8 +1,8 @@
 {
-  "name": "trainsight-miniapp",
+  "name": "praxys-miniapp",
   "version": "0.1.0",
   "private": true,
-  "description": "Trainsight WeChat Mini Program",
+  "description": "Praxys WeChat Mini Program",
   "scripts": {
     "build:weapp": "taro build --type weapp",
     "dev:weapp": "npm run build:weapp -- --watch",

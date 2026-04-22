@@ -19,55 +19,62 @@
 // Descendants (cards, text, charts) still read the vars cleanly via
 // inheritance, which is the whole point of custom properties.
 
+// Colour values are hex approximations of the OKLCH definitions in
+// web/src/index.css (the authoritative source for the Praxys brand). Keep
+// these in rough sync with the web app; WeChat's WXSS doesn't reliably
+// support oklch(), so we use hex equivalents.
 .theme-dark {
-  --bg: #0a0e27;
-  --surface: #111834;
-  --surface-subtle: #0a0e27;
-  --border: #2a3252;
-  --border-subtle: #1a2040;
-  --text: #e6ebf5;
+  --bg: #0d1220;
+  --surface: #161b2e;
+  --surface-subtle: #0d1220;
+  --border: #1f2536;
+  --border-subtle: #161b2e;
+  --text: #e8ebf0;
   --text-muted: #8b93a7;
   --text-placeholder: #6b7394;
-  --primary: #44d08e;
-  --primary-on: #0a0e27;
+  --primary: #00ff87;
+  --primary-on: #0d1220;
   --destructive: #ef4444;
   --warning: #f59e0b;
   --accent-blue: #3b82f6;
-  --accent-purple: #a855f7;
-  background-color: #0a0e27;
-  color: #e6ebf5;
+  --accent-purple: #8b5cf6;
+  --accent-cobalt: #6ba5e6;
+  background-color: #0d1220;
+  color: #e8ebf0;
 }
 
 .theme-light {
-  --bg: #fafaf7;
+  --bg: #faf9f5;
   --surface: #ffffff;
-  --surface-subtle: #f2f1eb;
-  --border: #d5d4cc;
-  --border-subtle: #e9e8e1;
-  --text: #1a1a1a;
+  --surface-subtle: #edeae0;
+  --border: #dbd6c7;
+  --border-subtle: #edeae0;
+  --text: #15192a;
   --text-muted: #6b6b66;
   --text-placeholder: #999;
-  --primary: #16a060;
+  --primary: #1e8e5b;
   --primary-on: #ffffff;
-  --destructive: #dc2626;
+  --destructive: #d93a2c;
   --warning: #d97706;
   --accent-blue: #2563eb;
   --accent-purple: #7c3aed;
-  background-color: #fafaf7;
-  color: #1a1a1a;
+  --accent-cobalt: #2e71c6;
+  background-color: #faf9f5;
+  color: #15192a;
 }
 
 page {
   font-family:
-    -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB',
-    'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+    'DM Sans', -apple-system, BlinkMacSystemFont, 'Noto Sans SC',
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+    'Helvetica Neue', Arial, sans-serif;
   font-size: 28rpx;
   line-height: 1.5;
   // Default page element to dark; the theme class on the root View
   // paints over this, but this avoids a flash of wrong colour during
   // first paint before React mounts.
-  background-color: #0a0e27;
-  color: #e6ebf5;
+  background-color: #0d1220;
+  color: #e8ebf0;
 }
 
 .ts-container {
@@ -139,17 +146,30 @@ page {
 }
 
 .ts-input {
+  // Explicit hex fallback first, then the CSS-var override. On real-device
+  // dark mode WeChat's <input> sometimes ignores CSS custom properties and
+  // falls back to system colours — both foreground and background ending up
+  // the system dark grey, rendering the text invisible. The literal values
+  // keep the input legible even when var() resolution fails; the var line
+  // below still lets the light theme override the surface.
+  background-color: #161b2e;
   background-color: var(--surface);
-  border: 2rpx solid var(--border);
+  color: #e8ebf0;
   color: var(--text);
+  border: 2rpx solid var(--border);
   border-radius: 12rpx;
   padding: 28rpx 24rpx;
   font-size: 30rpx;
   width: 100%;
   box-sizing: border-box;
-  // WeChat's Input placeholder colour is set via a separate attribute
-  // in the WXML; we pass placeholder-style at the component level instead
-  // of in CSS because the simulator ignores ::placeholder on Input.
+  // Placeholder colour has to be set via the `placeholder-style` WXML
+  // attribute on <Input> — WeChat ignores ::placeholder in WXSS.
+}
+
+// Light-theme override: a .theme-light ancestor swaps the literal fallbacks.
+.theme-light .ts-input {
+  background-color: #ffffff;
+  color: #15192a;
 }
 
 .ts-skeleton {

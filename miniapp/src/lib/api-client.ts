@@ -20,7 +20,7 @@ import Taro from '@tarojs/taro';
  */
 export const API_BASE: string = process.env.API_BASE || 'http://localhost:8000';
 
-export const TOKEN_KEY = 'trainsight-auth-token';
+export const TOKEN_KEY = 'praxys-auth-token';
 
 export interface ApiError {
   status: number;

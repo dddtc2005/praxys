@@ -22,7 +22,7 @@ import Taro from '@tarojs/taro';
 export type ThemePref = 'auto' | 'dark' | 'light';
 export type ResolvedTheme = 'dark' | 'light';
 
-const THEME_STORAGE_KEY = 'trainsight-theme';
+const THEME_STORAGE_KEY = 'praxys-theme';
 
 export function getThemePreference(): ThemePref {
   const stored = Taro.getStorageSync(THEME_STORAGE_KEY);
@@ -73,17 +73,17 @@ export interface ChartColors {
 }
 
 const DARK_CHART: ChartColors = {
-  axis: '#2a3252',
-  grid: '#1a2040',
+  axis: '#1f2536',
+  grid: '#161b2e',
   tick: '#8b93a7',
-  zero: '#44d08e',
+  zero: '#00ff87',
 };
 
 const LIGHT_CHART: ChartColors = {
-  axis: '#d5d4cc',
-  grid: '#e9e8e1',
+  axis: '#dbd6c7',
+  grid: '#edeae0',
   tick: '#6b6b66',
-  zero: '#16a060',
+  zero: '#1e8e5b',
 };
 
 export function chartColors(theme: ResolvedTheme = resolveTheme()): ChartColors {
@@ -100,9 +100,11 @@ export function chartColors(theme: ResolvedTheme = resolveTheme()): ChartColors 
  * user switches theme determines the chrome state for subsequent tabs).
  */
 export function applyThemeChrome(theme: ResolvedTheme = resolveTheme()): void {
+  // Keep in sync with app.scss theme tokens. Values are hex
+  // approximations of the OKLCH definitions in web/src/index.css.
   const isLight = theme === 'light';
-  const bg = isLight ? '#fafaf7' : '#0a0e27';
-  const selected = isLight ? '#16a060' : '#44d08e';
+  const bg = isLight ? '#faf9f5' : '#0d1220';
+  const selected = isLight ? '#1e8e5b' : '#00ff87';
   const muted = isLight ? '#6b6b66' : '#8b93a7';
   const frontColor = isLight ? '#000000' : '#ffffff';
 
