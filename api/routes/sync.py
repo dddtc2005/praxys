@@ -262,8 +262,23 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
     )
     import time
 
-    client = Garmin(creds["email"], creds["password"],
-                    is_cn=creds.get("is_cn", False))
+    # Region resolution: the Settings UI writes user_config.source_options.
+    # garmin_region, but the reconnect flow separately stores is_cn inside the
+    # encrypted credentials blob. These two values used to drift — a user
+    # could change the region in Settings, see it reflected in the UI, and
+    # still hit the wrong Garmin SSO because the sync read is_cn only from
+    # the encrypted blob. Prefer source_options as the authoritative setting;
+    # fall back to the legacy creds.is_cn for connections that predate the
+    # region toggle.
+    from analysis.config import load_config_from_db
+    user_config = load_config_from_db(user_id, db)
+    region = user_config.source_options.get("garmin_region")
+    if region in ("cn", "international"):
+        is_cn = region == "cn"
+    else:
+        is_cn = bool(creds.get("is_cn", False))
+
+    client = Garmin(creds["email"], creds["password"], is_cn=is_cn)
     # The tokenstore must be per-user: garminconnect.Garmin.login() loads any
     # tokens at that path without validating the account they belong to and
     # only falls back to username/password if the files themselves are missing
@@ -289,12 +304,11 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
     end = date.today().isoformat()
     start = from_date or (date.today() - timedelta(days=7)).isoformat()
 
-    # Read configured activity categories from user config.
-    # Garmin's search API only accepts top-level types (running, cycling, etc.)
-    # not subtypes (trail_running, treadmill_running). We fetch by top-level
-    # category — all subtypes are returned automatically.
-    from analysis.config import load_config_from_db
-    user_config = load_config_from_db(user_id, db)
+    # Read configured activity categories from user config (already loaded
+    # above for region resolution). Garmin's search API only accepts top-level
+    # types (running, cycling, etc.) not subtypes (trail_running,
+    # treadmill_running). We fetch by top-level category — all subtypes are
+    # returned automatically.
     categories = user_config.source_options.get(
         "garmin_activity_categories", ["running"]
     )

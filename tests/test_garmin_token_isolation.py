@@ -291,6 +291,138 @@ def test_sync_garmin_first_time_login_without_tokens(tmp_path, monkeypatch) -> N
     )
 
 
+def test_sync_garmin_region_prefers_source_options_over_creds(tmp_path, monkeypatch) -> None:
+    """Regression: region toggle in Settings UI (source_options.garmin_region)
+    must win over the legacy is_cn baked into encrypted credentials.
+
+    Before the fix, users who changed region in Settings saw the UI value
+    update but the sync still used the stale is_cn from encrypted_credentials,
+    so the client would hit the wrong Garmin SSO — in the worst case rate-
+    limiting the account because every retry was against the wrong endpoint.
+    """
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+
+    recorded_is_cn: list[bool] = []
+
+    class _FakeGarth:
+        def dump(self, path): pass
+
+    class _FakeClient:
+        def __init__(self, email, password, is_cn=False):
+            recorded_is_cn.append(is_cn)
+            self.garth = _FakeGarth()
+
+        def login(self, token_dir): pass
+        def get_activities_by_date(self, *a, **k): return []
+        def get_activity_splits(self, aid): return {}
+        def get_lactate_threshold(self, **kwargs): return []
+        def get_user_profile(self): return {}
+        def get_training_status(self, d): return {}
+        def get_training_readiness(self, d): return None
+        def get_race_predictions(self): return None
+        def get_hrv_data(self, d): return None
+        def get_sleep_data(self, d): return None
+
+    monkeypatch.setattr("garminconnect.Garmin", _FakeClient)
+    for name in (
+        "write_activities", "write_splits", "write_lactate_threshold",
+        "write_daily_metrics", "write_recovery", "write_profile_thresholds",
+    ):
+        monkeypatch.setattr(f"db.sync_writer.{name}", lambda *a, **k: 0)
+
+    class _FakeConfig:
+        """source_options says cn, mimicking a user who toggled region to CN."""
+        source_options = {
+            "garmin_activity_categories": ["running"],
+            "garmin_region": "cn",
+        }
+
+    monkeypatch.setattr(
+        "analysis.config.load_config_from_db", lambda user_id, db: _FakeConfig()
+    )
+
+    from api.routes.sync import _sync_garmin
+
+    class _NullDB:
+        def query(self, *a, **k):
+            class _Q:
+                def filter(self, *a, **k): return self
+                def first(self): return None
+            return _Q()
+        def commit(self): pass
+
+    # Creds say is_cn=False (stale). Settings says cn. Settings must win.
+    _sync_garmin(
+        "u1", {"email": "x@example.com", "password": "pw", "is_cn": False},
+        None, _NullDB(),
+    )
+    assert recorded_is_cn == [True], (
+        f"source_options.garmin_region='cn' must override creds.is_cn=False, "
+        f"got is_cn={recorded_is_cn!r}"
+    )
+
+
+def test_sync_garmin_region_falls_back_to_creds_when_source_options_missing(
+    tmp_path, monkeypatch,
+) -> None:
+    """Legacy path: connections that predate the region toggle stored is_cn
+    in creds only. Without a garmin_region in source_options, use creds.is_cn.
+    """
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+
+    recorded_is_cn: list[bool] = []
+
+    class _FakeGarth:
+        def dump(self, path): pass
+
+    class _FakeClient:
+        def __init__(self, email, password, is_cn=False):
+            recorded_is_cn.append(is_cn)
+            self.garth = _FakeGarth()
+
+        def login(self, token_dir): pass
+        def get_activities_by_date(self, *a, **k): return []
+        def get_activity_splits(self, aid): return {}
+        def get_lactate_threshold(self, **kwargs): return []
+        def get_user_profile(self): return {}
+        def get_training_status(self, d): return {}
+        def get_training_readiness(self, d): return None
+        def get_race_predictions(self): return None
+        def get_hrv_data(self, d): return None
+        def get_sleep_data(self, d): return None
+
+    monkeypatch.setattr("garminconnect.Garmin", _FakeClient)
+    for name in (
+        "write_activities", "write_splits", "write_lactate_threshold",
+        "write_daily_metrics", "write_recovery", "write_profile_thresholds",
+    ):
+        monkeypatch.setattr(f"db.sync_writer.{name}", lambda *a, **k: 0)
+
+    class _FakeConfig:
+        """No garmin_region in source_options — legacy connection shape."""
+        source_options = {"garmin_activity_categories": ["running"]}
+
+    monkeypatch.setattr(
+        "analysis.config.load_config_from_db", lambda user_id, db: _FakeConfig()
+    )
+
+    from api.routes.sync import _sync_garmin
+
+    class _NullDB:
+        def query(self, *a, **k):
+            class _Q:
+                def filter(self, *a, **k): return self
+                def first(self): return None
+            return _Q()
+        def commit(self): pass
+
+    _sync_garmin(
+        "u2", {"email": "x@example.com", "password": "pw", "is_cn": True},
+        None, _NullDB(),
+    )
+    assert recorded_is_cn == [True]
+
+
 def test_sync_garmin_recovery_loop_survives_a_malformed_day(tmp_path, monkeypatch) -> None:
     """Regression: one corrupt Garmin payload must not skip remaining days.
 
