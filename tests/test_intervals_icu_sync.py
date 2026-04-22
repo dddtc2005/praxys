@@ -300,3 +300,65 @@ def test_parse_thresholds_ignores_sport_settings_without_run():
     }
     rows = _parse_thresholds(profile, date(2026, 4, 22))
     assert rows == []
+
+
+@patch("sync.intervals_icu_sync._request")
+def test_fetch_activities_api_uses_date_window_params(mock_req):
+    from sync.intervals_icu_sync import fetch_activities_api
+    mock_req.return_value = []
+    creds = {"athlete_id": "i123456", "api_key": "k"}
+    fetch_activities_api(creds, from_date="2026-04-01", to_date="2026-04-22")
+    path = mock_req.call_args.args[0]
+    params = mock_req.call_args.kwargs["params"]
+    assert path == "/athlete/i123456/activities"
+    assert params["oldest"] == "2026-04-01"
+    assert params["newest"] == "2026-04-22"
+
+
+@patch("sync.intervals_icu_sync._request")
+def test_fetch_activities_api_returns_parsed_rows(mock_req):
+    from sync.intervals_icu_sync import fetch_activities_api
+    mock_req.return_value = _load_fixture("activities.json")
+    creds = {"athlete_id": "i123456", "api_key": "k"}
+    rows, raw = fetch_activities_api(creds, from_date="2026-04-01")
+    assert len(rows) == 2
+    assert rows[0]["activity_id"] == "icu_i9000001"
+    assert len(raw) == 2
+    assert raw[0]["id"] == "i9000001"
+
+
+@patch("sync.intervals_icu_sync._request")
+def test_fetch_activity_laps_uses_intervals_param(mock_req):
+    """V3 verified: lap data via ?intervals=true, response field icu_intervals."""
+    from sync.intervals_icu_sync import fetch_activity_laps
+    mock_req.return_value = _load_fixture("activity_i9000001_intervals.json")
+    creds = {"athlete_id": "i123456", "api_key": "k"}
+    rows = fetch_activity_laps("i9000001", creds, activity_type="running")
+    path = mock_req.call_args.args[0]
+    params = mock_req.call_args.kwargs["params"]
+    assert path == "/activity/i9000001"
+    assert params == {"intervals": "true"}
+    assert len(rows) == 3
+
+
+@patch("sync.intervals_icu_sync._request")
+def test_fetch_wellness_api(mock_req):
+    from sync.intervals_icu_sync import fetch_wellness_api
+    mock_req.return_value = _load_fixture("wellness.json")
+    creds = {"athlete_id": "i123456", "api_key": "k"}
+    rows = fetch_wellness_api(creds, from_date="2026-04-16", to_date="2026-04-20")
+    path = mock_req.call_args.args[0]
+    assert path == "/athlete/i123456/wellness"
+    assert len(rows) == 5
+
+
+@patch("sync.intervals_icu_sync._request")
+def test_fetch_athlete_profile_api(mock_req):
+    from sync.intervals_icu_sync import fetch_athlete_profile_api
+    mock_req.return_value = _load_fixture("athlete_profile.json")
+    creds = {"athlete_id": "i123456", "api_key": "k"}
+    profile = fetch_athlete_profile_api(creds)
+    path = mock_req.call_args.args[0]
+    assert path == "/athlete/i123456"
+    assert profile["id"] == "i123456"
+    assert len(profile["sportSettings"]) == 2

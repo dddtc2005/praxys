@@ -310,3 +310,74 @@ def _parse_thresholds(profile: dict, today: date) -> list[dict]:
             })
         break  # first Run-containing entry wins
     return rows
+
+
+def fetch_athlete_profile_api(credentials: dict) -> dict:
+    """GET /athlete/{id}. Returns the profile payload."""
+    athlete_id = credentials["athlete_id"]
+    return _request(f"/athlete/{athlete_id}", credentials=credentials)
+
+
+def fetch_activities_api(
+    credentials: dict,
+    from_date: str,
+    to_date: str | None = None,
+) -> tuple[list[dict], list[dict]]:
+    """GET /athlete/{id}/activities?oldest&newest.
+
+    Returns (canonical_rows, raw_activity_dicts). Raw is kept so the caller
+    can use it to decide which activity details to fetch for laps.
+    """
+    athlete_id = credentials["athlete_id"]
+    if to_date is None:
+        to_date = datetime.utcnow().date().isoformat()
+    params = {"oldest": from_date, "newest": to_date}
+    raw_activities = _request(
+        f"/athlete/{athlete_id}/activities",
+        credentials=credentials,
+        params=params,
+    ) or []
+    parsed = [_parse_activity(a) for a in raw_activities]
+    return parsed, raw_activities
+
+
+def fetch_activity_laps(
+    activity_id: str,
+    credentials: dict,
+    *,
+    activity_type: str,
+) -> list[dict]:
+    """GET /activity/{id}?intervals=true. Returns Praxys canonical split rows.
+
+    V3 verified (2026-04-22): the param is `intervals=true` (not
+    `include_laps=true`); per-interval data is in the response's
+    `icu_intervals` field. These are post-processed intervals
+    (WORK/RECOVERY/etc.), not raw device laps.
+
+    `activity_id` is the raw intervals.icu id (no 'icu_' prefix). The prefix
+    is added by _parse_laps().
+    """
+    detail = _request(
+        f"/activity/{activity_id}",
+        credentials=credentials,
+        params={"intervals": "true"},
+    )
+    return _parse_laps(f"icu_{activity_id}", detail, activity_type=activity_type)
+
+
+def fetch_wellness_api(
+    credentials: dict,
+    from_date: str,
+    to_date: str | None = None,
+) -> list[dict]:
+    """GET /athlete/{id}/wellness?oldest&newest. Returns canonical recovery rows."""
+    athlete_id = credentials["athlete_id"]
+    if to_date is None:
+        to_date = datetime.utcnow().date().isoformat()
+    params = {"oldest": from_date, "newest": to_date}
+    raw = _request(
+        f"/athlete/{athlete_id}/wellness",
+        credentials=credentials,
+        params=params,
+    ) or []
+    return _parse_wellness(raw)
