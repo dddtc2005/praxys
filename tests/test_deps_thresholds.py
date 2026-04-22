@@ -48,7 +48,11 @@ def db_with_user(monkeypatch):
         tmpdir.cleanup()
 
 
-def _fake_config(training_base: str = "hr"):
+def _fake_config(
+    training_base: str = "hr",
+    activity_source: str | None = None,
+    threshold_sources: dict | None = None,
+):
     """Minimal config stub matching the fields _resolve_thresholds reads."""
     class _C:
         pass
@@ -56,6 +60,11 @@ def _fake_config(training_base: str = "hr"):
     c.training_base = training_base
     c.thresholds = {}
     c.connections = {}
+    c.preferences = {}
+    if activity_source:
+        c.preferences["activities"] = activity_source
+    if threshold_sources:
+        c.preferences["threshold_sources"] = threshold_sources
     return c
 
 
@@ -113,13 +122,15 @@ def test_resolve_thresholds_prefers_fitness_data_over_activity_fallback(db_with_
     )
 
 
-def test_resolve_thresholds_manual_override_wins_over_activity_fallback(db_with_user):
-    """An explicit config.thresholds override beats every auto-detection path."""
+def test_resolve_thresholds_ignores_legacy_manual_values(db_with_user):
+    """Regression for the clean-break migration: legacy manual values in
+    ``config.thresholds`` are no longer applied. Every threshold must come
+    from a sensor row or a calculation on the user's own data.
+    """
     from db.models import Activity
     from api.deps import _resolve_thresholds
 
     db, user_id = db_with_user
-
     today = date.today()
     db.add(Activity(
         user_id=user_id, activity_id="a1", date=today,
@@ -129,9 +140,74 @@ def test_resolve_thresholds_manual_override_wins_over_activity_fallback(db_with_
     db.commit()
 
     config = _fake_config()
-    config.thresholds = {"max_hr_bpm": 195}
+    # Simulate a user who previously entered 195 as a manual override.
+    # The resolver should ignore this and use the activity fallback (190).
+    config.thresholds = {"max_hr_bpm": 195, "cp_watts": 999, "lthr_bpm": 999}
     result = _resolve_thresholds(config, user_id=user_id, db=db)
-    assert result.max_hr_bpm == 195.0
+    assert result.max_hr_bpm == 190.0, "activity fallback should win over legacy manual value"
+    assert result.cp_watts is None, "legacy manual cp_watts must be ignored"
+    assert result.lthr_bpm is None, "legacy manual lthr_bpm must be ignored"
+
+
+def test_resolve_thresholds_picks_preferred_source_when_multiple_present(db_with_user):
+    """When both Stryd and Garmin write cp_estimate, the explicit
+    threshold_sources preference wins over the latest-by-date default."""
+    from db.models import FitnessData
+    from api.deps import _resolve_thresholds
+
+    db, user_id = db_with_user
+    today = date.today()
+    # Garmin's cp_estimate is newer by date.
+    db.add(FitnessData(
+        user_id=user_id, date=today, metric_type="cp_estimate",
+        value=350.0, source="garmin",
+    ))
+    db.add(FitnessData(
+        user_id=user_id, date=today - timedelta(days=3), metric_type="cp_estimate",
+        value=265.0, source="stryd",
+    ))
+    db.commit()
+
+    # Without preference: latest-by-date wins (Garmin 350).
+    result = _resolve_thresholds(_fake_config(), user_id=user_id, db=db)
+    assert result.cp_watts == 350.0
+
+    # With explicit Stryd preference: stale Stryd value wins over fresh Garmin.
+    cfg = _fake_config(threshold_sources={"cp_estimate": "stryd"})
+    result = _resolve_thresholds(cfg, user_id=user_id, db=db)
+    assert result.cp_watts == 265.0
+
+    # Default to activity source: preferences.activities == "stryd" picks Stryd.
+    cfg = _fake_config(activity_source="stryd")
+    result = _resolve_thresholds(cfg, user_id=user_id, db=db)
+    assert result.cp_watts == 265.0
+
+    # Explicit threshold_sources overrides the activity-source default.
+    cfg = _fake_config(
+        activity_source="stryd",
+        threshold_sources={"cp_estimate": "garmin"},
+    )
+    result = _resolve_thresholds(cfg, user_id=user_id, db=db)
+    assert result.cp_watts == 350.0
+
+
+def test_resolve_thresholds_falls_back_when_preferred_source_has_no_data(db_with_user):
+    """If the preferred source never wrote a row, fall back to the latest
+    from any source rather than returning None."""
+    from db.models import FitnessData
+    from api.deps import _resolve_thresholds
+
+    db, user_id = db_with_user
+    db.add(FitnessData(
+        user_id=user_id, date=date.today(), metric_type="cp_estimate",
+        value=265.0, source="stryd",
+    ))
+    db.commit()
+
+    # Prefer Garmin, but Garmin never wrote — fall back to Stryd.
+    cfg = _fake_config(threshold_sources={"cp_estimate": "garmin"})
+    result = _resolve_thresholds(cfg, user_id=user_id, db=db)
+    assert result.cp_watts == 265.0
 
 
 def test_resolve_thresholds_no_activities_leaves_max_hr_none(db_with_user):

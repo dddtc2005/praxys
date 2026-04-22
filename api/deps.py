@@ -54,54 +54,76 @@ def _ensure_env():
 def _resolve_thresholds(
     config, data_dir: str = None, user_id: str = None, db=None,
 ) -> ThresholdEstimate:
-    """Build ThresholdEstimate from config + auto-detect from fitness providers.
+    """Build ThresholdEstimate from sensor data.
 
-    When user_id and db are provided, extracts thresholds from the DB fitness
-    data. Otherwise falls back to file-based provider detection.
+    When ``user_id`` and ``db`` are provided, thresholds come from
+    ``fitness_data`` rows written by the sync pipelines. No arbitrary
+    user-entered numbers are accepted — every value traces back to a
+    connected source (Stryd, Garmin, Oura) or a calculation we perform from
+    that source's data. This is the "no guesswork" rule from CLAUDE.md's
+    Scientific Rigor section, applied to threshold resolution.
+
+    Source preference: when more than one provider writes the same metric
+    (notably CP, where Stryd and Garmin disagree by ~30%), pick the row
+    whose ``source`` matches the user's selection. Selection order:
+
+        1. Explicit: ``preferences.threshold_sources[metric_type]`` if set.
+        2. Default: whichever source produces the athlete's *activity* data
+           (``preferences.activities``). This keeps CP consistent with the
+           activities the user is viewing.
+        3. Fallback: latest row by date regardless of source.
     """
     if user_id and db:
-        # DB path: extract latest thresholds from fitness_data table
         result = ThresholdEstimate()
         from db.models import FitnessData
+
+        activity_source = config.preferences.get("activities") or None
+        threshold_sources = config.preferences.get("threshold_sources") or {}
+
+        def _latest(metric_type: str) -> float | None:
+            """Pick the best fitness_data row for this metric.
+
+            Preferred-source-first, fall back to latest-by-date if the
+            preferred source has no rows.
+            """
+            preferred = (
+                threshold_sources.get(metric_type)
+                or activity_source
+            )
+            base = db.query(FitnessData).filter(
+                FitnessData.user_id == user_id,
+                FitnessData.metric_type == metric_type,
+                FitnessData.value.isnot(None),
+            )
+            if preferred:
+                row = (
+                    base.filter(FitnessData.source == preferred)
+                    .order_by(FitnessData.date.desc())
+                    .first()
+                )
+                if row and row.value:
+                    return float(row.value)
+            row = base.order_by(FitnessData.date.desc()).first()
+            return float(row.value) if row and row.value else None
+
+        # Sensor-derived thresholds (Stryd/Garmin/Oura write into these).
         _METRIC_MAP = {
             "cp_estimate": "cp_watts",
             "lthr_bpm": "lthr_bpm",
             "lt_pace_sec_km": "threshold_pace_sec_km",
+            "max_hr_bpm": "max_hr_bpm",
+            "rest_hr_bpm": "rest_hr_bpm",
         }
         for db_metric, est_attr in _METRIC_MAP.items():
-            row = (
-                db.query(FitnessData)
-                .filter(
-                    FitnessData.user_id == user_id,
-                    FitnessData.metric_type == db_metric,
-                    FitnessData.value.isnot(None),
-                )
-                .order_by(FitnessData.date.desc())
-                .first()
-            )
-            if row and row.value:
-                setattr(result, est_attr, float(row.value))
+            val = _latest(db_metric)
+            if val is not None:
+                setattr(result, est_attr, val)
 
-        # Also look for max_hr and resting_hr
-        for db_metric, est_attr in [("max_hr_bpm", "max_hr_bpm"), ("rest_hr_bpm", "rest_hr_bpm")]:
-            row = (
-                db.query(FitnessData)
-                .filter(
-                    FitnessData.user_id == user_id,
-                    FitnessData.metric_type == db_metric,
-                    FitnessData.value.isnot(None),
-                )
-                .order_by(FitnessData.date.desc())
-                .first()
-            )
-            if row and row.value:
-                setattr(result, est_attr, float(row.value))
-
-        # Fallback: derive max_hr_bpm from the highest max_hr recorded across
-        # activities when fitness_data has no entry. The Garmin sync writes
-        # per-activity max_hr but never a max_hr_bpm fitness record, so HR-based
-        # users would otherwise have no max_hr threshold and TRIMP would be
-        # skipped — leaving the fitness/fatigue chart empty.
+        # Calculated fallback: derive max_hr_bpm from the highest max_hr
+        # recorded across activities when no profile-based value exists.
+        # This is a computation we perform on the user's own data (not a
+        # guess), so it fits the "connected source or calculated by us"
+        # rule even without a dedicated max-HR sensor reading.
         if result.max_hr_bpm is None:
             from db.models import Activity
             from sqlalchemy import func
@@ -111,19 +133,6 @@ def _resolve_thresholds(
             ).scalar()
             if max_hr:
                 result.max_hr_bpm = float(max_hr)
-
-        # Apply manual overrides from config
-        t = config.thresholds
-        if t.get("cp_watts"):
-            result.cp_watts = float(t["cp_watts"])
-        if t.get("lthr_bpm"):
-            result.lthr_bpm = float(t["lthr_bpm"])
-        if t.get("threshold_pace_sec_km"):
-            result.threshold_pace_sec_km = float(t["threshold_pace_sec_km"])
-        if t.get("max_hr_bpm"):
-            result.max_hr_bpm = float(t["max_hr_bpm"])
-        if t.get("rest_hr_bpm"):
-            result.rest_hr_bpm = float(t["rest_hr_bpm"])
 
         return result
 

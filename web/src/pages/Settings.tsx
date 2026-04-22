@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSettings } from '@/contexts/SettingsContext';
 import { API_BASE, getAuthHeaders } from '@/hooks/useApi';
-import type { TrainingBase, SyncStatusResponse } from '@/types/api';
+import type { TrainingBase, SyncStatusResponse, SettingsConfig } from '@/types/api';
 import {
   buildStravaReturnTo,
   getStravaOAuthMessage,
@@ -214,7 +214,7 @@ export default function Settings() {
   const navigate = useNavigate();
   const {
     config, platformCapabilities, availableProviders, availableBases,
-    effectiveThresholds, loading, error, updateSettings, refetch,
+    effectiveThresholds, detectedThresholds, loading, error, updateSettings, refetch,
   } = useSettings();
   const { email: authEmail, isDemo } = useAuth();
   const { setLocale } = useLocale();
@@ -222,8 +222,6 @@ export default function Settings() {
 
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
-  const [editingThreshold, setEditingThreshold] = useState<string | null>(null);
-  const [thresholdInput, setThresholdInput] = useState('');
   const [syncStatus, setSyncStatus] = useState<SyncStatusResponse>({});
   const [backfillDate, setBackfillDate] = useState('');
   const [showBackfill, setShowBackfill] = useState(false);
@@ -351,16 +349,29 @@ export default function Settings() {
     setSaving(false);
   };
 
-  const handleThresholdSave = async (key: string) => {
-    const val = parseFloat(thresholdInput);
-    if (isNaN(val) || val <= 0) { setEditingThreshold(null); return; }
+  // Threshold source selection. Manual numeric overrides were removed in
+  // the clean-break migration (2026-04) — every threshold must now come
+  // from a connected source or a calculation we perform on the user's own
+  // data. This handler switches which source to read from; it never writes
+  // a value.
+  const handleThresholdSourceChange = async (
+    metricType: string,
+    source: string,
+  ) => {
     setSaving(true);
     try {
-      await updateSettings({ thresholds: { ...config.thresholds, [key]: val, source: 'manual' } });
+      const current = (config.preferences?.threshold_sources as Record<string, string>) || {};
+      await updateSettings({
+        preferences: {
+          ...config.preferences,
+          threshold_sources: { ...current, [metricType]: source },
+        } as SettingsConfig['preferences'],
+      });
       flash('Saved');
-    } catch { flash('Error'); }
+    } catch {
+      flash('Error');
+    }
     setSaving(false);
-    setEditingThreshold(null);
     refetch();
   };
 
@@ -1127,7 +1138,10 @@ export default function Settings() {
         onSave={handleGoalSave}
       />
 
-      {/* ===== SECTION 5: Thresholds ===== */}
+      {/* ===== SECTION 5: Thresholds =====
+           Read-only by design: every value here comes from a connected
+           source or a calculation on the user's own data. Arbitrary manual
+           numeric overrides were removed in the clean-break migration. */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2.5">
@@ -1136,7 +1150,9 @@ export default function Settings() {
             </div>
             <div>
               <CardTitle className="text-sm font-semibold text-foreground"><Trans>Thresholds</Trans></CardTitle>
-              <CardDescription className="text-xs"><Trans>Drive your zone calculations and training load. Click to override.</Trans></CardDescription>
+              <CardDescription className="text-xs">
+                <Trans>Drive your zone calculations and training load. Values come from connected sources; pick which source to use when you have more than one.</Trans>
+              </CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -1149,61 +1165,63 @@ export default function Settings() {
                 ? formatPace(value, config.unit_system as 'metric' | 'imperial' || 'metric')
                 : value;
               const origin = effective?.origin ?? 'none';
-              const isEditing = editingThreshold === key;
 
-              let badgeVariant: 'default' | 'secondary' | 'outline' = 'secondary';
-              let badgeText: React.ReactNode = t`Not set`;
-              if (origin.startsWith('auto')) {
-                badgeVariant = 'default';
-                const src = origin.replace('auto (', '').replace(')', '');
-                badgeText = `${t`Auto`} · ${src.charAt(0).toUpperCase() + src.slice(1)}`;
-              } else if (origin === 'manual') {
-                badgeVariant = 'outline';
-                badgeText = t`Manual`;
-              }
+              // Threshold key -> metric_type in fitness_data (used as the
+              // key under preferences.threshold_sources).
+              const metricType = ({
+                cp_watts: 'cp_estimate',
+                lthr_bpm: 'lthr_bpm',
+                threshold_pace_sec_km: 'lt_pace_sec_km',
+                max_hr_bpm: 'max_hr_bpm',
+                rest_hr_bpm: 'rest_hr_bpm',
+              } as Record<string, string>)[key] || key;
+
+              const detected = detectedThresholds[key];
+              const options = detected?.options ?? [];
+              const currentSource = origin.startsWith('auto')
+                ? origin.replace('auto (', '').replace(')', '')
+                : null;
+
+              const badgeText = origin.startsWith('auto') && currentSource
+                ? `${currentSource.charAt(0).toUpperCase()}${currentSource.slice(1)}`
+                : t`Not set`;
+              const badgeVariant: 'default' | 'secondary' = origin.startsWith('auto') ? 'default' : 'secondary';
 
               return (
                 <div key={key} className="rounded-xl bg-muted p-3 flex flex-col">
                   <p className="text-xs text-muted-foreground mb-2">{i18n._(label)}</p>
-
-                  {isEditing ? (
-                    <div className="flex flex-col gap-1.5">
-                      <Input
-                        type="number"
-                        value={thresholdInput}
-                        onChange={(e) => setThresholdInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleThresholdSave(key);
-                          if (e.key === 'Escape') setEditingThreshold(null);
-                        }}
-                        autoFocus
-                        className="text-xl font-bold font-data"
-                      />
-                      <div className="flex gap-1">
-                        <Button size="sm" className="flex-1" onClick={() => handleThresholdSave(key)}>
-                          <Trans>Save</Trans>
-                        </Button>
-                        <Button variant="ghost" size="sm" className="flex-1" onClick={() => setEditingThreshold(null)}>
-                          <Trans>Cancel</Trans>
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        setEditingThreshold(key);
-                        setThresholdInput(value != null ? String(value) : '');
-                      }}
-                      className="text-left group flex-1 flex flex-col"
+                  <p className="text-2xl font-bold font-data text-foreground">
+                    {value != null ? (isPace ? displayValue : value) : '\u2014'}
+                    <span className="text-xs font-normal text-muted-foreground ml-1">
+                      {value != null && !isPace ? unit : ''}
+                    </span>
+                  </p>
+                  {options.length > 1 ? (
+                    <Select
+                      value={currentSource ?? options[0].source}
+                      onValueChange={(v) => handleThresholdSourceChange(metricType, v)}
+                      disabled={saving}
                     >
-                      <p className="text-2xl font-bold font-data text-foreground group-hover:text-primary transition-colors">
-                        {value != null ? (isPace ? displayValue : value) : '—'}
-                        <span className="text-xs font-normal text-muted-foreground ml-1">{value != null && !isPace ? unit : ''}</span>
-                      </p>
-                      <Badge variant={badgeVariant} className="mt-auto self-start text-[10px]">
-                        {badgeText}
-                      </Badge>
-                    </button>
+                      <SelectTrigger className="h-7 text-[11px] mt-auto">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {options.map((opt) => (
+                          <SelectItem key={opt.source} value={opt.source} className="text-xs">
+                            {opt.source.charAt(0).toUpperCase()}{opt.source.slice(1)}
+                            <span className="text-muted-foreground ml-1 font-data">
+                              ({isPace
+                                ? formatPace(opt.value, config.unit_system as 'metric' | 'imperial' || 'metric')
+                                : `${opt.value} ${unit}`})
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Badge variant={badgeVariant} className="mt-auto self-start text-[10px]">
+                      {badgeText}
+                    </Badge>
                   )}
                 </div>
               );

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import type { DisplayConfig, SettingsConfig, SettingsResponse, TrainingBase, ThresholdValue } from '../types/api';
+import type { DisplayConfig, SettingsConfig, SettingsResponse, TrainingBase, ThresholdValue, DetectedThreshold } from '../types/api';
 import { API_BASE, getAuthHeaders } from '../hooks/useApi';
 
 interface SettingsContextValue {
@@ -10,6 +10,7 @@ interface SettingsContextValue {
   availableProviders: Record<string, string[]>;
   availableBases: TrainingBase[];
   effectiveThresholds: Record<string, ThresholdValue>;
+  detectedThresholds: Record<string, DetectedThreshold>;
   loading: boolean;
   error: string | null;
   updateSettings: (update: Partial<SettingsConfig>) => Promise<void>;
@@ -34,6 +35,7 @@ const SettingsContext = createContext<SettingsContextValue>({
   availableProviders: {},
   availableBases: ['power', 'hr', 'pace'],
   effectiveThresholds: {},
+  detectedThresholds: {},
   loading: true,
   error: null,
   updateSettings: async () => {},
@@ -47,6 +49,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [availableProviders, setAvailableProviders] = useState<Record<string, string[]>>({});
   const [availableBases, setAvailableBases] = useState<TrainingBase[]>(['power', 'hr', 'pace']);
   const [effectiveThresholds, setEffectiveThresholds] = useState<Record<string, ThresholdValue>>({});
+  const [detectedThresholds, setDetectedThresholds] = useState<Record<string, DetectedThreshold>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fetchKey, setFetchKey] = useState(0);
@@ -71,6 +74,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         setAvailableProviders(data.available_providers ?? {});
         setAvailableBases(data.available_bases);
         setEffectiveThresholds(data.effective_thresholds ?? {});
+        setDetectedThresholds(data.detected_thresholds ?? {});
         setLoading(false);
       })
       .catch((err) => {
@@ -112,7 +116,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   return (
     <SettingsContext.Provider
-      value={{ config, display, platformCapabilities, availableProviders, availableBases, effectiveThresholds, loading, error, updateSettings, refetch }}
+      value={{ config, display, platformCapabilities, availableProviders, availableBases, effectiveThresholds, detectedThresholds, loading, error, updateSettings, refetch }}
     >
       {children}
     </SettingsContext.Provider>

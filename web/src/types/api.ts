@@ -74,9 +74,21 @@ export interface ThresholdValue {
   origin: string;
 }
 
-export interface DetectedThreshold {
-  value: number;
+export interface DetectedThresholdOption {
   source: string;
+  value: number;
+  date: string | null;
+}
+
+export interface DetectedThreshold {
+  /** Latest value across all sources (display convenience). */
+  value: number;
+  /** Source behind the latest value. */
+  source: string;
+  /** All known sources for this threshold. One entry per source,
+   *  each with that source's most recent value. Powers the Settings
+   *  source-selector; a single-entry list renders as read-only. */
+  options: DetectedThresholdOption[];
 }
 
 export interface SettingsResponse {
