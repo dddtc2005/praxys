@@ -232,6 +232,13 @@ export default function Settings() {
   const [connectError, setConnectError] = useState('');
   const [connecting, setConnecting] = useState(false);
   const [stravaNotice, setStravaNotice] = useState('');
+  // Garmin region is captured with the credentials because International and
+  // CN are two independent account systems. Defaults to the current value so
+  // the dialog comes up pre-filled when the user is re-entering credentials
+  // without intending to switch regions.
+  const [connectRegion, setConnectRegion] = useState<'international' | 'cn'>(
+    String(config?.source_options?.garmin_region) === 'cn' ? 'cn' : 'international'
+  );
   const [goalEditorOpen, setGoalEditorOpen] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
@@ -407,17 +414,38 @@ export default function Settings() {
     }
 
     try {
+      const body: Record<string, unknown> = { ...connectCreds };
+      // Garmin has two independent account systems (International vs CN) that
+      // sit behind different SSO endpoints. Capture the region with the
+      // credentials so the sync client targets the right one and the Settings
+      // read-only label stays accurate.
+      if (connectPlatform === 'garmin') {
+        body.is_cn = connectRegion === 'cn';
+      }
       const res = await fetch(`${API_BASE}/api/settings/connections/${connectPlatform}`, {
         method: 'POST',
         headers: { ...getAuthHeaders() as Record<string, string>, 'Content-Type': 'application/json' },
-        body: JSON.stringify(connectCreds),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok || data.status === 'error') {
         setConnectError(data.message || `Failed to connect (HTTP ${res.status})`);
       } else {
+        // Mirror the region into source_options so _sync_garmin (which reads
+        // source_options.garmin_region first) stays consistent with the
+        // encrypted is_cn we just wrote. Otherwise a reconnect that changes
+        // region would leave the two fields disagreeing.
+        if (connectPlatform === 'garmin') {
+          await updateSettings({
+            source_options: {
+              ...(config?.source_options || {}),
+              garmin_region: connectRegion,
+            },
+          });
+        }
         setConnectPlatform(null);
         setConnectCreds({});
+        setConnectRegion('international');
         refetch();
         // Refresh sync status
         fetch(`${API_BASE}/api/sync/status`, { headers: getAuthHeaders() })
@@ -754,7 +782,14 @@ export default function Settings() {
                     ) : (
                       <Button
                         size="sm"
-                        onClick={() => { setConnectPlatform(platform); setConnectCreds({}); setConnectError(''); }}
+                        onClick={() => {
+                          setConnectPlatform(platform);
+                          setConnectCreds({});
+                          setConnectError('');
+                          setConnectRegion(
+                            String(config?.source_options?.garmin_region) === 'cn' ? 'cn' : 'international'
+                          );
+                        }}
                       >
                         <Trans>Connect</Trans>
                       </Button>
@@ -856,6 +891,31 @@ export default function Settings() {
                   />
                 </div>
               ))}
+              {connectPlatform === 'garmin' && (
+                <div className="space-y-2">
+                  <Label><Trans>Region</Trans></Label>
+                  <div className="flex gap-2">
+                    {([['international', t`International`], ['cn', t`China`]] as const).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setConnectRegion(value)}
+                        disabled={connecting}
+                        className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all border ${
+                          connectRegion === value
+                            ? 'border-primary/40 bg-primary/10 text-primary'
+                            : 'border-border bg-muted text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    <Trans>Garmin International and Garmin China are separate account systems. Pick the one your credentials belong to.</Trans>
+                  </p>
+                </div>
+              )}
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="ghost" onClick={() => setConnectPlatform(null)} disabled={connecting}>
                   <Trans>Cancel</Trans>
