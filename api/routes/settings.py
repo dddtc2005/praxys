@@ -688,14 +688,38 @@ def connect_platform(
     return {"status": "connected", "platform": platform}
 
 
+_ACTIVITY_FALLBACK_ORDER = ["stryd", "garmin", "strava"]
+_RECOVERY_FALLBACK_ORDER = ["oura", "garmin"]
+_THRESHOLD_FALLBACK_ORDER = ["stryd", "garmin", "strava"]
+
+
+def _first_connected_from(user_id: str, candidates: list, db) -> str | None:
+    """Return the first connected platform in `candidates`, or None."""
+    from db.models import UserConnection
+    connected = {
+        c.platform for c in db.query(UserConnection).filter(
+            UserConnection.user_id == user_id,
+            UserConnection.status == "connected",
+        ).all()
+    }
+    for p in candidates:
+        if p in connected:
+            return p
+    return None
+
+
 @router.delete("/settings/connections/{platform}")
 def disconnect_platform(
     platform: str,
     user_id: str = Depends(require_write_access),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Disconnect a platform — deletes stored credentials."""
-    from db.models import UserConnection
+    """Disconnect a platform — deletes stored credentials.
+
+    For intervals_icu, also rewrites user preferences that pointed at it
+    to the next connected source (deterministic priority).
+    """
+    from db.models import UserConfig, UserConnection
 
     conn = db.query(UserConnection).filter(
         UserConnection.user_id == user_id,
@@ -708,5 +732,40 @@ def disconnect_platform(
     if platform == "garmin":
         from api.routes.sync import clear_garmin_tokens
         clear_garmin_tokens(user_id)
+
+    if platform == "intervals_icu":
+        cfg = db.query(UserConfig).filter_by(user_id=user_id).first()
+        if cfg is not None:
+            prefs = dict(cfg.preferences or {})
+
+            if prefs.get("activities") == "intervals_icu":
+                fallback = _first_connected_from(user_id, _ACTIVITY_FALLBACK_ORDER, db)
+                if fallback:
+                    prefs["activities"] = fallback
+                else:
+                    prefs.pop("activities", None)
+
+            if prefs.get("recovery") == "intervals_icu":
+                fallback = _first_connected_from(user_id, _RECOVERY_FALLBACK_ORDER, db)
+                if fallback:
+                    prefs["recovery"] = fallback
+                else:
+                    prefs.pop("recovery", None)
+
+            thresholds = dict(prefs.get("threshold_sources") or {})
+            for metric, source in list(thresholds.items()):
+                if source == "intervals_icu":
+                    fallback = _first_connected_from(user_id, _THRESHOLD_FALLBACK_ORDER, db)
+                    if fallback:
+                        thresholds[metric] = fallback
+                    else:
+                        thresholds.pop(metric, None)
+            if thresholds:
+                prefs["threshold_sources"] = thresholds
+            else:
+                prefs.pop("threshold_sources", None)
+
+            cfg.preferences = prefs
+            db.commit()
 
     return {"status": "disconnected", "platform": platform}

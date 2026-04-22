@@ -126,3 +126,70 @@ def test_post_does_not_override_existing_preferences(api_client, user_id, db):
     db.expire_all()
     db.refresh(cfg)
     assert cfg.preferences["activities"] == "garmin"
+
+
+def test_delete_intervals_icu_falls_back_to_next_available_source(api_client, db):
+    """When Garmin is connected and preferences point to intervals.icu,
+    DELETE should rewrite preferences to garmin (for activities + thresholds)
+    and to the next recovery source (garmin, since oura absent)."""
+    client, user_id = api_client
+    from db.models import UserConfig, UserConnection
+    db.add(UserConnection(
+        user_id=user_id, platform="garmin", status="connected",
+    ))
+    db.add(UserConnection(
+        user_id=user_id, platform="intervals_icu", status="connected",
+    ))
+    cfg = db.query(UserConfig).filter_by(user_id=user_id).one()
+    cfg.preferences = {
+        "activities": "intervals_icu",
+        "recovery": "intervals_icu",
+        "threshold_sources": {"cp_estimate": "intervals_icu"},
+    }
+    db.commit()
+
+    resp = client.delete("/api/settings/connections/intervals_icu")
+    assert resp.status_code == 200
+    db.refresh(cfg)
+    assert cfg.preferences["activities"] == "garmin"
+    # Recovery fallback priority: oura > garmin. No oura -> garmin.
+    assert cfg.preferences["recovery"] == "garmin"
+    # Threshold fallback priority: stryd > garmin > strava. No stryd -> garmin.
+    assert cfg.preferences["threshold_sources"]["cp_estimate"] == "garmin"
+
+
+def test_delete_intervals_icu_unsets_preference_when_no_fallback(api_client, db):
+    """No other source connected -> preference key is removed entirely."""
+    client, user_id = api_client
+    from db.models import UserConfig, UserConnection
+    db.add(UserConnection(
+        user_id=user_id, platform="intervals_icu", status="connected",
+    ))
+    cfg = db.query(UserConfig).filter_by(user_id=user_id).one()
+    cfg.preferences = {
+        "activities": "intervals_icu",
+        "recovery": "intervals_icu",
+    }
+    db.commit()
+
+    client.delete("/api/settings/connections/intervals_icu")
+    db.refresh(cfg)
+    assert "activities" not in cfg.preferences or cfg.preferences["activities"] is None
+    assert "recovery" not in cfg.preferences or cfg.preferences["recovery"] is None
+
+
+def test_delete_intervals_icu_leaves_unrelated_preferences_alone(api_client, db):
+    """If activities is pinned to garmin (not intervals_icu), DELETE must not
+    touch it."""
+    client, user_id = api_client
+    from db.models import UserConfig, UserConnection
+    db.add(UserConnection(
+        user_id=user_id, platform="intervals_icu", status="connected",
+    ))
+    cfg = db.query(UserConfig).filter_by(user_id=user_id).one()
+    cfg.preferences = {"activities": "garmin", "recovery": "intervals_icu"}
+    db.commit()
+
+    client.delete("/api/settings/connections/intervals_icu")
+    db.refresh(cfg)
+    assert cfg.preferences["activities"] == "garmin"  # unchanged
