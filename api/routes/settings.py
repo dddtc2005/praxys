@@ -659,7 +659,7 @@ def connect_platform(
         other_connected = db.query(UserConnection).filter(
             UserConnection.user_id == user_id,
             UserConnection.platform != "intervals_icu",
-            UserConnection.status == "connected",
+            UserConnection.status.in_(["connected", "error"]),
         ).count()
         if other_connected == 0:
             cfg = db.query(UserConfigModel).filter_by(user_id=user_id).first()
@@ -699,7 +699,7 @@ def _first_connected_from(user_id: str, candidates: list, db) -> str | None:
     connected = {
         c.platform for c in db.query(UserConnection).filter(
             UserConnection.user_id == user_id,
-            UserConnection.status == "connected",
+            UserConnection.status.in_(["connected", "error"]),
         ).all()
     }
     for p in candidates:

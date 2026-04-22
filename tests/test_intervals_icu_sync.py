@@ -50,6 +50,22 @@ def test_request_401_raises_unauthorized(mock_get):
         _request("/athlete/i1", credentials={"athlete_id": "i1", "api_key": "k"})
 
 
+@patch("sync.intervals_icu_sync.requests.get")
+def test_request_403_raises_client_error(mock_get):
+    from sync.intervals_icu_sync import IntervalsIcuClientError
+    mock_get.return_value = _mock_response(403)
+    with pytest.raises(IntervalsIcuClientError):
+        _request("/athlete/i1", credentials={"athlete_id": "i1", "api_key": "k"})
+
+
+@patch("sync.intervals_icu_sync.requests.get")
+def test_request_404_raises_client_error(mock_get):
+    from sync.intervals_icu_sync import IntervalsIcuClientError
+    mock_get.return_value = _mock_response(404)
+    with pytest.raises(IntervalsIcuClientError):
+        _request("/athlete/i1", credentials={"athlete_id": "i1", "api_key": "k"})
+
+
 @patch("sync.intervals_icu_sync.time.sleep")
 @patch("sync.intervals_icu_sync.requests.get")
 def test_request_429_retries_with_backoff(mock_get, mock_sleep):

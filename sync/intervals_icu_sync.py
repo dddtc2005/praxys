@@ -9,6 +9,13 @@ Endpoints:
 - GET  /api/v1/athlete/{id}/activities              — activity list (date-windowed)
 - GET  /api/v1/activity/{id}?intervals=true         — activity detail + icu_intervals
 - GET  /api/v1/athlete/{id}/wellness                — wellness rows (date-windowed)
+
+Retry policy (exception hierarchy):
+- IntervalsIcuUnauthorized  — 401, no retry
+- IntervalsIcuClientError   — 4xx other than 401/429, no retry
+- IntervalsIcuRateLimited   — 429 after MAX_RETRIES backoff attempts
+- IntervalsIcuServerError   — 5xx after MAX_RETRIES backoff attempts
+- Network timeout treated as 5xx for retry purposes
 """
 from __future__ import annotations
 
@@ -52,6 +59,10 @@ class IntervalsIcuServerError(IntervalsIcuError):
     """5xx after retries."""
 
 
+class IntervalsIcuClientError(IntervalsIcuError):
+    """Non-retryable client error: 4xx other than 401/429."""
+
+
 def _request(
     path: str,
     *,
@@ -62,6 +73,7 @@ def _request(
 
     Retry policy:
     - 401 -> raise IntervalsIcuUnauthorized (no retry)
+    - 4xx other than 401/429 -> raise IntervalsIcuClientError (no retry)
     - 429 -> exponential backoff 1s -> 2s -> 4s -> 8s, MAX_RETRIES attempts total
     - 5xx -> same backoff, same retry budget
     - Network timeout -> treat as 5xx
@@ -102,6 +114,12 @@ def _request(
                 time.sleep(backoff)
                 backoff *= 2
             continue
+
+        if 400 <= resp.status_code < 500:
+            # 401 and 429 are handled above; anything else 4xx is a hard error.
+            raise IntervalsIcuClientError(
+                f"{resp.status_code} from {path}: {resp.text[:200]}"
+            )
 
         resp.raise_for_status()
         return resp.json()

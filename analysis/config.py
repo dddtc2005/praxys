@@ -9,7 +9,7 @@ from typing_extensions import TypedDict
 logger = logging.getLogger(__name__)
 
 TrainingBase = Literal["power", "hr", "pace"]
-PlatformName = Literal["garmin", "stryd", "strava", "oura", "coros"]
+PlatformName = Literal["garmin", "stryd", "strava", "oura", "coros", "intervals_icu"]
 PlanSource = Literal["garmin", "stryd", "strava", "oura", "coros", "ai"]
 DataCategory = Literal["activities", "recovery", "fitness", "plan"]
 
