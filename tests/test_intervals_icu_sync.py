@@ -164,3 +164,57 @@ def test_parse_activity_maps_virtual_run_to_running():
     }
     row = _parse_activity(activity)
     assert row["activity_type"] == "running"
+
+
+def test_parse_laps_reads_from_icu_intervals_field():
+    from sync.intervals_icu_sync import _parse_laps
+    detail = _load_fixture("activity_i9000001_intervals.json")
+    rows = _parse_laps("icu_i9000001", detail, activity_type="running")
+    assert len(rows) == 3
+
+
+def test_parse_laps_preserves_array_order():
+    from sync.intervals_icu_sync import _parse_laps
+    detail = _load_fixture("activity_i9000001_intervals.json")
+    rows = _parse_laps("icu_i9000001", detail, activity_type="running")
+    assert [r["split_num"] for r in rows] == ["1", "2", "3"]
+    assert float(rows[1]["distance_km"]) == pytest.approx(5.0, abs=0.001)
+
+
+def test_parse_laps_attaches_prefixed_activity_id():
+    from sync.intervals_icu_sync import _parse_laps
+    detail = _load_fixture("activity_i9000001_intervals.json")
+    rows = _parse_laps("icu_i9000001", detail, activity_type="running")
+    for row in rows:
+        assert row["activity_id"] == "icu_i9000001"
+
+
+def test_parse_laps_doubles_cadence_for_run():
+    from sync.intervals_icu_sync import _parse_laps
+    detail = _load_fixture("activity_i9000001_intervals.json")
+    rows = _parse_laps("icu_i9000001", detail, activity_type="running")
+    # interval 1 cadence=86.0 single-leg -> 172 double-leg spm
+    assert float(rows[0]["avg_cadence"]) == pytest.approx(172.0, abs=0.1)
+
+
+def test_parse_laps_leaves_elevation_change_empty():
+    """icu_intervals has no per-interval elevation fields — leave empty."""
+    from sync.intervals_icu_sync import _parse_laps
+    detail = _load_fixture("activity_i9000001_intervals.json")
+    rows = _parse_laps("icu_i9000001", detail, activity_type="running")
+    for row in rows:
+        assert row["elevation_change_m"] in (None, "")
+
+
+def test_parse_laps_handles_single_interval_null_power():
+    from sync.intervals_icu_sync import _parse_laps
+    detail = _load_fixture("activity_i9000002_intervals.json")
+    rows = _parse_laps("icu_i9000002", detail, activity_type="running")
+    assert len(rows) == 1
+    assert rows[0]["avg_power"] in (None, "")
+
+
+def test_parse_laps_returns_empty_when_no_intervals():
+    from sync.intervals_icu_sync import _parse_laps
+    assert _parse_laps("icu_zzz", {"id": "zzz"}, activity_type="running") == []
+    assert _parse_laps("icu_zzz", {"icu_intervals": []}, activity_type="running") == []

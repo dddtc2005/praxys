@@ -197,3 +197,50 @@ def _parse_activity(activity: dict) -> dict:
         "avg_cadence": _round_or_empty(avg_cadence_spm),
         "source": "intervals_icu",
     }
+
+
+def _parse_laps(
+    prefixed_activity_id: str,
+    activity_detail: dict,
+    *,
+    activity_type: str,
+) -> list[dict]:
+    """Convert intervals.icu `icu_intervals` field to Praxys canonical split rows.
+
+    Per V3 verification (2026-04-22): intervals.icu exposes post-processed
+    intervals (WORK / RECOVERY / etc.) via the `icu_intervals` field when the
+    activity detail is fetched with `?intervals=true`. These are NOT raw
+    device laps. Per-interval elevation is not exposed, so
+    `elevation_change_m` stays empty.
+
+    Preserves array order (do not re-segment).
+    """
+    rows: list[dict] = []
+    for idx, lap in enumerate(activity_detail.get("icu_intervals") or [], start=1):
+        distance_m = float(lap.get("distance") or 0)
+        moving_time = float(lap.get("moving_time") or 0)
+        distance_km = round(distance_m / 1000, 3) if distance_m > 0 else 0.0
+        avg_pace_sec_km = (
+            round(moving_time / distance_km, 1)
+            if distance_km > 0 and moving_time > 0
+            else None
+        )
+        raw_cadence = lap.get("average_cadence")
+        avg_cadence_spm = (
+            float(raw_cadence) * 2 if raw_cadence not in (None, "") and activity_type == "running"
+            else raw_cadence
+        )
+
+        rows.append({
+            "activity_id": prefixed_activity_id,
+            "split_num": str(idx),
+            "distance_km": str(distance_km) if distance_km > 0 else "",
+            "duration_sec": str(moving_time) if moving_time > 0 else "",
+            "avg_power": _round_or_empty(lap.get("average_watts")),
+            "avg_hr": _round_or_empty(lap.get("average_heartrate")),
+            "max_hr": _round_or_empty(lap.get("max_heartrate")),
+            "avg_cadence": _round_or_empty(avg_cadence_spm),
+            "avg_pace_sec_km": _round_or_empty(avg_pace_sec_km),
+            "elevation_change_m": "",
+        })
+    return rows
