@@ -246,15 +246,15 @@ def test_parse_thresholds_extracts_run_sport_settings():
     today = date(2026, 4, 22)
     rows = _parse_thresholds(profile, today)
     metrics = {r["metric_type"]: r for r in rows}
-    assert "running_ftp" in metrics
-    assert float(metrics["running_ftp"]["value"]) == 270
-    assert "lthr" in metrics
-    assert float(metrics["lthr"]["value"]) == 168
+    assert "cp_estimate" in metrics
+    assert float(metrics["cp_estimate"]["value"]) == 270
+    assert "lthr_bpm" in metrics
+    assert float(metrics["lthr_bpm"]["value"]) == 168
     # threshold_pace in m/s (V2 verified). Fixture 4.08163 m/s -> ~245.0 sec/km.
-    assert "threshold_pace_sec_km" in metrics
-    assert float(metrics["threshold_pace_sec_km"]["value"]) == pytest.approx(245.0, abs=0.5)
-    assert "max_hr" in metrics
-    assert float(metrics["max_hr"]["value"]) == 192
+    assert "lt_pace_sec_km" in metrics
+    assert float(metrics["lt_pace_sec_km"]["value"]) == pytest.approx(245.0, abs=0.5)
+    assert "max_hr_bpm" in metrics
+    assert float(metrics["max_hr_bpm"]["value"]) == 192
     for row in rows:
         assert row["date"] == "2026-04-22"
         assert row["source"] == "intervals_icu"
@@ -272,11 +272,11 @@ def test_parse_thresholds_converts_threshold_pace_from_mps():
     }
     rows = _parse_thresholds(profile, date(2026, 4, 22))
     metric = {r["metric_type"]: r for r in rows}
-    assert float(metric["threshold_pace_sec_km"]["value"]) == pytest.approx(233.0, abs=0.5)
+    assert float(metric["lt_pace_sec_km"]["value"]) == pytest.approx(233.0, abs=0.5)
 
 
 def test_parse_thresholds_skips_null_ftp():
-    """When sportSettings has ftp=None, do not emit a running_ftp row."""
+    """When sportSettings has ftp=None, do not emit a cp_estimate row."""
     from sync.intervals_icu_sync import _parse_thresholds
     profile = {
         "sportSettings": [{
@@ -287,8 +287,8 @@ def test_parse_thresholds_skips_null_ftp():
     }
     rows = _parse_thresholds(profile, date(2026, 4, 22))
     metric_types = {r["metric_type"] for r in rows}
-    assert "running_ftp" not in metric_types
-    assert "lthr" in metric_types
+    assert "cp_estimate" not in metric_types
+    assert "lthr_bpm" in metric_types
 
 
 def test_parse_thresholds_ignores_sport_settings_without_run():

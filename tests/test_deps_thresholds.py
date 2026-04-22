@@ -278,6 +278,53 @@ def test_write_profile_thresholds_upserts_existing_same_day(db_with_user):
     assert result.rest_hr_bpm == 48.0
 
 
+def test_intervals_icu_cp_estimate_is_picked_when_pinned(db_with_user):
+    """With preferences.threshold_sources['cp_estimate']='intervals_icu',
+    the selector returns the intervals.icu row's value — even if another
+    source has a newer row.
+    """
+    from db.models import FitnessData
+    from api.deps import _resolve_thresholds
+
+    db, user_id = db_with_user
+    today = date.today()
+    # Stryd has the newer row; intervals.icu is older.
+    db.add(FitnessData(
+        user_id=user_id, date=today, metric_type="cp_estimate",
+        value=265.0, source="stryd",
+    ))
+    db.add(FitnessData(
+        user_id=user_id, date=today - timedelta(days=2), metric_type="cp_estimate",
+        value=270.0, source="intervals_icu",
+    ))
+    db.commit()
+
+    cfg = _fake_config(threshold_sources={"cp_estimate": "intervals_icu"})
+    result = _resolve_thresholds(cfg, user_id=user_id, db=db)
+    assert result.cp_watts == 270.0, (
+        "explicit intervals_icu pin must win over latest-by-date Stryd row"
+    )
+
+
+def test_intervals_icu_lthr_is_picked_when_pinned(db_with_user):
+    """Same check for lthr_bpm: the pinned intervals.icu row must be
+    selected by the resolver.
+    """
+    from db.models import FitnessData
+    from api.deps import _resolve_thresholds
+
+    db, user_id = db_with_user
+    db.add(FitnessData(
+        user_id=user_id, date=date.today(), metric_type="lthr_bpm",
+        value=168.0, source="intervals_icu",
+    ))
+    db.commit()
+
+    cfg = _fake_config(threshold_sources={"lthr_bpm": "intervals_icu"})
+    result = _resolve_thresholds(cfg, user_id=user_id, db=db)
+    assert result.lthr_bpm == 168.0
+
+
 def test_hr_base_daily_load_non_zero_via_trimp_fallback(db_with_user):
     """End-to-end regression: an HR-base user with max_hr_bpm and activities
     but no lthr_bpm (the Garmin CN shape) must still get non-zero daily load.

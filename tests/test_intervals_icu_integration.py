@@ -73,7 +73,7 @@ def test_sync_all_writes_all_tables(
 
     fitness = db.query(FitnessData).filter_by(user_id="u-test").all()
     assert {f.metric_type for f in fitness} == {
-        "running_ftp", "lthr", "threshold_pace_sec_km", "max_hr",
+        "cp_estimate", "lthr_bpm", "lt_pace_sec_km", "max_hr_bpm",
     }
     assert all(f.source == "intervals_icu" for f in fitness)
 

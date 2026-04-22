@@ -669,8 +669,8 @@ def connect_platform(
                 prefs.setdefault("recovery", "intervals_icu")
                 thresholds = dict(prefs.get("threshold_sources") or {})
                 for metric in (
-                    "cp_estimate", "lthr", "threshold_pace_sec_km",
-                    "max_hr", "running_ftp",
+                    "cp_estimate", "lthr_bpm", "lt_pace_sec_km",
+                    "max_hr_bpm", "rest_hr_bpm",
                 ):
                     thresholds.setdefault(metric, "intervals_icu")
                 prefs["threshold_sources"] = thresholds

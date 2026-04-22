@@ -274,10 +274,10 @@ def _parse_thresholds(profile: dict, today: date) -> list[dict]:
     as seconds per km, so convert: sec_per_km = 1000 / m_per_s.
 
     Maps to Praxys fitness_data metric_type values:
-      ftp            -> running_ftp
-      lthr           -> lthr
-      threshold_pace -> threshold_pace_sec_km  (unit-converted)
-      max_hr         -> max_hr
+      ftp            -> cp_estimate
+      lthr           -> lthr_bpm
+      threshold_pace -> lt_pace_sec_km  (unit-converted)
+      max_hr         -> max_hr_bpm
     """
     rows: list[dict] = []
     today_str = today.strftime("%Y-%m-%d")
@@ -294,10 +294,10 @@ def _parse_thresholds(profile: dict, today: date) -> list[dict]:
         )
 
         metric_map = {
-            "running_ftp": setting.get("ftp"),
-            "lthr": setting.get("lthr"),
-            "threshold_pace_sec_km": pace_sec_km,
-            "max_hr": setting.get("max_hr"),
+            "cp_estimate": setting.get("ftp"),
+            "lthr_bpm": setting.get("lthr"),
+            "lt_pace_sec_km": pace_sec_km,
+            "max_hr_bpm": setting.get("max_hr"),
         }
         for metric_type, value in metric_map.items():
             if value in (None, ""):
