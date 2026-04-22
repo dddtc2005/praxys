@@ -145,6 +145,20 @@ const THRESHOLD_FIELDS: { key: string; label: MessageDescriptor; unit: string; i
   { key: 'rest_hr_bpm', label: msg`Resting HR`, unit: 'bpm' },
 ];
 
+/** Hook returning a ``source → label`` function for fitness-data source
+ *  names. Connected platforms capitalise their brand name; the special
+ *  ``activities`` source — computed in-app from your own power-vs-duration
+ *  — gets a translated, descriptive label so the option reads as a
+ *  distinct choice rather than a connected platform. Hook form is required
+ *  so ``t\`…\``` receives the active Lingui translator. */
+function useThresholdSourceLabel() {
+  const { t } = useLingui();
+  return (source: string): string => {
+    if (source === 'activities') return t`From activities`;
+    return source.charAt(0).toUpperCase() + source.slice(1);
+  };
+}
+
 const CONNECTABLE_PLATFORMS = ['garmin', 'strava', 'stryd', 'oura'] as const;
 const SYNC_INTERVAL_OPTIONS = [
   { hours: 6,  recommended: true },
@@ -219,6 +233,7 @@ export default function Settings() {
   const { email: authEmail, isDemo } = useAuth();
   const { setLocale } = useLocale();
   const { t, i18n } = useLingui();
+  const thresholdSourceLabel = useThresholdSourceLabel();
 
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
@@ -1182,7 +1197,7 @@ export default function Settings() {
                 : null;
 
               const badgeText = origin.startsWith('auto') && currentSource
-                ? `${currentSource.charAt(0).toUpperCase()}${currentSource.slice(1)}`
+                ? thresholdSourceLabel(currentSource)
                 : t`Not set`;
               const badgeVariant: 'default' | 'secondary' = origin.startsWith('auto') ? 'default' : 'secondary';
 
@@ -1207,7 +1222,7 @@ export default function Settings() {
                       <SelectContent>
                         {options.map((opt) => (
                           <SelectItem key={opt.source} value={opt.source} className="text-xs">
-                            {opt.source.charAt(0).toUpperCase()}{opt.source.slice(1)}
+                            {thresholdSourceLabel(opt.source)}
                             <span className="text-muted-foreground ml-1 font-data">
                               ({isPace
                                 ? formatPace(opt.value, config.unit_system as 'metric' | 'imperial' || 'metric')

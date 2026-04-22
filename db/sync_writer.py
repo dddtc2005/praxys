@@ -359,6 +359,50 @@ def write_profile_thresholds(
     return count
 
 
+def update_cp_from_activities(user_id: str, db: Session, **kwargs) -> dict | None:
+    """Derive CP from the user's recent activity power and upsert a row.
+
+    Runs the 2-parameter hyperbolic fit (see
+    ``analysis.cp_from_activities.estimate_cp_from_activities``) on the
+    user's own best-effort power-vs-duration observations and writes the
+    resulting CP as a ``FitnessData`` row with ``source="activities"``.
+
+    Upserts on ``(user_id, date=as_of, metric_type="cp_estimate",
+    source="activities")`` so same-day re-runs (e.g. two syncs in an hour)
+    don't create duplicates. Never touches rows from other sources — the
+    user can still pick Stryd, Garmin, or Activities in the Settings
+    source selector; this just keeps the Activities option populated.
+
+    Returns the fit as a ``dict`` when successful, ``None`` when there
+    isn't enough data. ``None`` is not an error: a missing CP is always
+    better than a wrong CP, and any previous good row stays in place until
+    a future fit replaces it.
+    """
+    from analysis.cp_from_activities import estimate_cp_from_activities
+
+    result = estimate_cp_from_activities(user_id, db, **kwargs)
+    if result is None:
+        return None
+
+    existing = db.query(FitnessData).filter(
+        FitnessData.user_id == user_id,
+        FitnessData.date == result.as_of,
+        FitnessData.metric_type == "cp_estimate",
+        FitnessData.source == "activities",
+    ).first()
+    if existing:
+        existing.value = result.cp_watts
+    else:
+        db.add(FitnessData(
+            user_id=user_id,
+            date=result.as_of,
+            metric_type="cp_estimate",
+            source="activities",
+            value=result.cp_watts,
+        ))
+    return result.to_dict()
+
+
 def write_lactate_threshold(user_id: str, rows: list[dict], db: Session) -> int:
     """Write lactate threshold data to fitness_data table. Returns count of new."""
     count = 0
