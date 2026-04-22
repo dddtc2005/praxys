@@ -53,6 +53,8 @@ export interface DisplayConfig {
 
 export type UnitSystem = 'metric' | 'imperial';
 
+export type UiLanguage = 'en' | 'zh';
+
 export interface SettingsConfig {
   display_name: string;
   unit_system: UnitSystem;
@@ -63,6 +65,8 @@ export interface SettingsConfig {
   zones: Record<string, number[]>;
   goal: { race_date?: string; distance?: string; target_time_sec?: number; [key: string]: unknown };
   source_options: Record<string, unknown>;
+  /** UI language preference ("en" | "zh"). `null` means auto-detect. */
+  language: UiLanguage | null;
 }
 
 export interface ThresholdValue {
@@ -70,15 +74,27 @@ export interface ThresholdValue {
   origin: string;
 }
 
+export interface DetectedThresholdOption {
+  source: string;
+  value: number;
+  date: string | null;
+}
+
 export interface DetectedThreshold {
   value: number;
   source: string;
+  /** All known sources for this threshold. Single-entry lists render
+   *  read-only on the Settings source picker; multi-entry lists offer
+   *  a switch. Miniapp currently renders read-only, but the field is
+   *  here so new screens don't get silent `undefined`. */
+  options: DetectedThresholdOption[];
 }
 
 export interface SettingsResponse {
   config: SettingsConfig;
-  platform_capabilities: Record<PlatformName, Record<DataCategory, boolean>>;
-  available_providers: Record<DataCategory, PlatformName[]>;
+  /** Partial because backend only fills platforms the user has connected. */
+  platform_capabilities: Partial<Record<PlatformName, Partial<Record<DataCategory, boolean>>>>;
+  available_providers: Partial<Record<DataCategory, PlatformName[]>>;
   available_bases: TrainingBase[];
   display: DisplayConfig;
   detected_thresholds: Record<string, DetectedThreshold>;
@@ -203,12 +219,18 @@ export interface UpcomingWorkout {
   date: string;
   workout_type: string;
   duration_min: number | null;
+  /** Free-text plan description from the source provider. */
+  description?: string | null;
 }
 
 export interface TodayResponse {
   signal: TrainingSignal;
   tsb_sparkline: TsbSparkline;
   warnings: string[];
+  /** Threshold basis (power/HR/pace) chosen for this user. Needed for
+   *  base-aware formatting on Today (e.g. W vs bpm vs min/km). */
+  training_base?: TrainingBase;
+  display?: DisplayConfig;
   recovery_theory?: RecoveryTheoryMeta;
   recovery_analysis?: RecoveryAnalysis;
   last_activity?: LastActivity;
@@ -336,16 +358,27 @@ export interface RaceCountdown {
   mode: 'race_date' | 'cp_milestone' | 'continuous' | 'none';
   race_date?: string;
   days_left?: number;
-  predicted_time_sec?: number;
-  target_time_sec?: number;
-  current_cp?: number;
-  target_cp?: number;
-  cp_gap_watts?: number;
+  // These numeric fields are optional AND can be `null` on the wire
+  // (Python None → JSON null). Consumers must check `!= null` — a
+  // `=== undefined` check would wrongly treat `null` as present.
+  predicted_time_sec?: number | null;
+  target_time_sec?: number | null;
+  current_cp?: number | null;
+  target_cp?: number | null;
+  cp_gap_watts?: number | null;
   status: string;
   milestones?: Milestone[];
   estimated_months?: number | null;
   distance?: string;
   distance_label?: string;
+  /** Name of the race-prediction model actually used (e.g. "riegel", "stryd"). */
+  prediction_method?: string | null;
+  /** Citation for the active theory backing the prediction. */
+  prediction_theory?: {
+    id: string;
+    name: string;
+    citation?: string | null;
+  } | null;
   cp_trend_summary?: {
     direction: string;
     slope_per_month: number;
@@ -354,10 +387,10 @@ export interface RaceCountdown {
     assessment: string;
     severity: string;
     trend_note?: string;
-    cp_gap_watts?: number;
-    cp_gap_pct?: number;
-    current_cp?: number;
-    needed_cp?: number;
+    cp_gap_watts?: number | null;
+    cp_gap_pct?: number | null;
+    current_cp?: number | null;
+    needed_cp?: number | null;
     realistic_targets?: {
       comfortable: number;
       stretch: number;
@@ -406,6 +439,9 @@ export interface Activity {
   rss: number | null;
   cp_estimate: number | null;
   splits: SplitData[];
+  /** Provider that owns this activity ("garmin" | "stryd" | "strava" | ...).
+   *  Empty string when the source is unknown. */
+  source: string;
 }
 
 export interface AiInsightFinding {
@@ -431,4 +467,8 @@ export interface HistoryResponse {
   total: number;
   limit: number;
   offset: number;
+  /** Currently-applied source filter (e.g. "garmin"), or null for "all". */
+  source_filter?: string | null;
+  training_base?: TrainingBase;
+  display?: DisplayConfig;
 }
