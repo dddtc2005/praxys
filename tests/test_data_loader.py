@@ -193,3 +193,122 @@ def test_load_data_from_db_returns_all_recovery_when_no_config():
         result = load_data_from_db("u3", db)
 
     assert len(result["recovery"]) == 1
+
+
+def test_multi_source_coexistence_garmin_and_intervals_icu():
+    """End-to-end: a user with both Garmin and intervals.icu connected gets
+    the right rows based on preferences.
+
+    - Activities: both sources come through (source column preserved); filtering
+      happens in api/deps.py (not exercised here — this test checks the loader
+      passes all rows through with correct source attribution).
+    - Recovery: preference filters to intervals_icu only.
+    - Fitness: both sources come through as rows; selector disambiguates downstream.
+    """
+    from datetime import date as D
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session as SASession
+
+    from analysis.data_loader import load_data_from_db
+    from db.models import (
+        Activity, Base, FitnessData, RecoveryData, User, UserConfig,
+    )
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with SASession(engine) as db:
+        db.add(User(id="u1", email="t@ex.com", hashed_password="x"))
+        db.add(UserConfig(
+            user_id="u1",
+            preferences={
+                "activities": "intervals_icu",
+                "recovery": "intervals_icu",
+                "threshold_sources": {"cp_estimate": "intervals_icu"},
+            },
+        ))
+        # Two activities same date, different sources — loader returns both,
+        # deps.py filters to the preferred source.
+        db.add(Activity(
+            user_id="u1", activity_id="g_12345", date=D(2026, 4, 20),
+            distance_km=10.0, duration_sec=3000, source="garmin",
+        ))
+        db.add(Activity(
+            user_id="u1", activity_id="icu_i9000001", date=D(2026, 4, 20),
+            distance_km=10.05, duration_sec=3120, source="intervals_icu",
+        ))
+        # Two recovery rows same date: Task 13 filter should keep only intervals_icu.
+        db.add(RecoveryData(
+            user_id="u1", date=D(2026, 4, 20),
+            readiness_score=70, source="oura",
+        ))
+        db.add(RecoveryData(
+            user_id="u1", date=D(2026, 4, 20),
+            readiness_score=85, source="intervals_icu",
+        ))
+        # Fitness: cp_estimate from two sources. Loader returns both rows
+        # (selector in deps.py resolves the pick).
+        db.add(FitnessData(
+            user_id="u1", date=D(2026, 4, 18),
+            metric_type="cp_estimate", value=265.0, source="stryd",
+        ))
+        db.add(FitnessData(
+            user_id="u1", date=D(2026, 4, 20),
+            metric_type="cp_estimate", value=270.0, source="intervals_icu",
+        ))
+        db.commit()
+
+        result = load_data_from_db("u1", db)
+
+    # Activities: loader returns all rows; filtering is downstream.
+    assert "source" in result["activities"].columns
+    assert set(result["activities"]["source"]) == {"garmin", "intervals_icu"}
+    assert len(result["activities"]) == 2
+
+    # Recovery IS filtered at loader level per preferences.recovery (Task 13).
+    assert len(result["recovery"]) == 1
+    assert list(result["recovery"]["source"]) == ["intervals_icu"]
+    assert float(result["recovery"].iloc[0]["readiness_score"]) == 85
+
+    # Fitness: both rows come through to be pivoted/selected downstream.
+    # fitness is pivoted wide in load_data_from_db — confirm the wide column exists.
+    assert not result["fitness"].empty
+    assert "cp_estimate" in result["fitness"].columns
+
+
+def test_multi_source_coexistence_verifies_threshold_selector_picks_preferred():
+    """Paired with the loader test above — confirm the downstream threshold
+    selector picks intervals_icu when pinned, even if Stryd has a more
+    recent row."""
+    from datetime import date as D
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session as SASession
+
+    from api.deps import _resolve_thresholds
+    from db.models import Base, FitnessData, User
+
+    # Build a minimal config-like object the selector expects.
+    class _Cfg:
+        preferences = {"threshold_sources": {"cp_estimate": "intervals_icu"}}
+        thresholds = {}
+        connections = []
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with SASession(engine) as db:
+        db.add(User(id="u1", email="t@ex.com", hashed_password="x"))
+        # Stryd row is MORE RECENT (date-wise) than intervals_icu. Without the
+        # preference pin, the latest-by-date fallback would pick Stryd.
+        db.add(FitnessData(
+            user_id="u1", date=D(2026, 4, 22),
+            metric_type="cp_estimate", value=265.0, source="stryd",
+        ))
+        db.add(FitnessData(
+            user_id="u1", date=D(2026, 4, 20),
+            metric_type="cp_estimate", value=270.0, source="intervals_icu",
+        ))
+        db.commit()
+
+        estimate = _resolve_thresholds(_Cfg(), user_id="u1", db=db)
+
+    # The preference pin overrides latest-by-date.
+    assert estimate.cp_watts == 270.0
