@@ -1,0 +1,18 @@
+{
+  "id": "i9000002",
+  "icu_intervals": [
+    {
+      "distance": 5020.0,
+      "moving_time": 1800,
+      "elapsed_time": 1800,
+      "average_watts": null,
+      "average_heartrate": 138,
+      "max_heartrate": 155,
+      "average_cadence": 83.0,
+      "type": "WORK",
+      "label": null,
+      "start_index": 0,
+      "end_index": 1799
+    }
+  ]
+}

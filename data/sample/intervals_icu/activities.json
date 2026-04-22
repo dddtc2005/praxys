@@ -1,0 +1,34 @@
+[
+  {
+    "id": "i9000001",
+    "start_date_local": "2026-04-18T07:05:00",
+    "type": "Run",
+    "distance": 10050.0,
+    "moving_time": 3120,
+    "elapsed_time": 3180,
+    "total_elevation_gain": 65,
+    "average_heartrate": 152,
+    "max_heartrate": 171,
+    "icu_average_watts": 258,
+    "average_watts": 258,
+    "max_watts": 412,
+    "average_cadence": 87.5,
+    "icu_training_load": 62.1
+  },
+  {
+    "id": "i9000002",
+    "start_date_local": "2026-04-20T18:15:00",
+    "type": "Run",
+    "distance": 5020.0,
+    "moving_time": 1800,
+    "elapsed_time": 1820,
+    "total_elevation_gain": 18,
+    "average_heartrate": 138,
+    "max_heartrate": 155,
+    "icu_average_watts": null,
+    "average_watts": null,
+    "max_watts": null,
+    "average_cadence": 83.0,
+    "icu_training_load": 22.4
+  }
+]

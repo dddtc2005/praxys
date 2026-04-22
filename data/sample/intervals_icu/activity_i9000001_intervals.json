@@ -1,0 +1,44 @@
+{
+  "id": "i9000001",
+  "icu_intervals": [
+    {
+      "distance": 1000.0,
+      "moving_time": 330,
+      "elapsed_time": 330,
+      "average_watts": 240,
+      "average_heartrate": 148,
+      "max_heartrate": 158,
+      "average_cadence": 86.0,
+      "type": "WORK",
+      "label": "warmup",
+      "start_index": 0,
+      "end_index": 329
+    },
+    {
+      "distance": 5000.0,
+      "moving_time": 1500,
+      "elapsed_time": 1500,
+      "average_watts": 275,
+      "average_heartrate": 158,
+      "max_heartrate": 171,
+      "average_cadence": 88.5,
+      "type": "WORK",
+      "label": "tempo",
+      "start_index": 330,
+      "end_index": 1829
+    },
+    {
+      "distance": 4050.0,
+      "moving_time": 1290,
+      "elapsed_time": 1290,
+      "average_watts": 245,
+      "average_heartrate": 150,
+      "max_heartrate": 162,
+      "average_cadence": 87.0,
+      "type": "RECOVERY",
+      "label": "cooldown",
+      "start_index": 1830,
+      "end_index": 3119
+    }
+  ]
+}

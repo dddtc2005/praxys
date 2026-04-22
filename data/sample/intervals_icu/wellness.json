@@ -1,0 +1,7 @@
+[
+  {"id": "2026-04-16", "readiness": 82, "hrv": 64.2, "restingHR": 48, "sleepScore": 85, "sleepSecs": 27900},
+  {"id": "2026-04-17", "readiness": 75, "hrv": 58.1, "restingHR": 51, "sleepScore": 78, "sleepSecs": 25200},
+  {"id": "2026-04-18", "readiness": 88, "hrv": 66.8, "restingHR": 47, "sleepScore": 90, "sleepSecs": 28800},
+  {"id": "2026-04-19", "readiness": 70, "hrv": 55.4, "restingHR": 53, "sleepScore": 72, "sleepSecs": 24300},
+  {"id": "2026-04-20", "readiness": 80, "hrv": 62.0, "restingHR": 49, "sleepScore": 83, "sleepSecs": 27000}
+]

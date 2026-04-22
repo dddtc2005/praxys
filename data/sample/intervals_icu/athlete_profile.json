@@ -1,0 +1,19 @@
+{
+  "id": "i123456",
+  "name": "Test Athlete",
+  "sportSettings": [
+    {
+      "types": ["Run", "TrailRun"],
+      "ftp": 270,
+      "lthr": 168,
+      "threshold_pace": 4.08163,
+      "max_hr": 192
+    },
+    {
+      "types": ["Ride", "VirtualRide"],
+      "ftp": 290,
+      "lthr": 170,
+      "max_hr": 194
+    }
+  ]
+}
