@@ -71,7 +71,6 @@ def _ensure_registered() -> None:
     # Set flag AFTER imports so a failed import retries next call.
     import analysis.providers.garmin  # noqa: F401
     import analysis.providers.stryd  # noqa: F401
-    import analysis.providers.strava  # noqa: F401
     import analysis.providers.oura  # noqa: F401
     import analysis.providers.ai  # noqa: F401
     _registered = True

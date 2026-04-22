@@ -9,8 +9,8 @@ from typing_extensions import TypedDict
 logger = logging.getLogger(__name__)
 
 TrainingBase = Literal["power", "hr", "pace"]
-PlatformName = Literal["garmin", "stryd", "strava", "oura", "coros"]
-PlanSource = Literal["garmin", "stryd", "strava", "oura", "coros", "ai"]
+PlatformName = Literal["garmin", "stryd", "oura", "coros"]
+PlanSource = Literal["garmin", "stryd", "oura", "coros", "ai"]
 DataCategory = Literal["activities", "recovery", "fitness", "plan"]
 
 # Default zone boundaries as fractions of threshold value.
@@ -34,7 +34,6 @@ class PlatformCaps(TypedDict):
 PLATFORM_CAPABILITIES: dict[str, PlatformCaps] = {
     "garmin": {"activities": True, "recovery": True, "fitness": True, "plan": False},
     "stryd":  {"activities": True, "recovery": False, "fitness": True, "plan": True},
-    "strava": {"activities": True, "recovery": False, "fitness": False, "plan": False},
     "oura":   {"activities": False, "recovery": True, "fitness": False, "plan": False},
     "coros":  {"activities": True, "recovery": False, "fitness": True, "plan": False},
 }

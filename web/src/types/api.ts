@@ -36,7 +36,7 @@ export interface ScienceResponse {
   label_sets: { id: string; name: string }[];
   recommendations: PillarRecommendation[];
 }
-export type PlatformName = 'garmin' | 'strava' | 'stryd' | 'oura' | 'coros';
+export type PlatformName = 'garmin' | 'stryd' | 'oura' | 'coros';
 export type PlanSourceName = PlatformName | 'ai';
 export type DataCategory = 'activities' | 'recovery' | 'fitness' | 'plan';
 
@@ -81,38 +81,12 @@ export interface DetectedThreshold {
 
 export interface SettingsResponse {
   config: SettingsConfig;
-  platform_capabilities: Partial<Record<PlatformName, Partial<Record<DataCategory, boolean>>>>;
-  available_providers: Partial<Record<DataCategory, PlatformName[]>>;
+  platform_capabilities: Record<PlatformName, Record<DataCategory, boolean>>;
+  available_providers: Record<DataCategory, PlatformName[]>;
   available_bases: TrainingBase[];
   display: DisplayConfig;
   detected_thresholds: Record<string, DetectedThreshold>;
   effective_thresholds: Record<string, ThresholdValue>;
-}
-
-export interface PlatformConnection {
-  status: string;
-  last_sync: string | null;
-  has_credentials: boolean;
-}
-
-export interface ConnectionsResponse {
-  connections: Partial<Record<PlatformName, PlatformConnection>>;
-}
-
-export interface StravaOAuthStartRequest {
-  web_origin: string;
-  return_to: string;
-}
-
-export interface StravaOAuthStartResponse {
-  authorize_url: string;
-}
-
-export type StravaOAuthStatus = 'connected' | 'error';
-
-export interface StravaOAuthResult {
-  status: StravaOAuthStatus;
-  message: string | null;
 }
 
 export interface SyncStatus {

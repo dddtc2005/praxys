@@ -1,16 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useSetupStatus } from '@/hooks/useSetupStatus';
 import { API_BASE, getAuthHeaders } from '@/hooks/useApi';
 import type { TrainingBase, SyncStatusResponse } from '@/types/api';
-import {
-  buildStravaReturnTo,
-  getStravaOAuthMessage,
-  getStravaOAuthResult,
-  startStravaOAuth,
-  stripStravaOAuthParams,
-} from '@/lib/strava-oauth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -57,28 +50,6 @@ function StrydWordmark({ className }: { className?: string }) {
         <linearGradient id="stryd_g4" x1="-5.4" y1="57.2" x2="433" y2="57.2" gradientUnits="userSpaceOnUse"><stop stopColor="#F77120"/><stop offset="1" stopColor="#FECA2F"/></linearGradient>
       </defs>
     </svg>
-  );
-}
-
-function StravaWordmark({ className }: { className?: string }) {
-  return (
-    <div
-      className={`inline-flex h-5 items-center gap-1.5 text-[#fc4c02] ${className ?? ''}`}
-      aria-label="Strava"
-    >
-      <svg
-        viewBox="0 0 24 24"
-        fill="currentColor"
-        className="h-5 w-[0.95rem] shrink-0"
-        aria-hidden="true"
-      >
-        <path d="M13.25 2 7.1 13.55h3.84l2.31-4.2 2.37 4.2h3.83L13.25 2Z" />
-        <path d="m10.47 15.18-2.2 4.02h4.4l-2.2-4.02Z" />
-      </svg>
-      <span className="text-[0.95rem] font-bold uppercase leading-none tracking-[0.08em]">
-        STRAVA
-      </span>
-    </div>
   );
 }
 
@@ -154,14 +125,6 @@ const PLATFORM_META: Record<string, {
     ],
     help: 'Use your Garmin Connect credentials.',
   },
-  strava: {
-    label: 'Strava',
-    wordmark: <StravaWordmark />,
-    categories: ['Activities'],
-    detail: 'Activities only: runs, rides, pace, heart rate, route data',
-    credFields: [],
-    help: 'Authorize Praxys with Strava in your browser. Praxys only syncs activities from Strava.',
-  },
   stryd: {
     label: 'Stryd',
     wordmark: <StrydWordmark />,
@@ -185,8 +148,6 @@ const PLATFORM_META: Record<string, {
   },
 };
 
-const CONNECTABLE_PLATFORMS = ['garmin', 'strava', 'stryd', 'oura'] as const;
-
 
 const BASE_CONFIG: Record<TrainingBase, { label: string; desc: string }> = {
   power: { label: 'Power', desc: 'Zones & load from Critical Power (best with Stryd)' },
@@ -204,7 +165,6 @@ const BACKFILL_OPTIONS = [
 // --- Component ---
 
 export default function Setup() {
-  const location = useLocation();
   const navigate = useNavigate();
   const { config, updateSettings, refetch: refetchSettings } = useSettings();
   const setup = useSetupStatus();
@@ -215,8 +175,6 @@ export default function Setup() {
   const [connectCreds, setConnectCreds] = useState<Record<string, string>>({});
   const [connectError, setConnectError] = useState('');
   const [connecting, setConnecting] = useState(false);
-  const [connectNotice, setConnectNotice] = useState('');
-  const [pendingPrimaryPlatform, setPendingPrimaryPlatform] = useState<string | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
     GARMIN_ACTIVITY_CATEGORIES.filter((c) => c.default).map((c) => c.key)
   );
@@ -244,47 +202,6 @@ export default function Setup() {
       navigate('/', { replace: true });
     }
   }, [setup.loading, setup.allDone, navigate]);
-
-  useEffect(() => {
-    const oauthResult = getStravaOAuthResult(location.search);
-    if (!oauthResult) return;
-
-    const cleanedLocation = `${location.pathname}${stripStravaOAuthParams(location.search)}${location.hash}`;
-    navigate(cleanedLocation, { replace: true });
-
-    if (oauthResult.status === 'connected') {
-      setConnectPlatform(null);
-      setConnectCreds({});
-      setConnectError('');
-      setConnectNotice(getStravaOAuthMessage(oauthResult));
-      setPendingPrimaryPlatform('strava');
-      setup.refetch();
-      refetchSettings();
-      return;
-    }
-
-    setConnectNotice('');
-    setConnectPlatform('strava');
-    setConnectError(getStravaOAuthMessage(oauthResult));
-  }, [location.hash, location.pathname, location.search, navigate, refetchSettings]);
-
-  useEffect(() => {
-    if (pendingPrimaryPlatform !== 'strava') return;
-    if (!setup.connectedPlatforms.includes('strava')) return;
-
-    const overlapping = setup.connectedPlatforms.filter(
-      (platform) => platform !== 'strava' && PLATFORM_META[platform]?.categories.includes('Activities')
-    );
-
-    if (overlapping.length > 0) {
-      setPrimaryPrompt({
-        category: 'activities',
-        options: ['strava', ...overlapping],
-      });
-    }
-
-    setPendingPrimaryPlatform(null);
-  }, [pendingPrimaryPlatform, setup.connectedPlatforms]);
 
   // Poll sync status while syncing
   useEffect(() => {
@@ -318,7 +235,6 @@ export default function Setup() {
     const platforms = setup.connectedPlatforms;
     if (platforms.includes('stryd')) return 'power';
     if (platforms.includes('garmin')) return 'hr';
-    if (platforms.includes('strava')) return 'pace';
     if (platforms.includes('oura')) return 'hr';
     return null;
   })();
@@ -338,18 +254,6 @@ export default function Setup() {
     if (!connectPlatform) return;
     setConnecting(true);
     setConnectError('');
-    setConnectNotice('');
-
-    if (connectPlatform === 'strava') {
-      try {
-        await startStravaOAuth(buildStravaReturnTo(location.pathname, location.search, location.hash));
-      } catch (err) {
-        setConnectError(err instanceof Error ? err.message : 'Network error');
-        setConnecting(false);
-      }
-      return;
-    }
-
     try {
       const res = await fetch(`${API_BASE}/api/settings/connections/${connectPlatform}`, {
         method: 'POST',
@@ -461,12 +365,6 @@ export default function Setup() {
             style={{ width: `${progressPct}%` }}
           />
         </div>
-
-        {connectNotice && (
-          <Alert className="mt-4 border-primary/30 bg-primary/5">
-            <AlertDescription className="text-sm text-primary">{connectNotice}</AlertDescription>
-          </Alert>
-        )}
       </div>
 
       <div className="space-y-4">
@@ -478,8 +376,8 @@ export default function Setup() {
           done={setup.hasConnection}
           icon={<Link2 className="h-4 w-4" />}
         >
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-4">
-            {CONNECTABLE_PLATFORMS.map((platform) => {
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+            {(['garmin', 'stryd', 'oura'] as const).map((platform) => {
               const meta = PLATFORM_META[platform];
               const isConnected = setup.connectedPlatforms.includes(platform);
               return (
@@ -737,7 +635,7 @@ export default function Setup() {
             </Alert>
           )}
 
-          {connectPlatform && connectPlatform !== 'strava' && (
+          {connectPlatform && (
             <form onSubmit={(e) => { e.preventDefault(); handleConnect(); }} className="space-y-4">
               {PLATFORM_META[connectPlatform].credFields.map((field) => (
                 <div key={field.key} className="space-y-2">
@@ -748,7 +646,7 @@ export default function Setup() {
                     value={connectCreds[field.key] || ''}
                     onChange={(e) => setConnectCreds({ ...connectCreds, [field.key]: e.target.value })}
                     disabled={connecting}
-                    autoComplete={field.key.includes('token') ? 'off' : field.type === 'password' ? 'current-password' : field.type}
+                    autoComplete={field.type === 'password' ? 'current-password' : field.type}
                   />
                 </div>
               ))}
@@ -834,26 +732,6 @@ export default function Setup() {
                 </Button>
               </div>
             </form>
-          )}
-
-          {connectPlatform === 'strava' && (
-            <div className="space-y-4">
-              <div className="rounded-xl border border-border bg-muted/40 p-3">
-                <p className="text-sm font-medium text-foreground"><Trans>Activities-only connection</Trans></p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  <Trans>Continue in your browser to authorize Strava. Praxys imports activities from Strava, while recovery, fitness, and plans come from your other connected platforms.</Trans>
-                </p>
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="ghost" onClick={() => setConnectPlatform(null)} disabled={connecting}>
-                  <Trans>Cancel</Trans>
-                </Button>
-                <Button type="button" onClick={() => void handleConnect()} disabled={connecting}>
-                  {connecting ? <Trans>Redirecting...</Trans> : <Trans>Continue to Strava</Trans>}
-                </Button>
-              </div>
-            </div>
           )}
         </DialogContent>
       </Dialog>

@@ -45,7 +45,7 @@ export default function SetupChecklist({ hasData }: SetupChecklistProps) {
     {
       key: 'connect',
       label: t`Connect a platform`,
-      description: t`Link Garmin, Strava, Stryd, or Oura to pull your training data`,
+      description: t`Link Garmin, Stryd, or Oura to pull your training data`,
       icon: <Link2 className="h-4 w-4" />,
       done: platformConnected,
       action: { label: t`Connect`, to: '/settings' },
