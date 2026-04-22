@@ -36,7 +36,7 @@ export interface ScienceResponse {
   label_sets: { id: string; name: string }[];
   recommendations: PillarRecommendation[];
 }
-export type PlatformName = 'garmin' | 'strava' | 'stryd' | 'oura' | 'coros';
+export type PlatformName = 'garmin' | 'strava' | 'stryd' | 'oura' | 'coros' | 'intervals_icu';
 export type PlanSourceName = PlatformName | 'ai';
 export type DataCategory = 'activities' | 'recovery' | 'fitness' | 'plan';
 
