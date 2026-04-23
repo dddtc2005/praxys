@@ -31,7 +31,7 @@ Same priority applies to activity-level `averagePower` / `maxPower` in `parse_ac
 
 **2. Mobile and widget strategies consume the CAS ticket on `.com` hosts.** Strategies 1-3 hardcode `mobile.integration.garmin.com/gcm/ios` / `sso.garmin.com/sso/embed` in `_establish_session`'s JWT_WEB fallback. For CN those hosts either don't resolve or never set a JWT_WEB cookie, so the library raises `GarminConnectAuthenticationError("JWT_WEB cookie not set after ticket consumption")`. Because that's an auth error the chain re-raises immediately, never reaching the portal strategies (which use the domain-aware `_portal_service_url = "connect.garmin.cn/app"`). We catch that specific message and retry `Client._portal_web_login_cffi` directly; the message match keeps real credential failures (`"Invalid Username or Password"`) bubbling up.
 
-With both fixes in place, CN portal login produces real DI Bearer tokens that `connectapi.garmin.cn` accepts, and `Client.dump(token_dir)` persists them so subsequent syncs skip SSO. Reproduction + verification tooling: `scripts/garmin_cn_repro.py` (login strategies), `scripts/garmin_cn_api_probe.py` / `_probe2.py` / `_probe3.py` (API-layer diagnostics). GitHub issue #75.
+With both fixes in place, CN portal login produces real DI Bearer tokens that `connectapi.garmin.cn` accepts, and `Client.dump(token_dir)` persists them so subsequent syncs skip SSO. Reproduction + verification tooling lives in `scripts/garmin_diagnose.py` — subcommands `login` (five-strategy chain, instrumented), `api` (post-login endpoint / header variants), `grants` (credential-free grant_type sweep against `diauth.garmin.cn`), `all`. GitHub issue #75.
 
 ### Garmin CN endpoint parity is incomplete
 
