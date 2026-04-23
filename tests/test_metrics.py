@@ -420,3 +420,102 @@ def test_diagnose_zone_ranges_included():
     assert result["zone_ranges"][0]["name"] == "Easy"
     assert result["zone_ranges"][0]["unit"] == "W"
     assert result["theory_name"] == "Seiler Polarized 3-Zone"
+
+
+def test_diagnose_distribution_is_time_in_zone():
+    """Distribution must be split-duration-weighted time-in-zone, not
+    activity-count-by-peak-zone.
+
+    Coggan / Seiler target distributions (70/10/10/5/5) are defined as the
+    fraction of TIME an athlete spends in each zone. Classifying an activity
+    by its single hardest split and then counting activities per zone
+    inflates higher zones whenever the athlete does any short stride or
+    interval — a mostly-easy run with one 20-second sprint gets tallied as
+    VO2max. See Seiler 2006 and Filipas et al. 2022 (both cited by
+    `data/science/zones/coggan_5zone.yaml`), which measure training
+    intensity distribution in minutes, not sessions.
+
+    Scenario: a 2-session week with CP = 250 W, Coggan 5-zone boundaries
+    [0.55, 0.75, 0.90, 1.05].
+      - Day 1: 60 min easy @ 175 W (70% CP → Endurance).
+      - Day 2: classic interval workout — 10 min warmup @ 175 W (Endurance),
+        10 × 1 min @ 280 W (112% CP → VO2max) with 1 min recovery @ 130 W
+        (52% CP → Recovery), 10 min cooldown @ 175 W (Endurance).
+    Total split time is 100 min: 80 min Endurance, 10 min VO2max, 10 min
+    Recovery. Peak-based classification would instead report one activity
+    per zone → ~50% Endurance / 50% VO2max, which is scientifically wrong.
+    """
+    today = date(2026, 3, 23)
+    dates = [date(2026, 3, 20), date(2026, 3, 22)]
+    activities = _make_activities(dates, [12, 15])
+    easy_splits = [("0", 175, 3600)]
+    interval_splits = [("1", 175, 600)]
+    for _ in range(10):
+        interval_splits.append(("1", 280, 60))
+        interval_splits.append(("1", 130, 60))
+    interval_splits.append(("1", 175, 600))
+    aids, powers, durations = zip(*(easy_splits + interval_splits))
+    splits = _make_splits(list(aids), list(powers), list(durations))
+    trend = {"current": 250.0, "direction": "flat", "slope_per_month": 0.5}
+
+    result = diagnose_training(
+        activities, splits, trend,
+        lookback_weeks=4, current_date=today,
+    )
+    dist = {d["name"]: d["actual_pct"] for d in result["distribution"]}
+
+    # Endurance dominates — 80 of 100 minutes — not 50%.
+    assert dist["Endurance"] >= 75, f"expected Endurance ~80%, got {dist}"
+    assert dist["VO2max"] <= 15, f"expected VO2max ~10%, got {dist}"
+    assert dist["Recovery"] <= 15, f"expected Recovery ~10%, got {dist}"
+    assert dist["Tempo"] == 0
+    assert dist["Threshold"] == 0
+
+
+def test_diagnose_distribution_pace_base_inverts_ratio():
+    """Pace base: lower value = faster = harder zone. The classifier must
+    invert the ratio (threshold_pace / split_pace) and compare against
+    reciprocal boundary fractions, otherwise a 5:00 min/km split vs a
+    4:20 threshold pace would read as Endurance instead of Recovery.
+
+    Scenario: threshold pace = 260 s/km (4:20/km), Coggan pace boundaries
+    [1.29, 1.14, 1.06, 1.00] (multipliers of threshold pace — higher =
+    slower, so values well above 1.29x belong to Recovery).
+      - Day 1: 60 min easy @ 350 s/km (5:50/km, 350/260 = 1.35x → Recovery).
+      - Day 2: tempo workout — 10 min warmup @ 350 s/km (Recovery),
+        20 min @ 285 s/km (285/260 = 1.10x → Tempo), 10 min cooldown
+        @ 350 s/km (Recovery).
+    Total split time is 100 min: 80 min Recovery, 20 min Tempo. A
+    non-inverted (power-style) ratio would misplace these in the opposite
+    end of the scale, so this test locks in the inversion.
+    """
+    today = date(2026, 3, 23)
+    dates = [date(2026, 3, 20), date(2026, 3, 22)]
+    activities = _make_activities(dates, [10, 12])
+    rows = [
+        ("0", 350.0, 3600),
+        ("1", 350.0, 600),
+        ("1", 285.0, 1200),
+        ("1", 350.0, 600),
+    ]
+    aids, paces, durations = zip(*rows)
+    splits = pd.DataFrame({
+        "activity_id": list(aids),
+        "avg_pace_sec_km": list(paces),
+        "duration_sec": list(durations),
+    })
+    trend = {"current": 260.0, "direction": "flat", "slope_per_month": 0.0}
+
+    result = diagnose_training(
+        activities, splits, trend,
+        lookback_weeks=4, current_date=today,
+        base="pace",
+    )
+    dist = {d["name"]: d["actual_pct"] for d in result["distribution"]}
+
+    # Recovery dominates because splits are slower than threshold.
+    assert dist["Recovery"] >= 75, f"expected Recovery ~80%, got {dist}"
+    assert dist["Tempo"] >= 15, f"expected Tempo ~20%, got {dist}"
+    assert dist["VO2max"] == 0
+    assert dist["Endurance"] == 0
+    assert dist["Threshold"] == 0

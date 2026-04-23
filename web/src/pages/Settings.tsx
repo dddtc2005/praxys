@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSettings } from '@/contexts/SettingsContext';
 import { API_BASE, getAuthHeaders, extractErrorMessage } from '@/hooks/useApi';
-import type { TrainingBase, SyncStatusResponse, SettingsConfig } from '@/types/api';
+import type { TrainingBase, SyncStatusResponse } from '@/types/api';
 import {
   buildStravaReturnTo,
   getStravaOAuthMessage,
@@ -371,12 +371,12 @@ export default function Settings() {
   ) => {
     setSaving(true);
     try {
-      const current = (config.preferences?.threshold_sources as Record<string, string>) || {};
+      const current = config.preferences?.threshold_sources ?? {};
       await updateSettings({
         preferences: {
           ...config.preferences,
           threshold_sources: { ...current, [metricType]: source },
-        } as SettingsConfig['preferences'],
+        },
       });
       flash('Saved');
     } catch (err) {
@@ -1241,7 +1241,7 @@ export default function Settings() {
                   {options.length > 1 ? (
                     <Select
                       value={currentSource ?? options[0].source}
-                      onValueChange={(v) => handleThresholdSourceChange(metricType, v)}
+                      onValueChange={(v) => v && handleThresholdSourceChange(metricType, v)}
                       disabled={saving}
                     >
                       <SelectTrigger className="h-7 text-[11px] mt-auto">

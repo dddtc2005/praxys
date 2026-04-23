@@ -1153,14 +1153,6 @@ def diagnose_training(
     names = zone_names if (zone_names and len(zone_names) == n_zones) else _ZONE_DEFAULT_NAMES.get(base, [f"Zone {i+1}" for i in range(n_zones)])
     targets = [round(t * 100) for t in target_distribution] if target_distribution and len(target_distribution) == n_zones else [None] * n_zones
 
-    if "activity_id" in recent_splits.columns:
-        if base == "pace":
-            activity_best = recent_splits.groupby(recent_splits["activity_id"].astype(str))[metric_col].min()
-        else:
-            activity_best = recent_splits.groupby(recent_splits["activity_id"].astype(str))[metric_col].max()
-    else:
-        activity_best = pd.Series(dtype=float)
-
     # Build per-activity threshold lookup for date-relative zone classification.
     # For power base, use cp_estimate from each activity's date rather than a single
     # current CP — a session at 240W when CP was 260W is Threshold, not VO2max.
@@ -1171,36 +1163,53 @@ def diagnose_training(
             if pd.notna(cp_val) and cp_val > 0:
                 _cp_by_aid[aid] = float(cp_val)
 
-    total_activities = len(recent)
-    if total_activities > 0 and not activity_best.empty and current_cp > 0:
-        # Classify each activity into a zone based on its best split value
-        zone_counts = [0] * n_zones
-        for aid, val in activity_best.items():
-            # Use per-activity threshold when available, fall back to current
-            act_cp = _cp_by_aid.get(str(aid), current_cp)
-            if base == "pace":
-                # For pace: lower value = faster = harder. Compute ratio as threshold/value.
-                ratio = act_cp / val if val > 0 else 0
-                inv_bounds = [1.0 / b if b > 0 else 0 for b in bounds]
-                assigned = 0
-                for i in range(len(inv_bounds) - 1, -1, -1):
-                    if ratio >= inv_bounds[i]:
-                        assigned = i + 1
-                        break
-            else:
-                # For power/HR: higher = harder
-                ratio = val / act_cp if act_cp > 0 else 0
-                assigned = 0
-                for i in range(len(bounds) - 1, -1, -1):
-                    if ratio >= bounds[i]:
-                        assigned = i + 1
-                        break
-            zone_counts[assigned] += 1
+    # For pace, lower value = harder, so compare ratio (threshold/value)
+    # against the reciprocal of the boundary fractions.
+    inv_bounds = [1.0 / b if b > 0 else 0.0 for b in bounds] if base == "pace" else []
 
+    def _classify(val: float, act_cp: float) -> int:
+        if act_cp <= 0 or val <= 0:
+            return 0
+        if base == "pace":
+            ratio = act_cp / val
+            for i in range(len(inv_bounds) - 1, -1, -1):
+                if ratio >= inv_bounds[i]:
+                    return i + 1
+            return 0
+        ratio = val / act_cp
+        for i in range(len(bounds) - 1, -1, -1):
+            if ratio >= bounds[i]:
+                return i + 1
+        return 0
+
+    # Time-in-zone from split durations. Target distributions (Coggan /
+    # Seiler 2006 / Filipas 2022) are defined as fraction of training TIME
+    # in each zone. Classifying each activity by its peak split and then
+    # counting activities per zone inflates higher zones whenever the
+    # athlete does any short stride or interval, which made the displayed
+    # distribution nonsensical for mixed easy + interval weeks.
+    #
+    # metric_col / duration_sec were coerced to numeric on splits_copy above
+    # before recent_splits was sliced out, so values read back as floats or
+    # NaN without re-coercing here.
+    zone_time = [0.0] * n_zones
+    total_time = 0.0
+    if not recent_splits.empty:
+        for _, srow in recent_splits.iterrows():
+            val = srow.get(metric_col)
+            dur = srow.get("duration_sec")
+            if pd.isna(val) or pd.isna(dur) or val <= 0 or dur <= 0:
+                continue
+            aid = str(srow.get("activity_id", ""))
+            act_cp = _cp_by_aid.get(aid, current_cp)
+            zone_time[_classify(float(val), act_cp)] += float(dur)
+            total_time += float(dur)
+
+    if total_time > 0:
         result["distribution"] = [
             {
                 "name": names[i],
-                "actual_pct": round(zone_counts[i] / total_activities * 100),
+                "actual_pct": round(zone_time[i] / total_time * 100),
                 "target_pct": targets[i],
             }
             for i in range(n_zones)

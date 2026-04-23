@@ -55,11 +55,20 @@ export type UnitSystem = 'metric' | 'imperial';
 
 export type UiLanguage = 'en' | 'zh';
 
+/** User's preferred source for each data category plus an optional
+ *  per-metric override map. Category keys (activities / recovery / fitness
+ *  / plan) carry a single provider name; `threshold_sources` carries the
+ *  user's chosen source per threshold metric (e.g. `cp_estimate: "stryd"`)
+ *  when the auto-selected source isn't what they want. */
+export interface SettingsPreferences extends Partial<Record<DataCategory, PlatformName | PlanSourceName>> {
+  threshold_sources?: Partial<Record<string, string>>;
+}
+
 export interface SettingsConfig {
   display_name: string;
   unit_system: UnitSystem;
   connections: PlatformName[];
-  preferences: Partial<Record<DataCategory, PlatformName | PlanSourceName>>;
+  preferences: SettingsPreferences;
   training_base: TrainingBase;
   thresholds: Record<string, number | string | null>;
   zones: Record<string, number[]>;
