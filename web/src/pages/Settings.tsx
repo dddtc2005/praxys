@@ -394,10 +394,21 @@ export default function Settings() {
     const headers: Record<string, string> = { ...getAuthHeaders() as Record<string, string> };
     if (body) headers['Content-Type'] = 'application/json';
     try {
-      await fetch(url, { method: 'POST', headers, body });
+      const kickoff = await fetch(url, { method: 'POST', headers, body });
+      if (!kickoff.ok) {
+        let message = `Failed to start sync (HTTP ${kickoff.status})`;
+        try {
+          const data = await kickoff.json();
+          if (data?.detail || data?.message) message = data.detail || data.message;
+        } catch { /* body not JSON */ }
+        flash(message);
+        return;
+      }
       const res = await fetch(`${API_BASE}/api/sync/status`, { headers: getAuthHeaders() });
       setSyncStatus(await res.json());
-    } catch { /* ignore */ }
+    } catch (err) {
+      flash(err instanceof Error && err.message ? err.message : 'Network error');
+    }
   };
 
   const handleSyncIntervalChange = async (value: string | null) => {
@@ -843,6 +854,12 @@ export default function Settings() {
                   {isConnected && status?.last_sync && (
                     <p className="text-xs text-muted-foreground">
                       <Trans>Last synced {new Date(status.last_sync).toLocaleString()}</Trans>
+                    </p>
+                  )}
+
+                  {isConnected && status?.status === 'error' && status.error && (
+                    <p className="text-xs text-destructive break-words">
+                      <Trans>Last sync failed: {status.error}</Trans>
                     </p>
                   )}
 

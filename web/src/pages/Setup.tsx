@@ -231,6 +231,7 @@ export default function Setup() {
   // Sync state
   const [syncing, setSyncing] = useState(false);
   const [syncDone, setSyncDone] = useState(false);
+  const [syncKickoffError, setSyncKickoffError] = useState('');
   const [backfillDays, setBackfillDays] = useState(180);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [liveSyncStatus, setLiveSyncStatus] = useState<SyncStatusResponse>({});
@@ -416,14 +417,26 @@ export default function Setup() {
 
     setSyncing(true);
     setSyncDone(false);
+    setSyncKickoffError('');
+    setLiveSyncStatus({});
     try {
-      await fetch(`${API_BASE}/api/sync`, {
+      const res = await fetch(`${API_BASE}/api/sync`, {
         method: 'POST',
         headers: { ...getAuthHeaders() as Record<string, string>, 'Content-Type': 'application/json' },
         body: JSON.stringify({ from_date: from }),
       });
+      if (!res.ok) {
+        let message = `Failed to start sync (HTTP ${res.status})`;
+        try {
+          const data = await res.json();
+          if (data?.detail || data?.message) message = data.detail || data.message;
+        } catch { /* body not JSON */ }
+        setSyncKickoffError(message);
+        setSyncing(false);
+      }
       // Polling takes over from here
-    } catch {
+    } catch (err) {
+      setSyncKickoffError(err instanceof Error ? err.message : 'Network error');
       setSyncing(false);
     }
   };
@@ -580,8 +593,15 @@ export default function Setup() {
                 </Button>
               </div>
 
-              {/* Live sync progress */}
-              {syncing && Object.keys(liveSyncStatus).length > 0 && (
+              {syncKickoffError && (
+                <Alert variant="destructive">
+                  <AlertDescription>{syncKickoffError}</AlertDescription>
+                </Alert>
+              )}
+
+              {/* Live sync progress — stays visible after sync ends so per-source
+                  errors don't disappear when `syncing` flips to false. */}
+              {(syncing || syncDone) && Object.keys(liveSyncStatus).length > 0 && (
                 <div className="space-y-1">
                   {Object.entries(liveSyncStatus).map(([src, status]) => (
                     <div key={src} className="flex items-center justify-between text-xs">
@@ -607,13 +627,42 @@ export default function Setup() {
                 </div>
               )}
 
-              {syncDone && (
-                <Alert className="border-primary/30 bg-primary/5">
-                  <AlertDescription className="text-sm text-primary">
-                    <Trans>Sync complete! Your data is ready.</Trans>
-                  </AlertDescription>
-                </Alert>
-              )}
+              {syncDone && (() => {
+                const failures = Object.entries(liveSyncStatus).filter(
+                  ([, s]) => s.status === 'error',
+                );
+                const successes = Object.entries(liveSyncStatus).filter(
+                  ([, s]) => s.status === 'done',
+                );
+                if (failures.length > 0) {
+                  return (
+                    <Alert variant="destructive">
+                      <AlertDescription className="text-sm">
+                        <p className="font-medium">
+                          <Trans>Sync failed for {failures.length} of {failures.length + successes.length} source{failures.length + successes.length === 1 ? '' : 's'}.</Trans>
+                        </p>
+                        <ul className="mt-2 space-y-1 list-disc list-inside">
+                          {failures.map(([src, s]) => (
+                            <li key={src}>
+                              <span className="capitalize">{src}</span>: {s.error || 'Unknown error'}
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="mt-2 text-xs opacity-80">
+                          <Trans>Check your credentials in the connection step, then try again.</Trans>
+                        </p>
+                      </AlertDescription>
+                    </Alert>
+                  );
+                }
+                return (
+                  <Alert className="border-primary/30 bg-primary/5">
+                    <AlertDescription className="text-sm text-primary">
+                      <Trans>Sync complete! Your data is ready.</Trans>
+                    </AlertDescription>
+                  </Alert>
+                );
+              })()}
             </div>
           )}
           {setup.hasSyncedData && (
