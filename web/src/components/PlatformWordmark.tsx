@@ -1,10 +1,10 @@
 /**
  * Official brand wordmarks for the platforms Praxys connects to.
  *
- * Canonical web-optimized copies live at `/logos/*.{png,svg}` — see the
- * top-level `web/public/logos/` for the files referenced below. Vendor
- * originals (AI/EPS/PDF) are archived in the nested `logos/{vendor}/`
- * folders; do not remove those without updating this file's asset paths.
+ * Web-optimized copies live at `web/public/logos/{garmin.png, oura.svg,
+ * stryd.svg, strava.svg}`. Vendor source files (AI/EPS/PDF + alt colour
+ * variants) are kept out of the repo to keep SWA deploys fast — store them
+ * elsewhere if you need them for future design work.
  *
  * Usage: these replace generic hand-drawn icons and text labels — the logo IS
  * the name. Sized to h-5 by default (matches typical inline badge/label
