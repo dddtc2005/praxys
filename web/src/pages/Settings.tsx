@@ -2,7 +2,7 @@ import type React from 'react';
 import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSettings } from '@/contexts/SettingsContext';
-import { API_BASE, getAuthHeaders } from '@/hooks/useApi';
+import { API_BASE, getAuthHeaders, extractErrorMessage } from '@/hooks/useApi';
 import type { TrainingBase, SyncStatusResponse, SettingsConfig } from '@/types/api';
 import {
   buildStravaReturnTo,
@@ -396,12 +396,23 @@ export default function Settings() {
     try {
       const kickoff = await fetch(url, { method: 'POST', headers, body });
       if (!kickoff.ok) {
-        let message = `Failed to start sync (HTTP ${kickoff.status})`;
-        try {
-          const data = await kickoff.json();
-          if (data?.detail || data?.message) message = data.detail || data.message;
-        } catch { /* body not JSON */ }
-        flash(message);
+        flash(await extractErrorMessage(kickoff, `Failed to start sync (HTTP ${kickoff.status})`));
+        return;
+      }
+      // Backend sync endpoints return HTTP 200 with {status: "error"|"already_syncing"}
+      // for missing credentials or in-flight syncs. Without this check those just
+      // silently no-op — the exact bug this PR class is fixing.
+      const data = await kickoff.json().catch(() => null);
+      if (data?.status === 'error' && typeof data?.message === 'string') {
+        flash(data.message);
+        return;
+      }
+      if (data?.status === 'already_syncing') {
+        flash(`Sync already in progress${data.source ? ` for ${data.source}` : ''}.`);
+        return;
+      }
+      if (!source && Array.isArray(data?.sources) && data.sources.length === 0) {
+        flash('No connected sources to sync. Connect a platform first.');
         return;
       }
       const res = await fetch(`${API_BASE}/api/sync/status`, { headers: getAuthHeaders() });

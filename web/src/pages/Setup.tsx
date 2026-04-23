@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useSetupStatus } from '@/hooks/useSetupStatus';
-import { API_BASE, getAuthHeaders } from '@/hooks/useApi';
+import { API_BASE, getAuthHeaders, extractErrorMessage } from '@/hooks/useApi';
 import type { TrainingBase, SyncStatusResponse } from '@/types/api';
 import {
   buildStravaReturnTo,
@@ -21,7 +21,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Check, Link2, RefreshCw, Gauge, Target, ChevronRight, Sparkles } from 'lucide-react';
 import GoalEditor from '@/components/GoalEditor';
-import { Trans, useLingui } from '@lingui/react/macro';
+import { Trans, Plural, useLingui } from '@lingui/react/macro';
 
 // --- Platform metadata ---
 
@@ -410,6 +410,15 @@ export default function Setup() {
     setConnecting(false);
   };
 
+  const abortKickoff = (message: string) => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+    setSyncKickoffError(message);
+    setSyncing(false);
+  };
+
   const handleSync = async () => {
     const fromDate = new Date();
     fromDate.setDate(fromDate.getDate() - backfillDays);
@@ -426,18 +435,21 @@ export default function Setup() {
         body: JSON.stringify({ from_date: from }),
       });
       if (!res.ok) {
-        let message = `Failed to start sync (HTTP ${res.status})`;
-        try {
-          const data = await res.json();
-          if (data?.detail || data?.message) message = data.detail || data.message;
-        } catch { /* body not JSON */ }
-        setSyncKickoffError(message);
-        setSyncing(false);
+        abortKickoff(await extractErrorMessage(res, `Failed to start sync (HTTP ${res.status})`));
+        return;
+      }
+      // No connected sources → backend happily returns 200 with sources:[]. Without
+      // this guard the poller sees nothing-syncing immediately and falsely renders
+      // "Sync complete!" — the exact class of silent success this PR exists to kill.
+      const body = await res.json().catch(() => null);
+      const sources = Array.isArray(body?.sources) ? body.sources : null;
+      if (sources && sources.length === 0) {
+        abortKickoff('No connected sources to sync. Connect a platform first.');
+        return;
       }
       // Polling takes over from here
     } catch (err) {
-      setSyncKickoffError(err instanceof Error ? err.message : 'Network error');
-      setSyncing(false);
+      abortKickoff(err instanceof Error && err.message ? err.message : 'Network error');
     }
   };
 
@@ -599,8 +611,7 @@ export default function Setup() {
                 </Alert>
               )}
 
-              {/* Live sync progress — stays visible after sync ends so per-source
-                  errors don't disappear when `syncing` flips to false. */}
+              {/* Keep visible after sync ends so per-source errors survive `syncing` → false. */}
               {(syncing || syncDone) && Object.keys(liveSyncStatus).length > 0 && (
                 <div className="space-y-1">
                   {Object.entries(liveSyncStatus).map(([src, status]) => (
@@ -634,12 +645,17 @@ export default function Setup() {
                 const successes = Object.entries(liveSyncStatus).filter(
                   ([, s]) => s.status === 'done',
                 );
+                const total = failures.length + successes.length;
                 if (failures.length > 0) {
                   return (
                     <Alert variant="destructive">
                       <AlertDescription className="text-sm">
                         <p className="font-medium">
-                          <Trans>Sync failed for {failures.length} of {failures.length + successes.length} source{failures.length + successes.length === 1 ? '' : 's'}.</Trans>
+                          <Plural
+                            value={total}
+                            one={<Trans>Sync failed for {failures.length} of # source.</Trans>}
+                            other={<Trans>Sync failed for {failures.length} of # sources.</Trans>}
+                          />
                         </p>
                         <ul className="mt-2 space-y-1 list-disc list-inside">
                           {failures.map(([src, s]) => (

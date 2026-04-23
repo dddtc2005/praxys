@@ -39,7 +39,29 @@ async function apiFetcher<T>(url: string): Promise<T> {
   return res.json();
 }
 
-export { API_BASE, getAuthHeaders, apiFetcher };
+/**
+ * Pull a human-readable error message out of a non-2xx fetch Response.
+ *
+ * Tolerates three shapes we actually see in practice:
+ *  - FastAPI handler errors: `{detail: "..."}` or `{message: "..."}`
+ *  - FastAPI 422 validation: `{detail: [{msg, loc, ...}, ...]}` — the array
+ *    shape used to render as "[object Object]" when passed to React.
+ *  - Non-JSON bodies (proxy HTML, empty) — falls back to `fallback`.
+ */
+async function extractErrorMessage(res: Response, fallback: string): Promise<string> {
+  try {
+    const data = await res.json();
+    if (typeof data?.detail === 'string') return data.detail;
+    if (typeof data?.message === 'string') return data.message;
+    if (Array.isArray(data?.detail) && data.detail.length > 0) {
+      const first = data.detail[0];
+      if (typeof first?.msg === 'string') return first.msg;
+    }
+  } catch { /* not JSON */ }
+  return fallback;
+}
+
+export { API_BASE, getAuthHeaders, apiFetcher, extractErrorMessage };
 
 export function useApi<T>(url: string, options?: UseApiOptions): UseApiResult<T> {
   const { data, isLoading, error, refetch } = useQuery<T, Error>({
