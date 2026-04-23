@@ -249,10 +249,6 @@ html[lang="zh"] .landing-hero-sub { line-height: 1.7; }
   text-transform: uppercase;
   color: var(--l-ink-ghost);
 }
-/* All logo wordmarks share a unified optical height for a uniform trust band.
-   The Strava "Compatible with" lockup is horizontal with small "COMPATIBLE WITH"
-   text above the STRAVA wordmark — it needs a slightly taller render so the
-   brand name stays readable. */
 .landing-platforms-band .plogo {
   width: auto;
   object-fit: contain;
@@ -280,7 +276,9 @@ html[lang="zh"] .landing-hero-sub { line-height: 1.7; }
 /* Garmin PNG is black on transparent — invert to white on dark theme. */
 .dark .landing-platforms-band .plogo-garmin { filter: invert(1); }
 
-/* Oura SVG uses hard-coded black fill — invert on dark theme. */
+/* The standalone oura.svg asset has a hard-coded black fill — invert for dark
+   theme. (The inline OuraWordmark React component uses currentColor and does
+   not need this treatment.) */
 .dark .landing-platforms-band .plogo-oura { filter: invert(1) brightness(1.1); }
 
 /* Stryd and Strava already carry their official brand colours (orange gradient

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type SyntheticEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowUpRight } from 'lucide-react';
 import { useLocale } from '@/contexts/LocaleContext';
@@ -14,6 +14,15 @@ import './Landing.css';
  */
 const DEMO_EMAIL = import.meta.env.VITE_DEMO_EMAIL || 'demo@trainsight.dev';
 const DEMO_PASSWORD = import.meta.env.VITE_DEMO_PASSWORD || 'demo';
+
+/** If a platform logo asset is missing (renamed, 404 from CDN), hide the broken-
+ *  image icon so the trust band stays visually clean, and log enough detail to
+ *  debug the deploy. Without this the band gets a default broken-image glyph
+ *  with zero telemetry. */
+function handleLogoError(e: SyntheticEvent<HTMLImageElement>) {
+  console.warn('[landing] logo missing:', e.currentTarget.src);
+  e.currentTarget.style.display = 'none';
+}
 
 type Copy = {
   signIn: string;
@@ -171,15 +180,24 @@ export default function Landing() {
 
   const handleDemo = async () => {
     setDemoState('loading');
-    const result = await login(DEMO_EMAIL, DEMO_PASSWORD);
-    if (result.ok) {
-      navigate('/today', { replace: true });
-    } else {
+    try {
+      const result = await login(DEMO_EMAIL, DEMO_PASSWORD);
+      if (result.ok) {
+        navigate('/today', { replace: true });
+      } else {
+        // Surface the backend error detail in the console so ops can diagnose
+        // a rotated demo password or a deleted demo account (the UI can only
+        // afford a generic error string).
+        console.error('[landing] demo login failed:', result.error);
+        setDemoState('error');
+      }
+    } catch (err) {
+      console.error('[landing] demo login threw:', err);
       setDemoState('error');
     }
   };
 
-  const vizzes = [<VizScience t={t} />, <VizPersonal t={t} />, <VizClaude t={t} />] as const;
+  const Vizzes = [VizScience, VizPersonal, VizClaude] as const;
 
   return (
     <div className="landing-root">
@@ -243,26 +261,29 @@ export default function Landing() {
           </div>
 
           <div className="landing-features-grid">
-            {t.features.map((f, i) => (
-              <article key={f.idx} className="landing-fcard">
-                <span className="fidx">{f.idx}</span>
-                <div className="fviz">{vizzes[i]}</div>
-                <div className="fcap">
-                  <h3>{f.title}</h3>
-                  <p>{f.body}</p>
-                </div>
-              </article>
-            ))}
+            {t.features.map((f, i) => {
+              const Viz = Vizzes[i];
+              return (
+                <article key={f.idx} className="landing-fcard">
+                  <span className="fidx">{f.idx}</span>
+                  <div className="fviz"><Viz t={t} /></div>
+                  <div className="fcap">
+                    <h3>{f.title}</h3>
+                    <p>{f.body}</p>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </section>
 
         {/* ─── PLATFORMS (quieter) ─── */}
         <section className="landing-platforms-band">
           <span className="label">{t.platformsLabel}</span>
-          <img src="/logos/garmin.png" alt="Garmin" className="plogo plogo-garmin" />
-          <img src="/logos/stryd.svg" alt="Stryd" className="plogo plogo-stryd" />
-          <img src="/logos/oura.svg" alt="Oura" className="plogo plogo-oura" />
-          <img src="/logos/strava.svg" alt="Strava" className="plogo plogo-strava" />
+          <img src="/logos/garmin.png" alt="Garmin" className="plogo plogo-garmin" onError={handleLogoError} />
+          <img src="/logos/stryd.svg" alt="Stryd" className="plogo plogo-stryd" onError={handleLogoError} />
+          <img src="/logos/oura.svg" alt="Oura" className="plogo plogo-oura" onError={handleLogoError} />
+          <img src="/logos/strava.svg" alt="Strava" className="plogo plogo-strava" onError={handleLogoError} />
         </section>
 
         {/* ─── CLOSE ─── */}

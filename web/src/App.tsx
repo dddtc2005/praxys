@@ -101,12 +101,20 @@ function LoginGuard() {
     // SECURITY: Only allow localhost callbacks to prevent open redirect token theft
     const params = new URLSearchParams(window.location.search);
     const rawCallback = params.get('cli_callback');
-    const CLI_CALLBACK_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/callback/;
-    if (rawCallback && CLI_CALLBACK_RE.test(rawCallback)) {
-      const token = localStorage.getItem('praxys-auth-token') ?? localStorage.getItem('trainsight-auth-token');
-      if (token) {
-        window.location.href = `${rawCallback}?token=${encodeURIComponent(token)}`;
-        return null;
+    if (rawCallback) {
+      const CLI_CALLBACK_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/callback/;
+      if (!CLI_CALLBACK_RE.test(rawCallback)) {
+        // Callback provided but rejected — log so a malformed CLI link is
+        // debuggable instead of silently redirecting to the dashboard while
+        // the CLI hangs waiting for a token that never arrives.
+        console.warn('[login] CLI callback rejected (non-localhost):', rawCallback);
+      } else {
+        const token = localStorage.getItem('praxys-auth-token') ?? localStorage.getItem('trainsight-auth-token');
+        if (token) {
+          window.location.href = `${rawCallback}?token=${encodeURIComponent(token)}`;
+          return null;
+        }
+        console.warn('[login] CLI callback valid but no token in localStorage; falling through to /today');
       }
     }
     return <Navigate to="/today" replace />;
