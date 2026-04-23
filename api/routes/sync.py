@@ -272,6 +272,11 @@ def _run_sync(user_id: str, source: str, creds: dict,
 
 _CN_DI_TOKEN_URL = "https://diauth.garmin.cn/di-oauth2-service/oauth/token"  # noqa: S105
 
+# Serializes any in-flight DI_TOKEN_URL rebind. Concurrent international
+# logins in the same process would otherwise race on the module-level
+# constant — see _patch_cn_di_exchange's docstring.
+_di_token_url_lock = threading.Lock()
+
 
 def _patch_cn_di_exchange(inner_client) -> None:
     """Re-target DI Bearer token exchange to ``diauth.garmin.cn``.
@@ -280,33 +285,64 @@ def _patch_cn_di_exchange(inner_client) -> None:
     ``diauth.garmin.com``. Garmin's CN infrastructure has a parallel
     service at ``diauth.garmin.cn`` that accepts the same client IDs and
     the same (``.com``-shaped) ``grant_type`` identifier — verified via
-    ``scripts/garmin_cn_api_probe3.py``. Pointing the exchange at the CN
-    host is enough to make it issue real DI tokens for CN accounts;
+    ``scripts/garmin_diagnose.py grants``. Pointing the exchange at the
+    CN host is enough to make it issue real DI tokens for CN accounts;
     after that, ``connectapi.garmin.cn`` accepts Bearer auth normally.
 
-    The swap is scoped to this ``Client`` instance (no module-global
-    mutation) so concurrent international logins in the same process are
-    unaffected. We temporarily rebind the module-level ``DI_TOKEN_URL``
-    during the method call and restore it — the library's source-level
-    ``import`` of the name resolves at call time from the module, so a
-    bare ``DI_TOKEN_URL`` reference inside ``_exchange_service_ticket``
-    picks up our override.
+    The method *bindings* are instance-scoped (``types.MethodType`` on
+    this ``Client`` only). The library resolves ``DI_TOKEN_URL`` from its
+    module globals at call time, so the override has to transiently
+    rebind the module constant during the call and restore it in
+    ``finally``. That window IS process-global, so we serialize all CN
+    swaps with ``_di_token_url_lock`` — a concurrent international login
+    whose own exchange call overlaps the window would otherwise read the
+    CN URL and fail.
+
+    Both exchange sites need the patch:
+    * ``_exchange_service_ticket`` — called during initial login, after
+      a CAS service ticket is issued.
+    * ``_refresh_di_token`` — called by ``_refresh_session`` when a
+      persisted DI token is close to expiry. Without this, a long backfill
+      that crosses the token TTL would refresh against ``.com``, fail, and
+      silently stall on 401 cascades.
+
+    Coupled to garminconnect 0.3.x internals (``DI_TOKEN_URL`` module name,
+    ``_exchange_service_ticket`` / ``_refresh_di_token`` method names).
+    Re-validate with ``scripts/garmin_diagnose.py grants`` after any
+    upstream bump — none of these symbols are part of the library's
+    public contract.
     """
     import types
     from garminconnect import client as _gc_client
 
     orig_exchange = inner_client._exchange_service_ticket
+    orig_refresh = inner_client._refresh_di_token
 
     def _cn_exchange(self, ticket, service_url=None):
-        prev = _gc_client.DI_TOKEN_URL
-        _gc_client.DI_TOKEN_URL = _CN_DI_TOKEN_URL
-        try:
-            return orig_exchange.__func__(self, ticket, service_url=service_url)
-        finally:
-            _gc_client.DI_TOKEN_URL = prev
+        with _di_token_url_lock:
+            prev = _gc_client.DI_TOKEN_URL
+            _gc_client.DI_TOKEN_URL = _CN_DI_TOKEN_URL
+            try:
+                return orig_exchange.__func__(
+                    self, ticket, service_url=service_url,
+                )
+            finally:
+                _gc_client.DI_TOKEN_URL = prev
+
+    def _cn_refresh(self):
+        with _di_token_url_lock:
+            prev = _gc_client.DI_TOKEN_URL
+            _gc_client.DI_TOKEN_URL = _CN_DI_TOKEN_URL
+            try:
+                return orig_refresh.__func__(self)
+            finally:
+                _gc_client.DI_TOKEN_URL = prev
 
     inner_client._exchange_service_ticket = types.MethodType(
         _cn_exchange, inner_client,
+    )
+    inner_client._refresh_di_token = types.MethodType(
+        _cn_refresh, inner_client,
     )
 
 

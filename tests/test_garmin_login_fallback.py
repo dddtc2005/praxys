@@ -18,7 +18,8 @@ Background — ``garminconnect`` 0.3.x has two CN-breaking holes:
    ``_portal_service_url`` and work. We catch that specific message and
    retry ``_portal_web_login_cffi`` directly.
 
-See GitHub issue #75 and ``scripts/garmin_cn_api_probe3.py``.
+See ``docs/dev/gotchas.md`` (Garmin CN section) for the full background
+and ``scripts/garmin_diagnose.py`` for reproduction tooling.
 """
 from __future__ import annotations
 
@@ -34,6 +35,7 @@ def _make_client(login_behavior, *, is_cn: bool = True):
     portal_calls: list[tuple[str, str]] = []
     dump_calls: list[str] = []
     original_exchange = object()
+    original_refresh = object()
 
     class _FakeInnerClient:
         def __init__(self) -> None:
@@ -41,6 +43,7 @@ def _make_client(login_behavior, *, is_cn: bool = True):
             self.jwt_web: str | None = None
             self.cs = object()
             self._exchange_service_ticket = original_exchange
+            self._refresh_di_token = original_refresh
 
         def _portal_web_login_cffi(self, email: str, password: str) -> None:
             portal_calls.append((email, password))
@@ -172,30 +175,118 @@ def test_international_client_leaves_di_exchange_unchanged(tmp_path) -> None:
 
 
 def test_cn_di_patch_sets_and_restores_module_token_url() -> None:
-    """The instance-scoped override swaps the module-level
-    ``DI_TOKEN_URL`` only for the duration of the call, so concurrent
-    international logins in the same process aren't affected."""
+    """Inside the override, the module-level ``DI_TOKEN_URL`` is the CN
+    host; after the call returns it's back to the original value. The
+    window is serialized by ``_di_token_url_lock`` so concurrent
+    international logins that enter their own exchange outside this
+    window see the original ``.com`` value. Covers both patched methods:
+    ``_exchange_service_ticket`` (login path) and ``_refresh_di_token``
+    (token-expiry path)."""
     from garminconnect import client as gc_client
     from api.routes.sync import _patch_cn_di_exchange, _CN_DI_TOKEN_URL
 
-    seen_url: list[str] = []
+    seen_url: list[tuple[str, str]] = []
     original_url = gc_client.DI_TOKEN_URL
 
     class _Probe:
         def _exchange_service_ticket(self, ticket, service_url=None):
             # Capture the module-level constant at the moment the real
             # library would read it from its own globals.
-            seen_url.append(gc_client.DI_TOKEN_URL)
+            seen_url.append(("exchange", gc_client.DI_TOKEN_URL))
+
+        def _refresh_di_token(self):
+            seen_url.append(("refresh", gc_client.DI_TOKEN_URL))
 
     probe = _Probe()
     _patch_cn_di_exchange(probe)
     probe._exchange_service_ticket("ST-fake", service_url="https://x/app")
+    probe._refresh_di_token()
 
-    assert seen_url == [_CN_DI_TOKEN_URL], (
-        f"Patched exchange must see DI_TOKEN_URL={_CN_DI_TOKEN_URL!r}; "
-        f"got {seen_url!r}"
+    assert seen_url == [
+        ("exchange", _CN_DI_TOKEN_URL),
+        ("refresh", _CN_DI_TOKEN_URL),
+    ], (
+        "Both patched methods must see DI_TOKEN_URL rebound to the CN "
+        f"host during the call; got {seen_url!r}"
     )
     assert gc_client.DI_TOKEN_URL == original_url, (
         "DI_TOKEN_URL must be restored to the original .com value after "
         f"the call; got {gc_client.DI_TOKEN_URL!r}"
+    )
+
+
+def test_cn_di_patch_restores_token_url_when_exchange_raises() -> None:
+    """If the patched ``_exchange_service_ticket`` raises, the
+    ``finally`` must still restore ``DI_TOKEN_URL`` to its original
+    value. Without this, a single transient DI exchange failure would
+    poison every subsequent login in the process until a fresh patch
+    runs."""
+    from garminconnect import client as gc_client
+    from api.routes.sync import _patch_cn_di_exchange
+
+    original_url = gc_client.DI_TOKEN_URL
+
+    class _Probe:
+        def _exchange_service_ticket(self, ticket, service_url=None):
+            raise RuntimeError("simulated DI exchange failure")
+
+        def _refresh_di_token(self):
+            pass
+
+    probe = _Probe()
+    _patch_cn_di_exchange(probe)
+
+    with pytest.raises(RuntimeError, match="simulated DI exchange failure"):
+        probe._exchange_service_ticket("ST-fake")
+
+    assert gc_client.DI_TOKEN_URL == original_url, (
+        "DI_TOKEN_URL must be restored even when the inner call raises; "
+        f"got {gc_client.DI_TOKEN_URL!r}"
+    )
+
+
+def test_cn_patch_is_installed_before_login_runs(tmp_path) -> None:
+    """Invariant: for CN clients, ``_patch_cn_di_exchange`` must run
+    *before* ``client.login()`` — the very first strategy the library
+    tries goes through ``_exchange_service_ticket``, so patching after
+    login would send the first-attempt ticket to ``diauth.garmin.com``
+    and reproduce issue #75's 403 symptom while all other CN tests
+    continued to pass. This test would have caught the first-iteration
+    of the fix where the DI patch wasn't yet in place."""
+    from api.routes.sync import _login_garmin_with_cn_fallback
+
+    sentinel = object()
+    observed: list[object] = []
+
+    class _FakeInner:
+        def __init__(self) -> None:
+            self._exchange_service_ticket = sentinel
+            self._refresh_di_token = sentinel
+
+        def _portal_web_login_cffi(self, email: str, password: str) -> None:
+            pass
+
+        def dump(self, path: str) -> None:
+            pass
+
+    class _FakeGarmin:
+        is_cn = True
+
+        def __init__(self) -> None:
+            self.client = _FakeInner()
+
+        def login(self, path: str) -> None:
+            # Snapshot at login time — if the patch ran first, the
+            # sentinel is gone.
+            observed.append(self.client._exchange_service_ticket)
+
+    client = _FakeGarmin()
+    _login_garmin_with_cn_fallback(
+        client, {"email": "cn@example.com", "password": "pw"},
+        str(tmp_path / "toks"),
+    )
+
+    assert observed and observed[0] is not sentinel, (
+        "CN DI patch must be installed before Garmin.login() runs so the "
+        "first login strategy's DI exchange hits diauth.garmin.cn."
     )
