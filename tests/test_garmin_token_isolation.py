@@ -78,37 +78,22 @@ def test_sync_garmin_passes_per_user_path_to_login(tmp_path, monkeypatch) -> Non
     """The actual call site — not just the helper — must scope the token dir.
 
     A future refactor that inlined the path to a shared value would re-create
-    the bug and every helper-level test would still pass. This test patches
-    garminconnect.Garmin and asserts `login(token_dir)` receives a per-user
-    path for two different user_ids.
+    the per-user-leak bug and every helper-level test would still pass. This
+    test patches garminconnect.Garmin and asserts ``login(token_dir)``
+    receives a per-user path for two different user_ids.
+
+    In garminconnect 0.3.x the Garmin wrapper's ``login(path)`` handles
+    persistence internally (``Client.dump``) and gracefully tolerates a
+    missing tokenstore, so the sync code unconditionally passes ``token_dir``
+    and does not call dump itself. We only assert on the login argument here.
     """
     monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
 
-    # Pre-create token files so _sync_garmin passes the path to login().
-    # The bug fix makes login receive None on first-time sync (no tokens),
-    # but the isolation guarantee still matters once tokens exist — so we
-    # exercise the cached-tokens branch here.
-    for uid in ("user-a", "user-b"):
-        d = _garmin_token_dir(uid)
-        os.makedirs(d, exist_ok=True)
-        for name in ("oauth1_token.json", "oauth2_token.json"):
-            with open(os.path.join(d, name), "w") as f:
-                f.write("{}")
-
     recorded_login: list[tuple[str, str]] = []
-    recorded_dump: list[tuple[str, str]] = []
-
-    class _FakeGarth:
-        def __init__(self, email: str) -> None:
-            self._email = email
-
-        def dump(self, path: str) -> None:
-            recorded_dump.append((self._email, path))
 
     class _FakeGarminClient:
         def __init__(self, email: str, password: str, is_cn: bool = False):
             self.email = email
-            self.garth = _FakeGarth(email)
 
         def login(self, token_dir) -> None:
             recorded_login.append((self.email, token_dir))
@@ -185,36 +170,26 @@ def test_sync_garmin_passes_per_user_path_to_login(tmp_path, monkeypatch) -> Non
     assert path_a.endswith(os.sep + "user-a")
     assert path_b.endswith(os.sep + "user-b")
 
-    # Dump should also go to each user's own directory so next sync can reuse.
-    assert len(recorded_dump) == 2
-    dump_a = dict(recorded_dump)["a@example.com"]
-    dump_b = dict(recorded_dump)["b@example.com"]
-    assert dump_a.endswith(os.sep + "user-a")
-    assert dump_b.endswith(os.sep + "user-b")
 
+def test_sync_garmin_first_time_login_passes_token_dir(tmp_path, monkeypatch) -> None:
+    """Regression: the first-ever sync must still pass the per-user token
+    directory to ``login`` — even though no tokens exist yet.
 
-def test_sync_garmin_first_time_login_without_tokens(tmp_path, monkeypatch) -> None:
-    """Regression: first-ever sync must not pass a tokenstore path to login().
-
-    garminconnect.login() delegates to garth.load(), which raises
-    FileNotFoundError when oauth1_token.json / oauth2_token.json aren't in
-    the directory. Our code used to pass the path unconditionally, so the
-    first sync for any new user crashed before fetching any data. Fix: pass
-    None when no token files exist; dump after the credential-based login
-    so the next sync can use the cached tokens.
+    History: earlier versions of garminconnect delegated to garth.load(),
+    which raised FileNotFoundError on a missing directory, so the sync code
+    passed ``None`` on first connect and ``path`` once tokens existed. The
+    0.3.x ``Garmin.login`` handles missing tokenstores internally (and does
+    its own ``Client.dump`` on success). This test locks in the simpler
+    "always pass path" contract so a regression to the conditional form
+    fails loudly.
     """
     monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
 
     login_args: list[object] = []
-    dump_paths: list[str] = []
-
-    class _FakeGarth:
-        def dump(self, path: str) -> None:
-            dump_paths.append(path)
 
     class _FakeGarminClient:
         def __init__(self, email: str, password: str, is_cn: bool = False):
-            self.garth = _FakeGarth()
+            pass
 
         def login(self, token_dir) -> None:
             login_args.append(token_dir)
@@ -281,13 +256,13 @@ def test_sync_garmin_first_time_login_without_tokens(tmp_path, monkeypatch) -> N
         None, _NullDB(),
     )
 
-    assert login_args == [None], (
-        "login() must receive None when the tokenstore has no token files; "
-        f"got {login_args!r}"
+    assert len(login_args) == 1
+    passed = login_args[0]
+    assert isinstance(passed, str), (
+        f"login() must receive the tokenstore path (string), got {passed!r}"
     )
-    assert len(dump_paths) == 1
-    assert dump_paths[0].endswith(os.sep + "first-time-user"), (
-        "dump() must still scope the saved tokens per-user"
+    assert passed.endswith(os.sep + "first-time-user"), (
+        f"login() must receive the per-user path, got {passed!r}"
     )
 
 

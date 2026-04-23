@@ -270,6 +270,96 @@ def _run_sync(user_id: str, source: str, creds: dict,
         db.close()
 
 
+_CN_DI_TOKEN_URL = "https://diauth.garmin.cn/di-oauth2-service/oauth/token"  # noqa: S105
+
+
+def _patch_cn_di_exchange(inner_client) -> None:
+    """Re-target DI Bearer token exchange to ``diauth.garmin.cn``.
+
+    ``garminconnect`` 0.3.x hardcodes ``DI_TOKEN_URL`` at
+    ``diauth.garmin.com``. Garmin's CN infrastructure has a parallel
+    service at ``diauth.garmin.cn`` that accepts the same client IDs and
+    the same (``.com``-shaped) ``grant_type`` identifier — verified via
+    ``scripts/garmin_cn_api_probe3.py``. Pointing the exchange at the CN
+    host is enough to make it issue real DI tokens for CN accounts;
+    after that, ``connectapi.garmin.cn`` accepts Bearer auth normally.
+
+    The swap is scoped to this ``Client`` instance (no module-global
+    mutation) so concurrent international logins in the same process are
+    unaffected. We temporarily rebind the module-level ``DI_TOKEN_URL``
+    during the method call and restore it — the library's source-level
+    ``import`` of the name resolves at call time from the module, so a
+    bare ``DI_TOKEN_URL`` reference inside ``_exchange_service_ticket``
+    picks up our override.
+    """
+    import types
+    from garminconnect import client as _gc_client
+
+    orig_exchange = inner_client._exchange_service_ticket
+
+    def _cn_exchange(self, ticket, service_url=None):
+        prev = _gc_client.DI_TOKEN_URL
+        _gc_client.DI_TOKEN_URL = _CN_DI_TOKEN_URL
+        try:
+            return orig_exchange.__func__(self, ticket, service_url=service_url)
+        finally:
+            _gc_client.DI_TOKEN_URL = prev
+
+    inner_client._exchange_service_ticket = types.MethodType(
+        _cn_exchange, inner_client,
+    )
+
+
+def _login_garmin_with_cn_fallback(client, creds: dict, token_dir: str) -> None:
+    """Log in the Garmin client, handling the 0.3.x library's CN blind spots.
+
+    Two upstream problems overlap here:
+
+    1. **DI Bearer exchange target is ``.com`` only.** The module-level
+       ``DI_TOKEN_URL`` points at ``diauth.garmin.com``, which has no
+       record of CN accounts (always 400/401). Without a DI token,
+       ``connectapi.garmin.cn`` rejects every API call with 403 — JWT_WEB
+       cookie auth isn't accepted on the API gateway. Pointing the
+       exchange at ``diauth.garmin.cn`` produces real Bearer tokens that
+       authenticate both regions. See ``_patch_cn_di_exchange``.
+
+    2. **Mobile/widget strategies' JWT_WEB fallback is ``.com``-only.**
+       The first four login strategies can reach a point where the CAS
+       ticket is consumed against ``mobile.integration.garmin.com`` /
+       ``sso.garmin.com/sso/embed`` — for CN the DNS fails or no
+       ``JWT_WEB`` cookie is set. The library re-raises that as an auth
+       error and aborts the chain *before* reaching the portal strategies
+       (which do use the domain-aware ``_portal_service_url``). When we
+       see that specific message we retry ``_portal_web_login_cffi``
+       directly. The message match keeps real credential failures
+       (``"Invalid Username or Password"``) bubbling up.
+    """
+    import contextlib
+    from garminconnect.exceptions import GarminConnectAuthenticationError
+
+    if getattr(client, "is_cn", False):
+        _patch_cn_di_exchange(client.client)
+
+    try:
+        client.login(token_dir)
+        return
+    except GarminConnectAuthenticationError as e:
+        if "JWT_WEB cookie not set" not in str(e):
+            raise
+        logger.warning(
+            "Garmin login hit JWT_WEB fallback bug (hardcoded .com host); "
+            "retrying via portal strategy.",
+        )
+
+    inner = client.client
+    inner._portal_web_login_cffi(creds["email"], creds["password"])
+    # With the CN DI patch in place this now produces real Bearer tokens
+    # for CN accounts; ``Client.dump`` serializes only DI state, so this
+    # persistence attempt is meaningful for both regions.
+    with contextlib.suppress(Exception):
+        inner.dump(token_dir)
+
+
 def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
                  db) -> dict:
     """Fetch Garmin data and write directly to DB."""
@@ -306,20 +396,10 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
     # first-authenticated user's Garmin data.
     token_dir = _garmin_token_dir(user_id)
     os.makedirs(token_dir, exist_ok=True)
-    # garminconnect.login() delegates to garth.load(), which raises
-    # FileNotFoundError when the oauth1/oauth2 JSONs aren't present (it only
-    # catches AssertionError). Pass the tokenstore only when we have tokens
-    # to load; otherwise fall through to username/password auth. Dump after
-    # login so the next sync can skip credentials.
-    has_tokens = all(
-        os.path.isfile(os.path.join(token_dir, name))
-        for name in ("oauth1_token.json", "oauth2_token.json")
-    )
-    client.login(token_dir if has_tokens else None)
-    try:
-        client.garth.dump(token_dir)
-    except AttributeError:
-        pass  # garth not available in all garminconnect versions
+    # Garmin.login(path) transparently handles a missing tokenstore: load()
+    # raises, the exception is caught internally, and the credentials flow
+    # runs. On success it writes garmin_tokens.json back to the same path.
+    _login_garmin_with_cn_fallback(client, creds, token_dir)
 
     end = date.today().isoformat()
     start = from_date or (date.today() - timedelta(days=7)).isoformat()
