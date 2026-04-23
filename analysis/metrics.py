@@ -1163,12 +1163,15 @@ def diagnose_training(
             if pd.notna(cp_val) and cp_val > 0:
                 _cp_by_aid[aid] = float(cp_val)
 
+    # For pace, lower value = harder, so compare ratio (threshold/value)
+    # against the reciprocal of the boundary fractions.
+    inv_bounds = [1.0 / b if b > 0 else 0.0 for b in bounds] if base == "pace" else []
+
     def _classify(val: float, act_cp: float) -> int:
         if act_cp <= 0 or val <= 0:
             return 0
         if base == "pace":
             ratio = act_cp / val
-            inv_bounds = [1.0 / b if b > 0 else 0 for b in bounds]
             for i in range(len(inv_bounds) - 1, -1, -1):
                 if ratio >= inv_bounds[i]:
                     return i + 1
@@ -1185,12 +1188,16 @@ def diagnose_training(
     # counting activities per zone inflates higher zones whenever the
     # athlete does any short stride or interval, which made the displayed
     # distribution nonsensical for mixed easy + interval weeks.
+    #
+    # metric_col / duration_sec were coerced to numeric on splits_copy above
+    # before recent_splits was sliced out, so values read back as floats or
+    # NaN without re-coercing here.
     zone_time = [0.0] * n_zones
     total_time = 0.0
-    if not recent_splits.empty and current_cp > 0:
+    if not recent_splits.empty:
         for _, srow in recent_splits.iterrows():
-            val = pd.to_numeric(pd.Series([srow.get(metric_col)]), errors="coerce").iloc[0]
-            dur = pd.to_numeric(pd.Series([srow.get("duration_sec")]), errors="coerce").iloc[0]
+            val = srow.get(metric_col)
+            dur = srow.get("duration_sec")
             if pd.isna(val) or pd.isna(dur) or val <= 0 or dur <= 0:
                 continue
             aid = str(srow.get("activity_id", ""))

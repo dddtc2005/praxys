@@ -470,3 +470,52 @@ def test_diagnose_distribution_is_time_in_zone():
     assert dist["Recovery"] <= 15, f"expected Recovery ~10%, got {dist}"
     assert dist["Tempo"] == 0
     assert dist["Threshold"] == 0
+
+
+def test_diagnose_distribution_pace_base_inverts_ratio():
+    """Pace base: lower value = faster = harder zone. The classifier must
+    invert the ratio (threshold_pace / split_pace) and compare against
+    reciprocal boundary fractions, otherwise a 5:00 min/km split vs a
+    4:20 threshold pace would read as Endurance instead of Recovery.
+
+    Scenario: threshold pace = 260 s/km (4:20/km), Coggan pace boundaries
+    [1.29, 1.14, 1.06, 1.00] (multipliers of threshold pace — higher =
+    slower, so values well above 1.29x belong to Recovery).
+      - Day 1: 60 min easy @ 350 s/km (5:50/km, 350/260 = 1.35x → Recovery).
+      - Day 2: tempo workout — 10 min warmup @ 350 s/km (Recovery),
+        20 min @ 285 s/km (285/260 = 1.10x → Tempo), 10 min cooldown
+        @ 350 s/km (Recovery).
+    Total split time is 100 min: 80 min Recovery, 20 min Tempo. A
+    non-inverted (power-style) ratio would misplace these in the opposite
+    end of the scale, so this test locks in the inversion.
+    """
+    today = date(2026, 3, 23)
+    dates = [date(2026, 3, 20), date(2026, 3, 22)]
+    activities = _make_activities(dates, [10, 12])
+    rows = [
+        ("0", 350.0, 3600),
+        ("1", 350.0, 600),
+        ("1", 285.0, 1200),
+        ("1", 350.0, 600),
+    ]
+    aids, paces, durations = zip(*rows)
+    splits = pd.DataFrame({
+        "activity_id": list(aids),
+        "avg_pace_sec_km": list(paces),
+        "duration_sec": list(durations),
+    })
+    trend = {"current": 260.0, "direction": "flat", "slope_per_month": 0.0}
+
+    result = diagnose_training(
+        activities, splits, trend,
+        lookback_weeks=4, current_date=today,
+        base="pace",
+    )
+    dist = {d["name"]: d["actual_pct"] for d in result["distribution"]}
+
+    # Recovery dominates because splits are slower than threshold.
+    assert dist["Recovery"] >= 75, f"expected Recovery ~80%, got {dist}"
+    assert dist["Tempo"] >= 15, f"expected Tempo ~20%, got {dist}"
+    assert dist["VO2max"] == 0
+    assert dist["Endurance"] == 0
+    assert dist["Threshold"] == 0
