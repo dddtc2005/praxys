@@ -2,7 +2,7 @@ import type React from 'react';
 import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSettings } from '@/contexts/SettingsContext';
-import { API_BASE, getAuthHeaders } from '@/hooks/useApi';
+import { API_BASE, getAuthHeaders, extractErrorMessage } from '@/hooks/useApi';
 import type { TrainingBase, SyncStatusResponse, SettingsConfig } from '@/types/api';
 import {
   buildStravaReturnTo,
@@ -394,10 +394,32 @@ export default function Settings() {
     const headers: Record<string, string> = { ...getAuthHeaders() as Record<string, string> };
     if (body) headers['Content-Type'] = 'application/json';
     try {
-      await fetch(url, { method: 'POST', headers, body });
+      const kickoff = await fetch(url, { method: 'POST', headers, body });
+      if (!kickoff.ok) {
+        flash(await extractErrorMessage(kickoff, `Failed to start sync (HTTP ${kickoff.status})`));
+        return;
+      }
+      // Backend sync endpoints return HTTP 200 with {status: "error"|"already_syncing"}
+      // for missing credentials or in-flight syncs. Without this check those just
+      // silently no-op — the exact bug this PR class is fixing.
+      const data = await kickoff.json().catch(() => null);
+      if (data?.status === 'error' && typeof data?.message === 'string') {
+        flash(data.message);
+        return;
+      }
+      if (data?.status === 'already_syncing') {
+        flash(`Sync already in progress${data.source ? ` for ${data.source}` : ''}.`);
+        return;
+      }
+      if (!source && Array.isArray(data?.sources) && data.sources.length === 0) {
+        flash('No connected sources to sync. Connect a platform first.');
+        return;
+      }
       const res = await fetch(`${API_BASE}/api/sync/status`, { headers: getAuthHeaders() });
       setSyncStatus(await res.json());
-    } catch { /* ignore */ }
+    } catch (err) {
+      flash(err instanceof Error && err.message ? err.message : 'Network error');
+    }
   };
 
   const handleSyncIntervalChange = async (value: string | null) => {
@@ -843,6 +865,12 @@ export default function Settings() {
                   {isConnected && status?.last_sync && (
                     <p className="text-xs text-muted-foreground">
                       <Trans>Last synced {new Date(status.last_sync).toLocaleString()}</Trans>
+                    </p>
+                  )}
+
+                  {isConnected && status?.status === 'error' && status.error && (
+                    <p className="text-xs text-destructive break-words">
+                      <Trans>Last sync failed: {status.error}</Trans>
                     </p>
                   )}
 

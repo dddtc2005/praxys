@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useSetupStatus } from '@/hooks/useSetupStatus';
-import { API_BASE, getAuthHeaders } from '@/hooks/useApi';
+import { API_BASE, getAuthHeaders, extractErrorMessage } from '@/hooks/useApi';
 import type { TrainingBase, SyncStatusResponse } from '@/types/api';
 import {
   buildStravaReturnTo,
@@ -21,7 +21,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Check, Link2, RefreshCw, Gauge, Target, ChevronRight, Sparkles } from 'lucide-react';
 import GoalEditor from '@/components/GoalEditor';
-import { Trans, useLingui } from '@lingui/react/macro';
+import { Trans, Plural, useLingui } from '@lingui/react/macro';
 
 // --- Platform metadata ---
 
@@ -231,6 +231,7 @@ export default function Setup() {
   // Sync state
   const [syncing, setSyncing] = useState(false);
   const [syncDone, setSyncDone] = useState(false);
+  const [syncKickoffError, setSyncKickoffError] = useState('');
   const [backfillDays, setBackfillDays] = useState(180);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [liveSyncStatus, setLiveSyncStatus] = useState<SyncStatusResponse>({});
@@ -409,6 +410,15 @@ export default function Setup() {
     setConnecting(false);
   };
 
+  const abortKickoff = (message: string) => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+    setSyncKickoffError(message);
+    setSyncing(false);
+  };
+
   const handleSync = async () => {
     const fromDate = new Date();
     fromDate.setDate(fromDate.getDate() - backfillDays);
@@ -416,15 +426,30 @@ export default function Setup() {
 
     setSyncing(true);
     setSyncDone(false);
+    setSyncKickoffError('');
+    setLiveSyncStatus({});
     try {
-      await fetch(`${API_BASE}/api/sync`, {
+      const res = await fetch(`${API_BASE}/api/sync`, {
         method: 'POST',
         headers: { ...getAuthHeaders() as Record<string, string>, 'Content-Type': 'application/json' },
         body: JSON.stringify({ from_date: from }),
       });
+      if (!res.ok) {
+        abortKickoff(await extractErrorMessage(res, `Failed to start sync (HTTP ${res.status})`));
+        return;
+      }
+      // No connected sources → backend happily returns 200 with sources:[]. Without
+      // this guard the poller sees nothing-syncing immediately and falsely renders
+      // "Sync complete!" — the exact class of silent success this PR exists to kill.
+      const body = await res.json().catch(() => null);
+      const sources = Array.isArray(body?.sources) ? body.sources : null;
+      if (sources && sources.length === 0) {
+        abortKickoff('No connected sources to sync. Connect a platform first.');
+        return;
+      }
       // Polling takes over from here
-    } catch {
-      setSyncing(false);
+    } catch (err) {
+      abortKickoff(err instanceof Error && err.message ? err.message : 'Network error');
     }
   };
 
@@ -580,8 +605,14 @@ export default function Setup() {
                 </Button>
               </div>
 
-              {/* Live sync progress */}
-              {syncing && Object.keys(liveSyncStatus).length > 0 && (
+              {syncKickoffError && (
+                <Alert variant="destructive">
+                  <AlertDescription>{syncKickoffError}</AlertDescription>
+                </Alert>
+              )}
+
+              {/* Keep visible after sync ends so per-source errors survive `syncing` → false. */}
+              {(syncing || syncDone) && Object.keys(liveSyncStatus).length > 0 && (
                 <div className="space-y-1">
                   {Object.entries(liveSyncStatus).map(([src, status]) => (
                     <div key={src} className="flex items-center justify-between text-xs">
@@ -607,13 +638,47 @@ export default function Setup() {
                 </div>
               )}
 
-              {syncDone && (
-                <Alert className="border-primary/30 bg-primary/5">
-                  <AlertDescription className="text-sm text-primary">
-                    <Trans>Sync complete! Your data is ready.</Trans>
-                  </AlertDescription>
-                </Alert>
-              )}
+              {syncDone && (() => {
+                const failures = Object.entries(liveSyncStatus).filter(
+                  ([, s]) => s.status === 'error',
+                );
+                const successes = Object.entries(liveSyncStatus).filter(
+                  ([, s]) => s.status === 'done',
+                );
+                const total = failures.length + successes.length;
+                if (failures.length > 0) {
+                  return (
+                    <Alert variant="destructive">
+                      <AlertDescription className="text-sm">
+                        <p className="font-medium">
+                          <Plural
+                            value={total}
+                            one={<Trans>Sync failed for {failures.length} of # source.</Trans>}
+                            other={<Trans>Sync failed for {failures.length} of # sources.</Trans>}
+                          />
+                        </p>
+                        <ul className="mt-2 space-y-1 list-disc list-inside">
+                          {failures.map(([src, s]) => (
+                            <li key={src}>
+                              <span className="capitalize">{src}</span>: {s.error || 'Unknown error'}
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="mt-2 text-xs opacity-80">
+                          <Trans>Check your credentials in the connection step, then try again.</Trans>
+                        </p>
+                      </AlertDescription>
+                    </Alert>
+                  );
+                }
+                return (
+                  <Alert className="border-primary/30 bg-primary/5">
+                    <AlertDescription className="text-sm text-primary">
+                      <Trans>Sync complete! Your data is ready.</Trans>
+                    </AlertDescription>
+                  </Alert>
+                );
+              })()}
             </div>
           )}
           {setup.hasSyncedData && (
