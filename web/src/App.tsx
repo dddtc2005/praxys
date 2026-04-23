@@ -15,6 +15,7 @@ import Settings from './pages/Settings';
 import Setup from './pages/Setup';
 import Admin from './pages/Admin';
 import Login from './pages/Login';
+import Landing from './pages/Landing';
 import { useSetupStatus } from './hooks/useSetupStatus';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -40,6 +41,7 @@ export default function App() {
         <TooltipProvider>
           <BrowserRouter>
             <Routes>
+              <Route path="/" element={<LandingOrApp />} />
               <Route path="/login" element={<LoginGuard />} />
               <Route
                 element={
@@ -53,7 +55,7 @@ export default function App() {
                   </RequireAuth>
                 }
               >
-                <Route index element={<TodayOrSetup />} />
+                <Route path="today" element={<TodayOrSetup />} />
                 <Route path="setup" element={<Setup />} />
                 <Route path="training" element={<Training />} />
                 <Route path="goal" element={<Goal />} />
@@ -79,6 +81,15 @@ function TodayOrSetup() {
   return <Today />;
 }
 
+/** Public landing page for unauthenticated visitors; authed users go straight to the app. */
+function LandingOrApp() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) return null;
+  if (isAuthenticated) return <Navigate to="/today" replace />;
+  return <Landing />;
+}
+
 /** If already authenticated, redirect away from login page. */
 function LoginGuard() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -98,7 +109,7 @@ function LoginGuard() {
         return null;
       }
     }
-    return <Navigate to="/" replace />;
+    return <Navigate to="/today" replace />;
   }
 
   return <Login />;

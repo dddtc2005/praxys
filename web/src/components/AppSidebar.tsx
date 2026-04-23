@@ -58,8 +58,8 @@ export default function AppSidebar() {
 
   // Dynamic nav: show Setup instead of Today when onboarding is incomplete
   const homeItem = setup.allDone || setup.loading
-    ? { to: '/', icon: Sun, label: t`Today` }
-    : { to: '/', icon: ListChecks, label: `${t`Setup`} (${setup.completed}/${setup.total})` };
+    ? { to: '/today', icon: Sun, label: t`Today` }
+    : { to: '/today', icon: ListChecks, label: `${t`Setup`} (${setup.completed}/${setup.total})` };
 
   const navItems = [
     homeItem,
@@ -95,8 +95,8 @@ export default function AppSidebar() {
             <SidebarMenu>
               {navItems.map(({ to, icon: Icon, label }) => {
                 const isActive =
-                  to === '/'
-                    ? location.pathname === '/'
+                  to === '/today'
+                    ? location.pathname === '/today'
                     : location.pathname.startsWith(to);
                 return (
                   <SidebarMenuItem key={to}>

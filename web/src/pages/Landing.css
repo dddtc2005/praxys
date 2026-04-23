@@ -1,0 +1,725 @@
+/* ============================================================
+   Landing page — product-first, locale-pure
+   Tokens align with docs/brand/index.html; scoped to `.landing-root`
+   ============================================================ */
+
+.landing-root {
+  --l-paper: oklch(0.975 0.008 85);
+  --l-paper-warm: oklch(0.955 0.012 85);
+  --l-ink: oklch(0.18 0.02 260);
+  --l-ink-soft: oklch(0.40 0.02 260);
+  --l-ink-ghost: oklch(0.60 0.015 260);
+  --l-rule: oklch(0.87 0.008 85);
+  --l-rule-soft: oklch(0.93 0.006 85);
+  --l-card: oklch(0.99 0.004 85);
+  --l-primary: oklch(0.55 0.16 155);
+  --l-primary-soft: oklch(0.88 0.06 155);
+  --l-cobalt: oklch(0.50 0.18 258);
+  --l-cobalt-soft: oklch(0.90 0.04 258);
+  --l-amber: oklch(0.72 0.15 75);
+  --l-rust: oklch(0.55 0.18 30);
+  --l-grain: 0.04;
+
+  --l-font-display: 'Geist', 'DM Sans', system-ui, sans-serif;
+  --l-font-body: 'Geist', 'DM Sans', system-ui, sans-serif;
+  --l-font-data: 'JetBrains Mono', ui-monospace, monospace;
+
+  background: var(--l-paper);
+  color: var(--l-ink);
+  min-height: 100vh;
+  position: relative;
+  overflow-x: clip;
+  font-family: var(--l-font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+html[lang="zh"] .landing-root {
+  --l-font-display: 'Noto Sans SC', 'Geist', sans-serif;
+  --l-font-body: 'Noto Sans SC', 'Geist', sans-serif;
+}
+
+.dark .landing-root {
+  --l-paper: oklch(0.16 0.013 260);
+  --l-paper-warm: oklch(0.20 0.014 260);
+  --l-ink: oklch(0.96 0.006 260);
+  --l-ink-soft: oklch(0.74 0.013 260);
+  --l-ink-ghost: oklch(0.55 0.013 260);
+  --l-rule: oklch(0.30 0.013 260);
+  --l-rule-soft: oklch(0.25 0.013 260);
+  --l-card: oklch(0.21 0.014 260);
+  --l-primary: oklch(0.82 0.18 155);
+  --l-primary-soft: oklch(0.32 0.09 155);
+  --l-cobalt: oklch(0.74 0.14 258);
+  --l-cobalt-soft: oklch(0.28 0.07 258);
+  --l-grain: 0.025;
+}
+
+/* ─── Atmospheric background ───────────────────────────── */
+.landing-root::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 70% 50% at 10% -10%, color-mix(in oklab, var(--l-primary) 8%, transparent) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 95% 20%, color-mix(in oklab, var(--l-cobalt) 5%, transparent) 0%, transparent 55%);
+}
+
+.landing-root::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: var(--l-grain);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.85' numOctaves='2' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ─── Container ─────────────────────────────────────────── */
+.landing-container {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 clamp(20px, 4vw, 44px);
+}
+
+/* ─── Header ────────────────────────────────────────────── */
+.landing-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: color-mix(in oklab, var(--l-paper) 88%, transparent);
+  backdrop-filter: saturate(180%) blur(14px);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  border-bottom: 1px solid var(--l-rule);
+}
+
+.landing-header-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 12px clamp(18px, 4vw, 44px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.landing-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.landing-brand .name {
+  font-family: var(--l-font-display);
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: -0.02em;
+  color: var(--l-ink);
+}
+
+.landing-header-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ─── Language toggle ───────────────────────────────────── */
+.landing-lang-toggle {
+  display: inline-flex;
+  border: 1px solid var(--l-rule);
+  border-radius: 2px;
+  overflow: hidden;
+  font-family: var(--l-font-data);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  background: var(--l-card);
+}
+.landing-lang-toggle button {
+  padding: 6px 10px;
+  background: transparent;
+  color: var(--l-ink-soft);
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: inherit;
+  transition: background 160ms ease, color 160ms ease;
+}
+.landing-lang-toggle button + button { border-left: 1px solid var(--l-rule); }
+.landing-lang-toggle button:hover:not(.active) { color: var(--l-ink); }
+.landing-lang-toggle button.active {
+  background: var(--l-ink);
+  color: var(--l-paper);
+}
+
+/* ─── HERO ──────────────────────────────────────────────── */
+.landing-hero {
+  padding: clamp(48px, 9vw, 96px) 0 clamp(32px, 5vw, 56px);
+}
+
+.landing-hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--l-font-data);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--l-ink-soft);
+  margin-bottom: 22px;
+}
+.landing-hero-eyebrow::before {
+  content: '';
+  width: 18px;
+  height: 1px;
+  background: var(--l-primary);
+}
+
+.landing-hero h1 {
+  font-family: var(--l-font-display);
+  font-weight: 500;
+  font-size: clamp(38px, 6.2vw, 76px);
+  letter-spacing: -0.035em;
+  line-height: 1.02;
+  color: var(--l-ink);
+  margin: 0 0 22px;
+  max-width: 18ch;
+}
+.landing-hero h1 .accent {
+  color: var(--l-primary);
+  font-weight: 600;
+  font-style: normal;
+}
+
+html[lang="zh"] .landing-hero h1 {
+  font-size: clamp(30px, 5.5vw, 62px);
+  letter-spacing: 0.005em;
+  line-height: 1.2;
+  max-width: 16ch;
+}
+
+.landing-hero-sub {
+  font-family: var(--l-font-body);
+  font-size: clamp(16px, 1.6vw, 19px);
+  font-weight: 400;
+  line-height: 1.55;
+  color: var(--l-ink-soft);
+  max-width: 52ch;
+  margin: 0 0 clamp(30px, 4vw, 40px);
+}
+html[lang="zh"] .landing-hero-sub { line-height: 1.7; }
+
+.landing-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+}
+
+.landing-demo-error {
+  margin-top: 20px;
+  padding: 10px 14px;
+  background: color-mix(in oklab, var(--l-rust) 6%, var(--l-card));
+  border: 1px solid color-mix(in oklab, var(--l-rust) 30%, var(--l-rule));
+  border-left: 3px solid var(--l-rust);
+  border-radius: 2px;
+  font-family: var(--l-font-data);
+  font-size: 11.5px;
+  color: var(--l-rust);
+  max-width: 48ch;
+}
+
+/* ─── Platform trust band (quieter, below features) ─────── */
+.landing-platforms-band {
+  padding: clamp(28px, 4vw, 44px) 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 14px 28px;
+  color: var(--l-ink-ghost);
+  border-top: 1px solid var(--l-rule-soft);
+  border-bottom: 1px solid var(--l-rule-soft);
+  opacity: 0.9;
+}
+.landing-platforms-band .label {
+  font-family: var(--l-font-data);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--l-ink-ghost);
+}
+/* All logo wordmarks share a unified optical height for a uniform trust band.
+   The Strava "Compatible with" lockup is horizontal with small "COMPATIBLE WITH"
+   text above the STRAVA wordmark — it needs a slightly taller render so the
+   brand name stays readable. */
+.landing-platforms-band .plogo {
+  width: auto;
+  object-fit: contain;
+  opacity: 0.72;
+  transition: opacity 200ms ease;
+  flex-shrink: 0;
+}
+.landing-platforms-band .plogo:hover { opacity: 1; }
+
+/* Each wordmark is tuned to land at roughly the same *optical* cap-height.
+   - Bold chunky marks (STRYD gradient, STRAVA) are rendered smaller than their
+     bounding box would suggest — at equal pixel heights they out-weight the
+     thin marks visually.
+   - "garmin." is lowercase (x-height is ~70% of cap-height), so render slightly
+     taller than the uppercase marks. The source PNG is now cropped tight so
+     the bbox matches the ink; no extra compensation needed.
+   - "ŌURA" has a macron that eats ~19% of its bbox above the cap-line → render
+     taller and nudge up by ~2px so letter-centres (not bbox-centres) land on the
+     band's baseline. Without the translate, ŌURA sits visibly low. */
+.landing-platforms-band .plogo-garmin { height: 18px; }
+.landing-platforms-band .plogo-stryd  { height: 18px; }
+.landing-platforms-band .plogo-oura   { height: 22px; transform: translateY(-2px); }
+.landing-platforms-band .plogo-strava { height: 18px; }
+
+/* Garmin PNG is black on transparent — invert to white on dark theme. */
+.dark .landing-platforms-band .plogo-garmin { filter: invert(1); }
+
+/* Oura SVG uses hard-coded black fill — invert on dark theme. */
+.dark .landing-platforms-band .plogo-oura { filter: invert(1) brightness(1.1); }
+
+/* Stryd and Strava already carry their official brand colours (orange gradient
+   and solid orange respectively), so they need no theme-specific treatment. */
+
+/* ─── FEATURES ──────────────────────────────────────────── */
+.landing-features {
+  padding: clamp(48px, 8vw, 88px) 0 clamp(32px, 5vw, 56px);
+  border-top: 1px solid var(--l-rule);
+}
+
+.landing-features-head {
+  margin-bottom: clamp(32px, 5vw, 56px);
+  max-width: 640px;
+}
+.landing-features-head .eyebrow {
+  display: inline-block;
+  font-family: var(--l-font-data);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--l-primary);
+  margin-bottom: 12px;
+  padding: 3px 8px;
+  border: 1px solid color-mix(in oklab, var(--l-primary) 35%, transparent);
+  border-radius: 2px;
+}
+.landing-features-head h2 {
+  font-family: var(--l-font-display);
+  font-weight: 500;
+  font-size: clamp(26px, 3.6vw, 40px);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--l-ink);
+  margin: 0;
+}
+html[lang="zh"] .landing-features-head h2 { letter-spacing: 0.005em; line-height: 1.3; }
+
+.landing-features-grid {
+  display: grid;
+  gap: clamp(18px, 2.2vw, 24px);
+  grid-template-columns: repeat(3, 1fr);
+  align-items: stretch;
+}
+
+@media (max-width: 880px) {
+  .landing-features-grid { grid-template-columns: 1fr; }
+}
+
+.landing-fcard {
+  background: var(--l-card);
+  border: 1px solid var(--l-rule);
+  border-radius: 6px;
+  padding: clamp(22px, 3vw, 28px);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  height: 100%;
+  transition: transform 260ms cubic-bezier(0.2, 0.65, 0.3, 1), border-color 260ms ease, box-shadow 260ms ease;
+}
+.landing-fcard:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in oklab, var(--l-primary) 40%, var(--l-rule));
+  box-shadow: 0 12px 30px -18px color-mix(in oklab, var(--l-primary) 50%, transparent);
+}
+
+/* Chapter-style index marker at the top of each card. */
+.landing-fcard .fidx {
+  font-family: var(--l-font-data);
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  color: var(--l-primary);
+  font-weight: 500;
+  text-transform: uppercase;
+  padding-bottom: 6px;
+  border-bottom: 1px solid color-mix(in oklab, var(--l-primary) 20%, var(--l-rule-soft));
+}
+
+.landing-fcard .fviz {
+  background: var(--l-paper-warm);
+  border: 1px solid var(--l-rule-soft);
+  border-radius: 4px;
+  padding: 18px;
+  min-height: 130px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.landing-fcard .fcap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+.landing-fcard h3 {
+  font-family: var(--l-font-display);
+  font-weight: 500;
+  font-size: 18px;
+  letter-spacing: -0.015em;
+  color: var(--l-ink);
+  margin: 0;
+  line-height: 1.3;
+}
+html[lang="zh"] .landing-fcard h3 { letter-spacing: 0.005em; line-height: 1.4; }
+.landing-fcard p {
+  font-family: var(--l-font-body);
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--l-ink-soft);
+  margin: 0;
+}
+html[lang="zh"] .landing-fcard p { font-size: 13px; line-height: 1.8; }
+
+/* ─── Mini viz: Personalization zones ───────────────────── */
+.miniviz-cp {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.miniviz-cp .stat {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.miniviz-cp .stat-label {
+  font-family: var(--l-font-data);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--l-ink-ghost);
+}
+.miniviz-cp .stat-value {
+  font-family: var(--l-font-data);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'zero' 1;
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--l-ink);
+  line-height: 1;
+}
+.miniviz-cp .stat-unit {
+  font-family: var(--l-font-display);
+  font-size: 12px;
+  color: var(--l-ink-ghost);
+  font-weight: 400;
+}
+.miniviz-cp .stat-delta {
+  margin-left: auto;
+  font-family: var(--l-font-data);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--l-primary);
+  letter-spacing: 0.04em;
+}
+.miniviz-cp .zone-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 2px;
+  overflow: hidden;
+  gap: 2px;
+}
+.miniviz-cp .zone {
+  border-radius: 2px;
+}
+.miniviz-cp .zone.z1 { background: color-mix(in oklab, var(--l-cobalt) 55%, var(--l-card)); }
+.miniviz-cp .zone.z2 { background: color-mix(in oklab, var(--l-cobalt) 75%, transparent); }
+.miniviz-cp .zone.z3 { background: var(--l-primary); }
+.miniviz-cp .zone.z4 { background: var(--l-amber); }
+.miniviz-cp .zone.z5 { background: var(--l-rust); }
+.miniviz-cp .zone-legend {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--l-font-data);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  color: var(--l-ink-ghost);
+}
+
+/* ─── Mini viz: Formula card ────────────────────────────── */
+.miniviz-formula {
+  background: color-mix(in oklab, var(--l-cobalt) 5%, var(--l-card));
+  border: 1px solid color-mix(in oklab, var(--l-cobalt) 22%, var(--l-rule));
+  border-left: 3px solid var(--l-cobalt);
+  border-radius: 2px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.miniviz-formula .eyebrow {
+  font-family: var(--l-font-data);
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--l-cobalt);
+}
+.miniviz-formula .expr {
+  font-family: var(--l-font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+  color: var(--l-ink);
+  letter-spacing: -0.01em;
+  line-height: 1.5;
+}
+.miniviz-formula .expr .v {
+  color: var(--l-primary);
+  font-weight: 600;
+}
+.miniviz-formula .sub {
+  font-family: var(--l-font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 13.5px;
+  color: var(--l-ink-soft);
+  letter-spacing: -0.005em;
+}
+.miniviz-formula .sub .res {
+  color: var(--l-primary);
+  font-weight: 600;
+  font-size: 15px;
+}
+.miniviz-formula .cite {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed color-mix(in oklab, var(--l-cobalt) 25%, var(--l-rule));
+  font-family: var(--l-font-data);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  color: var(--l-ink-ghost);
+}
+
+/* ─── Mini viz: Claude conversation ─────────────────────── */
+.miniviz-claude {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-family: var(--l-font-data);
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+.miniviz-claude .line {
+  display: flex;
+  gap: 6px;
+}
+.miniviz-claude .line.prompt {
+  color: var(--l-ink);
+  font-weight: 500;
+  letter-spacing: -0.003em;
+}
+.miniviz-claude .line.prompt .chev {
+  color: var(--l-primary);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.miniviz-claude .line.answer {
+  color: var(--l-ink-soft);
+  padding-left: 13px;
+  border-left: 2px solid color-mix(in oklab, var(--l-primary) 40%, var(--l-rule));
+  letter-spacing: -0.003em;
+  animation: typingIn 1.6s ease-out both;
+  animation-delay: 420ms;
+}
+.miniviz-claude .cite {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed color-mix(in oklab, var(--l-cobalt) 25%, var(--l-rule));
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  color: var(--l-cobalt);
+  text-transform: uppercase;
+}
+@keyframes typingIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Final CTA ─────────────────────────────────────────── */
+.landing-close {
+  padding: clamp(48px, 7vw, 80px) 0 clamp(36px, 5vw, 56px);
+  border-top: 1px solid var(--l-rule);
+  text-align: center;
+}
+.landing-close h2 {
+  font-family: var(--l-font-display);
+  font-weight: 500;
+  font-size: clamp(26px, 3.6vw, 40px);
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: var(--l-ink);
+  margin: 0 auto 28px;
+  max-width: 22ch;
+}
+html[lang="zh"] .landing-close h2 { letter-spacing: 0.005em; line-height: 1.35; max-width: 18ch; }
+
+.landing-close .microcopy {
+  margin-top: 20px;
+  font-family: var(--l-font-data);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--l-ink-ghost);
+}
+.landing-close-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 18px;
+}
+
+/* ─── Buttons ───────────────────────────────────────────── */
+.landing-btn-primary {
+  font-family: var(--l-font-display);
+  font-weight: 500;
+  font-size: 14.5px;
+  letter-spacing: -0.008em;
+  padding: 13px 24px;
+  background: var(--l-primary);
+  color: oklch(0.98 0.005 85);
+  border: 1px solid var(--l-primary);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: transform 220ms cubic-bezier(0.2, 0.65, 0.3, 1), box-shadow 220ms ease, filter 200ms ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  box-shadow: 0 1px 0 color-mix(in oklab, var(--l-ink) 15%, transparent);
+}
+.landing-btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px -10px color-mix(in oklab, var(--l-primary) 50%, transparent);
+  filter: brightness(1.04);
+}
+.landing-btn-primary:disabled {
+  opacity: 0.72;
+  cursor: progress;
+}
+.landing-btn-primary svg { transition: transform 220ms cubic-bezier(0.2, 0.65, 0.3, 1); }
+.landing-btn-primary:hover:not(:disabled) svg { transform: translate(2px, -2px); }
+
+.landing-btn-ghost {
+  font-family: var(--l-font-data);
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--l-ink-soft);
+  text-decoration: none;
+  padding: 0 0 4px;
+  border-bottom: 1px solid color-mix(in oklab, var(--l-ink-soft) 30%, transparent);
+  transition: color 180ms ease, border-color 180ms ease;
+}
+.landing-btn-ghost:hover {
+  color: var(--l-primary);
+  border-bottom-color: var(--l-primary);
+}
+
+.landing-btn-signin {
+  font-family: var(--l-font-data);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--l-ink);
+  background: transparent;
+  border: 1px solid var(--l-ink);
+  border-radius: 2px;
+  padding: 6px 13px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 180ms ease, color 180ms ease;
+}
+.landing-btn-signin:hover {
+  background: var(--l-ink);
+  color: var(--l-paper);
+}
+
+/* ─── Footer ────────────────────────────────────────────── */
+.landing-footer {
+  border-top: 1px solid var(--l-rule);
+  padding: 24px 0 36px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--l-font-data);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  color: var(--l-ink-ghost);
+  text-transform: uppercase;
+}
+.landing-footer .fbrand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-family: var(--l-font-display);
+  color: var(--l-ink-soft);
+  font-size: 12px;
+}
+
+/* Fine-print middle slot in the footer (e.g. the Strava brand-policy
+   disclaimer). Kept in the same uppercase caption size as the right-hand
+   domain text so the three items read as a tidy baseline row. */
+.landing-footer .fnote {
+  opacity: 0.78;
+}
+
+/* ─── Entry animation ───────────────────────────────────── */
+@keyframes landingRise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.landing-rise { animation: landingRise 640ms cubic-bezier(0.2, 0.65, 0.3, 1) both; }
+.landing-rise-1 { animation-delay: 40ms; }
+.landing-rise-2 { animation-delay: 120ms; }
+.landing-rise-3 { animation-delay: 200ms; }
+.landing-rise-4 { animation-delay: 280ms; }
+.landing-rise-5 { animation-delay: 360ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-rise, .landing-rise-1, .landing-rise-2, .landing-rise-3, .landing-rise-4, .landing-rise-5 { animation: none; }
+  .miniviz-unified .src-dot { animation: none; }
+}
+
+/* ─── Mobile refinements ────────────────────────────────── */
+@media (max-width: 640px) {
+  .landing-header-inner { padding: 11px 18px; }
+  .landing-hero { padding-top: 40px; }
+  .landing-hero-actions { gap: 14px; }
+  .landing-btn-primary { padding: 12px 20px; font-size: 14px; }
+  .landing-platforms { gap: 10px 14px; }
+  .landing-platforms .plat { font-size: 13.5px; }
+  .landing-platforms .dot { display: none; }
+  .landing-fcard { padding: 20px; }
+  .landing-fcard .fviz { min-height: 110px; padding: 16px; }
+  .landing-features-head h2 { font-size: 26px; }
+  .landing-close h2 { font-size: 26px; }
+}

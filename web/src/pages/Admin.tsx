@@ -82,7 +82,7 @@ export default function Admin() {
   useEffect(() => { fetchData(); }, []);
 
   // Redirect non-admins (after all hooks to satisfy Rules of Hooks)
-  if (!isAdmin) return <Navigate to="/" replace />;
+  if (!isAdmin) return <Navigate to="/today" replace />;
 
   const handleGenerateInvite = async () => {
     const res = await fetch(`${API_BASE}/api/admin/invitations`, {

@@ -22,74 +22,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Check, Link2, RefreshCw, Gauge, Target, ChevronRight, Sparkles } from 'lucide-react';
 import GoalEditor from '@/components/GoalEditor';
 import { Trans, Plural, useLingui } from '@lingui/react/macro';
+import { GarminWordmark, StrydWordmark, StravaWordmark, OuraWordmark } from '@/components/PlatformWordmark';
 
 // --- Platform metadata ---
-
-/**
- * Official brand wordmark logos used in platform cards.
- * These replace text labels — the logo IS the name.
- */
-function GarminWordmark({ className }: { className?: string }) {
-  // Garmin wordmark — white PNG for dark theme, inverted for light
-  return (
-    <img
-      src="/logos/garmin-white.png"
-      alt="Garmin"
-      className={`h-5 dark:invert-0 invert ${className ?? ''}`}
-    />
-  );
-}
-
-function StrydWordmark({ className }: { className?: string }) {
-  // Stryd wordmark — orange-to-gold gradient
-  return (
-    <svg viewBox="0 0 427 109" fill="none" className={`h-5 w-auto ${className ?? ''}`} aria-label="Stryd">
-      <path d="M0.659 88.881C4.509 95.84 15.317 108.869 39.451 108.869C63.437 108.869 74.245 96.136 78.243 88.881V62.082C74.541 55.716 67.138 48.313 44.485 43.427L37.674 41.946C31.308 40.614 28.939 38.689 27.606 36.172V28.028C29.235 25.215 33.084 21.958 39.451 21.958C45.669 21.958 49.815 24.919 51.296 28.028V35.876H78.243V20.625C74.541 13.815 63.437 0.785 39.451 0.785C15.317 0.785 4.361 13.815 0.659 20.625V46.092C4.212 52.458 11.912 59.565 34.713 64.599L41.376 66.08C47.446 67.412 49.815 69.337 51.296 72.002V81.626C49.519 84.736 45.669 87.697 39.451 87.697C33.084 87.697 29.235 84.736 27.606 81.626V73.039H0.659V88.881Z" fill="url(#stryd_g0)"/>
-      <path d="M108.424 106.648H136.555V23.587H158.912V3.006H85.919V23.587H108.424V106.648Z" fill="url(#stryd_g1)"/>
-      <path d="M169.875 106.648H198.006V70.226H205.113L226.286 106.648H248.643V91.546L232.504 66.524C239.019 63.415 244.053 58.529 247.458 52.458V20.625C240.944 9.373 229.247 3.006 215.921 3.006H169.875V106.648ZM198.006 50.83V23.587H209.555C214.885 23.587 219.031 25.659 220.807 29.213V45.351C219.031 48.905 215.181 50.83 209.555 50.83H198.006Z" fill="url(#stryd_g2)"/>
-      <path d="M280.697 106.648H308.828V67.264L335.479 18.108V3.006H312.53L298.02 35.728H295.207L280.993 3.006H255.526V18.108L280.697 64.451V106.648Z" fill="url(#stryd_g3)"/>
-      <path d="M374.551 86.068V23.587H386.1C392.318 23.587 396.612 26.4 398.092 29.953V79.701C396.612 83.255 392.318 86.068 386.1 86.068H374.551ZM346.419 106.648H392.022C410.974 106.648 421.782 95.988 426.224 86.216V23.439C421.782 13.667 410.974 3.006 392.022 3.006H346.419V106.648Z" fill="url(#stryd_g4)"/>
-      <defs>
-        <linearGradient id="stryd_g0" x1="-5.4" y1="57.2" x2="433" y2="57.2" gradientUnits="userSpaceOnUse"><stop stopColor="#F77120"/><stop offset="1" stopColor="#FECA2F"/></linearGradient>
-        <linearGradient id="stryd_g1" x1="-5.4" y1="57.2" x2="433" y2="57.2" gradientUnits="userSpaceOnUse"><stop stopColor="#F77120"/><stop offset="1" stopColor="#FECA2F"/></linearGradient>
-        <linearGradient id="stryd_g2" x1="-5.4" y1="57.2" x2="433" y2="57.2" gradientUnits="userSpaceOnUse"><stop stopColor="#F77120"/><stop offset="1" stopColor="#FECA2F"/></linearGradient>
-        <linearGradient id="stryd_g3" x1="-5.4" y1="57.2" x2="433" y2="57.2" gradientUnits="userSpaceOnUse"><stop stopColor="#F77120"/><stop offset="1" stopColor="#FECA2F"/></linearGradient>
-        <linearGradient id="stryd_g4" x1="-5.4" y1="57.2" x2="433" y2="57.2" gradientUnits="userSpaceOnUse"><stop stopColor="#F77120"/><stop offset="1" stopColor="#FECA2F"/></linearGradient>
-      </defs>
-    </svg>
-  );
-}
-
-function StravaWordmark({ className }: { className?: string }) {
-  return (
-    <div
-      className={`inline-flex h-5 items-center gap-1.5 text-[#fc4c02] ${className ?? ''}`}
-      aria-label="Strava"
-    >
-      <svg
-        viewBox="0 0 24 24"
-        fill="currentColor"
-        className="h-5 w-[0.95rem] shrink-0"
-        aria-hidden="true"
-      >
-        <path d="M13.25 2 7.1 13.55h3.84l2.31-4.2 2.37 4.2h3.83L13.25 2Z" />
-        <path d="m10.47 15.18-2.2 4.02h4.4l-2.2-4.02Z" />
-      </svg>
-      <span className="text-[0.95rem] font-bold uppercase leading-none tracking-[0.08em]">
-        STRAVA
-      </span>
-    </div>
-  );
-}
-
-function OuraWordmark({ className }: { className?: string }) {
-  // Oura wordmark — the official ŌURA mark with ring symbol
-  return (
-    <svg viewBox="0 0 993 311" fill="none" className={`h-5 w-auto ${className ?? ''}`} aria-label="Oura">
-      <path d="M63.443 27.388H190.38V0H63.443zM643.464 174.105H554.68V83.082h88.783c31.634 0 52.89 18.292 52.89 45.513 0 27.221-21.256 45.51-52.89 45.51m29.409 21.29c30.456-8.686 50.136-34.907 50.136-66.8 0-41.397-31.967-69.212-79.547-69.212H528.035v244.66h26.646V198.174h90.3l57.501 105.867h28.83l-59.946-108.218zM389.668 308.653c65.348 0 110.987-45.903 110.987-111.63V59.384h-27.387v135.793c0 50.688-34.377 86.09-83.6 86.09-40.798 0-84.709-26.94-84.709-86.09V59.384h-27.382v137.64c0 65.726 46.093 111.628 112.093 111.628m478.192-217.35 57.757 126.333H809.735zm-12.848-31.916L743.16 304.044h28.606l27.662-62.713h136.493l27.67 62.713h28.603L880.342 59.383zm-728.077-4.611C56.944 54.775 0 111.719 0 181.712c0 69.996 56.944 126.94 126.937 126.94 69.996 0 126.94-56.944 126.94-126.94 0-69.993-56.944-126.937-126.94-126.937m0 226.49c-54.893 0-99.553-44.66-99.553-99.553 0-54.892 44.661-99.55 99.554-99.55 54.894 0 99.556 44.658 99.556 99.55 0 54.893-44.662 99.553-99.556 99.553" fill="currentColor" />
-    </svg>
-  );
-}
 
 /**
  * Garmin activity type categories. Each category maps to multiple Garmin
@@ -242,7 +177,7 @@ export default function Setup() {
   // Redirect when all done
   useEffect(() => {
     if (!setup.loading && setup.allDone) {
-      navigate('/', { replace: true });
+      navigate('/today', { replace: true });
     }
   }, [setup.loading, setup.allDone, navigate]);
 
@@ -762,7 +697,7 @@ export default function Setup() {
             variant="ghost"
             size="sm"
             className="text-muted-foreground"
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/today')}
           >
             {setup.allDone ? <Trans>Go to dashboard</Trans> : <Trans>Skip for now</Trans>}
             <ChevronRight className="ml-1 h-4 w-4" />

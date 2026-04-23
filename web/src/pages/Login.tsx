@@ -55,7 +55,7 @@ export default function Login() {
           return;
         }
       }
-      navigate('/', { replace: true });
+      navigate('/today', { replace: true });
     } else {
       setError(result.error || t`An unexpected error occurred.`);
     }
