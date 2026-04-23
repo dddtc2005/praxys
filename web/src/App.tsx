@@ -15,6 +15,7 @@ import Settings from './pages/Settings';
 import Setup from './pages/Setup';
 import Admin from './pages/Admin';
 import Login from './pages/Login';
+import Landing from './pages/Landing';
 import { useSetupStatus } from './hooks/useSetupStatus';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -40,6 +41,7 @@ export default function App() {
         <TooltipProvider>
           <BrowserRouter>
             <Routes>
+              <Route path="/" element={<LandingOrApp />} />
               <Route path="/login" element={<LoginGuard />} />
               <Route
                 element={
@@ -53,7 +55,7 @@ export default function App() {
                   </RequireAuth>
                 }
               >
-                <Route index element={<TodayOrSetup />} />
+                <Route path="today" element={<TodayOrSetup />} />
                 <Route path="setup" element={<Setup />} />
                 <Route path="training" element={<Training />} />
                 <Route path="goal" element={<Goal />} />
@@ -79,6 +81,18 @@ function TodayOrSetup() {
   return <Today />;
 }
 
+/** Public landing page for unauthenticated visitors. Real authed users go
+ *  straight to the app; **demo** users still see the landing (with a "Continue
+ *  to demo" CTA) so they don't get silently trapped in the demo dashboard on
+ *  repeat visits to `/`. */
+function LandingOrApp() {
+  const { isAuthenticated, isDemo, isLoading } = useAuth();
+
+  if (isLoading) return null;
+  if (isAuthenticated && !isDemo) return <Navigate to="/today" replace />;
+  return <Landing />;
+}
+
 /** If already authenticated, redirect away from login page. */
 function LoginGuard() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -90,15 +104,23 @@ function LoginGuard() {
     // SECURITY: Only allow localhost callbacks to prevent open redirect token theft
     const params = new URLSearchParams(window.location.search);
     const rawCallback = params.get('cli_callback');
-    const CLI_CALLBACK_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/callback/;
-    if (rawCallback && CLI_CALLBACK_RE.test(rawCallback)) {
-      const token = localStorage.getItem('praxys-auth-token') ?? localStorage.getItem('trainsight-auth-token');
-      if (token) {
-        window.location.href = `${rawCallback}?token=${encodeURIComponent(token)}`;
-        return null;
+    if (rawCallback) {
+      const CLI_CALLBACK_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/callback/;
+      if (!CLI_CALLBACK_RE.test(rawCallback)) {
+        // Callback provided but rejected — log so a malformed CLI link is
+        // debuggable instead of silently redirecting to the dashboard while
+        // the CLI hangs waiting for a token that never arrives.
+        console.warn('[login] CLI callback rejected (non-localhost):', rawCallback);
+      } else {
+        const token = localStorage.getItem('praxys-auth-token') ?? localStorage.getItem('trainsight-auth-token');
+        if (token) {
+          window.location.href = `${rawCallback}?token=${encodeURIComponent(token)}`;
+          return null;
+        }
+        console.warn('[login] CLI callback valid but no token in localStorage; falling through to /today');
       }
     }
-    return <Navigate to="/" replace />;
+    return <Navigate to="/today" replace />;
   }
 
   return <Login />;

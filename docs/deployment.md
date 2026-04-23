@@ -177,12 +177,27 @@ az staticwebapp backends link \
 
 CORS is handled at the Azure platform level, not via FastAPI middleware. The backend detects when it is running on Azure App Service (via the `WEBSITE_SITE_NAME` environment variable) and skips adding CORS middleware, deferring to the platform configuration.
 
+Every browser origin that fetches the API must be on the allowlist — that means the SWA default hostname **and every custom domain you map to the SWA**. Missing entries surface as `No 'Access-Control-Allow-Origin' header is present on the requested resource` in the browser console with zero server-side signal.
+
 ```bash
+# Add an origin (idempotent — safe to re-run):
 az webapp cors add \
   --name trainsight-app \
   --resource-group rg-trainsight \
-  --allowed-origins "https://swa-trainsight.azurestaticapps.net"
+  --allowed-origins \
+    "https://swa-trainsight.azurestaticapps.net" \
+    "https://www.praxys.run" \
+    "https://praxys.run"
+
+# Verify the current allowlist:
+az webapp cors show --name trainsight-app --resource-group rg-trainsight
 ```
+
+**When to update this list:**
+- Adding or renaming a custom domain on the Static Web App
+- Adding a new staging / PR-preview SWA hostname that needs to hit prod API (rare — PR previews typically run against a staging backend)
+
+Changes take effect immediately; no app restart required.
 
 For local development, FastAPI's `CORSMiddleware` is added automatically (allowing `localhost:5173`). This can be customized via the `PRAXYS_CORS_ORIGINS` environment variable.
 
