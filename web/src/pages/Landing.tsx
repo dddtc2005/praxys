@@ -26,13 +26,16 @@ function handleLogoError(e: SyntheticEvent<HTMLImageElement>) {
 
 type Copy = {
   signIn: string;
+  exitDemo: string;
   heroEyebrow: string;
   heroTitle: { before: string; accent: string };
   heroSub: string;
   ctaPrimary: string;
+  ctaContinueDemo: string;
   ctaSecondary: string;
   demoLoading: string;
   demoError: string;
+  demoActiveNote: string;
   featuresEyebrow: string;
   featuresTitle: { before: string; accent: string; after: string };
   features: [FeatureCopy, FeatureCopy, FeatureCopy];
@@ -59,6 +62,7 @@ type FeatureCopy = { idx: string; title: string; body: string };
 const COPY: Record<SupportedLocale, Copy> = {
   en: {
     signIn: 'Sign in',
+    exitDemo: 'Exit demo',
     heroEyebrow: 'Running · Sport science · Personalized',
     heroTitle: {
       before: 'Train like a pro.\n',
@@ -67,9 +71,11 @@ const COPY: Record<SupportedLocale, Copy> = {
     heroSub:
       'Praxys turns your runs into science-grounded insights, personalized zones, and a training plan that evolves with you. For every runner — road to trail, first-timer to veteran.',
     ctaPrimary: 'Try the demo',
+    ctaContinueDemo: 'Continue to demo',
     ctaSecondary: 'Create account',
     demoLoading: 'Loading demo…',
     demoError: 'Demo temporarily unavailable. Try signing in instead.',
+    demoActiveNote: 'Demo session active — data is read-only.',
     featuresEyebrow: 'Why Praxys',
     featuresTitle: {
       before: 'Pro-level training, ',
@@ -115,6 +121,7 @@ const COPY: Record<SupportedLocale, Copy> = {
   },
   zh: {
     signIn: '登录',
+    exitDemo: '退出演示',
     heroEyebrow: '跑步 · 运动科学 · 个性化',
     heroTitle: {
       before: '像专业选手一样训练，\n',
@@ -123,9 +130,11 @@ const COPY: Record<SupportedLocale, Copy> = {
     heroSub:
       'Praxys 把你的跑步数据转化为有科学依据的洞察、个性化训练区间，以及一份随你进步而演进的训练方案。面向每一位跑者——从公路到越野、从新手到老将。',
     ctaPrimary: '试用演示',
+    ctaContinueDemo: '继续演示',
     ctaSecondary: '创建账号',
     demoLoading: '正在加载演示……',
     demoError: '演示暂时不可用，请尝试登录。',
+    demoActiveNote: '演示会话进行中 — 数据为只读。',
     featuresEyebrow: '为什么选择 Praxys',
     featuresTitle: {
       before: '让专业级训练，',
@@ -173,12 +182,18 @@ const COPY: Record<SupportedLocale, Copy> = {
 
 export default function Landing() {
   const { locale, setLocale } = useLocale();
-  const { login } = useAuth();
+  const { login, logout, isDemo } = useAuth();
   const navigate = useNavigate();
   const [demoState, setDemoState] = useState<'idle' | 'loading' | 'error'>('idle');
   const t = COPY[locale];
 
   const handleDemo = async () => {
+    // If a demo session already exists (user tried demo earlier and came
+    // back to `/`), skip the login round-trip and jump straight in.
+    if (isDemo) {
+      navigate('/today', { replace: true });
+      return;
+    }
     setDemoState('loading');
     try {
       const result = await login(DEMO_EMAIL, DEMO_PASSWORD);
@@ -197,6 +212,9 @@ export default function Landing() {
     }
   };
 
+  const ctaPrimaryLabel = isDemo ? t.ctaContinueDemo : t.ctaPrimary;
+  const closeCtaPrimaryLabel = isDemo ? t.ctaContinueDemo : t.closeCtaPrimary;
+
   const Vizzes = [VizScience, VizPersonal, VizClaude] as const;
 
   return (
@@ -209,9 +227,15 @@ export default function Landing() {
           </div>
           <div className="landing-header-nav">
             <LanguageToggle locale={locale} setLocale={setLocale} />
-            <Link to="/login" className="landing-btn-signin">
-              {t.signIn}
-            </Link>
+            {isDemo ? (
+              <button type="button" className="landing-btn-signin" onClick={logout}>
+                {t.exitDemo}
+              </button>
+            ) : (
+              <Link to="/login" className="landing-btn-signin">
+                {t.signIn}
+              </Link>
+            )}
           </div>
         </div>
       </header>
@@ -237,13 +261,16 @@ export default function Landing() {
               onClick={handleDemo}
               disabled={demoState === 'loading'}
             >
-              {demoState === 'loading' ? t.demoLoading : t.ctaPrimary}
+              {demoState === 'loading' ? t.demoLoading : ctaPrimaryLabel}
               {demoState !== 'loading' && <ArrowUpRight className="h-[15px] w-[15px]" strokeWidth={2.2} />}
             </button>
             <Link to="/login" className="landing-btn-ghost">
               {t.ctaSecondary}
             </Link>
           </div>
+          {isDemo && demoState !== 'error' && (
+            <div className="landing-demo-note landing-rise">{t.demoActiveNote}</div>
+          )}
           {demoState === 'error' && (
             <div className="landing-demo-error landing-rise">{t.demoError}</div>
           )}
@@ -296,7 +323,7 @@ export default function Landing() {
               onClick={handleDemo}
               disabled={demoState === 'loading'}
             >
-              {demoState === 'loading' ? t.demoLoading : t.closeCtaPrimary}
+              {demoState === 'loading' ? t.demoLoading : closeCtaPrimaryLabel}
               {demoState !== 'loading' && <ArrowUpRight className="h-[15px] w-[15px]" strokeWidth={2.2} />}
             </button>
             <Link to="/login" className="landing-btn-ghost">

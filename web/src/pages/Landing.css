@@ -229,6 +229,22 @@ html[lang="zh"] .landing-hero-sub { line-height: 1.7; }
   max-width: 48ch;
 }
 
+/* Shown when the visitor already has a demo session (returned to `/` after
+   trying the demo). Same shape as the error pill but using the primary
+   (cobalt / green) accent to read as informational, not an error. */
+.landing-demo-note {
+  margin-top: 20px;
+  padding: 10px 14px;
+  background: color-mix(in oklab, var(--l-primary) 5%, var(--l-card));
+  border: 1px solid color-mix(in oklab, var(--l-primary) 25%, var(--l-rule));
+  border-left: 3px solid var(--l-primary);
+  border-radius: 2px;
+  font-family: var(--l-font-data);
+  font-size: 11.5px;
+  color: var(--l-ink-soft);
+  max-width: 48ch;
+}
+
 /* ─── Platform trust band (quieter, below features) ─────── */
 .landing-platforms-band {
   padding: clamp(28px, 4vw, 44px) 0;

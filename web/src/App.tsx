@@ -81,12 +81,15 @@ function TodayOrSetup() {
   return <Today />;
 }
 
-/** Public landing page for unauthenticated visitors; authed users go straight to the app. */
+/** Public landing page for unauthenticated visitors. Real authed users go
+ *  straight to the app; **demo** users still see the landing (with a "Continue
+ *  to demo" CTA) so they don't get silently trapped in the demo dashboard on
+ *  repeat visits to `/`. */
 function LandingOrApp() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isDemo, isLoading } = useAuth();
 
   if (isLoading) return null;
-  if (isAuthenticated) return <Navigate to="/today" replace />;
+  if (isAuthenticated && !isDemo) return <Navigate to="/today" replace />;
   return <Landing />;
 }
 
