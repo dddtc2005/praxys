@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Trans, useLingui, Plural } from '@lingui/react/macro';
 import { useLocale } from '@/contexts/LocaleContext';
+import { useSettings } from '@/contexts/SettingsContext';
 
 const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
   easy:       { bg: 'bg-primary/15', text: 'text-primary' },
@@ -328,20 +329,13 @@ export default function UpcomingPlanCard() {
   const [pushErrors, setPushErrors] = useState<Record<string, string>>({});
   const [pushing, setPushing] = useState(false);
   const [pushingDates, setPushingDates] = useState<Set<string>>(new Set());
-  const [hasStryd, setHasStryd] = useState(false);
 
-  // Check if Stryd is connected
-  useEffect(() => {
-    fetch(`${API_BASE}/api/settings`, { headers: getAuthHeaders() })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((config) => {
-        if (config?.config?.connections?.includes('stryd')) setHasStryd(true);
-      })
-      .catch((err) => console.error('Failed to load settings:', err));
-  }, []);
+  // Stryd connection status — read from SettingsContext rather than firing
+  // a second /api/settings request. SettingsContext has already fetched
+  // this data; the old fetch here duplicated the request for every
+  // Training-page cold load.
+  const { config: settings } = useSettings();
+  const hasStryd = Boolean(settings?.connections?.includes('stryd'));
 
   // Load push status
   useEffect(() => {
