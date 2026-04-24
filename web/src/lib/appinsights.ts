@@ -70,13 +70,17 @@ function getNetworkSnapshot(): NetworkConnection | null {
 function attachNetworkContext(envelope: ITelemetryItem): void {
   const conn = getNetworkSnapshot()
   if (!conn) return
+  // Prefix with netinfo_ so we don't shadow any field the SDK populates
+  // on its own envelopes (e.g. dependency spans spread into baseData.
+  // properties). Same prefix on trackMetric below keeps App Insights
+  // queries consistent — filter on netinfo_effectiveType everywhere.
   const baseData = (envelope.baseData ??= {})
   baseData.properties = {
     ...(baseData.properties ?? {}),
-    effectiveType: conn.effectiveType,
-    downlink: conn.downlink,
-    rtt: conn.rtt,
-    saveData: conn.saveData,
+    netinfo_effectiveType: conn.effectiveType,
+    netinfo_downlink: conn.downlink,
+    netinfo_rtt: conn.rtt,
+    netinfo_saveData: conn.saveData,
   }
 }
 
@@ -90,9 +94,9 @@ function reportWebVitals(): void {
         rating: metric.rating,
         navigationType: metric.navigationType,
         id: metric.id,
-        effectiveType: conn.effectiveType,
-        downlink: conn.downlink,
-        rtt: conn.rtt,
+        netinfo_effectiveType: conn.effectiveType,
+        netinfo_downlink: conn.downlink,
+        netinfo_rtt: conn.rtt,
       },
     )
   }
