@@ -20,7 +20,13 @@ const queryClient = new QueryClient({
       staleTime: 2 * 60 * 1000,
       gcTime: 5 * 60 * 1000,
       retry: 2,
-      refetchOnWindowFocus: true,
+      // Disabled because CN users on spotty mobile network were burning
+      // seconds of round-trips every time they tabbed back from WeChat
+      // or another app. Stale data is refetched lazily via staleTime
+      // expiration + manual refetch() calls already wired where it matters
+      // (sync status polling, etc.). Leaving this on made the app feel
+      // like it "reloaded for no reason" after an app switch.
+      refetchOnWindowFocus: false,
     },
   },
 })
