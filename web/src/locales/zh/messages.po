@@ -589,7 +589,7 @@ msgstr "达到目标预计时间"
 #. placeholder {0}: option.hours
 #: src/pages/Settings.tsx:757
 msgid "Every <0>{0}</0> hours"
-msgstr ""
+msgstr "每 <0>{0}</0> 小时"
 
 #. placeholder {0}: res.status
 #: src/pages/Admin.tsx:144
