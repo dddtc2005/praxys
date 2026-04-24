@@ -1,8 +1,8 @@
 """Render Praxys OG cards to PNG via headless Chromium.
 
-Sources:
-  - web/public/og-card.html          -> web/public/og-card.png          (1200x630, 2x)
-  - web/public/og-card-wechat.html   -> web/public/og-card-wechat.png   (1080x864, 2x)
+Sources and emitted resolutions (viewport * device_scale_factor):
+  - web/public/og-card.html          -> web/public/og-card.png          (logical 1200x630 -> 2400x1260 @ 2x DPR)
+  - web/public/og-card-wechat.html   -> web/public/og-card-wechat.png   (logical 1080x864 -> 2160x1728 @ 2x DPR)
 
 The 1200x630 card is the canonical OpenGraph / Twitter card. The 1080x864
 (5:4) card is used as a WeChat chat-bubble-optimized image and is also
@@ -31,11 +31,14 @@ CARDS = [
 
 def render_card(page, source_html: Path, output_png: Path, width: int, height: int) -> None:
     page.set_viewport_size({"width": width, "height": height})
-    page.goto(source_html.as_uri())
-    # Wait for web fonts to actually be ready - without this the screenshot
-    # occasionally catches a fallback system font mid-swap.
-    page.evaluate("document.fonts.ready")
-    page.wait_for_timeout(200)  # small settle for gradient paint
+    page.goto(source_html.as_uri(), wait_until="networkidle")
+    # Actually await the FontFaceSet promise. `page.evaluate` only auto-awaits
+    # when the expression is an async function or an explicit `.then` chain -
+    # a bare `document.fonts.ready` returns the Promise object to Python
+    # without ever resolving it, which was letting screenshots fire on the
+    # system-font fallback.
+    page.evaluate("async () => { await document.fonts.ready; }")
+    page.wait_for_timeout(150)  # small settle for gradient paint
     page.screenshot(path=str(output_png), omit_background=False, full_page=False)
     print(f"  {output_png.relative_to(REPO_ROOT)}  ({width}x{height})")
 

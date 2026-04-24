@@ -40,6 +40,5 @@ azure-monitor-opentelemetry>=1.6.0
 # ── Visual asset generation ──────────────────────────────────────────
 # Headless Chromium via Playwright is used by scripts/generate_og_card.py
 # to rasterize web/public/og-card*.html into PNGs for OpenGraph / WeChat
-# share previews. After `pip install`, run `python -m playwright install
-# chromium` once to fetch the browser binary.
+# share previews. See that script's docstring for setup/run notes.
 playwright==1.48.0

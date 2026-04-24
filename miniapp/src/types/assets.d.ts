@@ -1,7 +1,6 @@
-// Ambient module declarations for static image imports, so Taro/webpack
-// can rewrite `import img from '…/foo.jpg'` into the bundled asset URL
-// while TypeScript still typechecks. Matches the shape used by Taro's
-// own default template (node_modules/@tarojs/cli/templates/.../types/global.d.ts).
+// Ambient module declarations for static image imports so TypeScript
+// accepts the bundler-rewritten URLs. Missing-file errors are deferred
+// to bundle time — acceptable trade-off for the convenience.
 
 declare module '*.jpg' {
   const src: string;

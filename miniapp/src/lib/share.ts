@@ -23,7 +23,7 @@ export interface ShareMessage {
   imageUrl: string;
 }
 
-export const SHARE_IMAGE_URL: string = shareImage;
+export const SHARE_IMAGE_URL = shareImage;
 
 export function getShareMessage(locale: ShareLocale, path?: string): ShareMessage {
   const title =
@@ -44,13 +44,17 @@ export function getShareMessage(locale: ShareLocale, path?: string): ShareMessag
  * Taro.getSystemInfoSync().language is deprecated in newer WeChat clients
  * but still ships `language` today. The try/catch is here so a future
  * removal degrades gracefully to English instead of crashing whichever
- * page owns the onShareAppMessage callback.
+ * page owns the onShareAppMessage callback. The console.warn makes the
+ * regression visible in devtools so we're not debugging a "why are zh
+ * users seeing English share titles" ticket in the dark.
  */
 export function detectShareLocale(): ShareLocale {
   try {
     const lang = Taro.getSystemInfoSync().language ?? '';
     return /zh/i.test(lang) ? 'zh' : 'en';
-  } catch {
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn('[share] locale detection failed, falling back to en:', e);
     return 'en';
   }
 }
