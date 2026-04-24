@@ -1,10 +1,11 @@
 import { View, Text, Button } from '@tarojs/components';
-import Taro, { usePullDownRefresh, useDidShow } from '@tarojs/taro';
+import Taro, { usePullDownRefresh, useDidShow, useShareAppMessage } from '@tarojs/taro';
 
 import { useApi } from '@/hooks/useApi';
 import type { GoalResponse } from '@/types/api';
 import { formatTime } from '@/lib/format';
 import { applyThemeChrome, themeClassName } from '@/lib/theme';
+import { detectShareLocale, getShareMessage } from '@/lib/share';
 import LineChart from '@/components/LineChart';
 import './index.scss';
 
@@ -16,6 +17,7 @@ import './index.scss';
 export default function GoalPage() {
   const { data, loading, error, refetch } = useApi<GoalResponse>('/api/goal');
   useDidShow(() => applyThemeChrome());
+  useShareAppMessage(() => getShareMessage(detectShareLocale(), '/pages/goal/index'));
   usePullDownRefresh(() => {
     refetch();
     Taro.stopPullDownRefresh();
