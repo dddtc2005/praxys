@@ -445,6 +445,7 @@ function GoalSkeleton() {
 }
 
 export default function Goal() {
+  const { t } = useLingui();
   const { data, loading, error, refetch } = useApi<GoalResponse>('/api/goal');
   const { isDemo } = useAuth();
   const { config, updateSettings } = useSettings();
@@ -510,8 +511,8 @@ export default function Goal() {
 
       <CliHint
         skill="race-forecast"
-        title="AI Race Forecast"
-        description="Get a detailed race prediction, goal feasibility analysis, and what you need to improve."
+        title={t`AI Race Forecast`}
+        description={t`Get a detailed race prediction, goal feasibility analysis, and what you need to improve.`}
       />
     </div>
   );

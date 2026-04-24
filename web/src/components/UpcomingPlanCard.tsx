@@ -93,6 +93,7 @@ function StrydStatusBadge({
   onPush?: () => void;
   showStryd: boolean;
 }) {
+  const { t } = useLingui();
   if (!showStryd) return null;
 
   if (state === 'pushing') {
@@ -113,7 +114,7 @@ function StrydStatusBadge({
                 variant="ghost"
                 size="icon"
                 onClick={onPush}
-                aria-label="Retry push to Stryd"
+                aria-label={t`Retry push to Stryd`}
                 className="w-6 h-6 shrink-0 text-destructive hover:text-destructive/80"
               >
                 <ErrorIcon className="h-3.5 w-3.5" />
@@ -138,7 +139,7 @@ function StrydStatusBadge({
                 variant="ghost"
                 size="icon"
                 onClick={onPush}
-                aria-label="Re-push to Stryd"
+                aria-label={t`Re-push to Stryd`}
                 className="w-6 h-6 shrink-0 text-primary [&>svg.check]:block [&>svg.refresh]:hidden hover:[&>svg.check]:hidden hover:[&>svg.refresh]:block hover:text-accent-amber"
               >
                 <CheckIcon className="check h-3.5 w-3.5" />
@@ -164,7 +165,7 @@ function StrydStatusBadge({
               variant="ghost"
               size="icon"
               onClick={onPush}
-              aria-label="Push to Stryd"
+              aria-label={t`Push to Stryd`}
               className="w-6 h-6 shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground hover:!text-primary"
             >
               <UploadIcon className="h-3.5 w-3.5" />

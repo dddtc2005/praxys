@@ -29,41 +29,38 @@ import { GarminWordmark, StrydWordmark, StravaWordmark, OuraWordmark } from '@/c
 /**
  * Garmin activity type categories. Each category maps to multiple Garmin
  * API activitytype values. Selecting "Running" syncs all running subtypes.
+ *
+ * Display labels are resolved at render time via `localizedActivityLabel`
+ * so they follow the user's Lingui locale.
  */
 const GARMIN_ACTIVITY_CATEGORIES = [
   {
     key: 'running',
-    label: 'Running',
     default: true,
     types: ['running', 'trail_running', 'treadmill_running', 'track_running', 'ultra_running', 'indoor_running'],
   },
   {
     key: 'cycling',
-    label: 'Cycling',
     default: false,
     types: ['cycling', 'mountain_biking', 'indoor_cycling'],
   },
   {
     key: 'swimming',
-    label: 'Swimming',
     default: false,
     types: ['swimming', 'open_water_swimming', 'lap_swimming'],
   },
   {
     key: 'hiking',
-    label: 'Hiking',
     default: false,
     types: ['hiking'],
   },
   {
     key: 'walking',
-    label: 'Walking',
     default: false,
     types: ['walking'],
   },
   {
     key: 'strength',
-    label: 'Strength',
     default: false,
     types: ['strength_training'],
   },
@@ -123,18 +120,18 @@ const PLATFORM_META: Record<string, {
 const CONNECTABLE_PLATFORMS = ['garmin', 'strava', 'stryd', 'oura'] as const;
 
 
-const BASE_CONFIG: Record<TrainingBase, { label: string; desc: string }> = {
-  power: { label: 'Power', desc: 'Zones & load from Critical Power (best with Stryd)' },
-  hr: { label: 'Heart Rate', desc: 'Zones & load from Lactate Threshold HR' },
-  pace: { label: 'Pace', desc: 'Zones & load from Threshold Pace' },
-};
+// Training-base keys used by `BASE_CONFIG` below. Display labels come from
+// the Lingui catalog at render time (see `getBaseConfig`).
+const TRAINING_BASE_KEYS: TrainingBase[] = ['power', 'hr', 'pace'];
 
-const BACKFILL_OPTIONS = [
-  { label: '1 month', days: 30 },
-  { label: '3 months', days: 90 },
-  { label: '6 months', days: 180, recommended: true },
-  { label: '1 year', days: 365 },
-];
+// Backfill range options. `days` is canonical; `label` is localized at
+// render time (see `getBackfillOptions`).
+const BACKFILL_DAYS = [
+  { days: 30 },
+  { days: 90 },
+  { days: 180, recommended: true },
+  { days: 365 },
+] as const;
 
 // --- Component ---
 
@@ -144,6 +141,73 @@ export default function Setup() {
   const { config, updateSettings, refetch: refetchSettings } = useSettings();
   const setup = useSetupStatus();
   const { t } = useLingui();
+
+  const activityCategoryLabel = (key: string): string => {
+    switch (key) {
+      case 'running': return t`Running`;
+      case 'cycling': return t`Cycling`;
+      case 'swimming': return t`Swimming`;
+      case 'hiking': return t`Hiking`;
+      case 'walking': return t`Walking`;
+      case 'strength': return t`Strength`;
+      default: return key;
+    }
+  };
+  const baseInfo = (base: TrainingBase): { label: string; desc: string } => {
+    switch (base) {
+      case 'power':
+        return { label: t`Power`, desc: t`Zones & load from Critical Power (best with Stryd)` };
+      case 'hr':
+        return { label: t`Heart Rate`, desc: t`Zones & load from Lactate Threshold HR` };
+      case 'pace':
+        return { label: t`Pace`, desc: t`Zones & load from Threshold Pace` };
+    }
+  };
+  const backfillLabel = (days: number): string => {
+    switch (days) {
+      case 30: return t`1 month`;
+      case 90: return t`3 months`;
+      case 180: return t`6 months`;
+      case 365: return t`1 year`;
+      default: return `${days} days`;
+    }
+  };
+  const platformDetail = (platform: string): string => {
+    switch (platform) {
+      case 'garmin': return t`HR, pace, distance, VO2max, training status`;
+      case 'strava': return t`Activities only: runs, rides, pace, heart rate, route data`;
+      case 'stryd': return t`Power metrics, Critical Power, training plans`;
+      case 'oura': return t`Sleep score, HRV, readiness`;
+      default: return PLATFORM_META[platform]?.detail ?? '';
+    }
+  };
+  const platformHelp = (platform: string): string => {
+    switch (platform) {
+      case 'garmin': return t`Use your Garmin Connect credentials.`;
+      case 'strava': return t`Authorize Praxys with Strava in your browser. Praxys only syncs activities from Strava.`;
+      case 'stryd': return t`Use your Stryd account credentials (stryd.com).`;
+      case 'oura': return t`Generate a token at cloud.ouraring.com/personal-access-tokens.`;
+      default: return PLATFORM_META[platform]?.help ?? '';
+    }
+  };
+  const credFieldLabel = (key: string, fallback: string): string => {
+    switch (key) {
+      case 'email': return t`Email`;
+      case 'password': return t`Password`;
+      case 'token': return t`Personal Access Token`;
+      default: return fallback;
+    }
+  };
+  const platformCategoryLabel = (category: string): string => {
+    // Display labels for data-provider categories on platform cards.
+    switch (category) {
+      case 'Activities': return t`Activities`;
+      case 'Recovery': return t`Recovery`;
+      case 'Fitness': return t`Fitness`;
+      case 'Plan': return t`Plan`;
+      default: return category;
+    }
+  };
 
   // Connection state
   const [connectPlatform, setConnectPlatform] = useState<string | null>(null);
@@ -463,14 +527,14 @@ export default function Setup() {
                     <div className="h-6 flex items-center">{meta.wordmark}</div>
                     {isConnected && <Check className="h-4 w-4 text-primary" />}
                   </div>
-                  <p className="text-[11px] text-muted-foreground mb-2">{meta.detail}</p>
+                  <p className="text-[11px] text-muted-foreground mb-2">{platformDetail(platform)}</p>
                   <div className="flex flex-wrap gap-1">
                     {meta.categories.map((cat) => (
                       <span
                         key={cat}
                         className="text-[10px] text-muted-foreground bg-muted rounded px-1.5 py-0.5"
                       >
-                        {cat}
+                        {platformCategoryLabel(cat)}
                       </span>
                     ))}
                   </div>
@@ -502,7 +566,7 @@ export default function Setup() {
               <div>
                 <Label className="text-xs text-muted-foreground mb-2 block"><Trans>Sync history</Trans></Label>
                 <div className="flex flex-wrap gap-2">
-                  {BACKFILL_OPTIONS.map((opt) => (
+                  {BACKFILL_DAYS.map((opt) => (
                     <button
                       key={opt.days}
                       onClick={() => setBackfillDays(opt.days)}
@@ -512,8 +576,8 @@ export default function Setup() {
                           : 'border-transparent bg-muted text-muted-foreground hover:text-foreground'
                       }`}
                     >
-                      {opt.label}
-                      {opt.recommended && (
+                      {backfillLabel(opt.days)}
+                      {'recommended' in opt && opt.recommended && (
                         <Badge variant="secondary" className="ml-1.5 text-[9px] px-1 py-0">
                           <Trans>Recommended</Trans>
                         </Badge>
@@ -525,8 +589,8 @@ export default function Setup() {
 
               <div className="flex items-center justify-between">
                 <p className="text-xs text-muted-foreground">
-                  ~{estimatedActivities} activities, ~{estimatedMinutes} min
-                  {estimatedMinutes > 2 && ' (Garmin rate limits apply)'}
+                  <Trans>~{estimatedActivities} activities, ~{estimatedMinutes} min</Trans>
+                  {estimatedMinutes > 2 && <> <Trans>(Garmin rate limits apply)</Trans></>}
                 </p>
                 <Button onClick={handleSync} disabled={syncing}>
                   {syncing ? (
@@ -631,8 +695,8 @@ export default function Setup() {
           disabled={!setup.hasConnection}
         >
           <div className="grid grid-cols-3 gap-2 mt-4">
-            {(['power', 'hr', 'pace'] as const).map((base) => {
-              const info = BASE_CONFIG[base];
+            {TRAINING_BASE_KEYS.map((base) => {
+              const info = baseInfo(base);
               // Only highlight the active selection when user has connections
               const isActive = setup.hasConnection && config?.training_base === base;
               const isSuggested = suggestedBase === base && !isActive;
@@ -713,7 +777,7 @@ export default function Setup() {
               <Trans>Connect {connectPlatform ? PLATFORM_META[connectPlatform]?.label : ''}</Trans>
             </DialogTitle>
             <DialogDescription>
-              {connectPlatform && PLATFORM_META[connectPlatform]?.help}
+              {connectPlatform && platformHelp(connectPlatform)}
             </DialogDescription>
           </DialogHeader>
 
@@ -724,7 +788,7 @@ export default function Setup() {
               <div className="flex flex-wrap gap-1.5">
                 {PLATFORM_META[connectPlatform].categories.map((cat) => (
                   <Badge key={cat} variant="secondary" className="text-xs">
-                    {cat}
+                    {platformCategoryLabel(cat)}
                   </Badge>
                 ))}
               </div>
@@ -741,7 +805,7 @@ export default function Setup() {
             <form onSubmit={(e) => { e.preventDefault(); handleConnect(); }} className="space-y-4">
               {PLATFORM_META[connectPlatform].credFields.map((field) => (
                 <div key={field.key} className="space-y-2">
-                  <Label htmlFor={`setup-${field.key}`}>{field.label}</Label>
+                  <Label htmlFor={`setup-${field.key}`}>{credFieldLabel(field.key, field.label)}</Label>
                   <Input
                     id={`setup-${field.key}`}
                     type={field.type}
@@ -814,7 +878,7 @@ export default function Setup() {
                               : 'border-border bg-muted text-muted-foreground hover:text-foreground'
                           }`}
                         >
-                          {cat.label}
+                          {activityCategoryLabel(cat.key)}
                         </button>
                       );
                     })}

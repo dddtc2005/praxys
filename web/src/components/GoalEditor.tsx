@@ -12,17 +12,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { formatTime, parseTimeToSeconds } from '@/lib/format';
+import { Trans, useLingui } from '@lingui/react/macro';
 
-const DISTANCES = [
-  { value: '5k', label: '5K', placeholder: 'e.g. 20:00' },
-  { value: '10k', label: '10K', placeholder: 'e.g. 42:00' },
-  { value: 'half', label: 'Half', placeholder: 'e.g. 1:30:00' },
-  { value: 'marathon', label: 'Marathon', placeholder: 'e.g. 3:00:00' },
-  { value: '50k', label: '50K', placeholder: 'e.g. 4:30:00' },
-  { value: '50mi', label: '50 Mi', placeholder: 'e.g. 8:00:00' },
-  { value: '100k', label: '100K', placeholder: 'e.g. 12:00:00' },
-  { value: '100mi', label: '100 Mi', placeholder: 'e.g. 24:00:00' },
-];
+type DistanceKey = '5k' | '10k' | 'half' | 'marathon' | '50k' | '50mi' | '100k' | '100mi';
 
 type GoalType = 'race' | 'continuous';
 
@@ -45,6 +37,7 @@ export default function GoalEditor({
   initialTargetTime,
   onSave,
 }: GoalEditorProps) {
+  const { t } = useLingui();
   const [goalType, setGoalType] = useState<GoalType>(initialType);
   const [raceDate, setRaceDate] = useState(initialRaceDate);
   const [distance, setDistance] = useState(initialDistance || 'marathon');
@@ -54,19 +47,30 @@ export default function GoalEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  const DISTANCES: { value: DistanceKey; label: string; placeholder: string }[] = [
+    { value: '5k', label: t`5K`, placeholder: t`e.g. 20:00` },
+    { value: '10k', label: t`10K`, placeholder: t`e.g. 42:00` },
+    { value: 'half', label: t`Half`, placeholder: t`e.g. 1:30:00` },
+    { value: 'marathon', label: t`Marathon`, placeholder: t`e.g. 3:00:00` },
+    { value: '50k', label: t`50K`, placeholder: t`e.g. 4:30:00` },
+    { value: '50mi', label: t`50 Mi`, placeholder: t`e.g. 8:00:00` },
+    { value: '100k', label: t`100K`, placeholder: t`e.g. 12:00:00` },
+    { value: '100mi', label: t`100 Mi`, placeholder: t`e.g. 24:00:00` },
+  ];
+
   const selectedDist = DISTANCES.find((d) => d.value === distance);
 
   const handleSave = async () => {
     setError('');
 
     if (goalType === 'race' && !raceDate) {
-      setError('Race date is required');
+      setError(t`Race date is required`);
       return;
     }
 
     const targetTimeSec = parseTimeToSeconds(targetTimeInput);
     if (targetTimeInput.trim() && targetTimeSec === null) {
-      setError('Invalid time format. Use H:MM:SS or H:MM');
+      setError(t`Invalid time format. Use H:MM:SS or H:MM`);
       return;
     }
 
@@ -79,7 +83,7 @@ export default function GoalEditor({
       });
       onOpenChange(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save goal');
+      setError(err instanceof Error ? err.message : t`Failed to save goal`);
     }
     setSaving(false);
   };
@@ -88,9 +92,11 @@ export default function GoalEditor({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Set Your Goal</DialogTitle>
+          <DialogTitle>
+            <Trans>Set Your Goal</Trans>
+          </DialogTitle>
           <DialogDescription>
-            Choose a race target or track continuous improvement.
+            <Trans>Choose a race target or track continuous improvement.</Trans>
           </DialogDescription>
         </DialogHeader>
 
@@ -102,18 +108,18 @@ export default function GoalEditor({
             className="grid grid-cols-2 gap-2"
           >
             <ToggleGroupItem value="race" className="flex-col items-start gap-1 h-auto py-3 px-4 data-[pressed]:border-primary data-[pressed]:bg-primary/10">
-              <span className="font-semibold text-sm">Race Goal</span>
-              <span className="text-xs text-muted-foreground">Train toward a specific race date</span>
+              <span className="font-semibold text-sm"><Trans>Race Goal</Trans></span>
+              <span className="text-xs text-muted-foreground"><Trans>Train toward a specific race date</Trans></span>
             </ToggleGroupItem>
             <ToggleGroupItem value="continuous" className="flex-col items-start gap-1 h-auto py-3 px-4 data-[pressed]:border-primary data-[pressed]:bg-primary/10">
-              <span className="font-semibold text-sm">Continuous</span>
-              <span className="text-xs text-muted-foreground">Build fitness over time</span>
+              <span className="font-semibold text-sm"><Trans>Continuous</Trans></span>
+              <span className="text-xs text-muted-foreground"><Trans>Build fitness over time</Trans></span>
             </ToggleGroupItem>
           </ToggleGroup>
 
           {/* Distance selection */}
           <div className="space-y-2">
-            <Label>Distance</Label>
+            <Label><Trans>Distance</Trans></Label>
             <ToggleGroup
               value={[distance]}
               onValueChange={(v) => { if (v.length > 0) setDistance(v[v.length - 1]); }}
@@ -130,7 +136,7 @@ export default function GoalEditor({
           {/* Race date */}
           {goalType === 'race' && (
             <div className="space-y-2">
-              <Label htmlFor="race-date">Race Date</Label>
+              <Label htmlFor="race-date"><Trans>Race Date</Trans></Label>
               <Input
                 id="race-date"
                 type="date"
@@ -143,7 +149,7 @@ export default function GoalEditor({
           {/* Target time */}
           <div className="space-y-2">
             <Label htmlFor="target-time">
-              Target Time <span className="text-muted-foreground">(optional)</span>
+              <Trans>Target Time</Trans> <span className="text-muted-foreground"><Trans>(optional)</Trans></span>
             </Label>
             <Input
               id="target-time"
@@ -155,8 +161,8 @@ export default function GoalEditor({
             />
             <p className="text-[10px] text-muted-foreground">
               {goalType === 'race'
-                ? 'Leave blank to track predicted time only'
-                : 'What time are you working toward? Leave blank to track trend only'}
+                ? t`Leave blank to track predicted time only`
+                : t`What time are you working toward? Leave blank to track trend only`}
             </p>
           </div>
 
@@ -165,10 +171,10 @@ export default function GoalEditor({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            <Trans>Cancel</Trans>
           </Button>
           <Button onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving...' : 'Save Goal'}
+            {saving ? <Trans>Saving...</Trans> : <Trans>Save Goal</Trans>}
           </Button>
         </DialogFooter>
       </DialogContent>
