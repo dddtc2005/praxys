@@ -11,6 +11,8 @@
  * aspect ratio matches WeChat's chat-bubble thumbnail.
  */
 
+import Taro from '@tarojs/taro';
+
 import shareImage from '../assets/og-card-wechat.jpg';
 
 export type ShareLocale = 'en' | 'zh';
@@ -34,4 +36,21 @@ export function getShareMessage(locale: ShareLocale, path?: string): ShareMessag
     path: path && path.length > 0 ? path : '/pages/today/index',
     imageUrl: SHARE_IMAGE_URL,
   };
+}
+
+/**
+ * Best-effort WeChat locale detection for the share sheet.
+ *
+ * Taro.getSystemInfoSync().language is deprecated in newer WeChat clients
+ * but still ships `language` today. The try/catch is here so a future
+ * removal degrades gracefully to English instead of crashing whichever
+ * page owns the onShareAppMessage callback.
+ */
+export function detectShareLocale(): ShareLocale {
+  try {
+    const lang = Taro.getSystemInfoSync().language ?? '';
+    return /zh/i.test(lang) ? 'zh' : 'en';
+  } catch {
+    return 'en';
+  }
 }

@@ -10,20 +10,8 @@ import {
 } from '@/lib/auth';
 import type { ApiError } from '@/lib/api-client';
 import { applyThemeChrome, themeClassName } from '@/lib/theme';
-import { getShareMessage, type ShareLocale } from '@/lib/share';
+import { detectShareLocale, getShareMessage } from '@/lib/share';
 import './index.scss';
-
-function detectShareLocale(): ShareLocale {
-  // Taro.getSystemInfoSync() is deprecated in newer WeChat clients but still
-  // ships the `language` field. Wrap in a try/catch so a future removal
-  // degrades gracefully to English instead of crashing the share sheet.
-  try {
-    const lang = Taro.getSystemInfoSync().language ?? '';
-    return /zh/i.test(lang) ? 'zh' : 'en';
-  } catch {
-    return 'en';
-  }
-}
 
 type Stage =
   | { kind: 'loading' }
