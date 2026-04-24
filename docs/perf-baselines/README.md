@@ -43,7 +43,7 @@ For each scenario × probe location:
 | **Protocol** | Proves HTTP/3 rollout | `h2` / `h3` |
 | **Font CSS TTFB** (isolated) | Specifically catches the Google Fonts block | ms or `timeout` |
 
-For RUM, additionally segment by `navigator.connection.effectiveType` (4g / 3g / slow-2g / wifi). The telemetry initializer in `web/src/lib/appinsights.ts` attaches this to every event.
+For RUM, additionally segment by `customDimensions.netinfo_effectiveType` (4g / 3g / slow-2g / wifi). The telemetry initializer in `web/src/lib/appinsights.ts` attaches the full `navigator.connection` snapshot to every event, namespaced under `netinfo_*` to avoid shadowing SDK-native envelope fields.
 
 ## Directory layout
 
@@ -60,7 +60,7 @@ docs/perf-baselines/
 │   └── ... (one HAR / LH / filmstrip per scenario × probe)
 ├── 2026-MM-DD-<sha>/      — after Phase 1 fix #1 (self-host fonts)
 │   └── ...
-└── summary.md             — running table of all baselines, diff by phase
+└── summary.md             — running table of all baselines (created on first real baseline run)
 ```
 
 Each phase's PR description cites the row in `summary.md` that names the metrics that moved, by how much, and any that didn't move in the expected direction (= the fix didn't do what we thought).

@@ -9,12 +9,16 @@ Step-by-step for capturing a before/after snapshot using WebPageTest. Expect ~30
 
 ## Probe locations (in order)
 
-| Location | Role | WPT location string (verify current availability) |
+WPT's hosted location IDs drift as contributors come and go. Re-check `https://www.webpagetest.org/getLocations.php` before each run — don't assume any specific ID below is still live.
+
+| Location | Role | Example WPT location string (verify before run) |
 |---|---|---|
-| Beijing | Real CN mobile, China Mobile/Unicom backbone | `Beijing:Chrome` (availability varies — try `China:Chrome` as fallback) |
+| Beijing | Real CN mobile, China Mobile/Unicom backbone | `Beijing:Chrome` (availability varies; try `China:Chrome`) |
 | Shanghai | Real CN mobile, China Telecom backbone | `Shanghai:Chrome` |
 | Hong Kong | Azure origin region — isolates server/bundle from GFW | `HongKong:Chrome` |
-| US West | Global control — catches regressions that hurt everyone | `us-west-1:Chrome` or `Dulles_USWest:Chrome` |
+| US West | Global control — catches regressions that hurt everyone | `ec2-us-west-1:Chrome` (AWS-hosted WPT nodes use `ec2-<region>:Chrome`) |
+
+Note: `Dulles:Chrome` is WPT's default but it's on the US **East** Coast (Dulles, VA) — don't use it as a "US West" fallback. If `ec2-us-west-1` isn't currently offered, pick any West-Coast equivalent from the live list (Oregon, California) and record the exact ID in the baseline doc so future runs reproduce.
 
 If a CN location is flaky or unavailable on the day, note it in the baseline doc and fall back to 17ce.com for TTFB-only, or spin up an Alibaba Cloud Beijing VM with headless Chrome + Lighthouse as a one-off (~1 hour setup). Don't substitute a different city silently — consistency across baselines matters.
 

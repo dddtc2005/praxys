@@ -83,7 +83,7 @@ Wait 2–5 minutes after the deploys finish, then:
    | order by timestamp desc
    | take 20
    ```
-   You should see FCP / LCP / INP / CLS / TTFB events with `effectiveType` / `downlink` / `rtt` in `customDimensions`.
+   You should see FCP / LCP / INP / CLS / TTFB events with `netinfo_effectiveType` / `netinfo_downlink` / `netinfo_rtt` in `customDimensions`. The telemetry initializer prefixes these with `netinfo_` to avoid shadowing SDK-native envelope fields — see the module header in `web/src/lib/appinsights.ts`.
 4. Confirm server-side:
    ```kusto
    requests
@@ -95,9 +95,9 @@ Wait 2–5 minutes after the deploys finish, then:
 
 If either side is empty after 10 minutes, check: env-var name spelling, workflow ran & succeeded, Python package install included `azure-monitor-opentelemetry`, MI role assignment propagated (check `AZ-ARM` logs if a `401` shows up on the exporter side), and — for the frontend — that the connection string made it into the built bundle (search `dist/assets/*.js` for the ingestion endpoint hostname).
 
-## 8. Create Availability Tests
+## 8. Create Standard availability tests
 
-Always-on uptime + TTFB trend from Azure POPs. Free-ish (a few cents per month per test at 5-min cadence).
+Always-on uptime + TTFB trend from Azure POPs. Free-ish (a few cents per month per test at 5-min cadence). Use **Standard tests**; the legacy "URL ping test" is retiring 30 Sept 2026.
 
 1. Application Insights → **Availability** → **+ Add Standard test**.
 2. Test 1: **Frontend homepage**
@@ -118,7 +118,7 @@ After 15 minutes you'll have first data points; after 24 hours you'll have usabl
 ## 9. (Later) Dashboards
 
 Once data's flowing, build an Azure Workbook that pivots by:
-- `customDimensions.effectiveType` — 4g / 3g / slow-2g / wifi
+- `customDimensions.netinfo_effectiveType` — 4g / 3g / slow-2g / wifi (note the prefix — `effectiveType` on its own won't match)
 - `client_CountryOrRegion` — CN vs rest
 - `cloud_RoleName` — frontend vs backend
 - Scenario (add a `scenario` custom dimension from client code if useful)
