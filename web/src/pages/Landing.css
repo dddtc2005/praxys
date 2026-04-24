@@ -20,9 +20,9 @@
   --l-rust: oklch(0.55 0.18 30);
   --l-grain: 0.04;
 
-  --l-font-display: 'Geist', 'DM Sans', system-ui, sans-serif;
-  --l-font-body: 'Geist', 'DM Sans', system-ui, sans-serif;
-  --l-font-data: 'JetBrains Mono', ui-monospace, monospace;
+  --l-font-display: 'Geist Variable', 'DM Sans Variable', system-ui, sans-serif;
+  --l-font-body: 'Geist Variable', 'DM Sans Variable', system-ui, sans-serif;
+  --l-font-data: 'JetBrains Mono Variable', ui-monospace, monospace;
 
   background: var(--l-paper);
   color: var(--l-ink);
@@ -35,8 +35,8 @@
 }
 
 html[lang="zh"] .landing-root {
-  --l-font-display: 'Noto Sans SC', 'Geist', sans-serif;
-  --l-font-body: 'Noto Sans SC', 'Geist', sans-serif;
+  --l-font-display: 'Noto Sans SC Variable', 'Geist Variable', sans-serif;
+  --l-font-body: 'Noto Sans SC Variable', 'Geist Variable', sans-serif;
 }
 
 .dark .landing-root {

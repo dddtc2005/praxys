@@ -147,14 +147,18 @@
   --color-accent-purple: var(--accent-purple-val);
   --color-accent-cobalt: var(--accent-cobalt-val);
 
-  --font-sans: 'DM Sans', 'Noto Sans SC', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Noto Sans SC', ui-monospace, monospace;
+  /* @fontsource-variable packages emit font-family names with the ` Variable`
+     suffix (e.g. `DM Sans Variable`, not `DM Sans`). Without that suffix the
+     browser would download the WOFF2 files but silently fall back to system
+     fonts because no @font-face would match. */
+  --font-sans: 'DM Sans Variable', 'Noto Sans SC Variable', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'Noto Sans SC Variable', ui-monospace, monospace;
 }
 
 /* ── shadcn utility mappings ── */
 @theme inline {
   --font-heading: var(--font-sans);
-  --font-sans: 'DM Sans', 'Noto Sans SC', system-ui, sans-serif;
+  --font-sans: 'DM Sans Variable', 'Noto Sans SC Variable', system-ui, sans-serif;
 
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);

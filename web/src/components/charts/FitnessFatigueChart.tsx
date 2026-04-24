@@ -219,7 +219,7 @@ export default function FitnessFatigueChart({ data, scienceNote }: Props) {
 
             <XAxis
               dataKey="date"
-              tick={{ fill: chartColors.tick, fontSize: 10, fontFamily: 'JetBrains Mono, monospace' }}
+              tick={{ fill: chartColors.tick, fontSize: 10, fontFamily: 'JetBrains Mono Variable, monospace' }}
               tickLine={false}
               axisLine={{ stroke: chartColors.grid }}
               tickFormatter={(v: string) => {
@@ -229,7 +229,7 @@ export default function FitnessFatigueChart({ data, scienceNote }: Props) {
               interval={Math.max(0, Math.floor(chartData.length / 10) - 1)}
             />
             <YAxis
-              tick={{ fill: chartColors.tick, fontSize: 10, fontFamily: 'JetBrains Mono, monospace' }}
+              tick={{ fill: chartColors.tick, fontSize: 10, fontFamily: 'JetBrains Mono Variable, monospace' }}
               tickLine={false}
               axisLine={false}
               domain={[yMin, yMax]}

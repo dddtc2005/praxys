@@ -166,7 +166,7 @@ export default function FormSparkline({ data, scienceNote }: Props) {
 
               <XAxis
                 dataKey="date"
-                tick={{ fontSize: 9, fill: chartColors.tick, fontFamily: 'JetBrains Mono, monospace' }}
+                tick={{ fontSize: 9, fill: chartColors.tick, fontFamily: 'JetBrains Mono Variable, monospace' }}
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={(v: string) => {
