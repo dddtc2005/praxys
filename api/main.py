@@ -43,6 +43,7 @@ if os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING"):
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy.orm import Session
 
 from api.auth import get_current_user_id
@@ -90,6 +91,14 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Praxys API", version="2.0.0", lifespan=lifespan)
+
+# GZip API responses. Linux App Service's nginx proxy doesn't compress
+# dynamic upstream responses by default, so without this, JSON payloads
+# from /api/training, /api/plan, /api/today etc. ship uncompressed over
+# the GFW. minimum_size=500 skips tiny responses where the compression
+# overhead outweighs the savings. Added before other middleware so it
+# runs last on the response path (middleware order = reverse LIFO).
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 # CORS — use FastAPI middleware for local dev only.
 # On Azure, platform-level CORS is configured via `az webapp cors` and takes
