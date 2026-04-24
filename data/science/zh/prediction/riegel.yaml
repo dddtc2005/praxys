@@ -1,0 +1,25 @@
+id: riegel
+pillar: prediction
+name: Riegel Formula
+author: system
+description: 经验性配速缩放公式：T2 = T1 x (D2/D1)^1.06。适用于任意距离的已知比赛成绩。最适合基于配速/心率的运动员，且没有功率数据。
+simple_description: 通过将已知成绩按比例缩放来预测比赛时间。如果你跑过 10K，它可以根据配速在更长距离上自然减慢的情况来估算你的半程马拉松成绩。简单，而且对标准公路距离来说出奇准确。
+advanced_description: "## Riegel Formula\n\n**Formula:** T₂ = T₁ × (D₂/D₁)^1.06\n\n\
+  指数 1.06 是经验值，来源于对世界纪录和大型比赛数据库的分析。假设乳酸阈配速 ≈ 10K 比赛配速。\n\n**Accuracy range:** 最适用于\
+  \ 5K 到马拉松距离。对于超长距离，可靠性较低，因为补给、地形和睡眠剥夺会引入非线性的减速因素。\n\n**Individual variation in exponent:**\n\
+  - Elite athletes: ~1.08（更受耐力限制）\n- Recreational runners: ~1.06（标准）\n\n**References:**\n\
+  - Riegel (1977) \"Athletic Records and Human Endurance,\" *American Scientist*\n\
+  - Vickers & Vertosick (2016) \"An Empirical Study of Race Times in Recreational\n\
+  \  Running,\" *BMC Sports Science*"
+citations:
+- key: riegel1977
+  title: Athletic Records and Human Endurance
+  year: 1977
+  journal: American Scientist
+- key: vickers2016
+  title: An Empirical Study of Race Times in Recreational Running
+  year: 2016
+  journal: BMC Sports Science
+params:
+  riegel_exponent: 1.06
+  threshold_reference_km: 10.0

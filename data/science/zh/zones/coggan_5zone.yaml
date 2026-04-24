@@ -1,0 +1,111 @@
+id: coggan_5zone
+pillar: zones
+name: Coggan 5-Zone
+author: system
+description: 经典的 5 区模型，源自 Coggan 的功率训练分区。各区基于阈值（CP、LTHR 或 阈值配速）的百分比定义。结构化训练的行业标准。
+simple_description: 根据你的阈值（CP、乳酸阈心率或阈值配速）将训练强度分为 5 个区间。每个区间对应不同的生理适应——从轻松恢复跑到最大强度间歇。这是大多数教练和训练平台使用的标准系统。
+advanced_description: '## Coggan 5 区模型
+
+
+  四个边界百分比定义了横跨三项指标的 5 个区间：
+
+
+  **功率区间**（CP 的百分比）：
+
+  | 区间 | 名称 | 范围 | 目标 % |
+
+  |------|------|-------|----------|
+
+  | 1 | 恢复 | < 55% CP | 5% |
+
+  | 2 | 耐力 | 55–75% CP | 70% |
+
+  | 3 | 节奏跑 | 75–90% CP | 10% |
+
+  | 4 | 乳酸阈 | 90–105% CP | 10% |
+
+  | 5 | VO2max | > 105% CP | 5% |
+
+
+  目标分布遵循约 ~75/10/15 的模式（轻松/中等/高强度），该模式得到了
+
+  Seiler (2006, 2010) 的支持，并在 Filipas 等人 (2022) 的跑步研究中得到证实。
+
+
+  **心率区间**（LTHR 的百分比）：[0.72, 0.82, 0.89, 0.96]
+
+
+  **配速区间**（阈值配速的百分比，反向）：[1.29, 1.14, 1.06, 1.00]
+
+  （数值越高 = 相对于阈值配速越慢）
+
+
+  **参考文献：**
+
+  - Coggan (2012) *Training and Racing with a Power Meter*
+
+  - Seiler (2006) "Quantifying training intensity distribution in elite endurance
+  athletes"
+
+  - Filipas et al. (2022) "Effects of pyramidal and polarized training in well-trained
+  endurance runners"'
+citations:
+- key: coggan2012
+  title: Training and Racing with a Power Meter
+  year: 2012
+  type: book
+- key: friel_hr
+  title: The Cyclist's Training Bible
+  type: book
+- key: seiler2006
+  title: Quantifying training intensity distribution in elite endurance athletes
+  year: 2006
+  journal: Scandinavian Journal of Medicine & Science in Sports
+- key: filipas2022
+  title: Effects of 16 weeks of pyramidal and polarized training intensity distributions
+    in well-trained endurance runners
+  year: 2022
+  journal: Scandinavian Journal of Medicine & Science in Sports
+params:
+  zone_count: 5
+  boundaries:
+    power:
+    - 0.55
+    - 0.75
+    - 0.9
+    - 1.05
+    hr:
+    - 0.72
+    - 0.82
+    - 0.89
+    - 0.96
+    pace:
+    - 1.29
+    - 1.14
+    - 1.06
+    - 1.0
+  zone_names:
+    power:
+    - Recovery
+    - Endurance
+    - Tempo
+    - Threshold
+    - VO2max
+    hr:
+    - Recovery
+    - Endurance
+    - Tempo
+    - Threshold
+    - VO2max
+    pace:
+    - Recovery
+    - Endurance
+    - Tempo
+    - Threshold
+    - VO2max
+  target_distribution:
+  - 0.05
+  - 0.7
+  - 0.1
+  - 0.1
+  - 0.05

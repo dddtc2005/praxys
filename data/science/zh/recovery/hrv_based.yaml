@@ -1,0 +1,64 @@
+id: hrv_based
+pillar: recovery
+name: 基于 HRV 的恢复
+author: system
+description: 基于相对于个人基线的 ln(RMSSD) 进行恢复评估。使用 Plews et al (2012) 的趋势/CV 监测和 Kiviniemi
+  et al (2007) 的阈值协议。只有在存在足够的 HRV 数据时才提供恢复结果。
+simple_description: 使用你的 HRV（ln RMSSD）相对于你自己的基线来将恢复状态分类为充分恢复、正常或疲劳。如果 HRV 数据缺失或不足，则不提供恢复状态和建议。
+advanced_description: '## 基于 HRV 的恢复评估
+
+
+  **主要信号：ln(RMSSD)**
+
+  - 来自可穿戴设备数据的对数转换夜间 RMSSD
+
+  - 与 30 天滚动均值和标准差比较
+
+
+  **状态判定（结合 Kiviniemi + Plews）：**
+
+  | Condition | Status | Source |
+
+  |-----------|--------|--------|
+
+  | ln(RMSSD) > mean + 0.5 SD | 充分恢复 | Plews SWC (smallest worthwhile change) |
+
+  | mean − 1 SD ≤ ln(RMSSD) ≤ mean + 0.5 SD | 正常 | Between thresholds |
+
+  | ln(RMSSD) < mean − 1 SD | 疲劳 | Kiviniemi threshold |
+
+  | < 5 HRV readings or no valid today value | 无数据 | Cannot classify |
+
+
+  **趋势监测（Plews et al, 2012）：**
+
+  - ln(RMSSD) 的 7 天滚动均值：下降趋势表明适应不良
+
+  - 7 天变异系数（CV）：CV > 10% 表明自主神经紊乱
+
+
+  **可用性策略：**
+
+  - 恢复需要 HRV 数据。
+
+  - 只有在存在 HRV 时，睡眠和静息心率才作为上下文。
+
+  - 没有 HRV 就没有恢复状态、评分或恢复建议。'
+citations:
+- key: plews2012
+  title: Heart rate variability in elite triathletes, is variation in variability
+    the key to effective training?
+  year: 2012
+  journal: European Journal of Applied Physiology
+  doi: 10.1007/s00421-012-2354-4
+- key: kiviniemi2007
+  title: Endurance training guided individually by daily heart rate variability measurements
+  year: 2007
+  journal: European Journal of Applied Physiology
+  doi: 10.1007/s00421-007-0552-2
+params:
+  rolling_days: 7
+  baseline_days: 30
+  cv_threshold: 10
+signal:
+  tsb_high_fatigue: -20

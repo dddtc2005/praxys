@@ -1,0 +1,42 @@
+id: polarized_3zone
+pillar: zones
+name: Seiler 极化 3 区模型
+author: system
+description: Seiler 基于通气阈值（VT1/VT2）的 3 区极化模型。强调 80% 轻松、5% 中等、15% 高强度的分布。该模型得到精英耐力运动员研究的支持。
+simple_description: 只使用 3 个区，并遵循一个简单规则：大约 80% 的训练应为轻松，5% 为中等，15% 为高强度。对精英运动员的研究表明，这种分布能在尽量降低受伤风险的同时带来最佳提升。关键在于避开“中等”区——它强度太高，不利于恢复，又太低，难以带来显著适应。
+advanced_description: "## Seiler 极化 3 区模型\n\n基于通气阈值（VT1/VT2）的三个区：\n\n**边界比例：**\n-\
+  \ 功率：[0.82, 1.00] 的 CP\n- 心率：[0.82, 0.89] 的 LTHR\n- 配速：[1.14, 1.00] 的阈值配速\n\n**目标训练分布：**\n\
+  | 区域 | 名称 | 目标 % |\n|------|------|----------|\n| 1 | 轻松（低于 VT1） | 80% |\n| 2 |\
+  \ 中等（VT1–VT2） | 5% |\n| 3 | 高强度（高于 VT2） | 15% |\n\n极化模型将 Zone 2（“黑洞”训练）的时间最小化，这种训练会产生显著疲劳，却缺少促进高水平适应所需的刺激。\n\
+  \n**参考文献：**\n- Seiler & Kjerland (2006) \"Quantifying training intensity distribution\
+  \ in elite\n  endurance athletes,\" *SJMSS*\n- Stöggl & Sperlich (2014) \"Polarized\
+  \ training has greater impact on key endurance\n  variables,\" *Frontiers in Physiology*"
+citations:
+- key: seiler2006
+  title: Quantifying training intensity distribution in elite endurance athletes
+  year: 2006
+  journal: Scandinavian Journal of Medicine & Science in Sports
+- key: stoggl2014
+  title: Polarized training has greater impact on key endurance variables
+  year: 2014
+  journal: Frontiers in Physiology
+params:
+  zone_count: 3
+  boundaries:
+    power:
+    - 0.82
+    - 1.0
+    hr:
+    - 0.82
+    - 0.89
+    pace:
+    - 1.14
+    - 1.0
+  zone_names:
+  - Zone 1 (Easy)
+  - Zone 2 (Moderate)
+  - Zone 3 (Hard)
+  target_distribution:
+  - 0.8
+  - 0.05
+  - 0.15

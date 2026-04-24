@@ -1,0 +1,55 @@
+id: pyramidal_3zone
+pillar: zones
+name: 金字塔式 3 区模型
+author: system
+description: 一种金字塔式的 3 区训练模型，强度分布呈金字塔形：约 75% 轻松，约 15% 中等/节奏跑，约 10% 高强度。与极化训练不同，这种模型允许在乳酸阈附近投入相当多的时间，这可能有助于为节奏跑需求较高的比赛做准备的训练良好的跑者。
+simple_description: 以金字塔形分配训练时间：大部分时间用于轻松强度（约 75%），相当一部分用于中等/节奏跑强度（约 15%），较小一部分用于高强度（约
+  10%）。与极化训练相比，金字塔式允许更多乳酸阈训练；一些研究表明，这对训练良好的跑者同样有效，并且可能更有助于为半程马拉松和马拉松这类持续发力的比赛做准备。
+advanced_description: "## 金字塔式 3 区模型\n\n基于通气阈值（VT1/VT2）的三个区间，边界与极化模型相同，\n但目标分布不同：\n\
+  \n**边界比例：**\n- 功率: [0.82, 1.00] of CP\n- 心率: [0.82, 0.89] of LTHR\n- 配速: [1.14,\
+  \ 1.00] of threshold pace\n\n**目标训练分布：**\n| 区间 | 名称 | 目标 % |\n|------|------|----------|\n\
+  | 1 | 轻松（低于 VT1） | 75% |\n| 2 | 中等（VT1-VT2） | 15% |\n| 3 | 高强度（高于 VT2） | 10% |\n\
+  \n金字塔式模型之所以得名，是因为其强度分布形状像金字塔：底部宽大，代表大量轻松训练；中间层适中，代表中等训练；顶部较窄，代表较少的高强度训练。与极化训练的关键区别在于，金字塔式将更大比例分配给区间\
+  \ 2（中等/节奏跑），相应减少区间 3（高强度）。\n\nEsteve-Lanao et al. (2007) 研究表明，采用金字塔式分布的非精英跑者在 10K\
+  \ 比赛成绩上的提升，比采用更偏乳酸阈的训练方式更大。Filipas et al. (2022) 发现，在 16 周内，金字塔式和极化分布对训练良好的跑者带来的提升相似，这表明两种方法都可能有效，具体取决于个体反应和比赛需求。\n\
+  \n**何时考虑金字塔式而非极化：**\n- 为持续发力型赛事做准备（半程马拉松、马拉松）\n- 对节奏跑/乳酸阈训练反应良好\n- 已经具备良好的训练基础和较强的有氧基础\n\
+  \n**参考文献：**\n- Esteve-Lanao et al. (2007) \"How do endurance runners actually train?\"\
+  \n  *Medicine & Science in Sports & Exercise*\n- Filipas et al. (2022) \"Effects\
+  \ of 16 weeks of pyramidal and polarized\n  training intensity distributions in\
+  \ well-trained endurance runners,\"\n  *Scandinavian Journal of Medicine & Science\
+  \ in Sports*\n- Stöggl & Sperlich (2014) \"Polarized training has greater impact\
+  \ on key\n  endurance variables,\" *Frontiers in Physiology*"
+citations:
+- key: esteve-lanao2007
+  title: How do endurance runners actually train? Relationship with competition performance
+  year: 2007
+  journal: Medicine & Science in Sports & Exercise
+- key: filipas2022
+  title: Effects of 16 weeks of pyramidal and polarized training intensity distributions
+    in well-trained endurance runners
+  year: 2022
+  journal: Scandinavian Journal of Medicine & Science in Sports
+- key: stoggl2014
+  title: Polarized training has greater impact on key endurance variables
+  year: 2014
+  journal: Frontiers in Physiology
+params:
+  zone_count: 3
+  boundaries:
+    power:
+    - 0.82
+    - 1.0
+    hr:
+    - 0.82
+    - 0.89
+    pace:
+    - 1.14
+    - 1.0
+  zone_names:
+  - Zone 1 (Easy)
+  - Zone 2 (Moderate)
+  - Zone 3 (Hard)
+  target_distribution:
+  - 0.75
+  - 0.15
+  - 0.1
