@@ -1,0 +1,217 @@
+name: Perf Baseline (sitespeed.io via ACI)
+
+# Manual-trigger-only. Runs sitespeed.io inside an Azure Container Instance
+# in the chosen region, captures HAR + sitespeed output to an Azure Files
+# share, downloads back to the runner, uploads as a GH Action artifact.
+#
+# One-time prerequisites (see docs/perf-baselines/ci-setup.md):
+#   - Storage account `stperftrainsight` in rg-trainsight (already created)
+#   - File share `perfbaselines` (already created)
+#   - GitHub repo secret STORAGE_ACCOUNT_KEY set to that account's access key
+#   - AZURE_CLIENT_ID / AZURE_TENANT_ID / AZURE_SUBSCRIPTION_ID already
+#     used by deploy-backend.yml (SP has Contributor on rg-trainsight)
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Why running this baseline (e.g. "anchor before phase 2" or "after self-host fonts")'
+        required: true
+        type: string
+      probe:
+        description: 'Azure region the ACI runs in'
+        required: false
+        type: choice
+        default: 'eastasia'
+        options:
+          - 'eastasia'
+          - 'westus'
+          - 'northeurope'
+          - 'eastus'
+      target_url:
+        description: 'URL to measure'
+        required: false
+        type: string
+        default: 'https://www.praxys.run/'
+      device:
+        description: 'Device emulation'
+        required: false
+        type: choice
+        default: 'both'
+        options:
+          - 'desktop'
+          - 'mobile'
+          - 'both'
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AZ_SUBSCRIPTION: 3ff02750-211c-4579-94a6-8c9af4e6d891
+  AZ_RG: rg-trainsight
+  STORAGE_ACCOUNT: stperftrainsight
+  FILE_SHARE: perfbaselines
+
+jobs:
+  resolve-devices:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.build.outputs.matrix }}
+    steps:
+      - id: build
+        run: |
+          if [ "${{ inputs.device }}" = "both" ]; then
+            echo 'matrix=["desktop","mobile"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'matrix=["${{ inputs.device }}"]' >> "$GITHUB_OUTPUT"
+          fi
+
+  baseline:
+    needs: resolve-devices
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        device: ${{ fromJson(needs.resolve-devices.outputs.matrix) }}
+    env:
+      CELL: s4-${{ inputs.probe }}-${{ matrix.device }}
+      CONTAINER_NAME: sitespeed-s4-${{ inputs.probe }}-${{ matrix.device }}-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build sitespeed.io command-line
+        id: cmd
+        run: |
+          BASE_ARGS="--outputFolder /sitespeed.io/out/${CELL} -n 3"
+          if [ "${{ matrix.device }}" = "mobile" ]; then
+            # Same explicit viewport + UA approach the local runner uses,
+            # stable across Chrome versions inside the official
+            # sitespeedio/sitespeed.io image.
+            DEVICE_ARGS='--browsertime.viewPort 390x844 --browsertime.userAgent "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"'
+          else
+            DEVICE_ARGS=""
+          fi
+          echo "args=sitespeed.io '${{ inputs.target_url }}' ${BASE_ARGS} ${DEVICE_ARGS}" >> "$GITHUB_OUTPUT"
+
+      - name: Create ACI + wait for completion
+        run: |
+          set -euo pipefail
+
+          az container create \
+            --subscription "$AZ_SUBSCRIPTION" \
+            --resource-group "$AZ_RG" \
+            --name "$CONTAINER_NAME" \
+            --image sitespeedio/sitespeed.io:latest \
+            --location "${{ inputs.probe }}" \
+            --cpu 2 --memory 4 \
+            --restart-policy Never \
+            --azure-file-volume-account-name "$STORAGE_ACCOUNT" \
+            --azure-file-volume-account-key "${{ secrets.STORAGE_ACCOUNT_KEY }}" \
+            --azure-file-volume-share-name "$FILE_SHARE" \
+            --azure-file-volume-mount-path /sitespeed.io/out \
+            --command-line "${{ steps.cmd.outputs.args }}" \
+            --no-wait
+
+          # Poll until the container exits. ACI's single-run model surfaces
+          # state as "Terminated" with an exitCode once the process finishes.
+          while true; do
+            STATE=$(az container show \
+              --subscription "$AZ_SUBSCRIPTION" \
+              --resource-group "$AZ_RG" \
+              --name "$CONTAINER_NAME" \
+              --query "containers[0].instanceView.currentState.state" -o tsv 2>/dev/null || true)
+            echo "[$(date -u +%T)] container state: ${STATE:-pending}"
+            if [ "$STATE" = "Terminated" ]; then break; fi
+            sleep 20
+          done
+
+          EXIT_CODE=$(az container show \
+            --subscription "$AZ_SUBSCRIPTION" \
+            --resource-group "$AZ_RG" \
+            --name "$CONTAINER_NAME" \
+            --query "containers[0].instanceView.currentState.exitCode" -o tsv)
+          echo "container exit code: $EXIT_CODE"
+
+          echo "---- container logs (tail) ----"
+          az container logs \
+            --subscription "$AZ_SUBSCRIPTION" \
+            --resource-group "$AZ_RG" \
+            --name "$CONTAINER_NAME" | tail -80
+
+          exit "$EXIT_CODE"
+
+      - name: Download HARs + strip heavy binaries
+        run: |
+          set -euo pipefail
+          mkdir -p baseline-output
+          az storage file download-batch \
+            --subscription "$AZ_SUBSCRIPTION" \
+            --account-name "$STORAGE_ACCOUNT" \
+            --account-key "${{ secrets.STORAGE_ACCOUNT_KEY }}" \
+            --source "$FILE_SHARE" \
+            --pattern "${CELL}/*" \
+            --destination ./baseline-output/
+
+          # Match the .gitignore pattern in docs/perf-baselines/: keep HAR +
+          # light reports, drop videos/filmstrip/screenshots bundles.
+          find baseline-output -type d \( -name video -o -name filmstrip -o -name screenshots \) \
+            -exec rm -rf {} + 2>/dev/null || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: baseline-${{ env.CELL }}-${{ github.run_id }}
+          path: baseline-output/
+          retention-days: 30
+
+      - name: Delete ACI
+        if: always()
+        run: |
+          az container delete \
+            --subscription "$AZ_SUBSCRIPTION" \
+            --resource-group "$AZ_RG" \
+            --name "$CONTAINER_NAME" \
+            --yes || true
+
+      - name: Delete downloaded results from Azure Files
+        if: always()
+        run: |
+          # Avoid share filling up; GH artifact is the durable copy.
+          az storage file delete-batch \
+            --subscription "$AZ_SUBSCRIPTION" \
+            --account-name "$STORAGE_ACCOUNT" \
+            --account-key "${{ secrets.STORAGE_ACCOUNT_KEY }}" \
+            --source "$FILE_SHARE" \
+            --pattern "${CELL}/*" || true
+
+  summary:
+    needs: baseline
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v4
+        with:
+          path: baseline-collected
+          pattern: baseline-*-${{ github.run_id }}
+          merge-multiple: true
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Run analyzer across all cells
+        run: |
+          mkdir -p baseline-combined
+          cp -r baseline-collected/* baseline-combined/
+          python scripts/analyze_baseline.py --baseline-dir baseline-combined || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: baseline-combined-${{ github.run_id }}
+          path: baseline-combined/
+          retention-days: 30
