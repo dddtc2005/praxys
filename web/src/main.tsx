@@ -8,11 +8,20 @@ import { i18n, activateLocale, DEFAULT_LOCALE, isSupportedLocale, type Supported
 import { detectLocaleFromTag } from './lib/locale-detect'
 import { KEYS, getCompatItem } from './lib/storage-compat'
 import { initAppInsights } from './lib/appinsights'
+import { registerSW } from 'virtual:pwa-register'
 
 // Fire before render so the SDK captures the first page view + web vitals
 // from the initial paint. No-op when VITE_APPINSIGHTS_CONNECTION_STRING
 // is unset at build time.
 initAppInsights()
+
+// Register the service worker that vite-plugin-pwa generated. `immediate:
+// true` activates the new SW as soon as it's installed, so a freshly-
+// deployed version takes effect on the next navigation instead of after
+// every open tab closes. onNeedRefresh / onOfflineReady are left as the
+// default no-ops — we auto-update silently and don't prompt the user
+// (matches registerType: 'autoUpdate' in vite.config.ts).
+registerSW({ immediate: true })
 
 const queryClient = new QueryClient({
   defaultOptions: {
