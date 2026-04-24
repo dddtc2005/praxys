@@ -132,11 +132,11 @@ msgstr "活动"
 #: src/pages/Settings.tsx:984
 #: src/pages/Setup.tsx:842
 msgid "Activities-only connection"
-msgstr ""
+msgstr "仅限活动连接"
 
 #: src/pages/Setup.tsx:780
 msgid "Activity types to sync"
-msgstr ""
+msgstr "要同步的活动类型"
 
 #: src/components/charts/ComplianceChart.tsx:90
 #: src/components/ZoneAnalysisCard.tsx:64
@@ -175,7 +175,7 @@ msgstr "AI 训练分析"
 
 #: src/pages/Setup.tsx:796
 msgid "All"
-msgstr ""
+msgstr "全部"
 
 #: src/pages/Login.tsx:60
 msgid "An unexpected error occurred."
@@ -230,7 +230,7 @@ msgstr "回填..."
 #. placeholder {1}: recommendation.reason
 #: src/pages/Science.tsx:156
 msgid "Based on your training, we suggest <0>{0}</0> — {1}"
-msgstr ""
+msgstr "根据你的训练，我们建议 <0>{0}</0> — {1}"
 
 #: src/components/RecoveryPanel.tsx:102
 msgid "Baseline"
@@ -260,7 +260,7 @@ msgstr "注意"
 
 #: src/components/SetupChecklist.tsx:67
 msgid "Change"
-msgstr ""
+msgstr "更改"
 
 #: src/pages/Goal.tsx:476
 msgid "Change Goal"
@@ -268,7 +268,7 @@ msgstr "修改目标"
 
 #: src/pages/Setup.tsx:603
 msgid "Check your credentials in the connection step, then try again."
-msgstr ""
+msgstr "请在连接步骤中检查你的凭据，然后重试。"
 
 #: src/pages/Settings.tsx:884
 #: src/pages/Settings.tsx:950
@@ -302,7 +302,7 @@ msgstr "点击复制"
 
 #: src/components/UpcomingPlanCard.tsx:124
 msgid "click to retry"
-msgstr ""
+msgstr "点击重试"
 
 #: src/pages/Admin.tsx:313
 msgid "Code"
@@ -338,7 +338,7 @@ msgstr "连接"
 #: src/pages/Settings.tsx:918
 #: src/pages/Setup.tsx:713
 msgid "Connect {0}"
-msgstr ""
+msgstr "连接 {0}"
 
 #: src/components/SetupChecklist.tsx:47
 #: src/pages/Setup.tsx:436
@@ -366,12 +366,12 @@ msgstr "连接中..."
 #: src/pages/Settings.tsx:986
 #: src/pages/Setup.tsx:844
 msgid "Continue in your browser to authorize Strava. Praxys imports activities from Strava, while recovery, fitness, and plans come from your other connected platforms."
-msgstr ""
+msgstr "继续在浏览器中授权 Strava。Praxys 会从 Strava 导入活动，而恢复、体能和计划则来自你连接的其他平台。"
 
 #: src/pages/Settings.tsx:994
 #: src/pages/Setup.tsx:853
 msgid "Continue to Strava"
-msgstr ""
+msgstr "继续前往 Strava"
 
 #: src/pages/Settings.tsx:1140
 msgid "Continuous Improvement"
@@ -396,7 +396,7 @@ msgstr "CP 趋势"
 
 #: src/pages/Admin.tsx:417
 msgid "Create"
-msgstr ""
+msgstr "创建"
 
 #: src/pages/Training.tsx:142
 msgid "Create a science-based 4-week training plan tailored to your fitness, recovery, and goals."
@@ -416,7 +416,7 @@ msgstr "创建中..."
 
 #: src/pages/Admin.tsx:417
 msgid "Creating..."
-msgstr ""
+msgstr "创建中..."
 
 #: src/lib/display-labels.ts:52
 #: src/pages/Settings.tsx:141
@@ -447,7 +447,7 @@ msgstr "当前体能"
 #. placeholder {0}: config?.training_base || 'power'
 #: src/components/SetupChecklist.tsx:64
 msgid "Currently set to {0}-based training"
-msgstr ""
+msgstr "当前设置为基于 {0} 的训练"
 
 #: src/components/AppSidebar.tsx:28
 msgid "Dark"
@@ -489,15 +489,15 @@ msgstr "演示账号"
 
 #: src/pages/Admin.tsx:424
 msgid "Demo users can browse your dashboard (Today, Training, Goal, History) but cannot change settings, sync data, or modify plans. Share the email and password with anyone you want to demo to."
-msgstr ""
+msgstr "演示用户可以浏览你的仪表盘（今日、训练、目标、历史），但不能更改设置、同步数据或修改计划。请把邮箱和密码分享给任何你想演示的人。"
 
 #: src/pages/Admin.tsx:405
 msgid "demo-password"
-msgstr ""
+msgstr "demo-password"
 
 #: src/pages/Admin.tsx:395
 msgid "demo@example.com"
-msgstr ""
+msgstr "demo@example.com"
 
 #: src/pages/Admin.tsx:242
 #: src/pages/Admin.tsx:456
@@ -521,7 +521,7 @@ msgstr "讨论"
 
 #: src/components/SplitBreakdown.tsx:46
 msgid "Dist"
-msgstr ""
+msgstr "距离"
 
 #: src/components/ActivityCard.tsx:75
 #: src/pages/Settings.tsx:1144
@@ -535,7 +535,7 @@ msgstr "分布偏离目标"
 
 #: src/pages/Settings.tsx:1196
 msgid "Drive your zone calculations and training load. Values come from connected sources; pick which source to use when you have more than one."
-msgstr ""
+msgstr "驱动你的区间计算和训练负荷。数值来自已连接的数据源；当有多个数据源时，请选择要使用的来源。"
 
 #: src/components/ActivityCard.tsx:86
 #: src/components/SplitBreakdown.tsx:47
@@ -594,7 +594,7 @@ msgstr ""
 #. placeholder {0}: res.status
 #: src/pages/Admin.tsx:144
 msgid "Failed (HTTP {0})"
-msgstr ""
+msgstr "失败（HTTP {0}）"
 
 #: src/pages/Today.tsx:53
 msgid "Failed to load"
@@ -606,7 +606,7 @@ msgstr "加载活动失败"
 
 #: src/pages/Goal.tsx:483
 msgid "Failed to load goal data"
-msgstr ""
+msgstr "目标数据加载失败"
 
 #: src/pages/Science.tsx:216
 msgid "Failed to load science data"
@@ -618,11 +618,11 @@ msgstr "加载设置失败"
 
 #: src/pages/Training.tsx:52
 msgid "Failed to load training data"
-msgstr ""
+msgstr "训练数据加载失败"
 
 #: src/components/UpcomingPlanCard.tsx:492
 msgid "Failed to load training plan"
-msgstr ""
+msgstr "训练计划加载失败"
 
 #: src/pages/Goal.tsx:53
 msgid "Falling"
@@ -667,7 +667,7 @@ msgstr "充分恢复"
 
 #: src/pages/Settings.tsx:157
 msgid "From activities"
-msgstr ""
+msgstr "来自活动"
 
 #: src/pages/Goal.tsx:177
 msgid "Gap"
@@ -675,15 +675,15 @@ msgstr "差距"
 
 #: src/pages/Settings.tsx:967
 msgid "Garmin International and Garmin China are separate account systems. Pick the one your credentials belong to."
-msgstr ""
+msgstr "Garmin International 和 Garmin China 是两个独立的账号系统。请选择您的凭据所属的系统。"
 
 #: src/pages/Settings.tsx:889
 msgid "Garmin International and Garmin China are separate accounts. To switch, disconnect and reconnect with the other account."
-msgstr ""
+msgstr "Garmin International 和 Garmin China 是两个独立的账号。要切换，请断开连接并使用另一个账号重新连接。"
 
 #: src/pages/Settings.tsx:1049
 msgid "Garmin native running power reads ~30% higher than Stryd for the same athlete — they measure different things. Zones and benchmarks calibrated on Stryd (most coach references, most training literature) will not directly transfer. Your power data will still be internally consistent for tracking progress, but don't compare CP values across the two systems."
-msgstr ""
+msgstr "Garmin 原生跑步功率同一位运动员读取值通常比 Stryd 高约 30%——它们测量的是不同的东西。基于 Stryd 校准的功率区间和基准值（大多数教练参考、大多数训练文献）不能直接套用。您的功率数据在跟踪进展时仍会保持内部一致性，但不要跨这两个系统比较 CP 值。"
 
 #: src/pages/Admin.tsx:291
 msgid "Generate"
@@ -789,11 +789,11 @@ msgstr "如何计算您的区间与训练负荷"
 
 #: src/components/SplitBreakdown.tsx:49
 msgid "HR"
-msgstr ""
+msgstr "心率"
 
 #: src/components/RecoveryPanel.tsx:17
 msgid "HRV above baseline (Plews SWC)"
-msgstr ""
+msgstr "HRV 高于基线（Plews SWC）"
 
 #: src/components/RecoveryPanel.tsx:84
 msgid "HRV Analysis"
@@ -801,11 +801,11 @@ msgstr "HRV 分析"
 
 #: src/components/RecoveryPanel.tsx:19
 msgid "HRV below threshold (Kiviniemi)"
-msgstr ""
+msgstr "HRV 低于阈值（Kiviniemi）"
 
 #: src/components/RecoveryPanel.tsx:18
 msgid "HRV within normal range"
-msgstr ""
+msgstr "HRV 处于正常范围内"
 
 #: src/components/RecoveryPanel.tsx:26
 msgid "Improving"
@@ -813,7 +813,7 @@ msgstr "改善中"
 
 #: src/components/RecoveryPanel.tsx:20
 msgid "Insufficient HRV data for analysis"
-msgstr ""
+msgstr "用于分析的 HRV 数据不足"
 
 #: src/pages/Settings.tsx:885
 #: src/pages/Settings.tsx:950
@@ -843,7 +843,7 @@ msgstr "上次活动"
 #. placeholder {0}: status.error
 #: src/pages/Settings.tsx:873
 msgid "Last sync failed: {0}"
-msgstr ""
+msgstr "上次同步失败：{0}"
 
 #. placeholder {0}: new Date(status.last_sync).toLocaleString()
 #: src/pages/Settings.tsx:867
@@ -872,7 +872,7 @@ msgstr "关联您的训练设备与服务"
 
 #: src/components/Layout.tsx:29
 msgid "Live demo — real training data, read-only"
-msgstr ""
+msgstr "直播演示 — 真实训练数据，只读"
 
 #: src/pages/Science.tsx:25
 msgid "Load & Fitness"
@@ -930,7 +930,7 @@ msgstr "里程碑"
 #. placeholder {0}: u.demo_of_email
 #: src/pages/Admin.tsx:218
 msgid "mirrors {0}"
-msgstr ""
+msgstr "镜像 {0}"
 
 #: src/pages/Settings.tsx:1138
 msgid "Mode"
@@ -943,7 +943,7 @@ msgstr "调整"
 #. placeholder {0}: primaryPrompt?.category
 #: src/pages/Setup.tsx:878
 msgid "Multiple platforms provide <0>{0}</0> data. Which should be the primary source?"
-msgstr ""
+msgstr "多个平台提供 <0>{0}</0> 数据。应将哪个作为主要来源？"
 
 #: src/pages/Training.tsx:113
 msgid "Need at least 3 activities with power data to plot a meaningful trend."
@@ -961,7 +961,7 @@ msgstr "所需 {abbrev}"
 
 #: src/pages/Admin.tsx:151
 msgid "Network error. Is the server running?"
-msgstr ""
+msgstr "网络错误。服务器在运行吗？"
 
 #: src/pages/Admin.tsx:301
 msgid "New invitation code:"
@@ -993,11 +993,11 @@ msgstr "尚无邀请码。生成一个以邀请用户。"
 
 #: src/components/WeeklyLoadMini.tsx:61
 msgid "No planned load this week"
-msgstr ""
+msgstr "本周没有计划负荷"
 
 #: src/components/SplitBreakdown.tsx:36
 msgid "No split data available."
-msgstr ""
+msgstr "没有可用的分段数据。"
 
 #: src/components/WorkoutCard.tsx:40
 msgid "No Workout"
@@ -1049,7 +1049,7 @@ msgstr "备注（可选）"
 
 #: src/pages/Settings.tsx:1046
 msgid "Note on Garmin native power"
-msgstr ""
+msgstr "关于 Garmin 原生功率的说明"
 
 #: src/pages/History.tsx:88
 msgid "of"
@@ -1099,7 +1099,7 @@ msgstr "计划"
 
 #: src/components/charts/ComplianceChart.tsx:42
 msgid "Planned bars are estimated — your plan has no {label} targets for the current training base."
-msgstr ""
+msgstr "计划中的条形为估算值 — 你的计划在当前训练基础下没有 {label} 目标。"
 
 #: src/components/WorkoutCard.tsx:54
 msgid "Planned Workout"
@@ -1123,11 +1123,11 @@ msgstr "预测 {distLabel}"
 
 #: src/pages/Goal.tsx:80
 msgid "Predicted using Riegel's formula (T₂ = T₁ × (D₂/D₁)^1.06), treating threshold pace as ~10K effort."
-msgstr ""
+msgstr "使用 Riegel 公式预测（T₂ = T₁ × (D₂/D₁)^1.06），将阈值配速视为约 10K 强度。"
 
 #: src/pages/Goal.tsx:75
 msgid "Predicted using Stryd race power model (5K at 103.8% CP, marathon at 89.9% CP)."
-msgstr ""
+msgstr "使用 Stryd 比赛功率模型预测（5K 为 103.8% CP，马拉松为 89.9% CP）。"
 
 #: src/pages/History.tsx:80
 msgid "Previous"
@@ -1162,23 +1162,23 @@ msgstr "提升为管理员"
 
 #: src/components/SetupChecklist.tsx:56
 msgid "Pull your latest activities, power data, and recovery metrics"
-msgstr ""
+msgstr "拉取你最近的活动、功率数据和恢复指标"
 
 #: src/components/UpcomingPlanCard.tsx:539
 msgid "Push All"
-msgstr ""
+msgstr "全部推送"
 
 #: src/components/UpcomingPlanCard.tsx:124
 msgid "Push failed"
-msgstr ""
+msgstr "推送失败"
 
 #: src/components/UpcomingPlanCard.tsx:175
 msgid "Push to Stryd"
-msgstr ""
+msgstr "推送到 Stryd"
 
 #: src/components/UpcomingPlanCard.tsx:529
 msgid "Pushing..."
-msgstr ""
+msgstr "正在推送..."
 
 #: src/lib/display-labels.ts:68
 #: src/pages/Goal.tsx:104
@@ -1192,7 +1192,7 @@ msgstr "比赛日期"
 
 #: src/pages/Goal.tsx:123
 msgid "race day"
-msgstr ""
+msgstr "比赛日"
 
 #: src/pages/Settings.tsx:1140
 msgid "Race Goal"
@@ -1212,7 +1212,7 @@ msgstr "范围"
 
 #: src/components/UpcomingPlanCard.tsx:150
 msgid "Re-push to Stryd"
-msgstr ""
+msgstr "重新推送到 Stryd"
 
 #: src/pages/Admin.tsx:384
 msgid "Read-only accounts that mirror your dashboard data"
@@ -1255,7 +1255,7 @@ msgstr "恢复日"
 
 #: src/components/RecoveryPanel.tsx:75
 msgid "Recovery requires HRV data from a compatible device (for example Oura Ring or an HRV-capable chest strap). Connect one to enable recovery status and suggestions."
-msgstr ""
+msgstr "恢复需要来自兼容设备的 HRV 数据（例如 Oura Ring 或支持 HRV 的心率带）。连接一个设备以启用恢复状态和建议。"
 
 #: src/components/RecoveryPanel.tsx:63
 msgid "Recovery Status"
@@ -1263,12 +1263,12 @@ msgstr "恢复状态"
 
 #: src/components/RecoveryPanel.tsx:184
 msgid "Recovery status uses ln(RMSSD) compared to your personal baseline. 'Fatigued' = below baseline mean minus 1 SD (Kiviniemi et al, 2007 threshold). 'Fresh' = above baseline mean plus 0.5 SD (Plews et al, 2012 smallest worthwhile change). The 7-day trend and CV are monitored per Plews — declining trend or CV above 10% signals autonomic disturbance. Sleep, RHR, and TSB are shown as informational context when HRV is available."
-msgstr ""
+msgstr "恢复状态使用 ln(RMSSD) 与你的个人基线进行比较。‘疲劳’ = 低于基线均值减去 1 个标准差（Kiviniemi 等，2007 阈值）。‘充分恢复’ = 高于基线均值加上 0.5 个标准差（Plews 等，2012 最小有意义变化）。7 天趋势和 CV 会按 Plews 进行监测 — 趋势下降或 CV 高于 10% 表明自主神经失调。當 HRV 可用时，睡眠、RHR 和 TSB 仅作为信息性上下文显示。"
 
 #: src/pages/Settings.tsx:994
 #: src/pages/Setup.tsx:853
 msgid "Redirecting..."
-msgstr ""
+msgstr "正在重定向..."
 
 #: src/components/SignalHero.tsx:17
 msgid "Reduce Intensity"
@@ -1378,11 +1378,11 @@ msgstr "设置向导"
 #. placeholder {0}: workouts.length - INITIAL_COUNT
 #: src/components/UpcomingPlanCard.tsx:317
 msgid "Show {0} more workouts"
-msgstr ""
+msgstr "显示另外 {0} 项训练"
 
 #: src/components/UpcomingPlanCard.tsx:316
 msgid "Show less"
-msgstr ""
+msgstr "显示更少"
 
 #: src/pages/History.tsx:84
 msgid "Showing"
@@ -1416,7 +1416,7 @@ msgstr "睡眠评分"
 
 #: src/components/charts/SleepPerfChart.tsx:34
 msgid "Sleep Score vs {metricLabel}"
-msgstr ""
+msgstr "睡眠得分 vs {metricLabel}"
 
 
 #: src/pages/Settings.tsx:106
@@ -1461,7 +1461,7 @@ msgstr "同步"
 
 #: src/pages/Training.tsx:128
 msgid "Sync activities together with sleep data (Garmin, Oura, or similar) so we can pair them by date."
-msgstr ""
+msgstr "将活动与睡眠数据（Garmin、Oura 或类似设备）同步，以便我们按日期配对。"
 
 #: src/pages/Settings.tsx:698
 msgid "Sync All"
@@ -1548,7 +1548,7 @@ msgstr "主题"
 #. placeholder {0}: deleteUser?.email
 #: src/pages/Admin.tsx:468
 msgid "This will permanently delete <0>{0}</0> and all their data (activities, config, connections, plans). This cannot be undone."
-msgstr ""
+msgstr "这将永久删除 <0>{0}</0> 及其所有数据（活动、配置、连接、计划）。此操作无法撤销。"
 
 #: src/lib/display-labels.ts:45
 #: src/lib/phase-label.ts:15
@@ -1577,7 +1577,7 @@ msgstr "今日"
 
 #: src/components/UpcomingPlanCard.tsx:220
 msgid "TODAY"
-msgstr ""
+msgstr "今日"
 
 #: src/components/AppSidebar.tsx:66
 msgid "Training"
@@ -1617,7 +1617,7 @@ msgstr "TSB（状态）"
 
 #: src/pages/Goal.tsx:88
 msgid "Ultra distance power fractions (50K+) are estimates with limited research backing. Riegel's exponent is validated only up to marathon distance. Predictions beyond marathon carry significantly higher uncertainty due to factors like fueling, terrain, heat, and pacing strategy that dominate ultra performance but are not captured by power/pace models."
-msgstr ""
+msgstr "超长距离功率分数（50K+）为估算值，研究支持有限。Riegel 指数仅在马拉松距离内得到验证。超过马拉松的预测因补给、地形、气温和配速策略等因素而具有更高不确定性，这些因素主导超马表现，但不在功率/配速模型的覆盖范围内。"
 
 #: src/pages/Settings.tsx:644
 msgid "Units"
@@ -1625,7 +1625,7 @@ msgstr "单位"
 
 #: src/components/UpcomingPlanCard.tsx:512
 msgid "Upcoming Plan"
-msgstr ""
+msgstr "即将到来的计划"
 
 #: src/pages/Admin.tsx:456
 msgid "Updating..."
@@ -1702,7 +1702,7 @@ msgstr "您"
 #: src/pages/Login.tsx:94
 #: src/pages/Login.tsx:130
 msgid "you@example.com"
-msgstr ""
+msgstr "you@example.com"
 
 #: src/pages/Settings.tsx:592
 msgid "Your identity in Praxys"

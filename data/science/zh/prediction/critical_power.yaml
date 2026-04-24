@@ -1,0 +1,71 @@
+id: critical_power
+pillar: prediction
+name: 临界功率模型
+author: system
+description: 使用临界功率作为主要预测因子，并采用 Stryd 模型中按比赛距离划分的功率-时长比例。当有功率数据和 CP 估计值时效果最佳。
+simple_description: 使用你的临界功率（CP）来预测比赛成绩——这是你大约能持续一小时的最高功率。对于每个比赛距离，都有一个已知的 CP 比例，顶尖跑者可以维持这个比例。你的预测时间来自你的
+  CP、这个比例，以及你的功率到配速关系。
+advanced_description: '## 临界功率预测模型
+
+
+  **功率-时长模型：** P = CP + W''/t
+
+
+  其中 CP 是临界功率（可持续约 60 分钟），W'' 是高于 CP 的有限
+
+  做功能力。
+
+
+  **比赛功率比例（来自 Stryd）：**
+
+  | 距离 | CP 百分比 |
+
+  |----------|---------|
+
+  | 5K | 103.8% |
+
+  | 10K | 100.0% |
+
+  | Half Marathon | 94.6% |
+
+  | Marathon | 89.9% |
+
+  | 50K | 88.0% |
+
+  | 50 Mile | 85.0% |
+
+  | 100K | 82.0% |
+
+  | 100 Mile | 78.0% |
+
+
+  当功率到配速的
+
+  查找不可用时，使用 Riegel 指数（1.06）作为配速缩放的后备方案。
+
+
+  **参考文献：**
+
+  - Monod & Scherrer (1965) "The work capacity of a synergic muscular group," *Ergonomics*
+
+  - Stryd Race Power Calculator'
+citations:
+- key: monod1965
+  title: The work capacity of a synergic muscular group
+  year: 1965
+  journal: Ergonomics
+- key: stryd_race_calculator
+  title: Race Power Calculator
+  url: https://help.stryd.com/en/articles/6879547-race-power-calculator
+params:
+  distance_power_fractions:
+    5k: 1.038
+    10k: 1.0
+    half: 0.946
+    marathon: 0.899
+    50k: 0.88
+    50mi: 0.85
+    100k: 0.82
+    100mi: 0.78
+  riegel_exponent: 1.06
+  threshold_reference_km: 10.0
