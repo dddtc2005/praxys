@@ -53,13 +53,13 @@ Record the median of 3 runs per cell (WPT "Median" column, First View). Highligh
 | Probe | Device | FCP (ms) | LCP (ms) | TTI (ms) | HTML TTFB | Static KB | API KB | # reqs | # API | API p50 | API p95 | Protocol |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Beijing   | Desktop | | | | | | | | | | | |
-| Beijing   | Mobile  | | | | | | | | | | | | |
-| Shanghai  | Desktop | | | | | | | | | | | | |
-| Shanghai  | Mobile  | | | | | | | | | | | | |
-| Hong Kong | Desktop | | | | | | | | | | | | |
-| Hong Kong | Mobile  | | | | | | | | | | | | |
-| US West   | Desktop | | | | | | | | | | | | |
-| US West   | Mobile  | | | | | | | | | | | | |
+| Beijing   | Mobile  | | | | | | | | | | | |
+| Shanghai  | Desktop | | | | | | | | | | | |
+| Shanghai  | Mobile  | | | | | | | | | | | |
+| Hong Kong | Desktop | | | | | | | | | | | |
+| Hong Kong | Mobile  | | | | | | | | | | | |
+| US West   | Desktop | | | | | | | | | | | |
+| US West   | Mobile  | | | | | | | | | | | |
 
 ### S4 — Anonymous Landing page
 

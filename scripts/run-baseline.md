@@ -1,6 +1,6 @@
 # Running a Performance Baseline
 
-Step-by-step for capturing a before/after snapshot using WebPageTest. The **Tier 1 matrix** (defined in `docs/perf-baselines/README.md#test-matrix-tiers`) is **4 probes × 2 devices × 4 scenarios = 32 cells**, 3 runs per cell → ~90 minutes of wall clock time, most of it waiting on queues rather than hands-on work.
+Step-by-step for capturing a before/after snapshot using WebPageTest. The **Tier 1 matrix** (defined in `docs/perf-baselines/README.md#test-matrix-tiers`) is **4 probes × 2 devices × 4 scenarios = 32 cells**, 3 runs per cell → **~90–150 minutes** of wall clock time, most of it WPT queue wait (CN probes at 20:00 Asia/Shanghai routinely run 5–10 min per submission).
 
 Tier 2 / Tier 3 runs (WeChat X5, Safari, tablet viewport, throttled 3G, etc.) are separate protocols — see the "Tier 2 specifics" section at the bottom.
 
@@ -59,8 +59,8 @@ Both form factors are Tier 1. Same WPT script, different run-level options. Keep
 | Location | same as desktop pair |
 | Browser | `Chrome` |
 | Connection | **Native Connection** (explicitly override WPT's default mobile throttle — we want real CN-mobile reality, not WPT's fixed "Mobile 4G" profile of 1.6 Mbps / 150 ms) |
-| Mobile | **on** (emulation) |
-| Emulated device | iPhone 14 or equivalent (check "Emulate Mobile Browser" → pick from device list) |
+| Mobile | check **"Emulate Mobile Browser"** |
+| Device | iPhone 14 (or the latest iPhone profile in the WPT device dropdown — WPT pulls the list from Chrome DevTools) |
 | Number of runs | 3 |
 | Capture Video / HAR / Lighthouse | on / on / on |
 
