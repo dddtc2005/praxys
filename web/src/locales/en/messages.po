@@ -32,7 +32,7 @@ msgid "{0, plural, one {# recommendation} other {# recommendations}}"
 msgstr "{0, plural, one {# recommendation} other {# recommendations}}"
 
 #. placeholder {0}: data.workouts.length
-#: src/components/UpcomingPlanCard.tsx:517
+#: src/components/UpcomingPlanCard.tsx:511
 msgid "{0, plural, one {# workout} other {# workouts}}"
 msgstr "{0, plural, one {# workout} other {# workouts}}"
 
@@ -371,7 +371,7 @@ msgstr "Clear"
 msgid "Click to copy"
 msgstr "Click to copy"
 
-#: src/components/UpcomingPlanCard.tsx:125
+#: src/components/UpcomingPlanCard.tsx:126
 msgid "click to retry"
 msgstr "click to retry"
 
@@ -739,7 +739,7 @@ msgstr "Failed to load settings"
 msgid "Failed to load training data"
 msgstr "Failed to load training data"
 
-#: src/components/UpcomingPlanCard.tsx:493
+#: src/components/UpcomingPlanCard.tsx:487
 msgid "Failed to load training plan"
 msgstr "Failed to load training plan"
 
@@ -1361,20 +1361,20 @@ msgstr "Promote to Admin"
 msgid "Pull your latest activities, power data, and recovery metrics"
 msgstr "Pull your latest activities, power data, and recovery metrics"
 
-#: src/components/UpcomingPlanCard.tsx:540
+#: src/components/UpcomingPlanCard.tsx:534
 msgid "Push All"
 msgstr "Push All"
 
-#: src/components/UpcomingPlanCard.tsx:125
+#: src/components/UpcomingPlanCard.tsx:126
 msgid "Push failed"
 msgstr "Push failed"
 
-#: src/components/UpcomingPlanCard.tsx:168
-#: src/components/UpcomingPlanCard.tsx:176
+#: src/components/UpcomingPlanCard.tsx:169
+#: src/components/UpcomingPlanCard.tsx:177
 msgid "Push to Stryd"
 msgstr "Push to Stryd"
 
-#: src/components/UpcomingPlanCard.tsx:530
+#: src/components/UpcomingPlanCard.tsx:524
 msgid "Pushing..."
 msgstr "Pushing..."
 
@@ -1414,8 +1414,8 @@ msgstr "Race Prediction"
 msgid "Range"
 msgstr "Range"
 
-#: src/components/UpcomingPlanCard.tsx:142
-#: src/components/UpcomingPlanCard.tsx:151
+#: src/components/UpcomingPlanCard.tsx:143
+#: src/components/UpcomingPlanCard.tsx:152
 msgid "Re-push to Stryd"
 msgstr "Re-push to Stryd"
 
@@ -1518,7 +1518,7 @@ msgstr "REST"
 msgid "Resting HR"
 msgstr "Resting HR"
 
-#: src/components/UpcomingPlanCard.tsx:496
+#: src/components/UpcomingPlanCard.tsx:490
 #: src/pages/Goal.tsx:487
 #: src/pages/History.tsx:53
 #: src/pages/Settings.tsx:336
@@ -1527,7 +1527,7 @@ msgstr "Resting HR"
 msgid "Retry"
 msgstr "Retry"
 
-#: src/components/UpcomingPlanCard.tsx:117
+#: src/components/UpcomingPlanCard.tsx:118
 msgid "Retry push to Stryd"
 msgstr "Retry push to Stryd"
 
@@ -1608,11 +1608,11 @@ msgid "Setup"
 msgstr "Setup"
 
 #. placeholder {0}: workouts.length - INITIAL_COUNT
-#: src/components/UpcomingPlanCard.tsx:318
+#: src/components/UpcomingPlanCard.tsx:319
 msgid "Show {0} more workouts"
 msgstr "Show {0} more workouts"
 
-#: src/components/UpcomingPlanCard.tsx:317
+#: src/components/UpcomingPlanCard.tsx:318
 msgid "Show less"
 msgstr "Show less"
 
@@ -1743,7 +1743,7 @@ msgstr "Sync history"
 msgid "Sync your data"
 msgstr "Sync your data"
 
-#: src/components/UpcomingPlanCard.tsx:535
+#: src/components/UpcomingPlanCard.tsx:529
 #: src/pages/Settings.tsx:820
 msgid "Synced"
 msgstr "Synced"
@@ -1823,7 +1823,7 @@ msgstr "Thresholds"
 msgid "Today"
 msgstr "Today"
 
-#: src/components/UpcomingPlanCard.tsx:221
+#: src/components/UpcomingPlanCard.tsx:222
 msgid "TODAY"
 msgstr "TODAY"
 
@@ -1875,7 +1875,7 @@ msgstr "Ultra distance power fractions (50K+) are estimates with limited researc
 msgid "Units"
 msgstr "Units"
 
-#: src/components/UpcomingPlanCard.tsx:513
+#: src/components/UpcomingPlanCard.tsx:507
 msgid "Upcoming Plan"
 msgstr "Upcoming Plan"
 
