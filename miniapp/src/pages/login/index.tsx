@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, Button, Input } from '@tarojs/components';
-import Taro, { useDidShow } from '@tarojs/taro';
+import Taro, { useDidShow, useShareAppMessage } from '@tarojs/taro';
 
 import {
   runLaunchLogin,
@@ -10,7 +10,20 @@ import {
 } from '@/lib/auth';
 import type { ApiError } from '@/lib/api-client';
 import { applyThemeChrome, themeClassName } from '@/lib/theme';
+import { getShareMessage, type ShareLocale } from '@/lib/share';
 import './index.scss';
+
+function detectShareLocale(): ShareLocale {
+  // Taro.getSystemInfoSync() is deprecated in newer WeChat clients but still
+  // ships the `language` field. Wrap in a try/catch so a future removal
+  // degrades gracefully to English instead of crashing the share sheet.
+  try {
+    const lang = Taro.getSystemInfoSync().language ?? '';
+    return /zh/i.test(lang) ? 'zh' : 'en';
+  } catch {
+    return 'en';
+  }
+}
 
 type Stage =
   | { kind: 'loading' }
@@ -22,6 +35,7 @@ type Stage =
 export default function LoginPage() {
   const [stage, setStage] = useState<Stage>({ kind: 'loading' });
   useDidShow(() => applyThemeChrome());
+  useShareAppMessage(() => getShareMessage(detectShareLocale(), '/pages/login/index'));
 
   // Guard against React.StrictMode double-invocation: a let/const inside the
   // effect would be reinitialized on each invocation, defeating the purpose.
