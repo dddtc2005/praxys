@@ -4,9 +4,42 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+# Configure stdout logging before anything else — once configure_azure_monitor
+# attaches its own handler to the root logger, a later basicConfig() call is a
+# no-op (basicConfig only runs when no handlers are present).
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(name)s %(levelname)s %(message)s",
+)
+
 # Load .env from project root for local config (encryption key, JWT secret, etc.)
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
+# Wire Azure Monitor before framework imports so auto-instrumentation
+# (FastAPI, requests, SQLAlchemy, logging) hooks correctly. On App Service
+# (detected via WEBSITE_SITE_NAME — the same signal CORS uses below) we
+# authenticate to Application Insights via the system-assigned managed
+# identity, so no instrumentation key or secret lives in app settings; the
+# connection-string env var only names the routing endpoint. Off Azure the
+# SDK falls back to connection-string auth if the env var happens to be
+# set (useful for a contributor pointing at a dev resource). No-op when
+# APPLICATIONINSIGHTS_CONNECTION_STRING is unset.
+if os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING"):
+    from azure.monitor.opentelemetry import configure_azure_monitor
+    if os.environ.get("WEBSITE_SITE_NAME"):
+        from azure.identity import ManagedIdentityCredential
+        # client_id=None → system-assigned MI. Set AZURE_CLIENT_ID in App
+        # Service config to switch to a user-assigned MI later.
+        _mi_client_id = os.environ.get("AZURE_CLIENT_ID")
+        _credential = (
+            ManagedIdentityCredential(client_id=_mi_client_id)
+            if _mi_client_id
+            else ManagedIdentityCredential()
+        )
+        configure_azure_monitor(credential=_credential)
+    else:
+        configure_azure_monitor()
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,11 +51,6 @@ from api.views import utc_isoformat
 from db.session import get_db
 
 from db.session import init_db
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(name)s %(levelname)s %(message)s",
-)
 
 
 @asynccontextmanager
