@@ -33,9 +33,9 @@ params:
     - 1.14
     - 1.0
   zone_names:
-  - Zone 1 (Easy)
-  - Zone 2 (Moderate)
-  - Zone 3 (Hard)
+  - 第 1 区（轻松）
+  - 第 2 区（中等）
+  - 第 3 区（高强度）
   target_distribution:
   - 0.8
   - 0.05

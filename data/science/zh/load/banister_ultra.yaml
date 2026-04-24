@@ -1,14 +1,14 @@
 id: banister_ultra
 pillar: load
-name: Banister Ultra
+name: Banister 超长距离版
 author: system
 description: 适用于超长距离运动员（50K+）。更长的时间常数（50/10 天）反映了高训练量山地训练带来的更长恢复曲线。更宽的有效区间可容纳超长训练周期中更深的疲劳负荷。
-simple_description: 专为进行长时间山地训练的超长距离跑者设计。采用更长的时间窗口（体能 7 周，疲劳 10 天），因为你的身体需要更多时间来吸收数小时跑步带来的压力。疲劳区间更宽，因为在超长训练周期中，出现更深的疲劳是预期内的。
-advanced_description: "## Banister Ultra 适配\n\n为超长距离运动员调整的时间常数：\n- **CTL** τ = 50\
-  \ 天（标准 PMC 中为 42 天）\n- **ATL** τ = 10 天（标准 PMC 中为 7 天）\n\n**更宽的有效区间：** −35 到 −10（标准为\
-  \ −25 到 −10），反映了超长训练周期中常见且预期中的更深疲劳负荷。\n\n**诊断调整：**\n- 工作分段过滤器扩展至 **3600 秒**（原为 1800\
-  \ 秒），以捕捉山地超跑中典型的长时间持续爬升\n- 里程阈值提高：**80 km/周** = 强，**60 km/周** = 中等\n  （标准为 60/40）\n\
-  \n**参考：**\n- Banister (1975) \"A systems model of training for athletic performance\"\
+simple_description: 专为进行长时间山地训练的超长距离跑者设计。采用更长的时间窗口（体能 7 周，疲劳 10 天），因为您的身体需要更多时间来吸收数小时跑步带来的压力。疲劳区间更宽，因为在超长训练周期中，出现更深的疲劳是预期内的。
+advanced_description: "## Banister 超长距离版适配\n\n为超长距离运动员调整的时间常数：\n- **CTL** τ = 50\
+  \ 天（标准 PMC 中为 42 天）\n- **ATL** τ = 10 天（标准 PMC 中为 7 天）\n\n**更宽的有效区间：** −35 至 −10（标准为\
+  \ −25 至 −10），反映了超长训练周期中常见且预期中的更深疲劳负荷。\n\n**诊断调整：**\n- 工作分段过滤器扩展至 **3600 秒**（原为 1800\
+  \ 秒），以捕捉山地超跑中典型的长时间持续爬升\n- 里程阈值提高：**80 公里/周** = 强，**60 公里/周** = 中等\n  （标准为 60/40）\n\
+  \n**参考文献：**\n- Banister (1975) \"A systems model of training for athletic performance\"\
   \n- Koop (2016) *Training Essentials for Ultrarunning*"
 citations:
 - key: banister1975

@@ -220,21 +220,21 @@ msgstr "平均工作 {intensityLabel}"
 
 #: src/pages/Settings.tsx:716
 msgid "Backfill All"
-msgstr "全部回填"
+msgstr "同步全部历史数据"
 
 #: src/pages/Settings.tsx:695
 msgid "Backfill..."
-msgstr "回填..."
+msgstr "同步历史数据..."
 
 #. placeholder {0}: alternatives.find((t) => t.id === recommendation.recommended_id)?.name
 #. placeholder {1}: recommendation.reason
 #: src/pages/Science.tsx:156
 msgid "Based on your training, we suggest <0>{0}</0> — {1}"
-msgstr "根据你的训练，我们建议 <0>{0}</0> — {1}"
+msgstr "根据您的训练，我们建议 <0>{0}</0> — {1}"
 
 #: src/components/RecoveryPanel.tsx:102
 msgid "Baseline"
-msgstr "基线"
+msgstr "基准"
 
 #: src/components/ZoneAnalysisCard.tsx:44
 msgid "below"
@@ -268,7 +268,7 @@ msgstr "修改目标"
 
 #: src/pages/Setup.tsx:603
 msgid "Check your credentials in the connection step, then try again."
-msgstr "请在连接步骤中检查你的凭据，然后重试。"
+msgstr "请在连接步骤中检查您的凭据，然后重试。"
 
 #: src/pages/Settings.tsx:884
 #: src/pages/Settings.tsx:950
@@ -319,7 +319,7 @@ msgstr "即将到来"
 #: src/components/SetupChecklist.tsx:98
 #: src/pages/Setup.tsx:413
 msgid "Complete these steps to unlock your training insights"
-msgstr "完成这些步骤以解锁您的训练洞察"
+msgstr "完成这些步骤以解锁您的训练解读"
 
 #: src/pages/Settings.tsx:566
 msgid "Configure your training system"
@@ -366,7 +366,7 @@ msgstr "连接中..."
 #: src/pages/Settings.tsx:986
 #: src/pages/Setup.tsx:844
 msgid "Continue in your browser to authorize Strava. Praxys imports activities from Strava, while recovery, fitness, and plans come from your other connected platforms."
-msgstr "继续在浏览器中授权 Strava。Praxys 会从 Strava 导入活动，而恢复、体能和计划则来自你连接的其他平台。"
+msgstr "继续在浏览器中授权 Strava。Praxys 会从 Strava 导入活动，而恢复、体能和计划则来自您连接的其他平台。"
 
 #: src/pages/Settings.tsx:994
 #: src/pages/Setup.tsx:853
@@ -421,7 +421,7 @@ msgstr "创建中..."
 #: src/lib/display-labels.ts:52
 #: src/pages/Settings.tsx:141
 msgid "Critical Power"
-msgstr "临界功率"
+msgstr "阈值功率"
 
 #: src/pages/Setup.tsx:823
 msgid "Cross-training activities affect your overall training load and recovery"
@@ -489,7 +489,7 @@ msgstr "演示账号"
 
 #: src/pages/Admin.tsx:424
 msgid "Demo users can browse your dashboard (Today, Training, Goal, History) but cannot change settings, sync data, or modify plans. Share the email and password with anyone you want to demo to."
-msgstr "演示用户可以浏览你的仪表盘（今日、训练、目标、历史），但不能更改设置、同步数据或修改计划。请把邮箱和密码分享给任何你想演示的人。"
+msgstr "演示用户可以浏览您的仪表盘（今日、训练、目标、历史），但不能更改设置、同步数据或修改计划。请把邮箱和密码分享给任何您想演示的人。"
 
 #: src/pages/Admin.tsx:405
 msgid "demo-password"
@@ -535,7 +535,7 @@ msgstr "分布偏离目标"
 
 #: src/pages/Settings.tsx:1196
 msgid "Drive your zone calculations and training load. Values come from connected sources; pick which source to use when you have more than one."
-msgstr "驱动你的区间计算和训练负荷。数值来自已连接的数据源；当有多个数据源时，请选择要使用的来源。"
+msgstr "驱动您的区间计算和训练负荷。数值来自已连接的数据源；当有多个数据源时，请选择要使用的来源。"
 
 #: src/components/ActivityCard.tsx:86
 #: src/components/SplitBreakdown.tsx:47
@@ -743,7 +743,7 @@ msgstr "心率"
 
 #: src/pages/Settings.tsx:695
 msgid "Hide backfill"
-msgstr "隐藏回填"
+msgstr "隐藏历史同步"
 
 #: src/components/AiInsightsCard.tsx:83
 msgid "Hide details"
@@ -793,7 +793,7 @@ msgstr "心率"
 
 #: src/components/RecoveryPanel.tsx:17
 msgid "HRV above baseline (Plews SWC)"
-msgstr "HRV 高于基线（Plews SWC）"
+msgstr "HRV 高于基准（Plews SWC）"
 
 #: src/components/RecoveryPanel.tsx:84
 msgid "HRV Analysis"
@@ -830,7 +830,7 @@ msgstr "邀请码"
 
 #: src/lib/display-labels.ts:53
 msgid "Lactate Threshold HR"
-msgstr "乳酸阈心率"
+msgstr "乳酸阈值心率"
 
 #: src/pages/Settings.tsx:658
 msgid "Language"
@@ -897,7 +897,7 @@ msgstr "偏低"
 
 #: src/pages/Settings.tsx:142
 msgid "LTHR"
-msgstr "乳酸阈心率"
+msgstr "乳酸阈值心率"
 
 #: src/lib/display-labels.ts:57
 msgid "LTHR Trend"
@@ -1099,7 +1099,7 @@ msgstr "计划"
 
 #: src/components/charts/ComplianceChart.tsx:42
 msgid "Planned bars are estimated — your plan has no {label} targets for the current training base."
-msgstr "计划中的条形为估算值 — 你的计划在当前训练基础下没有 {label} 目标。"
+msgstr "计划中的条形为估算值 — 您的计划在当前训练基础下没有 {label} 目标。"
 
 #: src/components/WorkoutCard.tsx:54
 msgid "Planned Workout"
@@ -1162,7 +1162,7 @@ msgstr "提升为管理员"
 
 #: src/components/SetupChecklist.tsx:56
 msgid "Pull your latest activities, power data, and recovery metrics"
-msgstr "拉取你最近的活动、功率数据和恢复指标"
+msgstr "拉取您最近的活动、功率数据和恢复指标"
 
 #: src/components/UpcomingPlanCard.tsx:539
 msgid "Push All"
@@ -1263,7 +1263,7 @@ msgstr "恢复状态"
 
 #: src/components/RecoveryPanel.tsx:184
 msgid "Recovery status uses ln(RMSSD) compared to your personal baseline. 'Fatigued' = below baseline mean minus 1 SD (Kiviniemi et al, 2007 threshold). 'Fresh' = above baseline mean plus 0.5 SD (Plews et al, 2012 smallest worthwhile change). The 7-day trend and CV are monitored per Plews — declining trend or CV above 10% signals autonomic disturbance. Sleep, RHR, and TSB are shown as informational context when HRV is available."
-msgstr "恢复状态使用 ln(RMSSD) 与你的个人基线进行比较。‘疲劳’ = 低于基线均值减去 1 个标准差（Kiviniemi 等，2007 阈值）。‘充分恢复’ = 高于基线均值加上 0.5 个标准差（Plews 等，2012 最小有意义变化）。7 天趋势和 CV 会按 Plews 进行监测 — 趋势下降或 CV 高于 10% 表明自主神经失调。當 HRV 可用时，睡眠、RHR 和 TSB 仅作为信息性上下文显示。"
+msgstr "恢复状态使用 ln(RMSSD) 与您的个人基准进行比较。‘疲劳’ = 低于基准均值减去 1 个标准差（Kiviniemi 等，2007 阈值）。‘充分恢复’ = 高于基准均值加上 0.5 个标准差（Plews 等，2012 最小有意义变化）。7 天趋势和 CV 会按 Plews 监测 — 趋势下降或 CV 高于 10% 表明自主神经失调。当有 HRV 数据时，睡眠、静息心率 和 TSB 仅作为信息性上下文显示。"
 
 #: src/pages/Settings.tsx:994
 #: src/pages/Setup.tsx:853
@@ -1469,15 +1469,15 @@ msgstr "全部同步"
 
 #: src/pages/Training.tsx:121
 msgid "Sync at least 2 weeks of data to compare planned vs actual training load."
-msgstr "至少同步 2 周的数据以对比计划与实际训练负荷。"
+msgstr "同步至少 2 周的数据后，才能对比计划与实际训练负荷。"
 
 #: src/pages/Training.tsx:104
 msgid "Sync at least 6 weeks of activity data to see meaningful fitness, fatigue, and form curves."
-msgstr "至少同步 6 周的活动数据以查看有意义的体能、疲劳和状态曲线。"
+msgstr "同步至少 6 周的活动数据后，才能看到有意义的体能、疲劳和竞技状态曲线。"
 
 #: src/pages/Today.tsx:87
 msgid "Sync at least 6 weeks of activity data to see your training form trend."
-msgstr "至少同步 6 周的活动数据以查看训练状态趋势。"
+msgstr "同步至少 6 周的活动数据后，才能看到训练状态的变化趋势。"
 
 #: src/pages/Setup.tsx:612
 msgid "Sync complete! Your data is ready."
@@ -1593,7 +1593,7 @@ msgstr "训练诊断"
 
 #: src/pages/Training.tsx:67
 msgid "Training Insights"
-msgstr "训练洞察"
+msgstr "训练解读"
 
 #: src/pages/Settings.tsx:107
 msgid "Training plan & targets"
@@ -1727,11 +1727,11 @@ msgstr "区间标签"
 
 #: src/pages/Settings.tsx:113
 msgid "Zones & load from Critical Power"
-msgstr "基于临界功率的区间与负荷"
+msgstr "基于阈值功率的区间与负荷"
 
 #: src/pages/Settings.tsx:122
 msgid "Zones & load from Lactate Threshold HR"
-msgstr "基于乳酸阈心率的区间与负荷"
+msgstr "基于乳酸阈值心率的区间与负荷"
 
 #: src/pages/Settings.tsx:131
 msgid "Zones & load from Threshold Pace"

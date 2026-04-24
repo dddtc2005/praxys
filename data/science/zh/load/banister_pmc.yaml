@@ -1,23 +1,22 @@
 id: banister_pmc
 pillar: load
-name: Banister PMC
+name: Banister PMC 表现管理模型
 author: system
-description: 行业标准的 Performance Management Chart。Fitness 大约在 6 周内累积（CTL），fatigue 大约在
-  1 周内消退（ATL）。TSB = CTL - ATL。最适合每周训练 4-6 天的 5K-马拉松跑者。
-simple_description: 你的仪表盘会跟踪 fitness：即每日训练压力的 6 周移动平均，以及 fatigue：即 1 周移动平均。两者之间的差距就是你的“form”——当它为正时，你处于充分恢复状态，已准备好参赛；当它为负时，你正带着近期训练留下的疲劳。训练期间出现这种情况是正常且符合预期的。
-advanced_description: "## Banister Performance Management Chart\n\n**指数加权移动平均（EWMA）：**\n\
-  - **CTL**（Chronic Training Load / Fitness）= EWMA(daily_load, α = 1/42)\n- **ATL**（Acute\
-  \ Training Load / Fatigue）= EWMA(daily_load, α = 1/7)\n- **TSB**（Training Stress\
-  \ Balance / Form）= CTL − ATL\n\n平滑常数 α = 1/τ 遵循 TrainingPeaks、\nStryd 和 Intervals.icu\
-  \ 使用的约定。42 天和 7 天的时间常数是 Banister 原始范围的名义近似值（fitness 为 30–50 天，\nfatigue 为 5–10 天）。\n\
-  \n**TSB 区间边界：**\n| Zone | TSB Range | Interpretation |\n|------|-----------|----------------|\n\
-  | Performance | 5 to 25 | 充分恢复，准备好参赛 |\n| Optimal | −10 to 5 | 平衡训练/恢复 |\n| Productive\
-  \ | −25 to −10 | 正在吸收训练负荷 |\n| Overreaching | < −25 | 高疲劳，受伤风险 |\n\n**参考文献：**\n\
-  - Banister (1975) \"A systems model of training for athletic performance\"\n- Banister\
-  \ (1991) \"Modeling elite athletic performance\" — exponential k-weighted TRIMP（k_male\
-  \ 1.92, k_female 1.67）的来源\n- Morton, Fitz-Clarke & Banister (1990) \"Modeling human\
-  \ performance in\n  running\" — 消耗 TRIMP 的 impulse-response model\n- TrainingPeaks,\
-  \ \"The Science of the Performance Manager\""
+description: 行业标准的表现管理模型（Performance Management Chart）。体能（CTL）大约在 6 周内累积，疲劳（ATL）大约在
+  1 周内消退。TSB = CTL − ATL。最适合每周训练 4-6 天的 5K 到马拉松跑者。
+simple_description: 您的仪表盘会跟踪体能：即每日训练压力的 6 周移动平均，以及疲劳：即 1 周移动平均。两者之间的差距就是您的“竞技状态”（form）——当它为正时，您处于充分恢复状态，已准备好参赛；当它为负时，您正带着近期训练留下的疲劳。训练期间出现这种情况是正常且符合预期的。
+advanced_description: "## Banister 表现管理模型\n\n**指数加权移动平均（EWMA）：**\n\
+  - **CTL**（长期训练负荷 / 体能）= EWMA(daily_load, α = 1/42)\n- **ATL**（短期训练负荷\
+  \ / 疲劳）= EWMA(daily_load, α = 1/7)\n- **TSB**（训练压力平衡 / 竞技状态）= CTL − ATL\n\n\
+  平滑常数 α = 1/τ 遵循 TrainingPeaks、\nStryd 和 Intervals.icu 使用的约定。42 天和 7 天的时间常数是 Banister\
+  \ 原始范围的名义近似值（体能 30–50 天，\n疲劳 5–10 天）。\n\n**TSB 区间边界：**\n| 区间 | TSB 范围 | 含义 |\n\
+  |------|-----------|----------------|\n| 竞赛状态 | 5 至 25 | 充分恢复，准备好参赛 |\n| 最佳平衡\
+  \ | −10 至 5 | 训练/恢复平衡 |\n| 高效训练 | −25 至 −10 | 正在吸收训练负荷 |\n| 过度训练 | < −25 |\
+  \ 高疲劳，受伤风险 |\n\n**参考文献：**\n- Banister (1975) \"A systems model of training\
+  \ for athletic performance\"\n- Banister (1991) \"Modeling elite athletic performance\"\
+  \ — exponential k-weighted TRIMP（k_male 1.92, k_female 1.67）的来源\n- Morton, Fitz-Clarke\
+  \ & Banister (1990) \"Modeling human performance in\n  running\" — 消耗型 TRIMP 脉冲响应模型\n\
+  - TrainingPeaks, \"The Science of the Performance Manager\""
 citations:
 - key: banister1975
   title: A systems model of training for athletic performance

@@ -47,7 +47,8 @@ terms:
     note: The physiological boundary, not the configuration setting.
   - en: VO2max
     zh: VO2max
-    note: Keep English. Chinese has no accepted short form.
+    note: Keep English in tight UI labels / chart legends. Use 最大摄氧量 inline in prose
+      where space allows and it reads more naturally.
 
   # Workout phases (parsed workout structure)
   - en: Warmup
@@ -76,15 +77,28 @@ terms:
   - en: Heart Rate
     zh: 心率
   - en: Critical Power
-    zh: 临界功率
+    zh: 阈值功率
+    note: Threshold-family naming (parallels 乳酸阈值心率 / 阈值配速). The academically
+      literal 临界功率 was rejected as too clinical for self-coached runners.
   - en: Lactate Threshold HR
-    zh: 乳酸阈心率
+    zh: 乳酸阈值心率
   - en: Threshold Pace
     zh: 阈值配速
   - en: Max HR
     zh: 最大心率
   - en: Resting HR
     zh: 静息心率
+  - en: RHR
+    zh: 静息心率
+    note: Spell out in zh rather than keeping the English abbreviation — Chinese readers
+      don't recognize RHR the way they recognize HRV/TSB.
+  - en: Baseline
+    zh: 基准
+    note: Recovery context only (HRV baseline, RHR baseline). 基线 reads too literal.
+  - en: Backfill
+    zh: 同步历史数据
+    note: 回填 is a direct translation but feels database-ish; 同步历史数据 reads as a
+      natural product action.
   - en: Distance
     zh: 距离
   - en: Duration
@@ -116,7 +130,7 @@ terms:
   - en: LTHR
     zh: LTHR
     note: Used interchangeably with "Lactate Threshold HR"; when standalone
-      as a label keep English, when inside a sentence use 乳酸阈心率.
+      as a label keep English, when inside a sentence use 乳酸阈值心率.
   - en: CP
     zh: CP
   - en: FTP

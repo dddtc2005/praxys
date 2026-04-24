@@ -150,7 +150,7 @@ jobs:
             Review the diff in `web/src/locales/zh/messages.po` and
             `data/science/zh/` before merging. The translator:
             - Uses `scripts/i18n_glossary.yaml` for canonical terminology
-              (CP, 临界功率, 乳酸阈, etc.). Update the glossary if you want
+              (CP, 阈值功率, 乳酸阈值, etc.). Update the glossary if you want
               a term rendered differently going forward.
             - Preserves ICU placeholders (`{count}`, `{name, plural, ...}`)
               and Lingui XML tags (`<0>`) — rejects translations that drop

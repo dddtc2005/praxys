@@ -97,8 +97,8 @@ class TestGlossaryInjection:
         # Core domain terms must be pinned
         assert "HRV" in prompt
         assert "恢复" in prompt  # Recovery → 恢复 (zone + status)
-        assert "临界功率" in prompt  # Critical Power
-        assert "乳酸阈" in prompt  # Threshold (zone)
+        assert "阈值功率" in prompt  # Critical Power
+        assert "乳酸阈" in prompt  # Threshold (zone) — matches both 乳酸阈 and 乳酸阈值心率
         assert "马拉松" in prompt  # Marathon
 
     def test_prompt_warns_about_placeholders(self):

@@ -1,9 +1,9 @@
 id: coggan_5zone
 pillar: zones
-name: Coggan 5-Zone
+name: Coggan 5 区模型
 author: system
 description: 基于 Coggan 功率训练水平推导出的经典 5 区模型。各区间按阈值（CP、LTHR 或阈值配速）的比例定义。结构化训练的行业标准。
-simple_description: 根据你的阈值（CP、乳酸阈心率或阈值配速）将训练强度划分为 5 个区间。每个区间针对不同的生理适应——从轻松恢复跑到全力间歇。これは大多数教练和训练平台使用的标准系统。
+simple_description: 根据您的阈值（CP、乳酸阈值心率或阈值配速）将训练强度划分为 5 个区间。每个区间针对不同的生理适应——从轻松恢复跑到全力间歇。这是大多数教练和训练平台使用的标准系统。
 advanced_description: '## Coggan 5 区模型
 
 
@@ -86,22 +86,22 @@ params:
     - 1.0
   zone_names:
     power:
-    - Recovery
-    - Endurance
-    - Tempo
-    - Threshold
+    - 恢复
+    - 耐力
+    - 节奏跑
+    - 乳酸阈
     - VO2max
     hr:
-    - Recovery
-    - Endurance
-    - Tempo
-    - Threshold
+    - 恢复
+    - 耐力
+    - 节奏跑
+    - 乳酸阈
     - VO2max
     pace:
-    - Recovery
-    - Endurance
-    - Tempo
-    - Threshold
+    - 恢复
+    - 耐力
+    - 节奏跑
+    - 乳酸阈
     - VO2max
   target_distribution:
   - 0.05

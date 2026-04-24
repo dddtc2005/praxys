@@ -1,16 +1,16 @@
 id: hrv_based
 pillar: recovery
-name: HRV-Based Recovery
+name: 基于 HRV 的恢复评估
 author: system
-description: 基于相对于个人基线的 ln(RMSSD) 的恢复评估。使用 Plews et al (2012) 的趋势/CV 监测和 Kiviniemi
-  et al (2007) 的阈值协议。只有在存在足够的 HRV 数据时，才可提供恢复结果。
-simple_description: 使用你的 HRV（ln RMSSD）相对于你自己的基线来将恢复状态归类为充分恢复、正常或疲劳。若 HRV 数据缺失或不足，则不提供恢复状态和建议。
+description: 基于相对于个人基准的 ln(RMSSD) 的恢复评估。使用 Plews 等人（2012）的趋势 / CV 监测和 Kiviniemi
+  等人（2007）的阈值协议。只有在存在足够的 HRV 数据时，才可提供恢复结果。
+simple_description: 使用您的 HRV（ln RMSSD）相对于您自己的基准来将恢复状态归类为充分恢复、正常或疲劳。若 HRV 数据缺失或不足，则不提供恢复状态和建议。
 advanced_description: '## 基于 HRV 的恢复评估
 
 
   **主要信号：ln(RMSSD)**
 
-  - 来自可穿戴数据的经对数转换的夜间 RMSSD
+  - 来自可穿戴设备的夜间 RMSSD 经对数转换后
 
   - 与 30 天滚动均值和标准差进行比较
 
@@ -21,25 +21,25 @@ advanced_description: '## 基于 HRV 的恢复评估
 
   |-----------|--------|--------|
 
-  | ln(RMSSD) > mean + 0.5 SD | 充分恢复 | Plews SWC (smallest worthwhile change) |
+  | ln(RMSSD) > 均值 + 0.5 SD | 充分恢复 | Plews SWC（最小有意义变化） |
 
-  | mean − 1 SD ≤ ln(RMSSD) ≤ mean + 0.5 SD | 正常 | Between thresholds |
+  | 均值 − 1 SD ≤ ln(RMSSD) ≤ 均值 + 0.5 SD | 正常 | 介于两阈值之间 |
 
-  | ln(RMSSD) < mean − 1 SD | 疲劳 | Kiviniemi threshold |
+  | ln(RMSSD) < 均值 − 1 SD | 疲劳 | Kiviniemi 阈值 |
 
-  | < 5 HRV readings or no valid today value | 无数据 | Cannot classify |
+  | HRV 读数少于 5 次或当日无有效值 | 无数据 | 无法分类 |
 
 
-  **趋势监测（Plews et al, 2012）：**
+  **趋势监测（Plews 等，2012）：**
 
-  - ln(RMSSD) 的 7 天滚动均值：下降趋势 संकेत示适应不良
+  - ln(RMSSD) 的 7 天滚动均值：下降趋势提示适应不良
 
   - 7 天变异系数（CV）：CV > 10% 表明自主神经紊乱
 
 
   **可用性策略：**
 
-  - 恢复需要 HRV 数据。
+  - 恢复评估需要 HRV 数据。
 
   - 只有在存在 HRV 时，睡眠和静息心率才作为上下文参考。
 
