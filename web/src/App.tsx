@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { TooltipProvider } from './components/ui/tooltip';
 import { AuthProvider, useAuth } from './hooks/useAuth';
@@ -6,16 +7,22 @@ import { ScienceProvider } from './contexts/ScienceContext';
 import { LocaleProvider } from './contexts/LocaleContext';
 import LocaleSync from './contexts/LocaleSync';
 import Layout from './components/Layout';
-import Today from './pages/Today';
-import Training from './pages/Training';
-import Goal from './pages/Goal';
-import History from './pages/History';
-import Science from './pages/Science';
-import Settings from './pages/Settings';
-import Setup from './pages/Setup';
-import Admin from './pages/Admin';
-import Login from './pages/Login';
+// Eagerly imported: Landing is the anonymous first-impression, Login is
+// the auth entry point, Today is where every logged-in user lands. All
+// three must be in the initial bundle for fastest cold-load.
 import Landing from './pages/Landing';
+import Login from './pages/Login';
+import Today from './pages/Today';
+import Setup from './pages/Setup';
+// Lazy-loaded: secondary routes the user navigates to after landing on
+// Today. Chunks load on first visit to each route; cached immutably
+// thereafter (see staticwebapp.config.json cache headers).
+const Training = lazy(() => import('./pages/Training'));
+const Goal = lazy(() => import('./pages/Goal'));
+const History = lazy(() => import('./pages/History'));
+const Science = lazy(() => import('./pages/Science'));
+const SettingsPage = lazy(() => import('./pages/Settings'));
+const Admin = lazy(() => import('./pages/Admin'));
 import { useSetupStatus } from './hooks/useSetupStatus';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -57,12 +64,12 @@ export default function App() {
               >
                 <Route path="today" element={<TodayOrSetup />} />
                 <Route path="setup" element={<Setup />} />
-                <Route path="training" element={<Training />} />
-                <Route path="goal" element={<Goal />} />
-                <Route path="history" element={<History />} />
-                <Route path="science" element={<Science />} />
-                <Route path="settings" element={<Settings />} />
-                <Route path="admin" element={<Admin />} />
+                <Route path="training" element={<Suspense fallback={null}><Training /></Suspense>} />
+                <Route path="goal" element={<Suspense fallback={null}><Goal /></Suspense>} />
+                <Route path="history" element={<Suspense fallback={null}><History /></Suspense>} />
+                <Route path="science" element={<Suspense fallback={null}><Science /></Suspense>} />
+                <Route path="settings" element={<Suspense fallback={null}><SettingsPage /></Suspense>} />
+                <Route path="admin" element={<Suspense fallback={null}><Admin /></Suspense>} />
               </Route>
             </Routes>
           </BrowserRouter>
