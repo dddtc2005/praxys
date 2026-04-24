@@ -88,16 +88,22 @@ case "$DEVICES" in
   *) echo "Error: --device must be desktop|mobile|both" >&2; exit 1 ;;
 esac
 
-# Resolve outdir to an absolute path for the Docker bind-mount.
-# On git bash, pwd returns /d/... which Docker Desktop for Windows converts
-# automatically. On macOS/Linux this is a regular absolute path.
-ABS_OUTDIR="$(cd "$OUTDIR" && pwd)"
+# Resolve outdir to an absolute path for the Docker bind-mount. On git bash
+# we want the Windows-style path (D:\Dev\...) because Docker Desktop's mount
+# parser doesn't reliably accept the MSYS /d/Dev/... form — it silently ends
+# up as an anonymous volume inside the Docker VM instead of a bind-mount to
+# the Windows filesystem, and then files "disappear" from the caller's view.
+# cygpath ships with Git for Windows; on Linux/macOS we fall back to pwd.
+if command -v cygpath >/dev/null 2>&1; then
+  ABS_OUTDIR="$(cygpath -w "$OUTDIR")"
+else
+  ABS_OUTDIR="$(cd "$OUTDIR" && pwd)"
+fi
 
 run_cell() {
   local scenario="$1"
   local device="$2"
   local cell="${scenario}-${PROBE}-${device}"
-  local cell_dir="${ABS_OUTDIR}/${cell}"
 
   case "$scenario" in
     s4) : ;;  # anonymous Landing — supported
@@ -108,18 +114,30 @@ run_cell() {
     *) echo "Error: unknown scenario '$scenario'" >&2; return 1 ;;
   esac
 
-  mkdir -p "$cell_dir"
+  # Create the cell dir using the Unix-style path (works in the current
+  # shell), then compute the Windows-style path for the Docker bind mount.
+  local cell_unix="${OUTDIR}/${cell}"
+  mkdir -p "$cell_unix"
+  local cell_mount
+  if command -v cygpath >/dev/null 2>&1; then
+    cell_mount="$(cygpath -w "$cell_unix")"
+  else
+    cell_mount="$(cd "$cell_unix" && pwd)"
+  fi
+
   echo ">>> ${cell}"
   echo "    url     : $URL"
-  echo "    outdir  : $cell_dir"
+  echo "    outdir  : $cell_mount"
   echo "    runs    : $RUNS"
   echo "    device  : $device"
 
+  # HAR + screenshot + browsertime.json are sitespeed.io defaults, so we
+  # don't list them explicitly — the previous code's `--browsertime.har`
+  # bare-flag was consumed as a value-taking option in some CLI parsers
+  # and silently swallowed the next argument.
   local -a args=(
     --outputFolder "/sitespeed.io/out"
     -n "$RUNS"
-    --browsertime.har
-    --browsertime.screenshot
   )
 
   if [[ "$device" == "mobile" ]]; then
@@ -131,11 +149,13 @@ run_cell() {
     )
   fi
 
-  # MSYS_NO_PATHCONV prevents git bash from mangling the container-side
-  # /sitespeed.io path into a Windows path. --shm-size=1g avoids Chrome's
-  # /dev/shm crashes on longer pages (sitespeed.io's documented floor).
+  # --shm-size=1g avoids Chrome's /dev/shm crashes on larger pages
+  # (sitespeed.io's documented floor). MSYS_NO_PATHCONV keeps git bash
+  # from converting the container-side /sitespeed.io/out argument, while
+  # cell_mount is already a Windows-style path so Docker Desktop accepts
+  # it as a bind-mount to the real filesystem.
   MSYS_NO_PATHCONV=1 docker run --rm --shm-size=1g \
-    -v "${cell_dir}:/sitespeed.io/out" \
+    -v "${cell_mount}:/sitespeed.io/out" \
     "$IMAGE" \
     "${args[@]}" \
     "$URL"
