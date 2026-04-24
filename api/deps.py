@@ -1272,7 +1272,14 @@ def get_dashboard_data(user_id: str = None, db=None) -> dict:
     thresholds = _resolve_thresholds(config, data_dir=data_dir, user_id=user_id, db=db)
 
     # Science framework
-    science = load_active_science(config.science, config.zone_labels)
+    # Load theory text in the user's configured language so zone names,
+    # diagnosis thresholds, and recovery theory prose render in zh when the
+    # user has set Chinese in Settings. Silently falls back to English when a
+    # translated YAML is missing (see analysis/science.py:load_theory).
+    science_locale = config.language if config.language in {"en", "zh"} else None
+    science = load_active_science(
+        config.science, config.zone_labels, locale=science_locale
+    )
     load_theory = science.get("load")
     load_params = load_theory.params if load_theory else {}
     ctl_tc = int(load_params.get("ctl_time_constant", 42))
