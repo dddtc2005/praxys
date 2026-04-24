@@ -43,26 +43,26 @@ function CustomTooltip({ active, payload, label, tsbZones, chartColors }: any) {
         <span className="text-[11px] text-muted-foreground font-data">{label}</span>
         {isProjected && (
           <span className="text-[9px] uppercase tracking-wider text-accent-purple font-semibold px-1.5 py-0.5 rounded bg-accent-purple/10">
-            Projected
+            <Trans>Projected</Trans>
           </span>
         )}
       </div>
       <div className="space-y-1 text-[12px] font-data">
         {ctl && (
           <div className="flex justify-between gap-6">
-            <span className="text-muted-foreground">Fitness</span>
+            <span className="text-muted-foreground"><Trans>Fitness</Trans></span>
             <span style={{ color: chartColors.fitness }}>{ctl.value?.toFixed(1)}</span>
           </div>
         )}
         {atl && (
           <div className="flex justify-between gap-6">
-            <span className="text-muted-foreground">Fatigue</span>
+            <span className="text-muted-foreground"><Trans>Fatigue</Trans></span>
             <span style={{ color: chartColors.fatigue }}>{atl.value?.toFixed(1)}</span>
           </div>
         )}
         {tsb && (
           <div className="flex justify-between gap-6 pt-1 border-t border-border">
-            <span className="text-muted-foreground">Form</span>
+            <span className="text-muted-foreground"><Trans>Form</Trans></span>
             <span style={{ color: zone.color }} className="font-semibold">
               {tsbVal.toFixed(1)}
             </span>

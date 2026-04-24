@@ -14,7 +14,12 @@ import ZoneLegend from '@/components/charts/ZoneLegend';
 import ScienceNote from '@/components/ScienceNote';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useChartColors } from '@/hooks/useChartColors';
+import { Trans } from '@lingui/react/macro';
 
+// NOTE: ZONE_INSIGHTS lookup is keyed by the English zone label. After zh
+// labels were translated, zh users fall through the lookup below and see
+// no insight paragraph. Proper fix needs a stable `key` field on
+// TsbZoneLabeled threaded through the API — tracked in issue #104.
 const ZONE_INSIGHTS: Record<string, string> = {
   Performance: 'Freshened up \u2014 good window for racing or testing.',
   Optimal: 'Good balance of fitness and recovery. Ready for quality work.',
@@ -42,7 +47,7 @@ function SparkTooltip({ active, payload, label, tsbZones }: any) {
         <span className="text-[10px] text-muted-foreground font-data">{label}</span>
         {isProj && (
           <span className="text-[8px] uppercase tracking-wider text-accent-purple font-semibold">
-            Proj
+            <Trans>Proj</Trans>
           </span>
         )}
       </div>
@@ -108,7 +113,7 @@ export default function FormSparkline({ data, scienceNote }: Props) {
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Form (TSB)
+          <Trans>Form (TSB)</Trans>
         </CardTitle>
         <div className="flex items-center gap-2">
           <span
@@ -218,10 +223,10 @@ export default function FormSparkline({ data, scienceNote }: Props) {
 
         {/* Footer: timeframe + projection note */}
         <div className="flex items-center justify-between mt-2">
-          <span className="text-[10px] text-muted-foreground">Last 14 days</span>
+          <span className="text-[10px] text-muted-foreground"><Trans>Last 14 days</Trans></span>
           {hasProjection && (
             <span className="text-[10px] text-accent-purple/60">
-              + {data.projected_dates?.length ?? 0}d projected from plan
+              <Trans>+ {data.projected_dates?.length ?? 0}d projected from plan</Trans>
             </span>
           )}
         </div>

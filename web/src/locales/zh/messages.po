@@ -32,7 +32,7 @@ msgid "{0, plural, one {# recommendation} other {# recommendations}}"
 msgstr "{0, plural, other {# 条建议}}"
 
 #. placeholder {0}: data.workouts.length
-#: src/components/UpcomingPlanCard.tsx:516
+#: src/components/UpcomingPlanCard.tsx:517
 msgid "{0, plural, one {# workout} other {# workouts}}"
 msgstr "{0, plural, other {# 次训练}}"
 
@@ -73,6 +73,11 @@ msgstr "{total, plural, other {# 项活动}}"
 #: src/pages/Setup.tsx:653
 msgid "{total, plural, one {Sync failed for {0} of # source.} other {Sync failed for {1} of # sources.}}"
 msgstr "{total, plural, other {同步失败：{1} 个来源中的 # 个。}}"
+
+#. placeholder {0}: data.projected_dates?.length ?? 0
+#: src/components/charts/FormSparkline.tsx:231
+msgid "+ {0}d projected from plan"
+msgstr "计划中还有 {0} 天预测"
 
 #. placeholder {0}: roleChangeUser?.email
 #: src/pages/Admin.tsx:444
@@ -366,7 +371,7 @@ msgstr "清除"
 msgid "Click to copy"
 msgstr "点击复制"
 
-#: src/components/UpcomingPlanCard.tsx:124
+#: src/components/UpcomingPlanCard.tsx:125
 msgid "click to retry"
 msgstr "点击重试"
 
@@ -734,7 +739,7 @@ msgstr "加载设置失败"
 msgid "Failed to load training data"
 msgstr "训练数据加载失败"
 
-#: src/components/UpcomingPlanCard.tsx:492
+#: src/components/UpcomingPlanCard.tsx:493
 msgid "Failed to load training plan"
 msgstr "训练计划加载失败"
 
@@ -746,6 +751,10 @@ msgstr "保存目标失败"
 msgid "Falling"
 msgstr "下降"
 
+#: src/components/charts/FitnessFatigueChart.tsx:59
+msgid "Fatigue"
+msgstr "疲劳"
+
 #: src/components/RecoveryPanel.tsx:19
 msgid "Fatigued"
 msgstr "疲劳"
@@ -754,6 +763,7 @@ msgstr "疲劳"
 msgid "Findings"
 msgstr "发现"
 
+#: src/components/charts/FitnessFatigueChart.tsx:53
 #: src/pages/Settings.tsx:100
 #: src/pages/Settings.tsx:1108
 #: src/pages/Setup.tsx:206
@@ -775,6 +785,14 @@ msgstr "持平"
 #: src/components/SignalHero.tsx:14
 msgid "Follow Plan"
 msgstr "按计划进行"
+
+#: src/components/charts/FitnessFatigueChart.tsx:65
+msgid "Form"
+msgstr "竞技状态"
+
+#: src/components/charts/FormSparkline.tsx:118
+msgid "Form (TSB)"
+msgstr "竞技状态 (TSB)"
 
 #: src/pages/Science.tsx:229
 msgid "Four pillars power your analysis. Each uses a published theory you can understand, verify, and change."
@@ -985,6 +1003,10 @@ msgstr "乳酸阈值心率"
 #: src/pages/Settings.tsx:658
 msgid "Language"
 msgstr "语言"
+
+#: src/components/charts/FormSparkline.tsx:228
+msgid "Last 14 days"
+msgstr "过去 14 天"
 
 #: src/components/LastActivityCard.tsx:43
 msgid "Last Activity"
@@ -1316,6 +1338,11 @@ msgstr "训练数据的主要来源"
 msgid "Profile"
 msgstr "个人资料"
 
+#: src/components/charts/FormSparkline.tsx:52
+msgid "Proj"
+msgstr "预测"
+
+#: src/components/charts/FitnessFatigueChart.tsx:46
 #: src/components/charts/FitnessFatigueChart.tsx:174
 msgid "Projected"
 msgstr "预测"
@@ -1334,19 +1361,20 @@ msgstr "提升为管理员"
 msgid "Pull your latest activities, power data, and recovery metrics"
 msgstr "拉取您最近的活动、功率数据和恢复指标"
 
-#: src/components/UpcomingPlanCard.tsx:539
+#: src/components/UpcomingPlanCard.tsx:540
 msgid "Push All"
 msgstr "全部推送"
 
-#: src/components/UpcomingPlanCard.tsx:124
+#: src/components/UpcomingPlanCard.tsx:125
 msgid "Push failed"
 msgstr "推送失败"
 
-#: src/components/UpcomingPlanCard.tsx:175
+#: src/components/UpcomingPlanCard.tsx:168
+#: src/components/UpcomingPlanCard.tsx:176
 msgid "Push to Stryd"
 msgstr "推送到 Stryd"
 
-#: src/components/UpcomingPlanCard.tsx:529
+#: src/components/UpcomingPlanCard.tsx:530
 msgid "Pushing..."
 msgstr "正在推送..."
 
@@ -1386,7 +1414,8 @@ msgstr "比赛预测"
 msgid "Range"
 msgstr "范围"
 
-#: src/components/UpcomingPlanCard.tsx:150
+#: src/components/UpcomingPlanCard.tsx:142
+#: src/components/UpcomingPlanCard.tsx:151
 msgid "Re-push to Stryd"
 msgstr "重新推送到 Stryd"
 
@@ -1489,7 +1518,7 @@ msgstr "休息"
 msgid "Resting HR"
 msgstr "静息心率"
 
-#: src/components/UpcomingPlanCard.tsx:495
+#: src/components/UpcomingPlanCard.tsx:496
 #: src/pages/Goal.tsx:487
 #: src/pages/History.tsx:53
 #: src/pages/Settings.tsx:336
@@ -1497,6 +1526,10 @@ msgstr "静息心率"
 #: src/pages/Training.tsx:55
 msgid "Retry"
 msgstr "重试"
+
+#: src/components/UpcomingPlanCard.tsx:117
+msgid "Retry push to Stryd"
+msgstr "重试推送到 Stryd"
 
 #: src/pages/Admin.tsx:362
 msgid "Revoke"
@@ -1575,11 +1608,11 @@ msgid "Setup"
 msgstr "设置向导"
 
 #. placeholder {0}: workouts.length - INITIAL_COUNT
-#: src/components/UpcomingPlanCard.tsx:317
+#: src/components/UpcomingPlanCard.tsx:318
 msgid "Show {0} more workouts"
 msgstr "显示另外 {0} 项训练"
 
-#: src/components/UpcomingPlanCard.tsx:316
+#: src/components/UpcomingPlanCard.tsx:317
 msgid "Show less"
 msgstr "显示更少"
 
@@ -1710,7 +1743,7 @@ msgstr "同步历史"
 msgid "Sync your data"
 msgstr "同步数据"
 
-#: src/components/UpcomingPlanCard.tsx:534
+#: src/components/UpcomingPlanCard.tsx:535
 #: src/pages/Settings.tsx:820
 msgid "Synced"
 msgstr "已同步"
@@ -1790,7 +1823,7 @@ msgstr "阈值"
 msgid "Today"
 msgstr "今日"
 
-#: src/components/UpcomingPlanCard.tsx:220
+#: src/components/UpcomingPlanCard.tsx:221
 msgid "TODAY"
 msgstr "今日"
 
@@ -1842,7 +1875,7 @@ msgstr "超长距离功率分数（50K+）为估算值，研究支持有限。Ri
 msgid "Units"
 msgstr "单位"
 
-#: src/components/UpcomingPlanCard.tsx:512
+#: src/components/UpcomingPlanCard.tsx:513
 msgid "Upcoming Plan"
 msgstr "即将到来的计划"
 
