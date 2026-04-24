@@ -1,10 +1,11 @@
 import { View, Text, Button } from '@tarojs/components';
-import Taro, { usePullDownRefresh, useDidShow } from '@tarojs/taro';
+import Taro, { usePullDownRefresh, useDidShow, useShareAppMessage } from '@tarojs/taro';
 
 import { useApi } from '@/hooks/useApi';
 import type { TodayResponse } from '@/types/api';
 import { formatDistance, formatTime } from '@/lib/format';
 import { applyThemeChrome, themeClassName } from '@/lib/theme';
+import { detectShareLocale, getShareMessage } from '@/lib/share';
 import LineChart from '@/components/LineChart';
 import './index.scss';
 
@@ -18,6 +19,8 @@ export default function TodayPage() {
   const { data, loading, error, refetch } = useApi<TodayResponse>('/api/today');
 
   useDidShow(() => applyThemeChrome());
+
+  useShareAppMessage(() => getShareMessage(detectShareLocale(), '/pages/today/index'));
 
   // WeChat's standard "pull down to refresh" gesture → re-fetch.
   usePullDownRefresh(() => {
