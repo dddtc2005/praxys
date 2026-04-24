@@ -142,11 +142,15 @@ run_cell() {
   )
 
   if [[ "$device" == "mobile" ]]; then
-    # Chrome DevTools device preset bundles viewport + UA + touch emulation
-    # atomically. Sitespeed.io's bare `--mobile` flag isn't consistent
-    # across versions; the chrome.mobileEmulation path is stable.
+    # Explicit viewport + UA is more portable than Chrome's device-name
+    # presets — the preset list drifts per Chrome version (146.x doesn't
+    # recognize "iPhone 14 Pro" as of this writing, for example), which
+    # breaks CI runs silently. Viewport matches iPhone 14 Pro (CSS px),
+    # UA is recent iOS Safari. For S4 Landing this is enough — we're
+    # measuring render-path, not touch interactions.
     args+=(
-      --browsertime.chrome.mobileEmulation.deviceName "iPhone 14 Pro"
+      --browsertime.viewPort "390x844"
+      --browsertime.userAgent "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
     )
   fi
 
