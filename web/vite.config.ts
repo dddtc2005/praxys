@@ -3,6 +3,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 import tailwindcss from '@tailwindcss/vite'
 import { lingui } from '@lingui/vite-plugin'
+import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   plugins: [
@@ -11,6 +12,35 @@ export default defineConfig({
     }),
     tailwindcss(),
     lingui(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      manifest: {
+        name: 'Praxys',
+        short_name: 'Praxys',
+        description: 'Science-based training for self-coached runners',
+        theme_color: '#4a9e6e',
+        background_color: '#fafafa',
+        display: 'standalone',
+        start_url: '/',
+        scope: '/',
+        icons: [
+          { src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml' },
+        ],
+      },
+      workbox: {
+        // Precache the app shell (JS, CSS, HTML, main icon) so repeat
+        // visits load instantly from the service worker cache. API
+        // requests intentionally excluded — fresh data matters.
+        //
+        // WOFF2 subsets (108 files, ~4.8 MB) also deliberately excluded:
+        // browsers fetch them lazily via unicode-range as glyphs are
+        // rendered, so precaching the full set would bloat the install
+        // phase + use disk that most users never touch.
+        globPatterns: ['**/*.{js,css,html,ico,svg}'],
+        navigateFallbackDenylist: [/^\/api\//],
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+      },
+    }),
   ],
   resolve: {
     alias: {
