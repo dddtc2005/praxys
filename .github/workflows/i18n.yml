@@ -59,15 +59,30 @@ jobs:
             exit 1
           fi
 
-  # Runs on push to main: extracts, translates missing zh entries through
-  # Claude (with glossary + placeholder validation + cost cap), and opens
-  # a PR. Human reviews the zh diff before merging.
+  # Runs on push to main: extracts, translates missing zh entries through an
+  # Azure AI Foundry deployment (with glossary + placeholder validation + cost
+  # cap), and opens a PR. Human reviews the zh diff before merging.
+  #
+  # Auth: OIDC federation via azure/login@v2 — no API key lives in a repo
+  # secret. Configuration (repository > Settings > Secrets and variables > Actions):
+  #   Secrets:
+  #     AZURE_CLIENT_ID        (app registration client ID)
+  #     AZURE_TENANT_ID        (directory tenant ID)
+  #     AZURE_SUBSCRIPTION_ID  (subscription hosting the Foundry resource)
+  #   Variables:
+  #     AZURE_AI_ENDPOINT      (https://<resource>.cognitiveservices.azure.com/)
+  # The federated credential on the app must trust the subject
+  #   repo:dddtc2005/praxys:ref:refs/heads/main
+  # (plus any additional refs you want to run from). The app needs
+  # "Cognitive Services OpenAI User" on the Foundry resource — scope it there,
+  # not at subscription level.
   translate:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
+      id-token: write  # required for OIDC token exchange with Azure AD
     steps:
       - uses: actions/checkout@v6
 
@@ -81,13 +96,20 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
       - name: Install web deps
         # See extract-check job for why npm install vs npm ci.
         working-directory: web
         run: npm install --no-audit --no-fund
 
       - name: Install translator deps
-        run: pip install anthropic pyyaml
+        run: pip install openai azure-identity pyyaml
 
       - name: Extract source catalog
         working-directory: web
@@ -95,10 +117,10 @@ jobs:
 
       - name: Fill missing zh entries (catalog)
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AZURE_AI_ENDPOINT: ${{ vars.AZURE_AI_ENDPOINT }}
           # Cost cap — only translate this many entries per run. Remaining
-          # empties get filled on subsequent runs. Raise via repo secret or
-          # env override if you want bulk catch-up.
+          # empties get filled on subsequent runs. Raise via env override if
+          # you want bulk catch-up.
           TRANSLATE_MAX: '100'
         run: |
           python scripts/translate_missing.py po \
@@ -108,7 +130,7 @@ jobs:
 
       - name: Fill missing zh science YAML
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AZURE_AI_ENDPOINT: ${{ vars.AZURE_AI_ENDPOINT }}
         run: |
           python scripts/translate_missing.py yaml \
             --source-dir data/science \
