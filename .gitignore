@@ -51,3 +51,18 @@ docs/superpowers/
 # data/screenshots/ and docs/marketing/screenshots/)
 web/screenshot-*.png
 /screenshot-*.png
+
+# Performance baselines: keep the HAR (the source of truth for the
+# analyzer) + the hand-curated README.md per baseline directory. Drop
+# sitespeed.io's heavy binary artifacts (videos, filmstrips, key-event
+# screenshots) and its prebuilt viewer bundle (HTML + CSS + JS + PNGs),
+# which add tens of MB per baseline without being diff-useful.
+docs/perf-baselines/*/*/pages/*/data/video/
+docs/perf-baselines/*/*/pages/*/data/filmstrip/
+docs/perf-baselines/*/*/pages/*/data/screenshots/
+docs/perf-baselines/*/*/pages/*/*.html
+docs/perf-baselines/*/*/*.html
+docs/perf-baselines/*/*/css/
+docs/perf-baselines/*/*/js/
+docs/perf-baselines/*/*/img/
+docs/perf-baselines/*/*/*.ico
