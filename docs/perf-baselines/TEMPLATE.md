@@ -18,36 +18,67 @@
 | Route code splitting | `none` / `React.lazy` |
 | PWA / service worker | `off` / `on` |
 
-## Measurements
+## Measurements (Tier 1)
 
-Record the median of 3 runs per cell (WPT "Median" column, First View). Highlight anything that looks like a flaky outlier with `(flaky)` and note below.
+Record the median of 3 runs per cell (WPT "Median" column, First View). Highlight anything that looks like a flaky outlier with `(flaky)` and note in the Observations section. Tier 1 matrix is 4 probes × 2 devices × 4 scenarios = 32 cells.
 
-### S1 — Cold first load, Today page
+### S1 — Cold first load, Today page (via login)
 
-| Probe | FCP (ms) | LCP (ms) | TTI (ms) | HTML TTFB (ms) | Static KB | API KB | # reqs | # API reqs | API p50 | API p95 | Protocol | Font CSS TTFB |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Beijing  | | | | | | | | | | | | |
-| Shanghai | | | | | | | | | | | | |
-| Hong Kong| | | | | | | | | | | | |
-| US West  | | | | | | | | | | | | |
+| Probe | Device | FCP (ms) | LCP (ms) | TTI (ms) | HTML TTFB | Static KB | API KB | # reqs | # API | API p50 | API p95 | Protocol | Font CSS TTFB |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Beijing   | Desktop | | | | | | | | | | | | |
+| Beijing   | Mobile  | | | | | | | | | | | | |
+| Shanghai  | Desktop | | | | | | | | | | | | |
+| Shanghai  | Mobile  | | | | | | | | | | | | |
+| Hong Kong | Desktop | | | | | | | | | | | | |
+| Hong Kong | Mobile  | | | | | | | | | | | | |
+| US West   | Desktop | | | | | | | | | | | | |
+| US West   | Mobile  | | | | | | | | | | | | |
 
-### S2 — Cold first load, Training page
+### S2 — Cold first load, Training page (via login)
 
-| Probe | FCP (ms) | LCP (ms) | TTI (ms) | HTML TTFB (ms) | Static KB | API KB | # reqs | # API reqs | API p50 | API p95 | Protocol | Font CSS TTFB |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Beijing  | | | | | | | | | | | | |
-| Shanghai | | | | | | | | | | | | |
-| Hong Kong| | | | | | | | | | | | |
-| US West  | | | | | | | | | | | | |
+| Probe | Device | FCP (ms) | LCP (ms) | TTI (ms) | HTML TTFB | Static KB | API KB | # reqs | # API | API p50 | API p95 | Protocol | Font CSS TTFB |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Beijing   | Desktop | | | | | | | | | | | | |
+| Beijing   | Mobile  | | | | | | | | | | | | |
+| Shanghai  | Desktop | | | | | | | | | | | | |
+| Shanghai  | Mobile  | | | | | | | | | | | | |
+| Hong Kong | Desktop | | | | | | | | | | | | |
+| Hong Kong | Mobile  | | | | | | | | | | | | |
+| US West   | Desktop | | | | | | | | | | | | |
+| US West   | Mobile  | | | | | | | | | | | | |
 
 ### S3 — Warm repeat visit, Today page
 
-| Probe | FCP (ms) | LCP (ms) | TTI (ms) | HTML TTFB (ms) | Static KB | API KB | # reqs | # API reqs | API p50 | API p95 | Protocol |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| Beijing  | | | | | | | | | | | |
-| Shanghai | | | | | | | | | | | |
-| Hong Kong| | | | | | | | | | | |
-| US West  | | | | | | | | | | | |
+| Probe | Device | FCP (ms) | LCP (ms) | TTI (ms) | HTML TTFB | Static KB | API KB | # reqs | # API | API p50 | API p95 | Protocol |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Beijing   | Desktop | | | | | | | | | | | |
+| Beijing   | Mobile  | | | | | | | | | | | | |
+| Shanghai  | Desktop | | | | | | | | | | | | |
+| Shanghai  | Mobile  | | | | | | | | | | | | |
+| Hong Kong | Desktop | | | | | | | | | | | | |
+| Hong Kong | Mobile  | | | | | | | | | | | | |
+| US West   | Desktop | | | | | | | | | | | | |
+| US West   | Mobile  | | | | | | | | | | | | |
+
+### S4 — Anonymous Landing page
+
+No login, no API calls (or one public health ping). Font CSS TTFB is the critical cell here — it's where Google-Fonts blocking in CN shows up loudest.
+
+| Probe | Device | FCP (ms) | LCP (ms) | TTI (ms) | HTML TTFB | Static KB | # reqs | Protocol | Font CSS TTFB |
+|---|---|---|---|---|---|---|---|---|---|
+| Beijing   | Desktop | | | | | | | | |
+| Beijing   | Mobile  | | | | | | | | |
+| Shanghai  | Desktop | | | | | | | | |
+| Shanghai  | Mobile  | | | | | | | | |
+| Hong Kong | Desktop | | | | | | | | |
+| Hong Kong | Mobile  | | | | | | | | |
+| US West   | Desktop | | | | | | | | |
+| US West   | Mobile  | | | | | | | | |
+
+## Tier 2 / Tier 3 runs (if any were done this baseline)
+
+Tier 2 and Tier 3 are optional per baseline — only fill in if actually captured. Use free-form tables or prose; link artifact paths in this directory.
 
 ## Observations
 
@@ -57,16 +88,20 @@ Record the median of 3 runs per cell (WPT "Median" column, First View). Highligh
 
 ## Diff vs previous baseline
 
-If this is a "before" anchor, skip. If this is "after Phase X #Y", name the previous baseline here and list metrics that moved:
+If this is a "before" anchor, skip. If this is "after Phase X #Y", name the previous baseline here and list metrics that moved. Call out desktop vs mobile separately where they diverge — fixes often land on one form factor before the other.
 
-- `FCP Beijing: 12800ms → 3100ms (-9700ms, -76%)` ✅ matches prediction
-- `API KB Training: 48 KB → 11 KB (-77%)` ✅ matches gzip prediction
-- `p95 API Beijing: no change` ⚠️ expected move from Phase 2 #4 — investigate
+- `S4 FCP Beijing Desktop: 8400ms → 820ms (-7580ms, -90%)` ✅ matches font-self-host prediction
+- `S4 FCP Beijing Mobile:  11200ms → 1150ms (-10050ms, -90%)` ✅ same pattern, worse baseline
+- `S2 API KB Training (any device): 48 KB → 11 KB (-77%)` ✅ matches gzip prediction
+- `S2 p95 API Beijing Mobile: no change` ⚠️ expected move from Phase 2 #4 — investigate
 
 ## Raw artifacts
 
-Saved in this directory:
-- `sX-<probe>.har` — full network HAR export
-- `sX-<probe>.lighthouse.json` — Lighthouse JSON report
-- `sX-<probe>.filmstrip.png` — filmstrip screenshot strip (visual sanity check)
-- `sX-<probe>.wpt-link` — permalink to the WebPageTest result page
+Saved in this directory. Naming convention: `sN-<probe>-<device>.<ext>`.
+
+- `sN-<probe>-<device>.har` — full network HAR export
+- `sN-<probe>-<device>.lighthouse.json` — Lighthouse JSON report
+- `sN-<probe>-<device>.filmstrip.png` — filmstrip strip (visual sanity check)
+- `sN-<probe>-<device>.wpt-link` — permalink to the WebPageTest result page
+
+Example: `s1-beijing-mobile.har`, `s4-hongkong-desktop.lighthouse.json`.

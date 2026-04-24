@@ -16,17 +16,59 @@ Mainland-China users cross the Great Firewall to hit our Azure East Asia deploym
 
 Azure Availability Tests (cheap URL pings from multiple Azure regions) provide an always-on uptime + TTFB baseline — see [`azure-provisioning.md`](./azure-provisioning.md) to set them up.
 
-## The three scenarios
+## The scenarios
 
-Run all three for every baseline. Identical inputs → deltas attribute to code changes, not measurement noise.
+Run all four for every baseline. Identical inputs → deltas attribute to code changes, not measurement noise.
 
 - **S1 — Cold first load of Today page.** Empty cache, no service worker. Navigate to the homepage → log in → Today paints. The "new user" path.
 - **S2 — Cold first load of Training page.** Same pre-conditions as S1 but navigate to `/training` — currently fires 7 API round-trips, our worst offender.
 - **S3 — Warm repeat visit to Today.** Authenticated, cache populated (service worker active once Phase 2 #7 lands), tab revisit. The "daily use" path.
+- **S4 — Anonymous Landing page.** Empty cache, not logged in. Navigate to `/` and measure. Critical for seeing Google Fonts blocking in isolation — this is the first impression for every new visitor, and it's also what WeChat-shared links open into.
+
+## Test-matrix tiers
+
+You can't meaningfully run every (geography × device × browser × network × scenario) combination for every PR. The matrix below is split by cost-of-drift: Tier 1 runs for every baseline so deltas are attributable; Tier 2 runs periodically to catch drift the core misses; Tier 3 is ad-hoc when investigating a specific bug.
+
+### Tier 1 — every baseline (before/after each perf fix)
+
+| Axis | Value |
+|---|---|
+| Geography | Beijing, Shanghai, Hong Kong, US West |
+| Device | Desktop Chrome (1920×1080), Mobile Chrome (iPhone 14-class emulation) |
+| Browser | Chrome latest |
+| Network | Native (the probe's real connection — not throttled) |
+| Scenario | S1, S2, S3, S4 |
+| Time-of-day | 20:00–21:00 Asia/Shanghai (CN evening peak when GFW is worst) |
+| Runs per cell | 3 (WPT computes median) |
+
+**Cell count:** 4 geographies × 2 devices × 4 scenarios = **32 cells per baseline**. Both desktop and mobile are non-optional — users hit this app from both laptops (training analysis) and phones (daily check-in), and they can regress independently.
+
+### Tier 2 — periodic (every 2–4 baselines or pre-release)
+
+Catches what Tier 1 misses without bloating the per-fix loop:
+
+- **WeChat embedded browser (X5) from Beijing + Shanghai** — uniquely Chinese reality. Shared links from WeChat open in the X5 in-app browser, which has its own font-loading, cache, and JS-bridge quirks. WPT doesn't ship a WeChat-browser location, so this runs via an Alibaba Cloud Beijing VM with Android + WeChat + remote-DevTools capture. One-time setup, then scriptable.
+- **Safari (iOS emulation) from 2 probes** — iOS users are a big CN segment; catches WebKit-specific bundle / CSS / Intl issues.
+- **Tablet viewport from 1 probe** — catches responsive-layout regressions on charts and grids.
+- **Throttled 3G from Hong Kong** — stress test for payload size, isolated from GFW noise by using HK as the base probe.
+
+### Tier 3 — ad-hoc investigations
+
+Use when chasing a specific bug, rolling a region, or answering a targeted question. Not run on every baseline.
+
+- Other CN cities (Shenzhen, Chengdu, Chongqing) — different ISP peering
+- Edge, Firefox, UC Browser, QQ Browser
+- Off-peak comparison (07:00 Asia/Shanghai) to quantify GFW variance
+- Accessibility / reduced-motion profile audits
+- Custom HAR + devtools-protocol trace capture for deep-dive diffs
+
+### What RUM covers automatically
+
+The Application Insights wire (backend + SPA) segments the real user population by browser, OS, device type, country, and `customDimensions.netinfo_effectiveType`. Every real browser / network shows up in production data without us synthesizing it. The synthetic Tier 1/2/3 matrix exists for **reproducibility** (a fix's delta must be attributable), not for coverage of every user configuration.
 
 ## What to capture per run
 
-For each scenario × probe location:
+For each Tier 1 cell (scenario × probe × device — 32 cells total):
 
 | Metric | Why it matters | Units |
 |---|---|---|
