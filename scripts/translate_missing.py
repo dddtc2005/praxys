@@ -1,10 +1,10 @@
-"""Fill missing translations in Lingui .po catalogs (and science YAML files) via the Claude API.
+"""Fill missing translations in Lingui .po catalogs (and science YAML files) via Azure AI Foundry.
 
 Minimal-maintenance translation pipeline: English source text is authored in
 the source code (extracted by `lingui extract` into `src/locales/en/messages.po`),
 this script diff-reads the target-language catalog and fills any entries with
-an empty `msgstr` using Claude. The output is a PR-ready `.po` that a human
-reviews before merging.
+an empty `msgstr` using an Azure AI Foundry deployment. The output is a
+PR-ready `.po` that a human reviews before merging.
 
 Usage:
     # Fill missing zh translations in the .po catalog
@@ -20,7 +20,15 @@ Usage:
         --language "Simplified Chinese"
 
 Environment:
-    ANTHROPIC_API_KEY must be set. Defaults to model claude-opus-4-7 (1M context).
+    AZURE_AI_ENDPOINT         Azure OpenAI resource base, e.g.
+                              https://<resource>.cognitiveservices.azure.com/
+    TRANSLATE_MODEL           Deployment name (default: gpt-5.4-mini). Must
+                              match the "Name" column in Foundry Deployments.
+    AZURE_OPENAI_API_VERSION  API version (default: 2025-04-01-preview).
+
+Auth uses DefaultAzureCredential — in CI this resolves through OIDC federation
+set up by `azure/login@v2`; locally it picks up `az login` or a dev workload
+identity. No API key needed.
 """
 from __future__ import annotations
 
@@ -31,11 +39,18 @@ import sys
 from pathlib import Path
 
 try:
-    import anthropic  # type: ignore[import-not-found]
+    from openai import AzureOpenAI  # type: ignore[import-not-found]
+    from azure.identity import (  # type: ignore[import-not-found]
+        DefaultAzureCredential,
+        get_bearer_token_provider,
+    )
 except ImportError:
-    anthropic = None  # handled in main()
+    AzureOpenAI = None  # handled in _client()
+    DefaultAzureCredential = None
+    get_bearer_token_provider = None
 
-MODEL = os.environ.get("TRANSLATE_MODEL", "claude-opus-4-7")
+MODEL = os.environ.get("TRANSLATE_MODEL", "gpt-5.4-mini")
+API_VERSION = os.environ.get("AZURE_OPENAI_API_VERSION", "2025-04-01-preview")
 
 # Lingui XML tag references (the numbered variant — <0>, </0>, <1/>). These
 # must appear verbatim in every translation because Lingui compiles them
@@ -104,27 +119,12 @@ def _placeholders(s: str) -> dict[str, list[str]]:
 def parse_po(path: Path) -> list[dict]:
     """Parse a .po file into a list of {msgid, msgstr, prefix_lines} dicts.
 
-    `prefix_lines` captures comments (#: ...) preceding each entry so we can
-    write the file back identically aside from the translated `msgstr`.
+    `prefix_lines` captures comments (#: ...) and blank lines *preceding*
+    each msgid — so the leading blank between entries rides along with the
+    entry below it, and round-trip writes reproduce the file structure.
     """
     entries: list[dict] = []
-    header_written = False
-    buf: list[str] = []
-    msgid: str | None = None
-    msgstr: str | None = None
-
-    def _flush():
-        nonlocal msgid, msgstr, buf
-        if msgid is None:
-            return
-        entries.append({
-            "prefix_lines": list(buf),
-            "msgid": msgid,
-            "msgstr": msgstr or "",
-        })
-        buf = []
-        msgid = None
-        msgstr = None
+    buf: list[str] = []  # comment / blank lines accumulated since the last msgid
 
     with open(path, encoding="utf-8") as f:
         lines = f.readlines()
@@ -134,23 +134,27 @@ def parse_po(path: Path) -> list[dict]:
         raw = lines[i].rstrip("\n")
         stripped = raw.strip()
         if stripped.startswith("msgid "):
-            _flush()
             msgid = _read_po_string(lines, i, "msgid ")
             i = _skip_continuation(lines, i)
-            # Next non-blank should be msgstr
+            # Skip stray comment/blank lines between msgid and msgstr (rare
+            # but legal in .po files we don't generate ourselves).
             while i < len(lines) and not lines[i].startswith("msgstr "):
                 i += 1
             if i < len(lines):
                 msgstr = _read_po_string(lines, i, "msgstr ")
                 i = _skip_continuation(lines, i)
+            else:
+                msgstr = ""
+            entries.append({
+                "prefix_lines": buf,
+                "msgid": msgid,
+                "msgstr": msgstr,
+            })
+            buf = []
             continue
-        if not header_written and (stripped.startswith("#") or stripped == ""):
-            buf.append(raw)
-        else:
-            buf.append(raw)
+        buf.append(raw)
         i += 1
 
-    _flush()
     return entries
 
 
@@ -182,10 +186,32 @@ def _skip_continuation(lines: list[str], idx: int) -> int:
     return j
 
 
+_PO_ESCAPES = {'n': '\n', 't': '\t', 'r': '\r', '"': '"', '\\': '\\'}
+
+
 def _unquote(s: str) -> str:
-    if s.startswith('"') and s.endswith('"'):
-        return bytes(s[1:-1], "utf-8").decode("unicode_escape")
-    return s
+    """Strip the surrounding quotes from a .po string literal and resolve the
+    handful of escape sequences Lingui emits (\\n, \\t, \\r, \\", \\\\).
+
+    We walk character-by-character rather than routing through
+    `unicode_escape`, which reinterprets UTF-8 continuation bytes as Latin-1
+    and mangles every CJK character on round-trip.
+    """
+    if not (s.startswith('"') and s.endswith('"')):
+        return s
+    inner = s[1:-1]
+    out: list[str] = []
+    i = 0
+    while i < len(inner):
+        c = inner[i]
+        if c == "\\" and i + 1 < len(inner):
+            nxt = inner[i + 1]
+            out.append(_PO_ESCAPES.get(nxt, nxt))
+            i += 2
+        else:
+            out.append(c)
+            i += 1
+    return "".join(out)
 
 
 def _quote(s: str) -> str:
@@ -194,15 +220,15 @@ def _quote(s: str) -> str:
 
 
 def write_po(path: Path, entries: list[dict]) -> None:
-    """Write entries back in .po format."""
+    """Write entries back in .po format. The leading blank/comment block
+    between entries lives in `prefix_lines`, so we emit no extra trailing
+    newline after msgstr — otherwise every round-trip doubles the separators.
+    """
     out: list[str] = []
     for e in entries:
         out.extend(e["prefix_lines"])
         out.append(f"msgid {_quote(e['msgid'])}")
         out.append(f"msgstr {_quote(e['msgstr'])}")
-        if not out[-1].endswith("\n"):
-            pass
-        out.append("")
     path.write_text("\n".join(out) + "\n", encoding="utf-8")
 
 
@@ -211,14 +237,51 @@ def write_po(path: Path, entries: list[dict]) -> None:
 # ---------------------------------------------------------------------------
 
 def _client():
-    if anthropic is None:
-        print("anthropic SDK not installed. Run: pip install anthropic", file=sys.stderr)
+    if AzureOpenAI is None:
+        print(
+            "openai / azure-identity not installed. "
+            "Run: pip install openai azure-identity",
+            file=sys.stderr,
+        )
         sys.exit(2)
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        print("ANTHROPIC_API_KEY is not set — nothing to translate.", file=sys.stderr)
+    endpoint = os.environ.get("AZURE_AI_ENDPOINT")
+    if not endpoint:
+        print(
+            "AZURE_AI_ENDPOINT is not set — point it at the Azure OpenAI "
+            "resource base (e.g. https://<resource>.cognitiveservices.azure.com/).",
+            file=sys.stderr,
+        )
         sys.exit(2)
-    return anthropic.Anthropic(api_key=api_key)
+    # Bearer-token provider refreshes on demand — OpenAI SDK calls it before
+    # every request, so a long-running run never hits token expiry.
+    # DefaultAzureCredential picks up GitHub OIDC (via azure/login@v2), the
+    # Azure CLI (local dev), or a managed identity — no secret needed.
+    token_provider = get_bearer_token_provider(
+        DefaultAzureCredential(),
+        "https://cognitiveservices.azure.com/.default",
+    )
+    return AzureOpenAI(
+        azure_endpoint=endpoint,
+        api_version=API_VERSION,
+        azure_ad_token_provider=token_provider,
+    )
+
+
+def _complete(client, system: str, user: str, max_tokens: int = 4096) -> str:
+    """Single entry point for chat completions so the SDK surface lives in one place.
+
+    Uses `max_completion_tokens` (not `max_tokens`) because GPT-5 and o-series
+    deployments reject the deprecated argument name.
+    """
+    resp = client.chat.completions.create(
+        model=MODEL,
+        max_completion_tokens=max_tokens,
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+    )
+    return resp.choices[0].message.content or ""
 
 
 SYSTEM_PROMPT_BASE = """You translate UI strings for Praxys, a sports-science training platform
@@ -283,6 +346,108 @@ def build_system_prompt() -> str:
     return SYSTEM_PROMPT_BASE + _glossary_section()
 
 
+def _load_glossary() -> dict[str, str]:
+    """Return {en: zh} for glossary rows with non-empty zh. Used to warn when
+    a draft translation omits a canonical term from the glossary. Rows with
+    empty zh ("keep English") are skipped — there's nothing to check.
+    """
+    path = Path(__file__).with_name("i18n_glossary.yaml")
+    if not path.exists():
+        return {}
+    try:
+        import yaml  # type: ignore[import-not-found]
+    except ImportError:
+        return {}
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError:
+        return {}
+    out: dict[str, str] = {}
+    for t in data.get("terms") or []:
+        en = (t.get("en") or "").strip()
+        zh = (t.get("zh") or "").strip()
+        if en and zh:
+            out[en] = zh
+    return out
+
+
+def _extract_context(prefix_lines: list[str]) -> tuple[list[str], list[str]]:
+    """Pull .po metadata lines for prompt context.
+    Returns (source_refs, extractor_comments) — `#: file:line` refs and `#. dev notes`.
+    """
+    sources: list[str] = []
+    comments: list[str] = []
+    for line in prefix_lines:
+        s = line.strip()
+        if s.startswith("#:"):
+            sources.append(s[2:].strip())
+        elif s.startswith("#."):
+            comments.append(s[2:].strip())
+    return sources, comments
+
+
+def _format_entry_for_prompt(idx: int, entry: dict) -> str:
+    """Render one entry as `N. <msgid>` plus an optional `(context ...)` line.
+
+    Context is squeezed into a single parenthetical so response parsing can
+    still rely on the `N.` prefix to locate translations.
+    """
+    text = f"{idx}. {entry['msgid']}"
+    sources, comments = _extract_context(entry["prefix_lines"])
+    parts: list[str] = []
+    if comments:
+        parts.append("note: " + "; ".join(comments))
+    if sources:
+        # First source ref is typically enough (GoalPage.tsx:142) to place the string.
+        parts.append("at: " + sources[0])
+    if not parts:
+        return text
+    return f"{text}\n   (context — {'; '.join(parts)})"
+
+
+_NUMBERED_LINE_RE = re.compile(r"^\s*(\d+)\.\s*(.*)$")
+
+
+def _parse_numbered_response(text: str, expected: int) -> list[str]:
+    """Parse a numbered `N. translation` response into a list of length `expected`.
+
+    Resilient to multi-line translations and interleaved model commentary:
+    associates any line without an `N.` prefix with the last-seen number.
+    Missing numbers become empty strings (the caller treats empties as "retry
+    next run").
+    """
+    buckets: dict[int, list[str]] = {}
+    current: int | None = None
+    for line in text.splitlines():
+        m = _NUMBERED_LINE_RE.match(line)
+        if m:
+            current = int(m.group(1))
+            buckets.setdefault(current, []).append(m.group(2))
+        elif current is not None:
+            buckets[current].append(line)
+    return [" ".join(buckets.get(i + 1, [])).strip() for i in range(expected)]
+
+
+def _glossary_warnings(source: str, translation: str, glossary: dict[str, str]) -> list[str]:
+    """Return a list of 'en → zh missing' warnings for glossary terms that
+    appear in `source` but whose canonical `zh` rendering is absent from
+    `translation`. Best-effort heuristic: case-insensitive substring match on
+    the English side (so "Critical Power" matches "critical power"), exact
+    substring match on the zh side.
+
+    Intentionally warning-only, not rejection: Chinese renders many terms
+    inflectionally ("Threshold Pace" → "阈值配速" without the noun), and we
+    don't want to block legitimate translations on a noisy heuristic. Humans
+    see the warnings in the PR log and fix the few that matter.
+    """
+    warnings: list[str] = []
+    low = source.lower()
+    for en, zh in glossary.items():
+        if en.lower() in low and zh not in translation:
+            warnings.append(f"{en!r} → missing {zh!r}")
+    return warnings
+
+
 def _placeholders_match(source: str, translation: str) -> bool:
     """True iff `translation` preserves every placeholder in `source`.
 
@@ -327,37 +492,33 @@ def translate_batch(
 
     client = _client()
     system_prompt = build_system_prompt()
+    glossary = _load_glossary()
     print(f"Translating {len(missing)} entries to {language}...", file=sys.stderr)
 
     filled = 0
     rejected = 0
+    glossary_warned = 0
     for start in range(0, len(missing), batch_size):
         chunk = missing[start:start + batch_size]
-        numbered = "\n".join(f"{i + 1}. {e['msgid']}" for i, e in enumerate(chunk))
-        resp = client.messages.create(
-            model=MODEL,
-            max_tokens=4096,
-            system=system_prompt,
-            messages=[{
-                "role": "user",
-                "content": (
-                    f"Translate these UI strings to {language}. "
-                    f"Output each on its own line in the same order, numbered 1., 2., 3., etc. "
-                    f"No extra commentary:\n\n{numbered}"
-                ),
-            }],
+        numbered = "\n".join(
+            _format_entry_for_prompt(i + 1, e) for i, e in enumerate(chunk)
         )
-        text = resp.content[0].text  # type: ignore[attr-defined]
-        lines = [ln for ln in text.strip().splitlines() if ln.strip()]
-        for i, entry in enumerate(chunk):
-            line = lines[i] if i < len(lines) else ""
-            # Strip leading "N. " numbering
-            if line[:4].strip().rstrip(".").isdigit():
-                line = line.split(".", 1)[1].strip() if "." in line else line
+        user_prompt = (
+            f"Translate these UI strings to {language}. "
+            f"Each entry may include a `(context — ...)` line with the source "
+            f"file and/or a developer note — use it to disambiguate (e.g. "
+            f"'Save' as a button vs. as a noun) but DO NOT echo it in your "
+            f"output. Output the translation only, one line per entry, "
+            f"numbered 1., 2., 3., etc., in the same order. No commentary:"
+            f"\n\n{numbered}"
+        )
+        text = _complete(client, system_prompt, user_prompt)
+        parsed = _parse_numbered_response(text, len(chunk))
+        for entry, line in zip(chunk, parsed):
             if not line:
                 continue
             if not _placeholders_match(entry["msgid"], line):
-                # Don't ship translations where Claude silently dropped or
+                # Don't ship translations where the model silently dropped or
                 # invented a placeholder — the UI would render broken text.
                 # Leave msgstr empty; next CI run will retry.
                 src_ph = _placeholders(entry["msgid"])
@@ -370,11 +531,22 @@ def translate_batch(
                 )
                 rejected += 1
                 continue
+            warnings = _glossary_warnings(entry["msgid"], line, glossary)
+            if warnings:
+                # Ship it but surface the mismatch — humans see this in the
+                # PR log and tighten the glossary or re-translate by hand.
+                print(
+                    f"  [glossary] {entry['msgid']!r} → {line!r}: "
+                    + ", ".join(warnings),
+                    file=sys.stderr,
+                )
+                glossary_warned += 1
             entry["msgstr"] = line
             filled += 1
     return {
         "filled": filled,
         "rejected_placeholder_mismatch": rejected,
+        "glossary_warnings": glossary_warned,
         "capped": capped,
     }
 
@@ -418,21 +590,16 @@ def translate_yaml_tree(source_dir: Path, target_dir: Path, language: str) -> No
             continue
 
         numbered = "\n\n".join(f"[{k}]\n{v}" for k, v in to_translate.items())
-        resp = client.messages.create(
-            model=MODEL,
-            max_tokens=4096,
-            system=build_system_prompt(),
-            messages=[{
-                "role": "user",
-                "content": (
-                    f"Translate the following Praxys science YAML fields to {language}. "
-                    f"Preserve markdown formatting (headings, tables, lists, code). Keep "
-                    f"technical terms in English where standard. Output each field as "
-                    f"`[key]\\n<translation>` separated by blank lines, matching the input order:\n\n{numbered}"
-                ),
-            }],
+        text = _complete(
+            client,
+            build_system_prompt(),
+            (
+                f"Translate the following Praxys science YAML fields to {language}. "
+                f"Preserve markdown formatting (headings, tables, lists, code). Keep "
+                f"technical terms in English where standard. Output each field as "
+                f"`[key]\\n<translation>` separated by blank lines, matching the input order:\n\n{numbered}"
+            ),
         )
-        text = resp.content[0].text  # type: ignore[attr-defined]
         translated = _parse_yaml_response(text, list(to_translate.keys()))
         new_data = dict(data)
         new_data.update(translated)
@@ -520,6 +687,7 @@ def main() -> int:
         print(
             f"Wrote {args.target} — filled={summary['filled']}, "
             f"rejected_placeholder_mismatch={summary['rejected_placeholder_mismatch']}, "
+            f"glossary_warnings={summary['glossary_warnings']}, "
             f"capped={summary['capped']}"
         )
         return 0
