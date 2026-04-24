@@ -1,5 +1,17 @@
 msgid ""
-msgstr "POT-Creation-Date: 2026-04-18 00:00+0000\nMIME-Version: 1.0\nContent-Type: text/plain; charset=utf-8\nContent-Transfer-Encoding: 8bit\nX-Generator: @lingui/cli\nLanguage: zh\nProject-Id-Version: \nReport-Msgid-Bugs-To: \nPO-Revision-Date: \nLast-Translator: \nLanguage-Team: \nPlural-Forms: \n"
+msgstr ""
+"POT-Creation-Date: 2026-04-18 00:00+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: zh\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
 
 #. placeholder {0}: findings.length
 #: src/components/AiInsightsCard.tsx:86
@@ -25,7 +37,7 @@ msgstr "{0} 个月"
 #. placeholder {1}: setup.total
 #: src/pages/Setup.tsx:479
 msgid "{0} of {1} steps complete"
-msgstr "{0} / {1} 步已完成"
+msgstr "第 {0} 步，共 {1} 步"
 
 #. placeholder {0}: steps.length
 #: src/components/SetupChecklist.tsx:99
@@ -52,7 +64,7 @@ msgstr "{total, plural, other {# 项活动}}"
 #. placeholder {1}: failures.length
 #: src/pages/Setup.tsx:654
 msgid "{total, plural, one {Sync failed for {0} of # source.} other {Sync failed for {1} of # sources.}}"
-msgstr "{total, plural, other {# 个来源同步失败。}}"
+msgstr "{total, plural, other {同步失败：{1} 个来源中的 # 个。}}"
 
 #. placeholder {0}: roleChangeUser?.email
 #: src/pages/Admin.tsx:444
@@ -120,11 +132,11 @@ msgstr "活动"
 #: src/pages/Settings.tsx:984
 #: src/pages/Setup.tsx:907
 msgid "Activities-only connection"
-msgstr "仅活动连接"
+msgstr ""
 
 #: src/pages/Setup.tsx:845
 msgid "Activity types to sync"
-msgstr "要同步的活动类型"
+msgstr ""
 
 #: src/components/charts/ComplianceChart.tsx:90
 #: src/components/ZoneAnalysisCard.tsx:64
@@ -163,7 +175,7 @@ msgstr "AI 训练分析"
 
 #: src/pages/Setup.tsx:861
 msgid "All"
-msgstr "全部"
+msgstr ""
 
 #: src/pages/Login.tsx:60
 msgid "An unexpected error occurred."
@@ -201,10 +213,6 @@ msgstr "平均心率"
 msgid "Avg Power"
 msgstr "平均功率"
 
-#: src/components/charts/SleepPerfChart.tsx:46
-#: src/components/charts/SleepPerfChart.tsx:49
-#~ msgid "Avg Power (W)"
-#~ msgstr "Avg Power (W)"
 
 #: src/components/DiagnosisCard.tsx:53
 msgid "Avg Work {intensityLabel}"
@@ -222,7 +230,7 @@ msgstr "回填..."
 #. placeholder {1}: recommendation.reason
 #: src/pages/Science.tsx:156
 msgid "Based on your training, we suggest <0>{0}</0> — {1}"
-msgstr "根据你的训练，我们建议 <0>{0}</0> — {1}"
+msgstr ""
 
 #: src/components/RecoveryPanel.tsx:102
 msgid "Baseline"
@@ -252,7 +260,7 @@ msgstr "注意"
 
 #: src/components/SetupChecklist.tsx:67
 msgid "Change"
-msgstr "更改"
+msgstr ""
 
 #: src/pages/Goal.tsx:476
 msgid "Change Goal"
@@ -341,9 +349,6 @@ msgstr "连接平台"
 msgid "Connect a platform first"
 msgstr "请先连接一个平台"
 
-#: src/pages/Training.tsx:128
-#~ msgid "Connect a recovery source (like Oura Ring) and sync activities with power data."
-#~ msgstr "Connect a recovery source (like Oura Ring) and sync activities with power data."
 
 #: src/pages/Settings.tsx:798
 msgid "Connected"
@@ -527,9 +532,6 @@ msgstr "距离"
 msgid "Distribution deviates from target"
 msgstr "分布偏离目标"
 
-#: src/pages/Settings.tsx:1073
-#~ msgid "Drive your zone calculations and training load. Click to override."
-#~ msgstr "Drive your zone calculations and training load. Click to override."
 
 #: src/pages/Settings.tsx:1196
 msgid "Drive your zone calculations and training load. Values come from connected sources; pick which source to use when you have more than one."
@@ -703,9 +705,6 @@ msgstr "通过 Claude Code 插件获取个性化训练建议、恢复评估及�
 msgid "Get started with Praxys"
 msgstr "开始使用 Praxys"
 
-#: src/components/SetupChecklist.tsx:94
-#~ msgid "Get started with Trainsight"
-#~ msgstr "Get started with Trainsight"
 
 #: src/components/CliHint.tsx:39
 msgid "Get the Claude Code Plugin"
@@ -778,9 +777,6 @@ msgstr "如何分类训练强度？"
 msgid "How often Praxys pulls new data in the background. Lower frequency uses less network and respects platform rate limits."
 msgstr "Praxys 后台拉取新数据的频率。较低频率占用更少网络流量，并尊重平台的速率限制。"
 
-#: src/pages/Settings.tsx:596
-#~ msgid "How often Trainsight pulls new data in the background. Lower frequency uses less network and respects platform rate limits."
-#~ msgstr "How often Trainsight pulls new data in the background. Lower frequency uses less network and respects platform rate limits."
 
 #: src/components/ScienceNote.tsx:10
 msgid "How this is calculated"
@@ -915,9 +911,6 @@ msgstr "主训练"
 msgid "Manage users and invitation codes"
 msgstr "管理用户和邀请码"
 
-#: src/pages/Settings.tsx:1096
-#~ msgid "Manual"
-#~ msgstr "Manual"
 
 #: src/lib/display-labels.ts:60
 #: src/pages/Goal.tsx:362
@@ -1348,9 +1341,6 @@ msgstr "角色"
 msgid "Run"
 msgstr "跑步"
 
-#: src/pages/Settings.tsx:1118
-#~ msgid "Save"
-#~ msgstr "Save"
 
 #: src/components/AppSidebar.tsx:69
 msgid "Science"
@@ -1371,9 +1361,6 @@ msgstr "设定目标"
 msgid "Set up Praxys"
 msgstr "设置 Praxys"
 
-#: src/pages/Setup.tsx:354
-#~ msgid "Set up Trainsight"
-#~ msgstr "Set up Trainsight"
 
 #: src/pages/Settings.tsx:632
 msgid "Set your name"
@@ -1431,9 +1418,6 @@ msgstr "睡眠评分"
 msgid "Sleep Score vs {metricLabel}"
 msgstr ""
 
-#: src/components/charts/SleepPerfChart.tsx:30
-#~ msgid "Sleep Score vs Power"
-#~ msgstr "Sleep Score vs Power"
 
 #: src/pages/Settings.tsx:106
 msgid "Sleep, HRV, readiness"
@@ -1724,9 +1708,6 @@ msgstr ""
 msgid "Your identity in Praxys"
 msgstr "您在 Praxys 的身份"
 
-#: src/pages/Settings.tsx:453
-#~ msgid "Your identity in Trainsight"
-#~ msgstr "Your identity in Trainsight"
 
 #: src/pages/Settings.tsx:618
 msgid "Your name"
@@ -1755,3 +1736,43 @@ msgstr "基于乳酸阈心率的区间与负荷"
 #: src/pages/Settings.tsx:131
 msgid "Zones & load from Threshold Pace"
 msgstr "基于阈值配速的区间与负荷"
+#: src/components/charts/SleepPerfChart.tsx:46
+#: src/components/charts/SleepPerfChart.tsx:49
+#~ msgid "Avg Power (W)"
+#~ msgstr "平均功率 (W)"
+
+#: src/pages/Training.tsx:128
+#~ msgid "Connect a recovery source (like Oura Ring) and sync activities with power data."
+#~ msgstr "连接恢复数据源（如 Oura Ring）并同步带功率数据的活动。"
+
+#: src/pages/Settings.tsx:1073
+#~ msgid "Drive your zone calculations and training load. Click to override."
+#~ msgstr "驱动您的区间计算与训练负荷。点击可覆盖。"
+
+#: src/components/SetupChecklist.tsx:94
+#~ msgid "Get started with Trainsight"
+#~ msgstr ""
+
+#: src/pages/Settings.tsx:596
+#~ msgid "How often Trainsight pulls new data in the background. Lower frequency uses less network and respects platform rate limits."
+#~ msgstr "Trainsight 后台拉取新数据的频率。较低频率占用更少网络流量，并尊重平台的速率限制。"
+
+#: src/pages/Settings.tsx:1096
+#~ msgid "Manual"
+#~ msgstr "手动"
+
+#: src/pages/Settings.tsx:1118
+#~ msgid "Save"
+#~ msgstr "保存"
+
+#: src/pages/Setup.tsx:354
+#~ msgid "Set up Trainsight"
+#~ msgstr "设置 Trainsight"
+
+#: src/components/charts/SleepPerfChart.tsx:30
+#~ msgid "Sleep Score vs Power"
+#~ msgstr "睡眠评分 vs 功率"
+
+#: src/pages/Settings.tsx:453
+#~ msgid "Your identity in Trainsight"
+#~ msgstr "您在 Trainsight 的身份"

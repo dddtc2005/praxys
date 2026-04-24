@@ -116,12 +116,14 @@ def _placeholders(s: str) -> dict[str, list[str]]:
 # .po file parsing (minimal — enough for Lingui's format)
 # ---------------------------------------------------------------------------
 
-def parse_po(path: Path) -> list[dict]:
-    """Parse a .po file into a list of {msgid, msgstr, prefix_lines} dicts.
+def parse_po(path: Path) -> tuple[list[dict], list[str]]:
+    """Parse a .po file into (entries, trailing_lines).
 
-    `prefix_lines` captures comments (#: ...) and blank lines *preceding*
-    each msgid — so the leading blank between entries rides along with the
-    entry below it, and round-trip writes reproduce the file structure.
+    `prefix_lines` on each entry captures comments (#: ...) and blank lines
+    *preceding* its msgid. `trailing_lines` is anything after the last msgid
+    — typically a trailing `#~` obsolete-entry block that Lingui puts at the
+    file end. Preserving it is necessary for clean round-trips; discarding
+    it drops translations for strings that might later be resurrected.
     """
     entries: list[dict] = []
     buf: list[str] = []  # comment / blank lines accumulated since the last msgid
@@ -155,7 +157,78 @@ def parse_po(path: Path) -> list[dict]:
         buf.append(raw)
         i += 1
 
-    return entries
+    return entries, buf
+
+
+def _obsolete_block_ranges(lines: list[str]) -> list[tuple[int, int]]:
+    """Return (start, end_exclusive) ranges for each obsolete entry block.
+
+    A block is one or more contiguous `#~` lines plus the `#:` / `#.` / `#,`
+    comment lines Lingui emits directly above them (which reference the
+    now-obsolete msgid, not the following active entry). Blank lines are
+    boundaries and never part of a block.
+    """
+    ranges: list[tuple[int, int]] = []
+    n = len(lines)
+    i = 0
+    while i < n:
+        if lines[i].lstrip().startswith("#~"):
+            # Walk back to collect refs/comments belonging to this obsolete
+            # entry, stopping at a blank line or any non-`#` content.
+            start = i
+            j = i - 1
+            while j >= 0:
+                s = lines[j].lstrip()
+                if s == "" or not s.startswith("#"):
+                    break
+                start = j
+                j -= 1
+            # Walk forward across contiguous `#~` lines.
+            end = i
+            while end < n and lines[end].lstrip().startswith("#~"):
+                end += 1
+            ranges.append((start, end))
+            i = end
+        else:
+            i += 1
+    return ranges
+
+
+def _strip_obsolete(prefix_lines: list[str]) -> list[str]:
+    """Remove entire obsolete-entry blocks (source refs + comments + `#~`
+    lines) from a prefix block. Dropping only the `#~` lines would leave
+    the preceding `#:` refs orphaned — they'd attach to the next active
+    msgid on the next round-trip and point at files where the string was
+    once referenced but no longer is.
+    """
+    if not prefix_lines:
+        return prefix_lines
+    kill = set()
+    for start, end in _obsolete_block_ranges(prefix_lines):
+        kill.update(range(start, end))
+    return [ln for i, ln in enumerate(prefix_lines) if i not in kill]
+
+
+def _extract_obsolete_blocks(
+    entries: list[dict], trailing: list[str]
+) -> list[str]:
+    """Collect every obsolete-entry block (`#:` / `#.` refs + `#~` lines)
+    from both inline prefixes and the trailing buffer. Used to preserve the
+    target catalog's obsolete content — source-side blocks are irrelevant.
+    Blocks are separated by a single blank line in the output.
+    """
+    out: list[str] = []
+
+    def _append(lines: list[str]) -> None:
+        for start, end in _obsolete_block_ranges(lines):
+            if out:
+                out.append("")
+            out.extend(lines[start:end])
+
+    for e in entries:
+        _append(e["prefix_lines"])
+    _append(trailing)
+    return out
 
 
 def _read_po_string(lines: list[str], idx: int, prefix: str) -> str:
@@ -219,16 +292,48 @@ def _quote(s: str) -> str:
     return f'"{escaped}"'
 
 
-def write_po(path: Path, entries: list[dict]) -> None:
+def _emit_po_string(key: str, value: str) -> list[str]:
+    """Render a key/value as one or more .po output lines.
+
+    If `value` contains embedded newlines (the PO header is the only common
+    case in Lingui-generated catalogs), write the canonical multi-line
+    continuation form Lingui emits:
+
+        msgstr ""
+        "line 1\\n"
+        "line 2\\n"
+
+    Single-line with `\\n` escapes is valid PO and parses identically, but
+    Lingui rewrites it on every extract — producing pure diff noise. Keep
+    round-trips boringly stable.
+    """
+    if "\n" not in value:
+        return [f"{key} {_quote(value)}"]
+    parts = value.split("\n")
+    out = [f'{key} ""']
+    for i, seg in enumerate(parts):
+        if i < len(parts) - 1:
+            out.append(_quote(seg + "\n"))
+        elif seg != "":
+            out.append(_quote(seg))
+    return out
+
+
+def write_po(path: Path, entries: list[dict], tail: list[str] | None = None) -> None:
     """Write entries back in .po format. The leading blank/comment block
     between entries lives in `prefix_lines`, so we emit no extra trailing
     newline after msgstr — otherwise every round-trip doubles the separators.
+
+    `tail` holds any `#~` obsolete-entry block preserved from the target's
+    original file; it's appended verbatim after the last active entry.
     """
     out: list[str] = []
     for e in entries:
         out.extend(e["prefix_lines"])
-        out.append(f"msgid {_quote(e['msgid'])}")
-        out.append(f"msgstr {_quote(e['msgstr'])}")
+        out.extend(_emit_po_string("msgid", e["msgid"]))
+        out.extend(_emit_po_string("msgstr", e["msgstr"]))
+    if tail:
+        out.extend(tail)
     path.write_text("\n".join(out) + "\n", encoding="utf-8")
 
 
@@ -665,15 +770,23 @@ def main() -> int:
     args = p.parse_args()
 
     if args.cmd == "po":
-        source_entries = parse_po(args.source)
-        target_entries = parse_po(args.target) if args.target.exists() else []
+        source_entries, _source_tail = parse_po(args.source)
+        if args.target.exists():
+            target_entries, target_tail = parse_po(args.target)
+        else:
+            target_entries, target_tail = [], []
         target_by_msgid = {e["msgid"]: e for e in target_entries}
+        # Obsolete blocks are catalog-local: en's mean nothing in zh (they
+        # carry English msgstrs for strings removed from source), while zh's
+        # hold already-translated Chinese for the same — preserve zh's,
+        # discard en's.
+        obsolete_tail = _extract_obsolete_blocks(target_entries, target_tail)
         merged: list[dict] = []
         for e in source_entries:
             msgid = e["msgid"]
             existing = target_by_msgid.get(msgid)
             merged.append({
-                "prefix_lines": e["prefix_lines"],
+                "prefix_lines": _strip_obsolete(e["prefix_lines"]),
                 "msgid": msgid,
                 "msgstr": existing["msgstr"] if existing else "",
             })
@@ -683,7 +796,7 @@ def main() -> int:
             max_translations=args.max_translations,
         )
         args.target.parent.mkdir(parents=True, exist_ok=True)
-        write_po(args.target, merged)
+        write_po(args.target, merged, tail=obsolete_tail)
         print(
             f"Wrote {args.target} — filled={summary['filled']}, "
             f"rejected_placeholder_mismatch={summary['rejected_placeholder_mismatch']}, "
