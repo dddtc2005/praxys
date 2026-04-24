@@ -11,10 +11,15 @@ Mainland-China users cross the Great Firewall to hit our Azure East Asia deploym
 | Layer | Purpose | Tool | When |
 |---|---|---|---|
 | **Lab synthetic** | Catch code regressions in controlled conditions | Lighthouse CI in GitHub Actions | On every `web/**` PR (added in a later phase) |
-| **Multi-region synthetic** | Ground truth for each phase's delta | WebPageTest — Beijing, Shanghai, Hong Kong, US West | Before & after each phase merges |
+| **Multi-region synthetic** | Ground truth for each phase's delta | **sitespeed.io** (primary — runs on PC for CN probe, via ACI for others in PR-F); **WebPageTest** (fallback, if sitespeed breaks) — Beijing/Shanghai/Hong Kong/US West | Before & after each phase merges |
 | **Production RUM** | Real user experience over time | Azure Application Insights (wired in `api/main.py` + `web/src/lib/appinsights.ts`) | Continuous, once `APPLICATIONINSIGHTS_CONNECTION_STRING` is set |
 
 Azure Availability Tests (cheap URL pings from multiple Azure regions) provide an always-on uptime + TTFB baseline — see [`azure-provisioning.md`](./azure-provisioning.md) to set them up.
+
+Tooling for sitespeed.io-based baselines:
+- **Runner**: [`../../scripts/sitespeed_runner.sh`](../../scripts/sitespeed_runner.sh) — wraps the official Docker image for a cell (scenario × device).
+- **Analyzer**: [`../../scripts/analyze_baseline.py`](../../scripts/analyze_baseline.py) — parses the sitespeed.io output into TEMPLATE.md-ready markdown rows.
+- **Windows / Docker Desktop setup**: [`../../scripts/pc-setup.md`](../../scripts/pc-setup.md).
 
 ## The scenarios
 
@@ -39,7 +44,7 @@ You can't meaningfully run every (geography × device × browser × network × s
 | Network | Native (the probe's real connection — not throttled) |
 | Scenario | S1, S2, S3, S4 |
 | Time-of-day | 20:00–21:00 Asia/Shanghai (CN evening peak when GFW is worst) |
-| Runs per cell | 3 (WPT computes median) |
+| Runs per cell | 3 (sitespeed.io / WPT both compute median) |
 
 **Cell count:** 4 geographies × 2 devices × 4 scenarios = **32 cells per baseline**. Both desktop and mobile are non-optional — users hit this app from both laptops (training analysis) and phones (daily check-in), and they can regress independently.
 
@@ -95,11 +100,15 @@ docs/perf-baselines/
 ├── TEMPLATE.md            — copy per run
 ├── azure-provisioning.md  — one-time user setup steps
 ├── 2026-04-24-<sha>/      — baseline before any optimization
-│   ├── s1-beijing.har
-│   ├── s1-beijing.lighthouse.json
-│   ├── s1-beijing.filmstrip.png
-│   ├── s2-shanghai.har
-│   └── ... (one HAR / LH / filmstrip per scenario × probe)
+│   ├── README.md          — copied from TEMPLATE.md, filled by the analyzer
+│   ├── s4-cn-pc-desktop/  — one directory per cell; sitespeed.io's full output
+│   │   ├── data/
+│   │   │   ├── browsertime.har
+│   │   │   └── browsertime.json
+│   │   ├── pages/
+│   │   └── index.html
+│   ├── s4-cn-pc-mobile/
+│   └── ... (one subdir per scenario × probe × device)
 ├── 2026-MM-DD-<sha>/      — after Phase 1 fix #1 (self-host fonts)
 │   └── ...
 └── summary.md             — running table of all baselines (created on first real baseline run)
@@ -109,4 +118,11 @@ Each phase's PR description cites the row in `summary.md` that names the metrics
 
 ## How to run a baseline
 
-See [`../../scripts/run-baseline.md`](../../scripts/run-baseline.md) for the step-by-step WebPageTest checklist.
+Primary path — sitespeed.io from your PC (+ Azure ACI regions once PR-F lands):
+
+```bash
+bash scripts/sitespeed_runner.sh --probe cn-pc --scenario s4 --device both
+python scripts/analyze_baseline.py --baseline-dir docs/perf-baselines/<YYYY-MM-DD>-<sha>
+```
+
+See [`../../scripts/pc-setup.md`](../../scripts/pc-setup.md) for Windows + Docker Desktop first-run notes, and [`../../scripts/run-baseline.md`](../../scripts/run-baseline.md) for the WebPageTest fallback checklist.
