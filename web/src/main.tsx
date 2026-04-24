@@ -7,6 +7,12 @@ import App from './App'
 import { i18n, activateLocale, DEFAULT_LOCALE, isSupportedLocale, type SupportedLocale } from './i18n/init'
 import { detectLocaleFromTag } from './lib/locale-detect'
 import { KEYS, getCompatItem } from './lib/storage-compat'
+import { initAppInsights } from './lib/appinsights'
+
+// Fire before render so the SDK captures the first page view + web vitals
+// from the initial paint. No-op when VITE_APPINSIGHTS_CONNECTION_STRING
+// is unset at build time.
+initAppInsights()
 
 const queryClient = new QueryClient({
   defaultOptions: {
