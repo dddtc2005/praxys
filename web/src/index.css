@@ -1,3 +1,12 @@
+/* Self-hosted fonts — no render-blocking fonts.googleapis.com round-trip.
+   Vite bundles the WOFF2 subsets into dist/assets/ and rewrites @font-face
+   URLs to our origin, so every font byte is served from Azure SWA on the
+   same clean path as the HTML, dodging the GFW for mainland users. */
+@import "@fontsource-variable/dm-sans";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/jetbrains-mono";
+@import "@fontsource-variable/noto-sans-sc";
+
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
