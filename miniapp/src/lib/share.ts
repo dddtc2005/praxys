@@ -5,10 +5,13 @@
  * copy and image asset in one place so the brand stays consistent across
  * every share surface.
  *
- * The image is bundled locally (see miniapp/src/assets/og-card-wechat.jpg)
- * because WeChat's share renderer is most reliable with package-local
- * images. The 5:4 aspect ratio matches WeChat's chat-bubble thumbnail.
+ * The image is bundled via webpack (see miniapp/src/assets/og-card-wechat.jpg)
+ * so Taro can rewrite the path into whatever the emitted bundle uses. WeChat's
+ * share renderer is most reliable with package-local images, and the 5:4
+ * aspect ratio matches WeChat's chat-bubble thumbnail.
  */
+
+import shareImage from '../assets/og-card-wechat.jpg';
 
 export type ShareLocale = 'en' | 'zh';
 
@@ -18,7 +21,7 @@ export interface ShareMessage {
   imageUrl: string;
 }
 
-export const SHARE_IMAGE_URL = '/assets/og-card-wechat.jpg';
+export const SHARE_IMAGE_URL: string = shareImage;
 
 export function getShareMessage(locale: ShareLocale, path?: string): ShareMessage {
   const title =
