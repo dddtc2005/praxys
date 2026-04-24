@@ -2,12 +2,14 @@
 """Parse a sitespeed.io baseline directory into populated TEMPLATE.md rows.
 
 Walks docs/perf-baselines/<date>-<sha>/ for cells named
-`s<N>-<probe>-<device>/`, reads the sitespeed.io output inside each cell
-(`browsertime.har[.zip]` + `browsertime.json`), and prints a markdown table
-section per scenario that can be pasted into TEMPLATE.md.
+`s<N>-<probe>-<device>/`, reads the sitespeed.io HAR inside each cell, and
+prints a markdown table section per scenario that can be pasted into
+TEMPLATE.md.
 
-The sitespeed.io output schema drifts across versions, so we locate files
-recursively and try several known paths for each metric before giving up.
+Everything we need is inside the HAR: sitespeed.io embeds `pageTimings`
+(FCP/LCP/TTI) and `_googleWebVitals` (CLS/TTFB/FID/TBT) on the first page
+entry, so we don't need a separate `browsertime.json` — it's not written
+to disk by default in v39+ anyway.
 
 Usage:
     python scripts/analyze_baseline.py --baseline-dir docs/perf-baselines/2026-04-24-abc1234
@@ -51,14 +53,11 @@ COLUMNS = [
 ]
 
 
-def find_sitespeed_outputs(cell_dir: Path) -> tuple[Path, Path] | None:
-    har_paths = list(cell_dir.rglob("browsertime.har")) + list(cell_dir.rglob("browsertime.har.zip"))
-    json_paths = list(cell_dir.rglob("browsertime.json"))
-    if not har_paths or not json_paths:
+def find_har(cell_dir: Path) -> Path | None:
+    paths = list(cell_dir.rglob("browsertime.har")) + list(cell_dir.rglob("browsertime.har.zip"))
+    if not paths:
         return None
-    har = max(har_paths, key=lambda p: p.stat().st_mtime)
-    js = max(json_paths, key=lambda p: p.stat().st_mtime)
-    return har, js
+    return max(paths, key=lambda p: p.stat().st_mtime)
 
 
 def load_har(har_path: Path) -> dict[str, Any]:
@@ -73,63 +72,26 @@ def load_har(har_path: Path) -> dict[str, Any]:
         return json.load(f)
 
 
-def first_median(*candidates: Any) -> float | None:
-    """Return the first candidate that looks like a usable median number.
-
-    Handles sitespeed.io's "block can be either {median:...} or a bare
-    number" inconsistency across versions.
-    """
-    for c in candidates:
-        if c is None:
-            continue
-        if isinstance(c, dict):
-            v = c.get("median")
-            if isinstance(v, (int, float)):
-                return float(v)
-            continue
-        if isinstance(c, (int, float)):
-            return float(c)
-    return None
-
-
 def extract_metrics(cell_dir: Path) -> dict[str, Any] | None:
-    found = find_sitespeed_outputs(cell_dir)
-    if found is None:
+    har_path = find_har(cell_dir)
+    if har_path is None:
         return None
-    har_path, json_path = found
     har = load_har(har_path)
-    with json_path.open(encoding="utf-8") as f:
-        bt_raw = json.load(f)
+    log = har.get("log", {})
+    pages = log.get("pages", [])
+    entries = log.get("entries", [])
 
-    bt = bt_raw[0] if isinstance(bt_raw, list) and bt_raw else bt_raw
-    stats = bt.get("statistics", {})
-    timings = stats.get("timings", {})
-    visual = stats.get("visualMetrics", {}) or {}
+    page = pages[0] if pages else {}
+    page_timings = page.get("pageTimings", {}) or {}
+    gwv = page.get("_googleWebVitals", {}) or {}
 
-    paint = timings.get("paintTiming", {})
-    lcp_block = timings.get("largestContentfulPaint", {})
-    page_timings = timings.get("pageTimings", {})
-
-    fcp = first_median(
-        paint.get("first-contentful-paint"),
-        visual.get("FirstContentfulPaint"),
-    )
-    lcp = first_median(
-        lcp_block.get("renderTime"),
-        lcp_block.get("loadTime"),
-        visual.get("LargestContentfulPaint"),
-    )
-    tti = first_median(
-        timings.get("timeToInteractive"),
-        timings.get("timeToFirstInteractive"),
-        page_timings.get("domInteractiveTime"),
-    )
-    ttfb = first_median(
-        page_timings.get("backEndTime"),
-        timings.get("ttfb"),
-    )
-
-    entries = har.get("log", {}).get("entries", [])
+    # Sitespeed.io underscores internal fields in the HAR; stable public
+    # names live on _googleWebVitals. Fall back between them for safety.
+    fcp = gwv.get("firstContentfulPaint") or page_timings.get("_firstContentfulPaint")
+    lcp = gwv.get("largestContentfulPaint") or page_timings.get("_largestContentfulPaint")
+    # TTI isn't a HAR field — use domInteractiveTime as the closest proxy.
+    tti = page_timings.get("_domInteractiveTime")
+    ttfb = gwv.get("ttfb")
     num_requests = len(entries)
     api_entries = [e for e in entries if "/api/" in (e.get("request") or {}).get("url", "")]
     num_api = len(api_entries)
