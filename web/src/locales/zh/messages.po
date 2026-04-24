@@ -75,7 +75,7 @@ msgid "{total, plural, one {Sync failed for {0} of # source.} other {Sync failed
 msgstr "{total, plural, other {同步失败：{1} 个来源中的 # 个。}}"
 
 #. placeholder {0}: data.projected_dates?.length ?? 0
-#: src/components/charts/FormSparkline.tsx:231
+#: src/components/charts/FormSparkline.tsx:229
 msgid "+ {0}d projected from plan"
 msgstr "计划中还有 {0} 天预测"
 
@@ -790,7 +790,7 @@ msgstr "按计划进行"
 msgid "Form"
 msgstr "竞技状态"
 
-#: src/components/charts/FormSparkline.tsx:118
+#: src/components/charts/FormSparkline.tsx:116
 msgid "Form (TSB)"
 msgstr "竞技状态 (TSB)"
 
@@ -1004,7 +1004,7 @@ msgstr "乳酸阈值心率"
 msgid "Language"
 msgstr "语言"
 
-#: src/components/charts/FormSparkline.tsx:228
+#: src/components/charts/FormSparkline.tsx:226
 msgid "Last 14 days"
 msgstr "过去 14 天"
 
@@ -1338,7 +1338,7 @@ msgstr "训练数据的主要来源"
 msgid "Profile"
 msgstr "个人资料"
 
-#: src/components/charts/FormSparkline.tsx:52
+#: src/components/charts/FormSparkline.tsx:50
 msgid "Proj"
 msgstr "预测"
 

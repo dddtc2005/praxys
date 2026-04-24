@@ -75,7 +75,7 @@ msgid "{total, plural, one {Sync failed for {0} of # source.} other {Sync failed
 msgstr "{total, plural, one {Sync failed for {0} of # source.} other {Sync failed for {1} of # sources.}}"
 
 #. placeholder {0}: data.projected_dates?.length ?? 0
-#: src/components/charts/FormSparkline.tsx:231
+#: src/components/charts/FormSparkline.tsx:229
 msgid "+ {0}d projected from plan"
 msgstr "+ {0}d projected from plan"
 
@@ -790,7 +790,7 @@ msgstr "Follow Plan"
 msgid "Form"
 msgstr "Form"
 
-#: src/components/charts/FormSparkline.tsx:118
+#: src/components/charts/FormSparkline.tsx:116
 msgid "Form (TSB)"
 msgstr "Form (TSB)"
 
@@ -1004,7 +1004,7 @@ msgstr "Lactate Threshold HR"
 msgid "Language"
 msgstr "Language"
 
-#: src/components/charts/FormSparkline.tsx:228
+#: src/components/charts/FormSparkline.tsx:226
 msgid "Last 14 days"
 msgstr "Last 14 days"
 
@@ -1338,7 +1338,7 @@ msgstr "Primary source for workout data"
 msgid "Profile"
 msgstr "Profile"
 
-#: src/components/charts/FormSparkline.tsx:52
+#: src/components/charts/FormSparkline.tsx:50
 msgid "Proj"
 msgstr "Proj"
 
