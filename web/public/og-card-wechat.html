@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Praxys — WeChat share</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; }
+  body { font-family: 'Geist', -apple-system, sans-serif; }
+
+  .card {
+    width: 1080px; height: 864px;
+    background: #F8F5EC;
+    color: #24263A;
+    padding: 78px 82px;
+    box-sizing: border-box;
+    display: flex; flex-direction: column; justify-content: space-between;
+    position: relative;
+    background-image:
+      radial-gradient(circle at 92% 92%, rgba(74, 158, 110, 0.22) 0%, transparent 55%),
+      radial-gradient(circle at 6% 6%,   rgba(46, 113, 198, 0.14) 0%, transparent 42%);
+  }
+
+  .top { display: flex; align-items: center; justify-content: space-between; }
+  .wordmark { display: flex; align-items: center; gap: 16px;
+    font-family: 'Geist', sans-serif;
+    font-weight: 600; font-size: 38px; letter-spacing: -0.02em; color: #24263A;
+  }
+  .wordmark .x { color: #4A9E6E; }
+  .eyebrow { font-family: 'JetBrains Mono', monospace;
+    font-size: 16px; letter-spacing: 0.18em; text-transform: uppercase; color: #545A78;
+  }
+
+  .headline {
+    font-family: 'Geist', sans-serif;
+    font-weight: 500; font-size: 100px; line-height: 1.02; letter-spacing: -0.025em;
+    max-width: 920px;
+  }
+  .headline em { font-style: normal; color: #2F6A46; font-weight: 500; }
+
+  .rule { height: 1px; background: rgba(36, 38, 58, 0.2); margin-bottom: 24px; }
+  .tagline { font-size: 28px; line-height: 1.4; color: #545A78; max-width: 840px; }
+  .tagline em { font-style: normal; color: #24263A; font-weight: 500; }
+  .sig {
+    margin-top: 22px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px; letter-spacing: 0.18em; text-transform: uppercase; color: #2E71C6;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="top">
+      <div class="wordmark"><svg width="46" height="46" viewBox="0 0 48 48" style="display:block;"><line x1="14" y1="42" x2="16" y2="5" stroke="#2E71C6" stroke-width="3" stroke-linecap="round"/><path d="M 16 6 L 40 8 Q 33 14, 40 20 L 15 22 Z" fill="#4A9E6E"/></svg><span>Pra<span class="x">x</span>ys</span></div>
+      <div class="eyebrow">Endurance · Sport science</div>
+    </div>
+
+    <div class="headline">Train like a pro.<br/><em>Whatever your level.</em></div>
+
+    <div>
+      <div class="rule"></div>
+      <div class="tagline">Science-grounded insights, personalized zones, and a plan that <em>evolves with you</em>. For every runner — road to trail.</div>
+      <div class="sig">Every step, reasoned.</div>
+    </div>
+  </div>
+</body>
+</html>
