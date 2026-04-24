@@ -123,9 +123,12 @@ run_cell() {
   )
 
   if [[ "$device" == "mobile" ]]; then
-    # --mobile applies a mobile preset (iPhone-class UA + viewport + touch
-    # emulation) and asks Chromium for a mobile LCP calculation.
-    args+=(--mobile)
+    # Chrome DevTools device preset bundles viewport + UA + touch emulation
+    # atomically. Sitespeed.io's bare `--mobile` flag isn't consistent
+    # across versions; the chrome.mobileEmulation path is stable.
+    args+=(
+      --browsertime.chrome.mobileEmulation.deviceName "iPhone 14 Pro"
+    )
   fi
 
   # MSYS_NO_PATHCONV prevents git bash from mangling the container-side

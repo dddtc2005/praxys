@@ -142,11 +142,10 @@ def extract_metrics(cell_dir: Path) -> dict[str, Any] | None:
         transferred = (e.get("response") or {}).get("bodySize")
         if transferred is None or transferred < 0:
             transferred = size
-        bucket = api_bytes if "/api/" in url else static_bytes
         if "/api/" in url:
-            api_bytes = bucket + max(0, transferred)
+            api_bytes += max(0, transferred)
         else:
-            static_bytes = bucket + max(0, transferred)
+            static_bytes += max(0, transferred)
 
     api_durations = []
     for e in api_entries:
@@ -186,15 +185,19 @@ def extract_metrics(cell_dir: Path) -> dict[str, Any] | None:
                 font_css_ttfb = round(wait)
             break
 
+    # Zero is meaningful signal here, not missing data: S4 (anonymous
+    # Landing) legitimately has 0 API requests / 0 API KB, and that's
+    # what tells us the anonymous route isn't calling /api/*. So render
+    # zeros as 0, not em-dash.
     return {
         "fcp_ms": round(fcp) if fcp is not None else None,
         "lcp_ms": round(lcp) if lcp is not None else None,
         "tti_ms": round(tti) if tti is not None else None,
         "ttfb_ms": round(ttfb) if ttfb is not None else None,
-        "static_kb": round(static_bytes / 1024, 1) if static_bytes else None,
-        "api_kb": round(api_bytes / 1024, 1) if api_bytes else None,
+        "static_kb": round(static_bytes / 1024, 1),
+        "api_kb": round(api_bytes / 1024, 1),
         "num_requests": num_requests,
-        "num_api": num_api if num_api else None,
+        "num_api": num_api,
         "api_p50_ms": round(api_p50) if api_p50 is not None else None,
         "api_p95_ms": round(api_p95) if api_p95 is not None else None,
         "protocol": protocol,
