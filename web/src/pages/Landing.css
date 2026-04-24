@@ -195,7 +195,7 @@ html[lang="zh"] .landing-hero h1 {
   font-size: clamp(30px, 5.5vw, 62px);
   letter-spacing: 0.005em;
   line-height: 1.2;
-  max-width: 16ch;
+  max-width: 18ch;
 }
 
 .landing-hero-sub {
