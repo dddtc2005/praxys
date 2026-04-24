@@ -35,7 +35,7 @@ msgstr "{0} 个月"
 
 #. placeholder {0}: setup.completed
 #. placeholder {1}: setup.total
-#: src/pages/Setup.tsx:479
+#: src/pages/Setup.tsx:414
 msgid "{0} of {1} steps complete"
 msgstr "第 {0} 步，共 {1} 步"
 
@@ -62,7 +62,7 @@ msgstr "{total, plural, other {# 项活动}}"
 
 #. placeholder {0}: failures.length
 #. placeholder {1}: failures.length
-#: src/pages/Setup.tsx:654
+#: src/pages/Setup.tsx:589
 msgid "{total, plural, one {Sync failed for {0} of # source.} other {Sync failed for {1} of # sources.}}"
 msgstr "{total, plural, other {同步失败：{1} 个来源中的 # 个。}}"
 
@@ -130,11 +130,11 @@ msgid "Activities"
 msgstr "活动"
 
 #: src/pages/Settings.tsx:984
-#: src/pages/Setup.tsx:907
+#: src/pages/Setup.tsx:842
 msgid "Activities-only connection"
 msgstr ""
 
-#: src/pages/Setup.tsx:845
+#: src/pages/Setup.tsx:780
 msgid "Activity types to sync"
 msgstr ""
 
@@ -173,7 +173,7 @@ msgstr "AI 每日简报"
 msgid "AI Training Analysis"
 msgstr "AI 训练分析"
 
-#: src/pages/Setup.tsx:861
+#: src/pages/Setup.tsx:796
 msgid "All"
 msgstr ""
 
@@ -249,8 +249,8 @@ msgstr "朝着 {0} {distLabel} 努力"
 #: src/pages/Admin.tsx:476
 #: src/pages/Settings.tsx:973
 #: src/pages/Settings.tsx:991
-#: src/pages/Setup.tsx:895
-#: src/pages/Setup.tsx:915
+#: src/pages/Setup.tsx:830
+#: src/pages/Setup.tsx:850
 msgid "Cancel"
 msgstr "取消"
 
@@ -266,7 +266,7 @@ msgstr ""
 msgid "Change Goal"
 msgstr "修改目标"
 
-#: src/pages/Setup.tsx:668
+#: src/pages/Setup.tsx:603
 msgid "Check your credentials in the connection step, then try again."
 msgstr ""
 
@@ -275,16 +275,16 @@ msgstr ""
 msgid "China"
 msgstr "中国"
 
-#: src/pages/Setup.tsx:558
+#: src/pages/Setup.tsx:493
 msgid "Choose how much historical data to pull"
 msgstr "选择要拉取的历史数据量"
 
-#: src/pages/Setup.tsx:941
+#: src/pages/Setup.tsx:876
 msgid "Choose primary source"
 msgstr "选择主要数据源"
 
 #: src/components/SetupChecklist.tsx:63
-#: src/pages/Setup.tsx:692
+#: src/pages/Setup.tsx:627
 msgid "Choose training base"
 msgstr "选择训练基准"
 
@@ -317,7 +317,7 @@ msgid "Coming Up"
 msgstr "即将到来"
 
 #: src/components/SetupChecklist.tsx:98
-#: src/pages/Setup.tsx:478
+#: src/pages/Setup.tsx:413
 msgid "Complete these steps to unlock your training insights"
 msgstr "完成这些步骤以解锁您的训练洞察"
 
@@ -328,24 +328,24 @@ msgstr "配置您的训练系统"
 #: src/components/SetupChecklist.tsx:51
 #: src/pages/Settings.tsx:840
 #: src/pages/Settings.tsx:976
-#: src/pages/Setup.tsx:543
-#: src/pages/Setup.tsx:898
+#: src/pages/Setup.tsx:478
+#: src/pages/Setup.tsx:833
 msgid "Connect"
 msgstr "连接"
 
 #. placeholder {0}: connectPlatform ? (PLATFORM_META[connectPlatform]?.label || connectPlatform) : ''
 #. placeholder {0}: connectPlatform ? PLATFORM_META[connectPlatform]?.label : ''
 #: src/pages/Settings.tsx:918
-#: src/pages/Setup.tsx:778
+#: src/pages/Setup.tsx:713
 msgid "Connect {0}"
 msgstr ""
 
 #: src/components/SetupChecklist.tsx:47
-#: src/pages/Setup.tsx:501
+#: src/pages/Setup.tsx:436
 msgid "Connect a platform"
 msgstr "连接平台"
 
-#: src/pages/Setup.tsx:557
+#: src/pages/Setup.tsx:492
 msgid "Connect a platform first"
 msgstr "请先连接一个平台"
 
@@ -359,17 +359,17 @@ msgid "Connected Platforms"
 msgstr "已连接平台"
 
 #: src/pages/Settings.tsx:976
-#: src/pages/Setup.tsx:898
+#: src/pages/Setup.tsx:833
 msgid "Connecting..."
 msgstr "连接中..."
 
 #: src/pages/Settings.tsx:986
-#: src/pages/Setup.tsx:909
+#: src/pages/Setup.tsx:844
 msgid "Continue in your browser to authorize Strava. Praxys imports activities from Strava, while recovery, fitness, and plans come from your other connected platforms."
 msgstr ""
 
 #: src/pages/Settings.tsx:994
-#: src/pages/Setup.tsx:918
+#: src/pages/Setup.tsx:853
 msgid "Continue to Strava"
 msgstr ""
 
@@ -377,7 +377,7 @@ msgstr ""
 msgid "Continuous Improvement"
 msgstr "持续提升"
 
-#: src/pages/Setup.tsx:740
+#: src/pages/Setup.tsx:675
 msgid "Continuous improvement configured"
 msgstr "已配置持续提升"
 
@@ -423,7 +423,7 @@ msgstr ""
 msgid "Critical Power"
 msgstr "临界功率"
 
-#: src/pages/Setup.tsx:888
+#: src/pages/Setup.tsx:823
 msgid "Cross-training activities affect your overall training load and recovery"
 msgstr "交叉训练活动会影响您的整体训练负荷与恢复"
 
@@ -457,7 +457,7 @@ msgstr "深色"
 msgid "Data Preferences"
 msgstr "数据偏好"
 
-#: src/pages/Setup.tsx:685
+#: src/pages/Setup.tsx:620
 msgid "Data synced successfully"
 msgstr "数据同步成功"
 
@@ -551,7 +551,7 @@ msgid "Easy Run"
 msgstr "轻松跑"
 
 #: src/pages/Settings.tsx:1130
-#: src/pages/Setup.tsx:743
+#: src/pages/Setup.tsx:678
 msgid "Edit"
 msgstr "编辑"
 
@@ -718,7 +718,7 @@ msgstr "开练"
 msgid "Go Easy"
 msgstr "轻松进行"
 
-#: src/pages/Setup.tsx:767
+#: src/pages/Setup.tsx:702
 msgid "Go to dashboard"
 msgstr "前往仪表盘"
 
@@ -783,7 +783,7 @@ msgid "How this is calculated"
 msgstr "计算方法"
 
 #: src/pages/Settings.tsx:1011
-#: src/pages/Setup.tsx:693
+#: src/pages/Setup.tsx:628
 msgid "How your zones and training load are calculated"
 msgstr "如何计算您的区间与训练负荷"
 
@@ -858,7 +858,7 @@ msgstr "首个账号可留空，之后必填。"
 msgid "Light"
 msgstr "浅色"
 
-#: src/pages/Setup.tsx:502
+#: src/pages/Setup.tsx:437
 msgid "Link at least one data source to start"
 msgstr "至少关联一个数据源以开始"
 
@@ -941,7 +941,7 @@ msgid "MODIFY"
 msgstr "调整"
 
 #. placeholder {0}: primaryPrompt?.category
-#: src/pages/Setup.tsx:943
+#: src/pages/Setup.tsx:878
 msgid "Multiple platforms provide <0>{0}</0> data. Which should be the primary source?"
 msgstr ""
 
@@ -1059,7 +1059,7 @@ msgstr "共"
 msgid "One-time codes for new user registration"
 msgstr "用于新用户注册的一次性邀请码"
 
-#: src/pages/Setup.tsx:749
+#: src/pages/Setup.tsx:684
 msgid "Optional — you can always set this later from the Goal page"
 msgstr "可选——您随时可以从目标页面设置"
 
@@ -1198,7 +1198,7 @@ msgstr ""
 msgid "Race Goal"
 msgstr "比赛目标"
 
-#: src/pages/Setup.tsx:740
+#: src/pages/Setup.tsx:675
 msgid "Race goal configured"
 msgstr "已配置比赛目标"
 
@@ -1234,8 +1234,8 @@ msgstr "建议"
 msgid "recommended"
 msgstr "推荐"
 
-#: src/pages/Setup.tsx:583
-#: src/pages/Setup.tsx:719
+#: src/pages/Setup.tsx:518
+#: src/pages/Setup.tsx:654
 msgid "Recommended"
 msgstr "推荐"
 
@@ -1266,7 +1266,7 @@ msgid "Recovery status uses ln(RMSSD) compared to your personal baseline. 'Fatig
 msgstr ""
 
 #: src/pages/Settings.tsx:994
-#: src/pages/Setup.tsx:918
+#: src/pages/Setup.tsx:853
 msgid "Redirecting..."
 msgstr ""
 
@@ -1280,7 +1280,7 @@ msgstr "参考文献"
 
 #: src/pages/Settings.tsx:881
 #: src/pages/Settings.tsx:948
-#: src/pages/Setup.tsx:824
+#: src/pages/Setup.tsx:759
 msgid "Region"
 msgstr "地区"
 
@@ -1347,17 +1347,17 @@ msgid "Science"
 msgstr "科学"
 
 #: src/components/SetupChecklist.tsx:71
-#: src/pages/Setup.tsx:731
+#: src/pages/Setup.tsx:666
 msgid "Set a goal"
 msgstr "设定目标"
 
 #: src/components/SetupChecklist.tsx:75
 #: src/pages/Settings.tsx:1130
-#: src/pages/Setup.tsx:752
+#: src/pages/Setup.tsx:687
 msgid "Set goal"
 msgstr "设定目标"
 
-#: src/pages/Setup.tsx:475
+#: src/pages/Setup.tsx:410
 msgid "Set up Praxys"
 msgstr "设置 Praxys"
 
@@ -1400,7 +1400,7 @@ msgstr "登录中..."
 msgid "Simple"
 msgstr "简要"
 
-#: src/pages/Setup.tsx:767
+#: src/pages/Setup.tsx:702
 msgid "Skip for now"
 msgstr "暂时跳过"
 
@@ -1434,7 +1434,7 @@ msgstr "来源"
 msgid "Stable"
 msgstr "稳定"
 
-#: src/pages/Setup.tsx:603
+#: src/pages/Setup.tsx:538
 msgid "Start sync"
 msgstr "开始同步"
 
@@ -1479,7 +1479,7 @@ msgstr "至少同步 6 周的活动数据以查看有意义的体能、疲劳和
 msgid "Sync at least 6 weeks of activity data to see your training form trend."
 msgstr "至少同步 6 周的活动数据以查看训练状态趋势。"
 
-#: src/pages/Setup.tsx:677
+#: src/pages/Setup.tsx:612
 msgid "Sync complete! Your data is ready."
 msgstr "同步完成！数据已就绪。"
 
@@ -1487,12 +1487,12 @@ msgstr "同步完成！数据已就绪。"
 msgid "Sync from:"
 msgstr "同步起始日期："
 
-#: src/pages/Setup.tsx:568
+#: src/pages/Setup.tsx:503
 msgid "Sync history"
 msgstr "同步历史"
 
 #: src/components/SetupChecklist.tsx:55
-#: src/pages/Setup.tsx:554
+#: src/pages/Setup.tsx:489
 msgid "Sync your data"
 msgstr "同步数据"
 
@@ -1505,7 +1505,7 @@ msgstr "已同步"
 msgid "Syncing"
 msgstr "同步中"
 
-#: src/pages/Setup.tsx:600
+#: src/pages/Setup.tsx:535
 msgid "Syncing..."
 msgstr "同步中..."
 
@@ -1528,7 +1528,7 @@ msgstr "目标"
 
 #: src/components/SetupChecklist.tsx:72
 #: src/pages/Settings.tsx:1126
-#: src/pages/Setup.tsx:732
+#: src/pages/Setup.tsx:667
 msgid "Target a race or track continuous improvement"
 msgstr "瞄准一场比赛或追踪持续提升"
 
@@ -1691,7 +1691,7 @@ msgstr "周度回顾"
 msgid "Weekly Volume"
 msgstr "周里程"
 
-#: src/pages/Setup.tsx:788
+#: src/pages/Setup.tsx:723
 msgid "Will sync:"
 msgstr "将同步："
 
