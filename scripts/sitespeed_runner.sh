@@ -88,14 +88,14 @@ case "$DEVICES" in
   *) echo "Error: --device must be desktop|mobile|both" >&2; exit 1 ;;
 esac
 
-# Resolve outdir to an absolute path for the Docker bind-mount. On git bash
-# we want the Windows-style path (D:\Dev\...) because Docker Desktop's mount
-# parser doesn't reliably accept the MSYS /d/Dev/... form — it silently ends
-# up as an anonymous volume inside the Docker VM instead of a bind-mount to
-# the Windows filesystem, and then files "disappear" from the caller's view.
-# cygpath ships with Git for Windows; on Linux/macOS we fall back to pwd.
+# Resolve outdir to an *absolute* path for the Docker bind-mount. On git
+# bash we want the Windows-style absolute form (D:\Dev\...) — Docker Desktop
+# rejects relative paths (they get parsed as volume names, with restricted
+# character set) and doesn't reliably understand the MSYS /d/Dev/... form.
+# `cygpath -aw` ships with Git for Windows and does both steps. On
+# Linux/macOS we fall back to pwd, which is already absolute.
 if command -v cygpath >/dev/null 2>&1; then
-  ABS_OUTDIR="$(cygpath -w "$OUTDIR")"
+  ABS_OUTDIR="$(cygpath -aw "$OUTDIR")"
 else
   ABS_OUTDIR="$(cd "$OUTDIR" && pwd)"
 fi
@@ -115,12 +115,13 @@ run_cell() {
   esac
 
   # Create the cell dir using the Unix-style path (works in the current
-  # shell), then compute the Windows-style path for the Docker bind mount.
+  # shell), then compute an *absolute* Windows-style path for the Docker
+  # bind mount (see outer comment on cygpath -aw).
   local cell_unix="${OUTDIR}/${cell}"
   mkdir -p "$cell_unix"
   local cell_mount
   if command -v cygpath >/dev/null 2>&1; then
-    cell_mount="$(cygpath -w "$cell_unix")"
+    cell_mount="$(cygpath -aw "$cell_unix")"
   else
     cell_mount="$(cd "$cell_unix" && pwd)"
   fi
