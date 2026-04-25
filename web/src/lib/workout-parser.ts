@@ -167,7 +167,23 @@ function typeTemplate(workoutType: string, totalMin: number): WorkoutPhase[] {
 }
 
 export function parseWorkoutStructure(plan: PlanData): WorkoutPhase[] {
-  const totalMin = plan.duration_min ?? 45;
+  // Rest days have no structure to render — falling through to the default
+  // duration template would synthesize a fake 33-min "main set" and mislead
+  // the user (#129).
+  if (plan.workout_type?.toLowerCase() === 'rest') return [];
+  if (plan.duration_min === 0) return [];
+
+  // If duration is missing, only render structure when the description has
+  // explicit phase durations to parse — never synthesize from a default.
+  if (plan.duration_min == null) {
+    if (plan.description) {
+      const parsed = parseDescription(plan.description, 0);
+      if (parsed && parsed.length > 0) return parsed;
+    }
+    return [];
+  }
+
+  const totalMin = plan.duration_min;
 
   if (plan.description) {
     const parsed = parseDescription(plan.description, totalMin);
