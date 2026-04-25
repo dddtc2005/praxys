@@ -1103,10 +1103,15 @@ def _compute_recovery_analysis(recovery: pd.DataFrame) -> tuple[dict, float | No
 
         latest_row = recovery_sorted.iloc[-1]
         latest_date_val = latest_row.get("date")
-        if hasattr(latest_date_val, "date"):
-            latest_date = latest_date_val.date()
-        elif isinstance(latest_date_val, date):
-            latest_date = latest_date_val
+        if pd.notna(latest_date_val):
+            # Order matters: pd.Timestamp inherits from datetime.date, so the
+            # isinstance branch alone would assign a Timestamp and break the
+            # later comparison against datetime.date(). Try .date() first to
+            # normalize Timestamp/datetime to a plain date.
+            if hasattr(latest_date_val, "date") and callable(getattr(latest_date_val, "date", None)):
+                latest_date = latest_date_val.date()
+            elif isinstance(latest_date_val, date):
+                latest_date = latest_date_val
 
         hrv_val = pd.to_numeric(
             pd.Series([latest_row.get("hrv_avg")]), errors="coerce"

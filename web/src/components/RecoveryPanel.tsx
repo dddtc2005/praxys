@@ -35,7 +35,12 @@ const RHR_LABELS: Record<string, { label: MessageDescriptor; class: string }> = 
 };
 
 function formatLatestDate(dateStr: string, locale: string): string {
-  const d = new Date(dateStr);
+  // Parse the ISO date-only string as a local calendar date. `new Date("YYYY-MM-DD")`
+  // would be parsed as UTC midnight and shift backward in negative-offset locales
+  // (e.g. en-US users see "Apr 24" for an ISO "2026-04-25").
+  const [y, m, day] = dateStr.split('-').map(Number);
+  if (!y || !m || !day) return dateStr;
+  const d = new Date(y, m - 1, day);
   return d.toLocaleDateString(locale === 'zh' ? 'zh-CN' : 'en-US', {
     month: 'short', day: 'numeric',
   });
