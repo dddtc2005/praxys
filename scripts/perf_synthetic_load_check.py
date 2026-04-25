@@ -158,15 +158,18 @@ def _server_window_summary(start: datetime, end: datetime) -> list[dict]:
     return _run_kql(query)
 
 
-def _server_baseline_summary(days: int) -> list[dict]:
-    """Server-side baseline over the last N days, EXCLUDING our synthetic
-    burst window — since we just ran load, recent calls are the synthetic
-    ones, not a clean baseline. Cap the range to (now-Ndays .. now-30min)
-    to drop any of our burst that already ingested.
+def _server_baseline_summary(days: int, burst_start: datetime) -> list[dict]:
+    """Server-side baseline over the last N days, ending strictly before
+    this run's burst. Earlier versions used ``< ago(30m)`` for the upper
+    bound, but a burst takes <1 min plus ingestion lag — re-running this
+    script within 30 min of a previous run would let the prior burst
+    contaminate the "before" baseline and silently understate the delta.
+    Anchoring on ``burst_start`` instead is exact.
     """
     query = f"""
         AppRequests
-        | where TimeGenerated > ago({days}d) and TimeGenerated < ago(30m)
+        | where TimeGenerated > ago({days}d)
+              and TimeGenerated < datetime({burst_start.isoformat()})
         | where Name in ("GET /api/today", "GET /api/training", "GET /api/science")
         | summarize n=count(),
                     p50=percentile(DurationMs, 50),
@@ -213,20 +216,21 @@ def main() -> int:
 
     print("\n[3/4] Client-side timings (includes network from this PC):")
     cs = _client_summary(samples)
-    print(f"  {'endpoint':<22} {'n':>4} {'p50':>8} {'p95':>8} {'mean':>8}")
-    print(f"  {'-'*22} {'-'*4} {'-'*8} {'-'*8} {'-'*8}")
+    print(f"  {'endpoint':<22} {'n':>4} {'p50':>8} {'p95':>8} {'p99':>8} {'mean':>8}")
+    print(f"  {'-'*22} {'-'*4} {'-'*8} {'-'*8} {'-'*8} {'-'*8}")
     for ep, s in cs.items():
         if s.get("n", 0) == 0:
             print(f"  {ep:<22} (none)")
             continue
-        print(f"  {ep:<22} {s['n']:>4} {s['p50']:>7.0f}ms {s['p95']:>7.0f}ms {s['mean']:>7.0f}ms")
+        print(f"  {ep:<22} {s['n']:>4} {s['p50']:>7.0f}ms {s['p95']:>7.0f}ms "
+              f"{s['p99']:>7.0f}ms {s['mean']:>7.0f}ms")
 
     print(f"\n[4/4] Waiting {ingest_s}s for App Insights ingestion...")
     time.sleep(ingest_s)
 
-    print(f"\nServer-side BEFORE (last {baseline_days} days, excluding last 30 min):")
+    print(f"\nServer-side BEFORE (last {baseline_days} days, ending at {start.isoformat()}):")
     try:
-        before = _server_baseline_summary(baseline_days)
+        before = _server_baseline_summary(baseline_days, start)
         _print_table(f"baseline ({baseline_days}d)", before)
     except Exception as e:
         print(f"  baseline query failed: {e}")
@@ -249,7 +253,7 @@ def main() -> int:
             a = after_by_name.get(name)
             if not (b and a):
                 continue
-            for stat in ("p50", "p95"):
+            for stat in ("p50", "p95", "p99"):
                 bv = float(b[stat])
                 av = float(a[stat])
                 pct = (av - bv) / bv * 100 if bv else float("nan")
