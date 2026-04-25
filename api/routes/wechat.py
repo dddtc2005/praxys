@@ -5,7 +5,7 @@ Three endpoints support the three scenarios a mini program user can be in:
 - POST /auth/wechat/login — exchanges a Tencent js_code for either a JWT
   (returning user) or a short-lived setup ticket (first time on this device).
 - POST /auth/wechat/link-with-password — binds the WeChat openid from a
-  setup ticket to an existing Trainsight account after password verification.
+  setup ticket to an existing Praxys account after password verification.
 - POST /auth/wechat/register — creates a new account bound to the WeChat
   openid, enforcing the same invitation-code rules as web registration.
 
@@ -274,7 +274,7 @@ def wechat_link_with_password(
     if user.wechat_openid and user.wechat_openid != openid:
         raise HTTPException(409, "WECHAT_LINK_ACCOUNT_ALREADY_LINKED")
 
-    # Prevent one openid from being bound to two different Trainsight users.
+    # Prevent one openid from being bound to two different Praxys users.
     conflict = (
         db.query(User)
         .filter(User.wechat_openid == openid, User.id != user.id)

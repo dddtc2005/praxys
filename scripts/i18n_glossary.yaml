@@ -1,4 +1,4 @@
-# Canonical translations for Trainsight domain terminology.
+# Canonical translations for Praxys domain terminology.
 # Injected into the translate_missing.py system prompt so CI runs stay
 # terminology-consistent across months. Add a row here before merging a PR
 # that introduces a new term; never change an existing row in a way that
@@ -192,4 +192,4 @@ terms:
 # - Keep English technical names inline where Chinese rendering is verbose
 #   or unestablished (HRV, VO2max, CP).
 # - Match source punctuation style (ellipses, quote marks).
-# - Do not translate brand names: Trainsight, Garmin, Stryd, Oura, Stryd.
+# - Do not translate brand names: Praxys, Garmin, Stryd, Oura, Strava.

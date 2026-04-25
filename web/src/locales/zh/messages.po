@@ -1999,14 +1999,6 @@ msgstr "基于阈值配速的区间与负荷"
 #~ msgid "Drive your zone calculations and training load. Click to override."
 #~ msgstr "驱动您的区间计算与训练负荷。点击可覆盖。"
 
-#: src/components/SetupChecklist.tsx:94
-#~ msgid "Get started with Trainsight"
-#~ msgstr ""
-
-#: src/pages/Settings.tsx:596
-#~ msgid "How often Trainsight pulls new data in the background. Lower frequency uses less network and respects platform rate limits."
-#~ msgstr "Trainsight 后台拉取新数据的频率。较低频率占用更少网络流量，并尊重平台的速率限制。"
-
 #: src/pages/Settings.tsx:1096
 #~ msgid "Manual"
 #~ msgstr "手动"
@@ -2015,14 +2007,6 @@ msgstr "基于阈值配速的区间与负荷"
 #~ msgid "Save"
 #~ msgstr "保存"
 
-#: src/pages/Setup.tsx:354
-#~ msgid "Set up Trainsight"
-#~ msgstr "设置 Trainsight"
-
 #: src/components/charts/SleepPerfChart.tsx:30
 #~ msgid "Sleep Score vs Power"
 #~ msgstr "睡眠评分 vs 功率"
-
-#: src/pages/Settings.tsx:453
-#~ msgid "Your identity in Trainsight"
-#~ msgstr "您在 Trainsight 的身份"

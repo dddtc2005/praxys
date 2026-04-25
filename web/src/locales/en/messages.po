@@ -850,10 +850,6 @@ msgstr "Get personalized training recommendations, recovery assessment, and toda
 msgid "Get started with Praxys"
 msgstr "Get started with Praxys"
 
-#: src/components/SetupChecklist.tsx:94
-#~ msgid "Get started with Trainsight"
-#~ msgstr "Get started with Trainsight"
-
 #: src/components/CliHint.tsx:39
 msgid "Get the Claude Code Plugin"
 msgstr "Get the Claude Code Plugin"
@@ -933,10 +929,6 @@ msgstr "How is intensity classified?"
 #: src/pages/Settings.tsx:688
 msgid "How often Praxys pulls new data in the background. Lower frequency uses less network and respects platform rate limits."
 msgstr "How often Praxys pulls new data in the background. Lower frequency uses less network and respects platform rate limits."
-
-#: src/pages/Settings.tsx:596
-#~ msgid "How often Trainsight pulls new data in the background. Lower frequency uses less network and respects platform rate limits."
-#~ msgstr "How often Trainsight pulls new data in the background. Lower frequency uses less network and respects platform rate limits."
 
 #: src/components/ScienceNote.tsx:10
 msgid "How this is calculated"
@@ -1586,10 +1578,6 @@ msgstr "Set goal"
 msgid "Set up Praxys"
 msgstr "Set up Praxys"
 
-#: src/pages/Setup.tsx:354
-#~ msgid "Set up Trainsight"
-#~ msgstr "Set up Trainsight"
-
 #: src/components/GoalEditor.tsx:96
 msgid "Set Your Goal"
 msgstr "Set Your Goal"
@@ -1979,10 +1967,6 @@ msgstr "you@example.com"
 #: src/pages/Settings.tsx:545
 msgid "Your identity in Praxys"
 msgstr "Your identity in Praxys"
-
-#: src/pages/Settings.tsx:453
-#~ msgid "Your identity in Trainsight"
-#~ msgstr "Your identity in Trainsight"
 
 #: src/pages/Settings.tsx:571
 msgid "Your name"

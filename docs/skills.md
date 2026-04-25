@@ -49,7 +49,7 @@ The default `.mcp.json` ships with cloud URLs pre-configured:
 - `PRAXYS_URL` — Backend API (required for remote mode)
 - `PRAXYS_FRONTEND_URL` — Frontend SWA (used for browser-based login)
 
-**Authentication:** Use the `login` tool in Claude Code — it opens your browser, you log in normally, and the token is automatically cached at `~/.trainsight/token`. Use `whoami` to check which account is active.
+**Authentication:** Use the `login` tool in Claude Code — it opens your browser, you log in normally, and the token is automatically cached at `~/.praxys/token` (with a fallback read of the legacy `~/.trainsight/token` during the migration window). Use `whoami` to check which account is active.
 
 ### Local Mode
 
