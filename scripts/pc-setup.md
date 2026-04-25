@@ -62,7 +62,30 @@ Prints markdown table sections per scenario. Paste them into that baseline's `RE
 
 **`fonts.googleapis.com` row missing in analyzer output** → That means the Google Fonts request either never fired (good news, maybe it's blocked before the request leaves your machine) or the HAR entry timed out. Check the browsertime.har manually; the cell's `Font CSS TTFB` shows `timeout` in that case.
 
+## Login-required scenarios (S1, S2, S3)
+
+The runner now supports the three logged-in scenarios in addition to S4:
+- **S1** — Cold Today via login
+- **S2** — Cold Training via login
+- **S3** — Warm Today repeat visit (after login + warm-up)
+
+```bash
+# All four scenarios on both form factors
+bash scripts/sitespeed_runner.sh --probe cn-pc --scenario all --device both
+
+# Just the login-required ones
+bash scripts/sitespeed_runner.sh --probe cn-pc --scenario s1,s2,s3 --device both
+```
+
+Login defaults to the public demo account (`demo@trainsight.dev` / `demo`, the same defaults `Landing.tsx`'s "Try the demo" button uses). Override via env vars if you need a different account:
+
+```bash
+PRAXYS_PERF_USER=other@example.com PRAXYS_PERF_PASSWORD=secret \
+  bash scripts/sitespeed_runner.sh --probe cn-pc --scenario s1 --device desktop
+```
+
+`PRAXYS_PERF_BASE_URL` overrides the host (defaults to `https://www.praxys.run`); useful for testing against a staging deploy.
+
 ## What this PR doesn't yet cover
 
-- **S1 / S2 / S3** (logged-in scenarios) need a scripted login flow. That's a follow-up PR — we need to decide on a perf-test user account and stash its credentials in a shell env var (never in the repo).
-- **Multi-region** runs from Azure land in PR-F (the CI workflow), which will reuse this same runner script inside ACI containers.
+- **S1 / S2 / S3 in CI (ACI workflow)** — the login scripts work locally; pushing them through the ACI workflow needs the YAML deployment file pattern (the current `--command-line` argv parser shreds compound args). Tracked separately.
