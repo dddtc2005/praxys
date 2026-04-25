@@ -25,7 +25,24 @@ permissions:
   contents: read
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install frontend_server deps + pytest
+        # Only the static-server's runtime deps (~30 MB) plus pytest —
+        # not the backend's full requirements. Keeps this job fast.
+        run: |
+          pip install -r frontend_server/requirements-frontend.txt
+          pip install pytest httpx
+      - name: Run frontend_server tests
+        run: python -m pytest tests/test_frontend_server_spa.py -v
+
   build_and_deploy:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

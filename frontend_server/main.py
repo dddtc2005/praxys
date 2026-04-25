@@ -120,8 +120,16 @@ def create_app(dist_dir: Path | None = None) -> FastAPI:
         return {"ok": True, "service": "praxys-frontend"}
 
     # Mount last so the explicit /healthz route above wins. ``html=True``
-    # makes ``/`` resolve to ``index.html`` automatically.
-    app.mount("/", SPAStaticFiles(directory=str(dist_dir), html=True), name="static")
+    # makes ``/`` resolve to ``index.html`` automatically. ``check_dir=False``
+    # defers the existence check to request time — important because
+    # ``app = create_app()`` runs at module import, and a fresh checkout
+    # without ``web/dist/`` (e.g. running pytest before any frontend build)
+    # would otherwise crash on import.
+    app.mount(
+        "/",
+        SPAStaticFiles(directory=str(dist_dir), html=True, check_dir=False),
+        name="static",
+    )
     return app
 
 
