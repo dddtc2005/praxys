@@ -402,6 +402,48 @@ Push AI plan workouts to Stryd calendar.
 
 Remove a workout from Stryd calendar.
 
+### POST /api/plan/upload
+
+Upload an AI-generated training plan as CSV text. The body is `{"csv": "..."}`
+where the CSV uses the columns `date,workout_type,planned_duration_min,
+planned_distance_km,target_power_min,target_power_max,workout_description`.
+
+**Query params:**
+- `mode=replace` *(default)* — delete every future AI plan row for the user,
+  then insert the payload. Past rows survive. Used by full-plan generation
+  (the AI training-plan skill writes a 28-day window).
+- `mode=merge` — upsert by `(user, date, source='ai')`. Only the dates in the
+  payload are touched; other AI rows (past and future) are preserved. Used
+  for partial edits like shifting a single workout.
+
+**Response:** `{ "status": "saved", "rows": <int>, "mode": "replace"|"merge" }`
+
+### PUT /api/plan/{date}
+
+Upsert a single AI plan workout for the given date (`YYYY-MM-DD`). Replaces any
+existing `(user, date, source='ai')` row(s) with one new row from the body;
+other dates are untouched. Prefer this over `/plan/upload` when editing one
+day so you don't have to round-trip the whole future window.
+
+**Request body:**
+```json
+{
+  "workout_type": "easy",
+  "planned_duration_min": 45,
+  "planned_distance_km": 8.0,
+  "target_power_min": 150,
+  "target_power_max": 200,
+  "workout_description": "Easy aerobic run"
+}
+```
+
+**Response:** the upserted row (`id`, `date`, `workout_type`, …, `source`).
+
+### DELETE /api/plan/{date}
+
+Delete the AI plan workout(s) for the given date (`YYYY-MM-DD`). Idempotent —
+deleting a missing date returns `{ "status": "deleted", "rows": 0 }`.
+
 ## Settings
 
 ### GET /api/settings

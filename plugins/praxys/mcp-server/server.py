@@ -509,24 +509,181 @@ def disconnect_platform(platform: str) -> str:
 # MCP Tools — Plans & Sync
 # ---------------------------------------------------------------------------
 
+def _parse_plan_csv(plan_csv: str) -> list[dict]:
+    """Parse a plan CSV into TrainingPlan kwargs dicts. Raises ValueError on bad rows."""
+    import csv as _csv
+    import io as _io
+    from datetime import datetime as _dt
+
+    rows = []
+    reader = _csv.DictReader(_io.StringIO(plan_csv))
+    for i, raw in enumerate(reader):
+        d_raw = raw.get("date", "")
+        rows.append({
+            "date": _dt.strptime(d_raw, "%Y-%m-%d").date() if d_raw else None,
+            "workout_type": raw.get("workout_type", ""),
+            "planned_duration_min": float(raw["planned_duration_min"])
+                if raw.get("planned_duration_min") else None,
+            "planned_distance_km": float(raw["planned_distance_km"])
+                if raw.get("planned_distance_km") else None,
+            "target_power_min": float(raw["target_power_min"])
+                if raw.get("target_power_min") else None,
+            "target_power_max": float(raw["target_power_max"])
+                if raw.get("target_power_max") else None,
+            "workout_description": raw.get("workout_description", ""),
+        })
+    return rows
+
+
+def _local_push_plan(plan_csv: str, mode: str) -> dict:
+    """Local mirror of POST /api/plan/upload?mode=...."""
+    from datetime import date as _date, datetime as _dt
+    from db.models import TrainingPlan
+    db = _local_db()
+    try:
+        parsed = _parse_plan_csv(plan_csv)
+        if not parsed:
+            return {"status": "error", "message": "No rows in CSV"}
+        user_id = _local_user_id()
+        if mode == "replace":
+            db.query(TrainingPlan).filter(
+                TrainingPlan.user_id == user_id,
+                TrainingPlan.source == "ai",
+                TrainingPlan.date >= _date.today(),
+            ).delete(synchronize_session=False)
+        else:
+            target_dates = {p["date"] for p in parsed if p["date"] is not None}
+            if target_dates:
+                db.query(TrainingPlan).filter(
+                    TrainingPlan.user_id == user_id,
+                    TrainingPlan.source == "ai",
+                    TrainingPlan.date.in_(target_dates),
+                ).delete(synchronize_session=False)
+        for kwargs in parsed:
+            db.add(TrainingPlan(
+                user_id=user_id, source="ai",
+                meta={"uploaded_at": _dt.utcnow().isoformat()},
+                **kwargs,
+            ))
+        db.commit()
+        return {"status": "saved", "rows": len(parsed), "mode": mode}
+    finally:
+        db.close()
+
+
 @mcp.tool()
-def push_training_plan(plan_csv: str) -> str:
-    """Push an AI-generated training plan. Pass the plan as CSV text (date,workout_type,planned_duration_min,target_power_min,target_power_max,workout_description)."""
+def push_training_plan(plan_csv: str, mode: str = "replace") -> str:
+    """Push an AI-generated training plan. Pass the plan as CSV text (columns: date,workout_type,planned_duration_min,planned_distance_km,target_power_min,target_power_max,workout_description).
+
+    mode='replace' (default): wipes all future AI plan entries for this user, then inserts.
+    Use this for full-window plan generation (the typical 28-day plan).
+
+    mode='merge': only the dates in the CSV are touched; other AI rows are
+    preserved. Use this when patching individual days without resending the
+    whole plan.
+    """
+    if mode not in ("replace", "merge"):
+        return json.dumps({"status": "error", "message": "mode must be 'replace' or 'merge'"})
     if IS_REMOTE:
-        data = _remote_post("/api/plan/upload", {"csv": plan_csv})
+        data = _remote_post(f"/api/plan/upload?mode={mode}", {"csv": plan_csv})
     else:
-        import csv
-        import io
-        from db import sync_writer
+        try:
+            data = _local_push_plan(plan_csv, mode)
+        except ValueError as e:
+            data = {"status": "error", "message": f"Invalid CSV: {e}"}
+    return json.dumps(data, indent=2, default=str)
+
+
+@mcp.tool()
+def update_training_day(
+    plan_date: str,
+    workout_type: str,
+    planned_duration_min: float | None = None,
+    planned_distance_km: float | None = None,
+    target_power_min: float | None = None,
+    target_power_max: float | None = None,
+    workout_description: str | None = None,
+) -> str:
+    """Upsert a single AI plan workout for the given date (YYYY-MM-DD).
+
+    Replaces any existing AI entry for that date with the new values; other
+    dates are untouched. Use this for shifts and partial edits — much safer
+    than push_training_plan when you only want to change one day.
+    """
+    payload = {
+        "workout_type": workout_type,
+        "planned_duration_min": planned_duration_min,
+        "planned_distance_km": planned_distance_km,
+        "target_power_min": target_power_min,
+        "target_power_max": target_power_max,
+        "workout_description": workout_description,
+    }
+    if IS_REMOTE:
+        data = _remote_put(f"/api/plan/{plan_date}", payload)
+    else:
+        from datetime import datetime as _dt
+        from db.models import TrainingPlan
+        try:
+            d = _dt.strptime(plan_date, "%Y-%m-%d").date()
+        except ValueError:
+            return json.dumps({"status": "error", "message": "date must be YYYY-MM-DD"})
         db = _local_db()
         try:
-            reader = csv.DictReader(io.StringIO(plan_csv))
-            rows = list(reader)
-            count = sync_writer.write_training_plan(
-                _local_user_id(), rows, "ai", db
+            user_id = _local_user_id()
+            db.query(TrainingPlan).filter(
+                TrainingPlan.user_id == user_id,
+                TrainingPlan.source == "ai",
+                TrainingPlan.date == d,
+            ).delete(synchronize_session=False)
+            plan = TrainingPlan(
+                user_id=user_id, date=d, source="ai",
+                workout_type=workout_type,
+                planned_duration_min=planned_duration_min,
+                planned_distance_km=planned_distance_km,
+                target_power_min=target_power_min,
+                target_power_max=target_power_max,
+                workout_description=workout_description or "",
+                meta={"uploaded_at": _dt.utcnow().isoformat()},
             )
+            db.add(plan)
             db.commit()
-            data = {"status": "saved", "rows": count}
+            db.refresh(plan)
+            data = {
+                "id": plan.id, "date": plan.date.isoformat(),
+                "workout_type": plan.workout_type,
+                "planned_duration_min": plan.planned_duration_min,
+                "planned_distance_km": plan.planned_distance_km,
+                "target_power_min": plan.target_power_min,
+                "target_power_max": plan.target_power_max,
+                "workout_description": plan.workout_description,
+                "source": plan.source,
+            }
+        finally:
+            db.close()
+    return json.dumps(data, indent=2, default=str)
+
+
+@mcp.tool()
+def delete_training_day(plan_date: str) -> str:
+    """Delete the AI plan workout(s) for the given date (YYYY-MM-DD)."""
+    if IS_REMOTE:
+        data = _remote_delete(f"/api/plan/{plan_date}")
+    else:
+        from datetime import datetime as _dt
+        from db.models import TrainingPlan
+        try:
+            d = _dt.strptime(plan_date, "%Y-%m-%d").date()
+        except ValueError:
+            return json.dumps({"status": "error", "message": "date must be YYYY-MM-DD"})
+        db = _local_db()
+        try:
+            deleted = db.query(TrainingPlan).filter(
+                TrainingPlan.user_id == _local_user_id(),
+                TrainingPlan.source == "ai",
+                TrainingPlan.date == d,
+            ).delete(synchronize_session=False)
+            db.commit()
+            data = {"status": "deleted", "rows": deleted, "date": plan_date}
         finally:
             db.close()
     return json.dumps(data, indent=2, default=str)
