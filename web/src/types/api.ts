@@ -235,6 +235,10 @@ export interface RecoveryAnalysis {
   sleep_score: number | null;
   resting_hr: number | null;
   rhr_trend: 'stable' | 'elevated' | 'low' | null;
+  /** ISO date of the most recent recovery reading, or null when no data exists. */
+  latest_date: string | null;
+  /** True when latest_date is before today — UI should label the data instead of rendering it as "today's". */
+  is_stale: boolean;
 }
 
 export interface LastActivity {

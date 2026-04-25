@@ -6,6 +6,7 @@ import ScienceNote from '@/components/ScienceNote';
 import { Trans, useLingui } from '@lingui/react/macro';
 import { msg } from '@lingui/core/macro';
 import type { MessageDescriptor } from '@lingui/core';
+import { useLocale } from '@/contexts/LocaleContext';
 
 interface Props {
   recovery: RecoveryData;
@@ -33,6 +34,13 @@ const RHR_LABELS: Record<string, { label: MessageDescriptor; class: string }> = 
   low: { label: msg`Low`, class: 'text-primary' },
 };
 
+function formatLatestDate(dateStr: string, locale: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString(locale === 'zh' ? 'zh-CN' : 'en-US', {
+    month: 'short', day: 'numeric',
+  });
+}
+
 export default function RecoveryPanel({ recovery, theoryMeta, analysis }: Props) {
   const { tsbZones } = useScience();
   const { i18n, t } = useLingui();
@@ -47,6 +55,10 @@ export default function RecoveryPanel({ recovery, theoryMeta, analysis }: Props)
   const hrv = analysis?.hrv;
   const recoveryUnavailable = status === 'insufficient_data';
   const trendCfg = hrv ? (TREND_LABELS[hrv.trend] ?? TREND_LABELS.stable) : null;
+  const isStale = analysis?.is_stale === true;
+  const latestDate = analysis?.latest_date;
+  const { locale } = useLocale();
+  const latestDateLabel = latestDate ? formatLatestDate(latestDate, locale) : null;
 
   return (
     <Card>
@@ -56,6 +68,16 @@ export default function RecoveryPanel({ recovery, theoryMeta, analysis }: Props)
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {isStale && latestDateLabel && (
+          <div className="rounded-lg border border-dashed border-accent-amber/40 bg-accent-amber/5 p-3 mb-3">
+            <p className="text-xs text-accent-amber">
+              <Trans>
+                Today's recovery hasn't synced yet. Showing the latest reading from {latestDateLabel}.
+              </Trans>
+            </p>
+          </div>
+        )}
+
         {/* Status — categorical output from Kiviniemi/Plews protocols */}
         <div className="rounded-xl bg-muted p-4 mb-3">
           <div className="flex items-center justify-between mb-1">
@@ -85,9 +107,11 @@ export default function RecoveryPanel({ recovery, theoryMeta, analysis }: Props)
               <span className="text-muted-foreground/50 font-normal ml-1">(ln RMSSD)</span>
             </p>
             <div className="grid grid-cols-3 gap-2">
-              {/* Today's value */}
-              <div className="rounded-lg bg-muted p-3">
-                <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1"><Trans>Today</Trans></p>
+              {/* Today's value (or latest available, if today not synced) */}
+              <div className={`rounded-lg bg-muted p-3 ${isStale ? 'opacity-70' : ''}`}>
+                <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">
+                  {isStale && latestDateLabel ? latestDateLabel : <Trans>Today</Trans>}
+                </p>
                 <span className={`text-lg font-bold font-data ${statusCfg.class}`}>
                   {hrv.today_ln.toFixed(2)}
                 </span>
