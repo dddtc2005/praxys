@@ -1,0 +1,91 @@
+name: Deploy Frontend to App Service (praxys-frontend)
+
+# Replaces the SWA-Amsterdam path with a region-pinned App Service site
+# in East Asia (the "F4" perf fix). Runs alongside the existing SWA
+# workflow until DNS cuts over; after cutover the SWA workflow can be
+# retired.
+#
+# This workflow stays inert until the praxys-frontend site exists +
+# the AZURE_CLIENT_ID/TENANT/SUBSCRIPTION secrets are wired (same OIDC
+# Service Principal the backend already uses). On runs before then it
+# will fail at the "Azure Login" step, which is fine — it doesn't break
+# the SWA path.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - 'frontend_server/**'
+      - '.github/workflows/deploy-frontend-appservice.yml'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install frontend_server deps + pytest
+        # Only the static-server's runtime deps (~30 MB) plus pytest —
+        # not the backend's full requirements. Keeps this job fast.
+        run: |
+          pip install -r frontend_server/requirements-frontend.txt
+          pip install pytest httpx
+      - name: Run frontend_server tests
+        run: python -m pytest tests/test_frontend_server_spa.py -v
+
+  build_and_deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build web bundle
+        working-directory: web
+        # --legacy-peer-deps because vite-plugin-pwa@1.2 declares older
+        # peer ranges than vite@8 (already documented in web/.npmrc).
+        run: |
+          npm ci --legacy-peer-deps
+          npm run build
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_APPINSIGHTS_CONNECTION_STRING: ${{ vars.VITE_APPINSIGHTS_CONNECTION_STRING }}
+
+      - name: Stage deploy package
+        # The deploy zip mirrors the repo layout that frontend_server.main
+        # expects: ``frontend_server/`` and ``web/dist/`` as siblings of
+        # ``requirements.txt`` so Oryx installs only the static-server's
+        # minimal deps (FastAPI + uvicorn), not the backend's full set.
+        run: |
+          mkdir -p deploy-pkg/web
+          cp -r frontend_server deploy-pkg/
+          cp -r web/dist deploy-pkg/web/dist
+          cp frontend_server/requirements-frontend.txt deploy-pkg/requirements.txt
+          ls -R deploy-pkg | head -50
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to praxys-frontend
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: praxys-frontend
+          resource-group-name: rg-trainsight
+          package: deploy-pkg
