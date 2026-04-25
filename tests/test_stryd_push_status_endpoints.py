@@ -82,21 +82,33 @@ def api_client(monkeypatch, tmp_path):
         tmpdir.cleanup()
 
 
-def test_get_status_returns_only_current_users_data(api_client):
-    """The original regression: user B's GET must not surface user A's writes."""
+def test_plan_stryd_status_returns_only_current_users_data(api_client, monkeypatch):
+    """User B's /plan GET must not surface user A's push status writes via
+    the embedded `stryd_status` field. (This used to be its own
+    /plan/stryd-status route; the isolation invariant must survive the
+    merge into /plan.)
+    """
     from api.routes.plan import _save_push_status
 
     _save_push_status("alice", {"2026-05-01": {"workout_id": "alice-only"}})
     _save_push_status("bob", {"2026-06-15": {"workout_id": "bob-only"}})
 
+    # /plan invokes get_dashboard_data which would otherwise touch DB tables
+    # this test isn't populating. Stub it to return an empty plan so we can
+    # exercise stryd_status isolation in isolation.
+    monkeypatch.setattr(
+        "api.routes.plan.get_dashboard_data",
+        lambda user_id, db: {"plan": pd.DataFrame(), "signal": {}},
+    )
+
     api_client["current"]["value"] = "bob"
-    res = api_client["client"].get("/api/plan/stryd-status")
-    assert res.status_code == 200
-    assert res.json() == {"2026-06-15": {"workout_id": "bob-only"}}
+    res = api_client["client"].get("/api/plan")
+    assert res.status_code == 200, res.text
+    assert res.json()["stryd_status"] == {"2026-06-15": {"workout_id": "bob-only"}}
 
     api_client["current"]["value"] = "alice"
-    res = api_client["client"].get("/api/plan/stryd-status")
-    assert res.json() == {"2026-05-01": {"workout_id": "alice-only"}}
+    res = api_client["client"].get("/api/plan")
+    assert res.json()["stryd_status"] == {"2026-05-01": {"workout_id": "alice-only"}}
 
 
 def test_push_endpoint_persists_under_calling_user(api_client, monkeypatch):

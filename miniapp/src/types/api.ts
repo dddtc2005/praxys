@@ -139,7 +139,10 @@ export interface PlannedWorkout {
 
 export interface PlanResponse {
   workouts: PlannedWorkout[];
-  cp_current?: number;
+  /** Server emits the key on every response with `null` when CP is unknown. */
+  cp_current: number | null;
+  /** Stryd push history. Used to be served by GET /api/plan/stryd-status. */
+  stryd_status: StrydPushStatus;
 }
 
 export type StrydPushResult =
