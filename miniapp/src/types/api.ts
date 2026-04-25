@@ -141,7 +141,7 @@ export interface PlanResponse {
   workouts: PlannedWorkout[];
   /** Server emits the key on every response with `null` when CP is unknown. */
   cp_current: number | null;
-  /** Stryd push history, folded into /api/plan in PR-N (ex-/api/plan/stryd-status). */
+  /** Stryd push history. Used to be served by GET /api/plan/stryd-status. */
   stryd_status: StrydPushStatus;
 }
 

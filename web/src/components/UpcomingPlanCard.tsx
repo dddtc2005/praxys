@@ -335,10 +335,9 @@ export default function UpcomingPlanCard() {
   const { config: settings } = useSettings();
   const hasStryd = Boolean(settings?.connections?.includes('stryd'));
 
-  // Stryd push history is folded into /api/plan (was a dedicated
-  // /api/plan/stryd-status fetch before PR-N). Mirror it into local state so
-  // push/delete handlers can apply optimistic updates without waiting for a
-  // refetch; the next /api/plan response resyncs us to the server view.
+  // Mirror server stryd_status into local state so push/delete handlers can
+  // apply optimistic updates without waiting for a refetch; the next /api/plan
+  // response resyncs us to the server view.
   useEffect(() => {
     if (data?.stryd_status) {
       setPushStatus(data.stryd_status);

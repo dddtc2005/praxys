@@ -83,13 +83,10 @@ def api_client(monkeypatch, tmp_path):
 
 
 def test_plan_stryd_status_returns_only_current_users_data(api_client, monkeypatch):
-    """The original regression — preserved across the endpoint merge.
-
-    Push-status used to be its own GET /plan/stryd-status route. PR-N folded
-    it into the /plan response as the `stryd_status` field. The isolation
-    invariant must survive the merge: user B's /plan GET must not surface
-    user A's writes via the embedded field, same as it never returned them
-    via the dedicated route.
+    """User B's /plan GET must not surface user A's push status writes via
+    the embedded `stryd_status` field. (This used to be its own
+    /plan/stryd-status route; the isolation invariant must survive the
+    merge into /plan.)
     """
     from api.routes.plan import _save_push_status
 
