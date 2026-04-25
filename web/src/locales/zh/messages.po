@@ -1997,7 +1997,7 @@ msgstr "基于阈值配速的区间与负荷"
 
 #: src/pages/Settings.tsx:1073
 #~ msgid "Drive your zone calculations and training load. Click to override."
-#~ msgstr "驱动您的区间计算与训练负荷。点击可覆盖。"
+#~ msgstr "驱动您的区间计算与训练负荷。点击设置自定义数值。"
 
 #: src/pages/Settings.tsx:1096
 #~ msgid "Manual"
