@@ -1,0 +1,5 @@
+# Minimal deps for the static-file server. Kept separate from the
+# backend's requirements.txt so the praxys-frontend App Service deploy
+# zip stays small (~30 MB instead of ~300 MB) and starts in seconds.
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.30,<1.0
