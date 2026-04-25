@@ -28,70 +28,23 @@ import { formatTime, formatPace } from '@/lib/format';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocale } from '@/contexts/LocaleContext';
 import { detectBrowserLocale } from '@/lib/locale-detect';
+import { GarminWordmark, StrydWordmark, StravaWordmark, OuraWordmark } from '@/components/PlatformWordmark';
 import { Trans, useLingui } from '@lingui/react/macro';
 import { msg } from '@lingui/core/macro';
 import type { MessageDescriptor } from '@lingui/core';
 
 // --- Constants ---
 
-const PLATFORM_META: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  garmin: {
-    label: 'Garmin',
-    color: '#00b4d8',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-6 h-6">
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 7v5l3 3" />
-        <path d="M8 3.5l1 1M16 3.5l-1 1" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  strava: {
-    label: 'Strava',
-    color: '#fc4c02',
-    icon: (
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        className="w-5 h-5"
-        aria-hidden="true"
-      >
-        <path d="M13.25 2 7.1 13.55h3.84l2.31-4.2 2.37 4.2h3.83L13.25 2Z" />
-        <path d="m10.47 15.18-2.2 4.02h4.4l-2.2-4.02Z" />
-      </svg>
-    ),
-  },
-  stryd: {
-    label: 'Stryd',
-    color: '#ff6b35',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-6 h-6">
-        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" strokeLinejoin="round" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  oura: {
-    label: 'Oura Ring',
-    color: '#a78bfa',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-6 h-6">
-        <circle cx="12" cy="12" r="7" />
-        <circle cx="12" cy="12" r="4" />
-      </svg>
-    ),
-  },
-  ai: {
-    label: 'AI',
-    color: '#f59e0b',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-6 h-6">
-        <path d="M12 2a4 4 0 0 1 4 4c0 1.1-.9 2-2 2h-4c-1.1 0-2-.9-2-2a4 4 0 0 1 4-4z" />
-        <path d="M9 8v4M15 8v4M7 12h10M9 16v3M15 16v3M12 12v4" strokeLinecap="round" />
-      </svg>
-    ),
-  },
+// Connected-platform metadata. `wordmark` is the official brand mark used in
+// the Settings card header (parity with Landing/Setup); `label` is kept as a
+// text fallback for dialog titles, toggle group items, and the AI entry that
+// has no first-party wordmark.
+const PLATFORM_META: Record<string, { label: string; wordmark?: React.ReactNode }> = {
+  garmin: { label: 'Garmin', wordmark: <GarminWordmark /> },
+  strava: { label: 'Strava', wordmark: <StravaWordmark /> },
+  stryd: { label: 'Stryd', wordmark: <StrydWordmark /> },
+  oura: { label: 'Oura Ring', wordmark: <OuraWordmark /> },
+  ai: { label: 'AI' },
 };
 
 const CAPABILITY_LABELS: Record<string, MessageDescriptor> = {
@@ -771,7 +724,7 @@ export default function Settings() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
           {CONNECTABLE_PLATFORMS.map((platform) => {
-            const meta = PLATFORM_META[platform] || { label: platform, color: '#64748b', icon: null };
+            const meta = PLATFORM_META[platform] || { label: platform };
             const caps = platformCapabilities[platform] || {};
             const status = syncStatus[platform];
             const prefs = preferredFor(platform);
@@ -781,26 +734,22 @@ export default function Settings() {
             return (
               <Card key={platform} className={!isConnected ? 'opacity-70' : ''}>
                 <CardContent className="pt-4 flex flex-col gap-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div
-                        className="rounded-lg p-1.5"
-                        style={{ color: meta.color, backgroundColor: `${meta.color}15` }}
-                      >
-                        {meta.icon}
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-col gap-1.5 min-w-0">
+                      <div className="h-6 flex items-center" aria-label={meta.label}>
+                        {meta.wordmark ?? (
+                          <span className="text-base font-semibold text-foreground">{meta.label}</span>
+                        )}
                       </div>
-                      <div>
-                        <p className="text-base font-semibold text-foreground">{meta.label}</p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          {isConnected ? (
-                            <>
-                              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                              <span className="text-xs text-muted-foreground"><Trans>Connected</Trans></span>
-                            </>
-                          ) : (
-                            <span className="text-xs text-muted-foreground"><Trans>Not connected</Trans></span>
-                          )}
-                        </div>
+                      <div className="flex items-center gap-1.5">
+                        {isConnected ? (
+                          <>
+                            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                            <span className="text-xs text-muted-foreground"><Trans>Connected</Trans></span>
+                          </>
+                        ) : (
+                          <span className="text-xs text-muted-foreground"><Trans>Not connected</Trans></span>
+                        )}
                       </div>
                     </div>
                     {isConnected ? (
