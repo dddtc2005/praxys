@@ -43,7 +43,8 @@ def _attach_sqlite_pragmas(engine_obj) -> None:
     if engine_obj.dialect.name != "sqlite":
         return
 
-    @event.listens_for(engine_obj.sync_engine if hasattr(engine_obj, "sync_engine") else engine_obj, "connect")
+    # AsyncEngine wraps a sync core; DBAPI events live on the sync side.
+    @event.listens_for(getattr(engine_obj, "sync_engine", engine_obj), "connect")
     def _apply_pragmas(dbapi_connection, _connection_record):
         cursor = dbapi_connection.cursor()
         try:
