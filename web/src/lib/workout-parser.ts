@@ -169,8 +169,10 @@ function typeTemplate(workoutType: string, totalMin: number): WorkoutPhase[] {
 export function parseWorkoutStructure(plan: PlanData): WorkoutPhase[] {
   // Rest days have no structure to render — falling through to the default
   // duration template would synthesize a fake 33-min "main set" and mislead
-  // the user (#129).
-  if (plan.workout_type?.toLowerCase() === 'rest') return [];
+  // the user (#129). The backend treats both "rest" and "off" as rest types
+  // (api/routes/plan.py, api/ai.py), so match the same set here.
+  const wt = plan.workout_type?.toLowerCase();
+  if (wt === 'rest' || wt === 'off') return [];
   if (plan.duration_min === 0) return [];
 
   // If duration is missing, only render structure when the description has
