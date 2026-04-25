@@ -175,6 +175,8 @@ export interface PlannedWorkout {
 export interface PlanResponse {
   workouts: PlannedWorkout[];
   cp_current?: number;
+  /** Stryd push history, folded into /api/plan in PR-N (ex-/api/plan/stryd-status). */
+  stryd_status: StrydPushStatus;
 }
 
 export type StrydPushResult =

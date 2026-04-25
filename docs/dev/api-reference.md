@@ -353,7 +353,11 @@ Paginated activity history.
 
 ### GET /api/plan
 
-Upcoming planned workouts (next 14 days).
+Upcoming planned workouts plus the caller's Stryd push history.
+
+The `stryd_status` field used to be its own `GET /api/plan/stryd-status`
+endpoint; it was folded into this response so the Training page only pays
+one cross-region round-trip on cold load.
 
 **Response:**
 ```json
@@ -369,7 +373,10 @@ Upcoming planned workouts (next 14 days).
       "description": "WU 10min, 2x20min @235-255W..."
     }
   ],
-  "cp_current": 247.8
+  "cp_current": 247.8,
+  "stryd_status": {
+    "2026-04-11": { "workout_id": "stryd_123", "pushed_at": "...", "status": "pushed" }
+  }
 }
 ```
 
@@ -390,10 +397,6 @@ Push AI plan workouts to Stryd calendar.
   ]
 }
 ```
-
-### GET /api/plan/stryd-status
-
-Push status for all workouts.
 
 ### DELETE /api/plan/stryd-workout/{workout_id}
 

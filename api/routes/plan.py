@@ -26,10 +26,9 @@ _STRYD_PUSH_STATUS_DIR = os.path.join(_DATA_DIR, "ai", "stryd_push_status")
 def _stryd_push_status_path(user_id: str) -> str:
     """Per-user push-status path.
 
-    Must be per-user: a shared file would let any caller of
-    ``GET /api/plan/stryd-status`` see every other user's workout IDs and
-    push timestamps. UUID user_ids keep filenames collision-free and
-    filesystem-safe.
+    Must be per-user: a shared file would let the GET /plan response
+    include every other user's workout IDs and push timestamps.
+    UUID user_ids keep filenames collision-free and filesystem-safe.
 
     A legacy single-file layout at ``data/ai/stryd_push_status.json`` may
     still exist on older deployments — this code does not read or migrate
@@ -45,13 +44,22 @@ def get_plan(
     user_id: str = Depends(get_data_user_id),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Return all upcoming planned workouts (today onwards)."""
+    """Return all upcoming planned workouts plus the caller's Stryd push status.
+
+    The push-status field used to be its own endpoint (GET /plan/stryd-status)
+    but every UI surface that asked for /plan also needed it, so each
+    Training-page cold load paid an extra cross-GFW round-trip. Folding it
+    into this response saves one request without measurably changing the
+    cost of /plan itself — _load_push_status is a single small JSON read.
+    """
     data = get_dashboard_data(user_id=user_id, db=db)
     plan_df: pd.DataFrame = data.get("plan", pd.DataFrame())
     today = date.today()
 
+    stryd_status = _load_push_status(user_id)
+
     if plan_df.empty:
-        return {"workouts": [], "cp_current": None}
+        return {"workouts": [], "cp_current": None, "stryd_status": stryd_status}
 
     # Filter for today onwards — return all (frontend handles pagination)
     upcoming = plan_df[plan_df["date"] >= today].sort_values("date")
@@ -82,7 +90,7 @@ def get_plan(
         if isinstance(plan, dict) and plan.get("power_max"):
             cp_current = plan.get("power_max")
 
-    return {"workouts": workouts, "cp_current": cp_current}
+    return {"workouts": workouts, "cp_current": cp_current, "stryd_status": stryd_status}
 
 
 def _load_push_status(user_id: str) -> dict:
@@ -136,14 +144,6 @@ def _save_push_status(user_id: str, status: dict) -> None:
         except OSError:
             pass
         raise
-
-
-@router.get("/plan/stryd-status")
-def get_stryd_push_status(
-    user_id: str = Depends(get_data_user_id),
-) -> dict:
-    """Return push status for all workouts synced to Stryd."""
-    return _load_push_status(user_id)
 
 
 class PushStrydRequest(BaseModel):

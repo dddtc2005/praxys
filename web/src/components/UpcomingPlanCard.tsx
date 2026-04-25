@@ -331,22 +331,19 @@ export default function UpcomingPlanCard() {
   const [pushingDates, setPushingDates] = useState<Set<string>>(new Set());
 
   // Stryd connection status — read from SettingsContext rather than firing
-  // a second /api/settings request. SettingsContext has already fetched
-  // this data; the old fetch here duplicated the request for every
-  // Training-page cold load.
+  // a second /api/settings request.
   const { config: settings } = useSettings();
   const hasStryd = Boolean(settings?.connections?.includes('stryd'));
 
-  // Load push status
+  // Stryd push history is folded into /api/plan (was a dedicated
+  // /api/plan/stryd-status fetch before PR-N). Mirror it into local state so
+  // push/delete handlers can apply optimistic updates without waiting for a
+  // refetch; the next /api/plan response resyncs us to the server view.
   useEffect(() => {
-    fetch(`${API_BASE}/api/plan/stryd-status`, { headers: getAuthHeaders() })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((status) => setPushStatus(status))
-      .catch((err) => console.error('Failed to load Stryd push status:', err));
-  }, []);
+    if (data?.stryd_status) {
+      setPushStatus(data.stryd_status);
+    }
+  }, [data?.stryd_status]);
 
   const getPushState = useCallback(
     (date: string): PushState => {
