@@ -8,9 +8,11 @@ data/ai/
 analysis/dashboard.html
 analysis/reports/
 
-# SQLite database
+# SQLite database (and WAL-mode sidecars created at runtime)
 data/trainsight.db
 *.db-journal
+*.db-wal
+*.db-shm
 
 # Test artifacts
 test-screenshots/

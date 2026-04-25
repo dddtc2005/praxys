@@ -5,11 +5,53 @@ The sync engine uses plain sqlite:// and the async engine uses sqlite+aiosqlite:
 """
 import os
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.models import Base
+
+
+# SQLite tuning pragmas applied to every new connection.
+#
+# Why this matters: on Azure App Service Linux the /home volume is an Azure
+# Files (SMB) mount with high per-IOP latency. Default SQLite (rollback
+# journal + synchronous=FULL) issues many small fsync()s per write, so each
+# of those amplifies into an SMB round-trip. Even read-mostly workloads
+# pay this cost on metadata pages. WAL + synchronous=NORMAL together cut
+# the fsync count substantially while keeping crash-safety: a power loss
+# may lose the last in-flight transaction but the database stays
+# consistent. The other pragmas are pure cache/locality wins.
+_SQLITE_PRAGMAS = (
+    ("journal_mode", "WAL"),
+    ("synchronous", "NORMAL"),
+    # 20 MB SQLite page cache (negative value = KB; default is 2 MB).
+    ("cache_size", "-20000"),
+    ("temp_store", "MEMORY"),
+    # Wait up to 5s on writer contention before raising "database is locked".
+    ("busy_timeout", "5000"),
+)
+
+
+def _attach_sqlite_pragmas(engine_obj) -> None:
+    """Attach a connect listener that applies _SQLITE_PRAGMAS to each connection.
+
+    No-op for non-SQLite engines (so an eventual Postgres / Azure SQL
+    migration drops in without code changes). PRAGMA journal_mode is also
+    a no-op against ``:memory:`` databases used in tests, which is fine.
+    """
+    if engine_obj.dialect.name != "sqlite":
+        return
+
+    # AsyncEngine wraps a sync core; DBAPI events live on the sync side.
+    @event.listens_for(getattr(engine_obj, "sync_engine", engine_obj), "connect")
+    def _apply_pragmas(dbapi_connection, _connection_record):
+        cursor = dbapi_connection.cursor()
+        try:
+            for pragma, value in _SQLITE_PRAGMAS:
+                cursor.execute(f"PRAGMA {pragma}={value}")
+        finally:
+            cursor.close()
 
 
 def get_data_dir() -> str:
@@ -53,12 +95,14 @@ def init_db():
 
     # Sync engine (for pandas read_sql, data loading, migration)
     engine = create_engine(url, connect_args={"check_same_thread": False})
+    _attach_sqlite_pragmas(engine)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
     # Async engine (for FastAPI-Users)
     async_engine = create_async_engine(
         async_url, connect_args={"check_same_thread": False}
     )
+    _attach_sqlite_pragmas(async_engine)
     AsyncSessionLocal = sessionmaker(
         async_engine, class_=AsyncSession, expire_on_commit=False
     )
