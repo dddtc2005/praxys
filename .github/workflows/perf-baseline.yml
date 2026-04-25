@@ -109,6 +109,7 @@ jobs:
             --resource-group "$AZ_RG" \
             --name "$CONTAINER_NAME" \
             --image sitespeedio/sitespeed.io:latest \
+            --os-type Linux \
             --location "${{ inputs.probe }}" \
             --cpu 2 --memory 4 \
             --restart-policy Never \
@@ -208,8 +209,12 @@ jobs:
       - name: Run analyzer across all cells
         run: |
           mkdir -p baseline-combined
-          cp -r baseline-collected/* baseline-combined/
-          python scripts/analyze_baseline.py --baseline-dir baseline-combined || true
+          if [ -d baseline-collected ] && [ -n "$(ls -A baseline-collected 2>/dev/null)" ]; then
+            cp -r baseline-collected/. baseline-combined/
+            python scripts/analyze_baseline.py --baseline-dir baseline-combined || true
+          else
+            echo "No baseline cells produced — earlier jobs failed. Skipping analyzer." >&2
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: baseline-combined-${{ github.run_id }}
