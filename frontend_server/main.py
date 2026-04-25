@@ -87,14 +87,20 @@ def create_app(dist_dir: Path | None = None) -> FastAPI:
     app = FastAPI(title="Praxys Frontend", version="1.0.0")
 
     @app.middleware("http")
-    async def add_cache_headers(request: Request, call_next):
-        """Set cache-control by path shape.
+    async def add_response_headers(request: Request, call_next):
+        """Set cache-control + browser security headers on every response.
 
+        Cache-control by path shape:
         - Hashed assets under ``/assets/`` are content-addressed (Vite emits
           filenames with content hashes), so they're safe to cache for a year.
         - The SPA shell at ``/index.html`` (and SPA-router fallbacks that
           end up serving it) must revalidate on every load — otherwise a
           deploy doesn't reach already-loaded clients until they hard-refresh.
+
+        Security headers ported from the deleted ``staticwebapp.config.json``
+        ``globalHeaders`` block. Without these, prod silently regressed from
+        nosniff/X-Frame/Referrer-Policy when the frontend moved off SWA — a
+        change that gets caught by no automated test if we don't assert it.
         """
         response: Response = await call_next(request)
         path = request.url.path
@@ -107,6 +113,13 @@ def create_app(dist_dir: Path | None = None) -> FastAPI:
             # Anything that resolves to index.html (root, SPA routes) must
             # revalidate so a deploy is visible on the next refresh.
             response.headers["Cache-Control"] = "public, max-age=0, must-revalidate"
+
+        # Security headers — set on every response, asset or shell. Cheap,
+        # universally applicable, and the cost of a missing header is
+        # measured in vulnerabilities not bytes.
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         return response
 
     @app.get("/healthz")

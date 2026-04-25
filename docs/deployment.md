@@ -215,14 +215,22 @@ for HOST in api.praxys.run www.praxys.run praxys.run; do
   az webapp config ssl create --resource-group rg-trainsight --name "$APP" --hostname "$HOST"
 done
 
-# 6. Bind certs (SNI). The thumbprint comes from the cert resource:
+# 6. Bind certs (SNI). Look up each cert by hostname rather than guessing
+#    the resource name — Azure's auto-generated cert name varies between
+#    "<host>" and "<host>-<app>" depending on whether a sibling cert
+#    already existed at create time. Querying by partial-name match is
+#    robust either way.
 for HOST in api.praxys.run www.praxys.run praxys.run; do
   case "$HOST" in
-    api.*) APP=trainsight-app ; CERT="${HOST}-trainsight-app" ;;
-    *) APP=praxys-frontend ; CERT="$HOST" ;;
+    api.*) APP=trainsight-app ;;
+    *)     APP=praxys-frontend ;;
   esac
-  THUMB=$(az resource show --resource-group rg-trainsight --resource-type Microsoft.Web/certificates --name "$CERT" --query properties.thumbprint -o tsv)
-  az webapp config ssl bind --resource-group rg-trainsight --name "$APP" --certificate-thumbprint "$THUMB" --ssl-type SNI --hostname "$HOST"
+  THUMB=$(az resource list --resource-group rg-trainsight \
+            --resource-type Microsoft.Web/certificates \
+            --query "[?contains(name, '$HOST')] | [0].properties.thumbprint" \
+            -o tsv)
+  az webapp config ssl bind --resource-group rg-trainsight --name "$APP" \
+    --certificate-thumbprint "$THUMB" --ssl-type SNI --hostname "$HOST"
 done
 ```
 

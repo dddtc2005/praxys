@@ -123,3 +123,22 @@ def test_healthz_endpoint(client):
     res = client.get("/healthz")
     assert res.status_code == 200
     assert res.json() == {"ok": True, "service": "praxys-frontend"}
+
+
+# Security headers — these were emitted by the deleted staticwebapp.config.json
+# globalHeaders block. When the frontend moved off SWA the headers silently
+# disappeared from prod responses; we assert them here so that regression
+# can never happen quietly again.
+
+@pytest.mark.parametrize("path", ["/", "/today", "/assets/index-abc123.js", "/favicon.svg"])
+def test_security_headers_present_on_every_response(client, path):
+    res = client.get(path)
+    assert res.headers.get("x-content-type-options") == "nosniff", (
+        f"{path}: missing X-Content-Type-Options"
+    )
+    assert res.headers.get("x-frame-options") == "DENY", (
+        f"{path}: missing X-Frame-Options"
+    )
+    assert res.headers.get("referrer-policy") == "strict-origin-when-cross-origin", (
+        f"{path}: missing Referrer-Policy"
+    )

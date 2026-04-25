@@ -1,15 +1,12 @@
 name: Deploy Frontend to App Service (praxys-frontend)
 
-# Replaces the SWA-Amsterdam path with a region-pinned App Service site
-# in East Asia (the "F4" perf fix). Runs alongside the existing SWA
-# workflow until DNS cuts over; after cutover the SWA workflow can be
-# retired.
+# Region-pinned static SPA host in East Asia (the "F4" perf fix —
+# replaced the SWA-Amsterdam path that added 200-300ms RTT for CN
+# users). Both this site and trainsight-app share plan-trainsight at
+# $0 incremental.
 #
-# This workflow stays inert until the praxys-frontend site exists +
-# the AZURE_CLIENT_ID/TENANT/SUBSCRIPTION secrets are wired (same OIDC
-# Service Principal the backend already uses). On runs before then it
-# will fail at the "Azure Login" step, which is fine — it doesn't break
-# the SWA path.
+# Auth: same OIDC Service Principal as deploy-backend.yml
+# (AZURE_CLIENT_ID/TENANT/SUBSCRIPTION secrets, RG-scoped role).
 
 on:
   push:
