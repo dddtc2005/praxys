@@ -32,7 +32,7 @@ msgid "{0, plural, one {# recommendation} other {# recommendations}}"
 msgstr "{0, plural, other {# 条建议}}"
 
 #. placeholder {0}: data.workouts.length
-#: src/components/UpcomingPlanCard.tsx:508
+#: src/components/UpcomingPlanCard.tsx:507
 msgid "{0, plural, one {# workout} other {# workouts}}"
 msgstr "{0, plural, other {# 次训练}}"
 
@@ -739,7 +739,7 @@ msgstr "加载设置失败"
 msgid "Failed to load training data"
 msgstr "训练数据加载失败"
 
-#: src/components/UpcomingPlanCard.tsx:484
+#: src/components/UpcomingPlanCard.tsx:483
 msgid "Failed to load training plan"
 msgstr "训练计划加载失败"
 
@@ -1361,7 +1361,7 @@ msgstr "提升为管理员"
 msgid "Pull your latest activities, power data, and recovery metrics"
 msgstr "拉取您最近的活动、功率数据和恢复指标"
 
-#: src/components/UpcomingPlanCard.tsx:531
+#: src/components/UpcomingPlanCard.tsx:530
 msgid "Push All"
 msgstr "全部推送"
 
@@ -1374,7 +1374,7 @@ msgstr "推送失败"
 msgid "Push to Stryd"
 msgstr "推送到 Stryd"
 
-#: src/components/UpcomingPlanCard.tsx:521
+#: src/components/UpcomingPlanCard.tsx:520
 msgid "Pushing..."
 msgstr "正在推送..."
 
@@ -1518,7 +1518,7 @@ msgstr "休息"
 msgid "Resting HR"
 msgstr "静息心率"
 
-#: src/components/UpcomingPlanCard.tsx:487
+#: src/components/UpcomingPlanCard.tsx:486
 #: src/pages/Goal.tsx:487
 #: src/pages/History.tsx:53
 #: src/pages/Settings.tsx:336
@@ -1743,7 +1743,7 @@ msgstr "同步历史"
 msgid "Sync your data"
 msgstr "同步数据"
 
-#: src/components/UpcomingPlanCard.tsx:526
+#: src/components/UpcomingPlanCard.tsx:525
 #: src/pages/Settings.tsx:820
 msgid "Synced"
 msgstr "已同步"
@@ -1875,7 +1875,7 @@ msgstr "超长距离功率分数（50K+）为估算值，研究支持有限。Ri
 msgid "Units"
 msgstr "单位"
 
-#: src/components/UpcomingPlanCard.tsx:504
+#: src/components/UpcomingPlanCard.tsx:503
 msgid "Upcoming Plan"
 msgstr "即将到来的计划"
 
