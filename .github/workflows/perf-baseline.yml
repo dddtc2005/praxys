@@ -89,16 +89,28 @@ jobs:
       - name: Build sitespeed.io command-line
         id: cmd
         run: |
+          # The image's ENTRYPOINT is /start.sh which prepares Chrome and
+          # then execs sitespeed.io. ACI's --command-line *overrides* the
+          # entrypoint, so passing "sitespeed.io ..." fails with
+          # "executable not found in PATH" — sitespeed.io lives in
+          # /usr/src/app/bin/, only added to PATH inside /start.sh.
+          # Calling /start.sh directly with the same args restores the
+          # image's intended startup flow.
           BASE_ARGS="--outputFolder /sitespeed.io/out/${CELL} -n 3"
           if [ "${{ matrix.device }}" = "mobile" ]; then
-            # Same explicit viewport + UA approach the local runner uses,
-            # stable across Chrome versions inside the official
-            # sitespeedio/sitespeed.io image.
-            DEVICE_ARGS='--browsertime.viewPort 390x844 --browsertime.userAgent "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"'
+            # Viewport only — no UA override. The local runner sets a UA
+            # too but ACI's --command-line argv parser splits on
+            # whitespace and doesn't honour quoted strings, so a UA value
+            # like "Mozilla/5.0 (iPhone; CPU...)" gets shredded into many
+            # tokens. For S4 cold-load FCP the UA doesn't change the
+            # measurement (Chrome's default mobile UA renders the same
+            # CSS path); analytics-driven UA differences are out of scope
+            # for synthetic baselines.
+            DEVICE_ARGS="--browsertime.viewPort 390x844"
           else
             DEVICE_ARGS=""
           fi
-          echo "args=sitespeed.io '${{ inputs.target_url }}' ${BASE_ARGS} ${DEVICE_ARGS}" >> "$GITHUB_OUTPUT"
+          echo "args=/start.sh ${{ inputs.target_url }} ${BASE_ARGS} ${DEVICE_ARGS}" >> "$GITHUB_OUTPUT"
 
       - name: Create ACI + wait for completion
         run: |
