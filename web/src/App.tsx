@@ -16,7 +16,7 @@ import Today from './pages/Today';
 import Setup from './pages/Setup';
 // Lazy-loaded: secondary routes the user navigates to after landing on
 // Today. Chunks load on first visit to each route; cached immutably
-// thereafter (see staticwebapp.config.json cache headers).
+// thereafter (cache headers set by frontend_server/main.py).
 const Training = lazy(() => import('./pages/Training'));
 const Goal = lazy(() => import('./pages/Goal'));
 const History = lazy(() => import('./pages/History'));

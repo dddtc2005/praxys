@@ -17,7 +17,7 @@ import './index.scss';
 // Hostname of the full web app. Hardcoded because it's stable per
 // environment; if you later support multiple deployments, make this an
 // API_BASE-neighbour env var.
-const WEB_URL = 'https://jolly-sand-0aeced900.7.azurestaticapps.net';
+const WEB_URL = 'https://www.praxys.run';
 
 /**
  * Settings view — read-only for the MVP. Full editing (thresholds,

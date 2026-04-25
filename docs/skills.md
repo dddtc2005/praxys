@@ -38,8 +38,8 @@ The default `.mcp.json` ships with cloud URLs pre-configured:
       "command": "python",
       "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-server/server.py"],
       "env": {
-        "PRAXYS_URL": "https://trainsight-app.azurewebsites.net",
-        "PRAXYS_FRONTEND_URL": "https://jolly-sand-0aeced900.7.azurestaticapps.net"
+        "PRAXYS_URL": "https://api.praxys.run",
+        "PRAXYS_FRONTEND_URL": "https://www.praxys.run"
       }
     }
   }

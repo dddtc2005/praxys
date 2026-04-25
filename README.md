@@ -8,7 +8,7 @@ Sports science that meets you where you are. Praxys syncs data from Garmin, Stry
 
 ## Usage Modes
 
-**Cloud app (recommended):** Deployed on Azure at [jolly-sand-0aeced900.7.azurestaticapps.net](https://jolly-sand-0aeced900.7.azurestaticapps.net). Register, connect your platforms, sync data, and view the dashboard from anywhere. AI features available via the CLI plugin in remote mode.
+**Cloud app (recommended):** Deployed on Azure at [praxys.run](https://praxys.run). Register, connect your platforms, sync data, and view the dashboard from anywhere. AI features available via the CLI plugin in remote mode.
 
 **Local development:** Same codebase runs locally. Start the backend and frontend dev servers, register as the first user (becomes admin), and you are up and running.
 
