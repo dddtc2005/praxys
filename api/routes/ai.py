@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from api.auth import get_data_user_id, require_write_access
 from api.deps import get_dashboard_data
+from db.models import TrainingPlan
 from db.session import get_db
 
 router = APIRouter()
@@ -41,7 +42,7 @@ class PlanWorkout(BaseModel):
     workout_description: Optional[str] = None
 
 
-def _row_to_response(plan) -> dict:
+def _row_to_response(plan: TrainingPlan) -> dict:
     return {
         "id": plan.id,
         "date": plan.date.isoformat() if plan.date else None,
@@ -94,8 +95,6 @@ def upload_plan(
     are left alone. Use this when shifting or editing individual workouts
     without resending the whole plan window.
     """
-    from db.models import TrainingPlan
-
     reader = csv.DictReader(io.StringIO(payload.csv))
     rows = list(reader)
 
@@ -117,7 +116,7 @@ def upload_plan(
             TrainingPlan.user_id == user_id,
             TrainingPlan.source == "ai",
             TrainingPlan.date >= date.today(),
-        ).delete()
+        ).delete(synchronize_session=False)
     else:  # merge: clear only the dates we're about to write
         target_dates = {p.date for p in parsed_rows if p.date is not None}
         if target_dates:
@@ -148,8 +147,6 @@ def upsert_plan_day(
     e.g. shifting a single workout — instead of round-tripping the whole
     future plan via /plan/upload.
     """
-    from db.models import TrainingPlan
-
     try:
         d = datetime.strptime(plan_date, "%Y-%m-%d").date()
     except ValueError:
@@ -186,8 +183,6 @@ def delete_plan_day(
     db: Session = Depends(get_db),
 ):
     """Delete the AI plan workout(s) for the given date (YYYY-MM-DD)."""
-    from db.models import TrainingPlan
-
     try:
         d = datetime.strptime(plan_date, "%Y-%m-%d").date()
     except ValueError:
