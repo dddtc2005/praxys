@@ -343,6 +343,47 @@ Suite: **445 passing** (435 prior + 10 new pack tests), 1 skipped.
 
 Production p50 / FCP measurements vs the 1358017 cn-pc-2 anchor are pending deploy + sweep — `scripts/perf_synthetic_load_check.py` and a cn-pc-2 sitespeed run will be re-anchored under a new `2026-04-26-<post-L1-sha>/` directory once this lands and traffic flows.
 
+### Post-L2 anchor — code change landed (this PR, #147)
+
+L2 turns the L1 split into an HTTP-cache win: warm visits skip the full body re-send when no relevant data has changed since the client's last visit.
+
+Code-level summary of what shipped:
+
+- `db/models.py` + `db/cache_revision.py` — new `cache_revisions(user_id, scope)` table + `bump_revisions` / `get_revisions` helpers. Per-(user, scope) monotonic counter; SQLite atomic increment; `Base.metadata.create_all` covers the new table without an ALTER migration.
+- `api/etag.py` — `compute_etag(db, user_id, scopes, salt=None)` (blake2b-8 weak ETag) + `ETagGuard` + `etag_guard_for_scopes(...)` FastAPI dependency factory; per-endpoint scope map.
+- `api/routes/{today,training,goal}.py` — depend on `etag_guard_for_scopes`; short-circuit to `Response(304)` when `If-None-Match` matches.
+- `api/routes/history.py` — explicit guard so the ETag salt includes `?limit/offset/source` (otherwise paginated responses would replay a wrong cached page on a matching 304).
+- `api/routes/science.py` — explicit guard salted with the resolved `Accept-Language` so `/api/science` doesn't 304 across languages.
+- `db/sync_writer.py` — every `write_*` bumps the relevant scope when it actually inserts/updates a row.
+- `api/routes/{settings,science,ai}.py` — config / plan mutation paths bump `config` / `plans` before commit so the very next read on the same connection sees the fresh ETag.
+- `tests/test_etag.py` — 9 new tests (deterministic hash, scope isolation, weak-validator match, end-to-end 304, history pagination salt, settings-bumps-today).
+
+Per-endpoint scope coverage (the union of tables each pack reads):
+
+| Endpoint | Scopes |
+|---|---|
+| `/api/today` | activities, recovery, plans, fitness, config |
+| `/api/training` | activities, splits, recovery, plans, fitness, config |
+| `/api/goal` | activities, fitness, config |
+| `/api/history` | activities, splits, config (+ `limit/offset/source` salt) |
+| `/api/science` | config (+ resolved-locale salt) |
+
+Concrete behavior unlocked relative to post-L1:
+
+| Mutation | Endpoints that 304 next visit | Endpoints whose ETag changes |
+|---|---|---|
+| Sync writes activities | history, today, training, goal | history, today, training, goal |
+| Sync writes recovery | goal, history, science | today, training |
+| Sync writes plan rows | history, goal, science | today, training |
+| Goal/settings edit | (none — config touches every pack) | today, training, goal, history, science |
+| Science theory change | (none — config in every scope set) | today, training, goal, history, science |
+
+Suite: **509 passing** (498 prior + 11 new ETag tests), 1 skipped. The +2 over the initial PR are review-driven regression guards: `test_bump_savepoint_preserves_pending_writes` (proves a concurrent first-bump cannot discard the surrounding sync's activity rows) and `test_today_etag_changes_at_midnight` (proves the time-windowed endpoints flip ETag at the server-local date boundary even with zero DB writes).
+
+ETag computation cost is one indexed `SELECT (scope, revision) FROM cache_revisions WHERE user_id = ? AND scope IN (...)` followed by a 16-byte blake2b. Empirically <1 ms in unit tests on a fresh SQLite — well under the 50 ms p95 acceptance gate.
+
+Baseline for the L2 measurement is the post-L1 row from PR #158 above: `/api/today` 1130 ms / `/api/training` 1379 ms / `/api/science` 206 ms p50 from App Insights. L2's win shape is different from L1's: cold visits should land ~unchanged (one extra SELECT + blake2b on the 200 path), while warm visits with a valid `If-None-Match` should collapse to the dependency cost only (well under 100 ms — the synthetic-load script's warm-burst scenario will measure this). Re-anchor will land under a new `2026-04-26-<post-L2-sha>/` directory once this PR deploys.
+
 ## Tooling state
 
 - **Local sitespeed runner** (`scripts/sitespeed_runner.sh`) — works against any URL, supports S1/S2/S3/S4 × desktop/mobile. The cn-pc / cn-pc-2 anchor numbers above all came from this. Gold standard for "what does the operator (and CN audience) actually feel."

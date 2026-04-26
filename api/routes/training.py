@@ -1,8 +1,9 @@
 """Training analysis endpoint."""
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from api.auth import get_data_user_id
+from api.etag import ETagGuard, etag_guard_for_endpoint
 from api.packs import RequestContext, get_diagnosis_pack, get_fitness_pack
 from db.session import get_db
 
@@ -11,9 +12,14 @@ router = APIRouter()
 
 @router.get("/training")
 def get_training(
+    response: Response,
+    guard: ETagGuard = Depends(etag_guard_for_endpoint("training")),
     user_id: str = Depends(get_data_user_id),
     db: Session = Depends(get_db),
 ):
+    if guard.is_match:
+        return guard.not_modified()
+    guard.apply(response)
     ctx = RequestContext(user_id=user_id, db=db)
     diagnosis = get_diagnosis_pack(ctx)
     fitness = get_fitness_pack(ctx)

@@ -8,6 +8,7 @@ from datetime import date, datetime
 
 from sqlalchemy.orm import Session
 
+from db.cache_revision import bump_revisions
 from db.models import Activity, ActivitySplit, RecoveryData, FitnessData, TrainingPlan
 
 logger = logging.getLogger(__name__)
@@ -129,6 +130,8 @@ def write_activities(user_id: str, rows: list[dict], db: Session) -> int:
         db.add(new_obj)
         existing[aid] = new_obj
         count += 1
+    if count > 0:
+        bump_revisions(db, user_id, ["activities"])
     return count
 
 
@@ -176,6 +179,8 @@ def write_splits(user_id: str, rows: list[dict], db: Session) -> int:
         db.add(new_obj)
         existing[(aid, snum)] = new_obj
         count += 1
+    if count > 0:
+        bump_revisions(db, user_id, ["splits"])
     return count
 
 
@@ -271,6 +276,8 @@ def write_recovery(user_id: str, readiness_rows: list[dict],
                 existing_garmin.add(d)
                 count += 1
 
+    if count > 0:
+        bump_revisions(db, user_id, ["recovery"])
     return count
 
 
@@ -304,6 +311,8 @@ def write_daily_metrics(user_id: str, rows: list[dict], db: Session) -> int:
                 value_str=_str(val) if is_str else None,
             ))
             count += 1
+    if count > 0:
+        bump_revisions(db, user_id, ["fitness"])
     return count
 
 
@@ -356,6 +365,8 @@ def write_profile_thresholds(
                 metric_type=metric_type, value=float(val), source=source,
             ))
         count += 1
+    if count > 0:
+        bump_revisions(db, user_id, ["fitness"])
     return count
 
 
@@ -390,8 +401,14 @@ def update_cp_from_activities(user_id: str, db: Session, **kwargs) -> dict | Non
         FitnessData.metric_type == "cp_estimate",
         FitnessData.source == "activities",
     ).first()
+    # An idempotent re-sync of the same activity window produces the same CP;
+    # skipping the bump in that case lets warm visits keep returning 304.
+    changed = True
     if existing:
-        existing.value = result.cp_watts
+        if existing.value == result.cp_watts:
+            changed = False
+        else:
+            existing.value = result.cp_watts
     else:
         db.add(FitnessData(
             user_id=user_id,
@@ -400,6 +417,8 @@ def update_cp_from_activities(user_id: str, db: Session, **kwargs) -> dict | Non
             source="activities",
             value=result.cp_watts,
         ))
+    if changed:
+        bump_revisions(db, user_id, ["fitness"])
     return result.to_dict()
 
 
@@ -430,6 +449,8 @@ def write_lactate_threshold(user_id: str, rows: list[dict], db: Session) -> int:
                 value=_float(val), source="garmin",
             ))
             count += 1
+    if count > 0:
+        bump_revisions(db, user_id, ["fitness"])
     return count
 
 
@@ -462,4 +483,6 @@ def write_training_plan(user_id: str, rows: list[dict], source: str,
             workout_description=_str(row.get("workout_description")),
         ))
         count += 1
+    if count > 0:
+        bump_revisions(db, user_id, ["plans"])
     return count

@@ -1,8 +1,9 @@
 """Science framework endpoint — active theories, available options, recommendations."""
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.orm import Session
 
 from api.auth import get_data_user_id, require_write_access
+from api.etag import ENDPOINT_SCOPES, ETagGuard, compute_etag
 from analysis.config import (
     load_config_from_db,
     save_config_to_db,
@@ -61,9 +62,10 @@ def _resolve_locale(config_language: str | None, request: Request | None) -> str
 @router.get("/science")
 def get_science(
     request: Request,
+    response: Response,
     user_id: str = Depends(get_data_user_id),
     db: Session = Depends(get_db),
-) -> dict:
+):
     """Return active theories, all available options, and recommendations.
 
     Doesn't go through the full dashboard pipeline: loading config + science
@@ -74,6 +76,15 @@ def get_science(
     """
     config = load_config_from_db(user_id, db)
     locale = _resolve_locale(config.language, request)
+    # Salt with the resolved locale because /api/science varies on
+    # Accept-Language even when no config field changed.
+    etag = compute_etag(
+        db, user_id, ENDPOINT_SCOPES["science"], salt=f"locale={locale or ''}",
+    )
+    guard = ETagGuard(etag, request.headers.get("if-none-match"))
+    if guard.is_match:
+        return guard.not_modified()
+    guard.apply(response)
 
     # Active theories — loaded in the requested locale so the user sees
     # translated prose without the dashboard loader needing to know about
@@ -161,6 +172,8 @@ def update_science(
     if "zone_labels" in body:
         config.zone_labels = str(body["zone_labels"])
 
+    from db.cache_revision import bump_revisions
+    bump_revisions(db, user_id, ["config"])
     save_config_to_db(user_id, config, db)
 
     return {"status": "ok"}

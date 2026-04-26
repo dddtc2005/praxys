@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from api.auth import get_data_user_id, require_write_access
 from api.deps import get_dashboard_data
+from db.cache_revision import bump_revisions
 from db.models import TrainingPlan
 from db.session import get_db
 
@@ -129,6 +130,7 @@ def upload_plan(
     for plan in parsed_rows:
         db.add(plan)
 
+    bump_revisions(db, user_id, ["plans"])
     db.commit()
     return {"status": "saved", "rows": len(parsed_rows), "mode": mode}
 
@@ -171,6 +173,7 @@ def upsert_plan_day(
         meta={"uploaded_at": datetime.utcnow().isoformat()},
     )
     db.add(plan)
+    bump_revisions(db, user_id, ["plans"])
     db.commit()
     db.refresh(plan)
     return _row_to_response(plan)
@@ -193,5 +196,7 @@ def delete_plan_day(
         TrainingPlan.source == "ai",
         TrainingPlan.date == d,
     ).delete(synchronize_session=False)
+    if deleted:
+        bump_revisions(db, user_id, ["plans"])
     db.commit()
     return {"status": "deleted", "rows": deleted, "date": plan_date}

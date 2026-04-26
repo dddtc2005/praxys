@@ -315,6 +315,13 @@ def update_settings(
             )
         config.language = body.language
 
+    # Bust ETag caches keyed on config (Today, Training, Goal, History,
+    # Science). A settings edit can flip training_base, language, or goal —
+    # any of which alters every endpoint's payload, so we bump unconditionally.
+    # Bump BEFORE save_config_to_db so the commit inside save_config covers
+    # both the config change and the revision bump atomically.
+    from db.cache_revision import bump_revisions
+    bump_revisions(db, user_id, ["config"])
     save_config_to_db(user_id, config, db)
 
     return {

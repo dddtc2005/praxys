@@ -1,8 +1,9 @@
 """Today's training signal endpoint."""
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from api.auth import get_data_user_id
+from api.etag import ETagGuard, etag_guard_for_endpoint
 from api.packs import (
     RequestContext,
     get_signal_pack,
@@ -28,9 +29,14 @@ def _recovery_theory_meta(science: dict) -> dict | None:
 
 @router.get("/today")
 def get_today(
+    response: Response,
+    guard: ETagGuard = Depends(etag_guard_for_endpoint("today")),
     user_id: str = Depends(get_data_user_id),
     db: Session = Depends(get_db),
 ):
+    if guard.is_match:
+        return guard.not_modified()
+    guard.apply(response)
     ctx = RequestContext(user_id=user_id, db=db)
     signal = get_signal_pack(ctx)
     widgets = get_today_widgets(ctx)
