@@ -264,6 +264,22 @@ The ~470 ms TTFB delta and ~1.1 s FCP delta is the **real-CN-ISP-vs-Azure-intern
 
 The clustering of three endpoints around the same 1.8-2.1 s p50 is the data-side fingerprint of the kitchen-sink anti-pattern in `get_dashboard_data()` — they're all doing the same work. L1 (#146) targets exactly this.
 
+### Post-L1 / PR-156 (synthetic-load script, n=30 burst, steady-state warm)
+
+Measured 2026-04-26 at 27cce7a, ~5 min after the deploy completed. App Insights `AppRequests.DurationMs`, last burst window only (10:55-10:59 UTC) so the numbers are warm-cache steady state, not cold-start mixed.
+
+| Endpoint | p50 (ms) | p95 (ms) | Δ vs PR-139 p50 |
+|---|---|---|---|
+| `GET /api/today` | **1130** | 3820 | −709 (−39 %) |
+| `GET /api/training` | **1379** | 4583 | −575 (−29 %) |
+| `GET /api/science` | **206** | 637 | **−1861 (−90 %)** |
+
+**What this confirms.** /science was the cleanest possible test of the pack-split thesis — its endpoint actually serves config + science theories + recommendations and nothing else, so removing the 22-step kitchen-sink let it run only the work that matters. The result is a 10× drop, exactly the shape predicted.
+
+**Where /api/today landed and why it didn't hit 600 ms.** L1 took /today from 1839 → 1130 ms (−39 %), well short of the 4-5× target floated in the doc. The remaining ~1100 ms is dominated by **`_compute_daily_load` + `compute_ewma_load × 2` over the full 365-day window**, which is fundamental to the current TSB and the sparkline that /today actually serves. Pack-splitting can't eliminate it; it needs L2 (304 short-circuit when `(user, latest_sync_timestamp)` matches the cached ETag) or L3 (materialize CTL/ATL/TSB at sync_writer commit so reads become a SELECT). The acceptance criterion in #146 reads as a stretch goal that L1 alone wasn't going to hit; the −39 % move is real but **L2 is the next step required to clear 600 ms.**
+
+**Training moved least, as expected.** /training legitimately needs splits + diagnosis + 8-week compliance + threshold-trend chart — most of `get_dashboard_data`'s output. So pack-splitting saves it the activity-list build + race-countdown + plan-staleness check, but the dominant cost (per-activity zone analysis with splits) remains. −29 % is roughly the savings from skipping the genuinely-unused work.
+
 ---
 
 ## Architectural inversion confirmed
