@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from api.auth import get_data_user_id
-from api.etag import ENDPOINT_SCOPES, ETagGuard, etag_guard_for_scopes
+from api.etag import ETagGuard, etag_guard_for_endpoint
 from api.packs import (
     RequestContext,
     get_signal_pack,
@@ -30,7 +30,7 @@ def _recovery_theory_meta(science: dict) -> dict | None:
 @router.get("/today")
 def get_today(
     response: Response,
-    guard: ETagGuard = Depends(etag_guard_for_scopes(ENDPOINT_SCOPES["today"])),
+    guard: ETagGuard = Depends(etag_guard_for_endpoint("today")),
     user_id: str = Depends(get_data_user_id),
     db: Session = Depends(get_db),
 ):

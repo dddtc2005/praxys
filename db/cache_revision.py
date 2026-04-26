@@ -87,16 +87,23 @@ def bump_revisions(
         ).scalar_one_or_none()
 
         if existing is None:
+            # Wrap the INSERT in a SAVEPOINT so a PK collision from a
+            # concurrent worker rolls back ONLY the failed INSERT and not the
+            # surrounding sync transaction. Without the savepoint, a vanilla
+            # ``db.rollback()`` here discards every activity/split/recovery
+            # row the calling ``write_*`` already staged in the same unit of
+            # work — silent data loss on a user's first concurrent two-source
+            # sync (e.g. clicking "sync Garmin" and "sync Stryd" before
+            # either has populated the (user_id, scope) cache row).
             try:
-                db.add(CacheRevision(
-                    user_id=user_id, scope=scope,
-                    revision=1, bumped_at=now,
-                ))
-                db.flush()
+                with db.begin_nested():
+                    db.add(CacheRevision(
+                        user_id=user_id, scope=scope,
+                        revision=1, bumped_at=now,
+                    ))
             except IntegrityError:
-                # Concurrent worker just inserted the row; fall through to
-                # the increment branch on the now-existing record.
-                db.rollback()
+                # Concurrent worker won the insert; fall through to the
+                # increment branch on the now-existing record.
                 existing = db.execute(
                     select(CacheRevision)
                     .where(CacheRevision.user_id == user_id)

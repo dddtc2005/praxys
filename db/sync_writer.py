@@ -401,8 +401,14 @@ def update_cp_from_activities(user_id: str, db: Session, **kwargs) -> dict | Non
         FitnessData.metric_type == "cp_estimate",
         FitnessData.source == "activities",
     ).first()
+    # An idempotent re-sync of the same activity window produces the same CP;
+    # skipping the bump in that case lets warm visits keep returning 304.
+    changed = True
     if existing:
-        existing.value = result.cp_watts
+        if existing.value == result.cp_watts:
+            changed = False
+        else:
+            existing.value = result.cp_watts
     else:
         db.add(FitnessData(
             user_id=user_id,
@@ -411,7 +417,8 @@ def update_cp_from_activities(user_id: str, db: Session, **kwargs) -> dict | Non
             source="activities",
             value=result.cp_watts,
         ))
-    bump_revisions(db, user_id, ["fitness"])
+    if changed:
+        bump_revisions(db, user_id, ["fitness"])
     return result.to_dict()
 
 

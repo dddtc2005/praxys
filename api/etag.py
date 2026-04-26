@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+from datetime import date
 from typing import Iterable
 
 from fastapi import Depends, Request, Response
@@ -61,6 +62,15 @@ ENDPOINT_SCOPES: dict[str, tuple[str, ...]] = {
     "history":  ("activities", "splits", "config"),
     "science":  ("config",),
 }
+
+
+# Endpoints whose response computes against ``date.today()`` (current-week
+# load, race countdown, fitness-series window, "upcoming next 7 days"). At
+# midnight, none of the DB scopes flip but the rendered framing is yesterday's
+# — without the date in the salt, a 304 would replay yesterday's body for
+# this morning's visit. ``/history`` and ``/science`` don't depend on the
+# server's date, so they stay unsalted on this axis.
+_DATE_SALTED_ENDPOINTS: frozenset[str] = frozenset({"today", "training", "goal"})
 
 
 CACHE_CONTROL = "private, must-revalidate, max-age=0"
@@ -119,6 +129,11 @@ class ETagGuard:
     def is_match(self) -> bool:
         if not self._if_none_match:
             return False
+        # RFC 7232 §3.2: ``*`` matches any existing representation. We
+        # always have a representation here (cold start still emits ETag
+        # over the empty-state body), so ``*`` is always a match.
+        if self._if_none_match == "*":
+            return True
         # Browsers never send the W/ prefix back stripped, but proxies
         # occasionally normalize it; accept either form to be defensive.
         candidates = {self.etag, self.etag.removeprefix("W/")}
@@ -139,12 +154,17 @@ class ETagGuard:
         )
 
 
-def etag_guard_for_scopes(scopes: tuple[str, ...]):
+def etag_guard_for_endpoint(endpoint: str):
     """Build a FastAPI dependency that yields an ``ETagGuard`` per request.
+
+    ``endpoint`` is one of the keys in ``ENDPOINT_SCOPES``. When the
+    endpoint is in ``_DATE_SALTED_ENDPOINTS``, ``date.today()`` is mixed
+    into the ETag salt so a 304 cannot replay yesterday's window-framed
+    body across midnight.
 
     Usage in a route:
 
-        guard = Depends(etag_guard_for_scopes(ENDPOINT_SCOPES["today"]))
+        guard = Depends(etag_guard_for_endpoint("today"))
 
         if guard.is_match:
             return guard.not_modified()
@@ -154,7 +174,25 @@ def etag_guard_for_scopes(scopes: tuple[str, ...]):
     The dependency reuses the route's ``user_id`` + ``db`` resolution path
     so there's no second auth round-trip, just one extra small SELECT.
     """
+    scopes = ENDPOINT_SCOPES[endpoint]
+    date_salted = endpoint in _DATE_SALTED_ENDPOINTS
 
+    def _dep(
+        request: Request,
+        user_id: str = Depends(get_data_user_id),
+        db: Session = Depends(get_db),
+    ) -> ETagGuard:
+        salt = f"d={date.today().isoformat()}" if date_salted else None
+        etag = compute_etag(db, user_id, scopes, salt=salt)
+        return ETagGuard(etag, request.headers.get("if-none-match"))
+
+    return _dep
+
+
+# Back-compat alias used by tests and any out-of-tree callers; new code
+# should prefer ``etag_guard_for_endpoint``.
+def etag_guard_for_scopes(scopes: tuple[str, ...]):  # noqa: D401 — short
+    """Same as ``etag_guard_for_endpoint`` but without date-salting."""
     def _dep(
         request: Request,
         user_id: str = Depends(get_data_user_id),

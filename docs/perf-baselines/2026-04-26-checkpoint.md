@@ -378,7 +378,7 @@ Concrete behavior unlocked relative to post-L1:
 | Goal/settings edit | (none — config touches every pack) | today, training, goal, history, science |
 | Science theory change | (none — config in every scope set) | today, training, goal, history, science |
 
-Suite: **507 passing** (498 prior + 9 new ETag tests), 1 skipped.
+Suite: **509 passing** (498 prior + 11 new ETag tests), 1 skipped. The +2 over the initial PR are review-driven regression guards: `test_bump_savepoint_preserves_pending_writes` (proves a concurrent first-bump cannot discard the surrounding sync's activity rows) and `test_today_etag_changes_at_midnight` (proves the time-windowed endpoints flip ETag at the server-local date boundary even with zero DB writes).
 
 ETag computation cost is one indexed `SELECT (scope, revision) FROM cache_revisions WHERE user_id = ? AND scope IN (...)` followed by a 16-byte blake2b. Empirically <1 ms in unit tests on a fresh SQLite — well under the 50 ms p95 acceptance gate.
 

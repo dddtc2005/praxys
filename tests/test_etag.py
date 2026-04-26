@@ -207,6 +207,8 @@ def test_etag_guard_match_strict_and_list_form():
     assert ETagGuard(etag, etag.removeprefix("W/")).is_match
     # RFC 7232 §3.2 list form.
     assert ETagGuard(etag, f'"other", {etag}').is_match
+    # RFC 7232 §3.2: ``*`` matches any representation.
+    assert ETagGuard(etag, "*").is_match
     # Empty / mismatched headers don't match.
     assert not ETagGuard(etag, "").is_match
     assert not ETagGuard(etag, 'W/"different"').is_match
@@ -323,6 +325,102 @@ def test_history_pagination_isolated_etags(etag_client):
         headers={"If-None-Match": p0.headers["etag"]},
     )
     assert cross.status_code == 200
+
+
+def test_bump_savepoint_preserves_pending_writes(etag_client):
+    """A first-time bump that races a concurrent insert must not roll back
+    the activity rows the caller staged in the same transaction.
+
+    Reproduces the bug C1 from PR-157 review: prior code called
+    ``db.rollback()`` on IntegrityError, discarding every pending row in the
+    unit of work. The fix wraps the INSERT in ``begin_nested()`` so the
+    rollback is scoped to the savepoint.
+    """
+    from datetime import date as _date
+    from db import session as db_session
+    from db.cache_revision import bump_revisions
+    from db.models import Activity, CacheRevision
+
+    _, user_id = etag_client
+
+    # Pre-create the (user_id, "activities") row in a side session — this is
+    # the concurrent-worker scenario the real bug needed.
+    side = db_session.SessionLocal()
+    try:
+        side.add(CacheRevision(user_id=user_id, scope="activities", revision=99))
+        side.commit()
+    finally:
+        side.close()
+
+    main = db_session.SessionLocal()
+    try:
+        # Stage an activity row, then call bump — the bump's INSERT will hit
+        # the unique-constraint, the savepoint must roll back ONLY itself.
+        new_act = Activity(
+            user_id=user_id, activity_id="savepoint-test",
+            date=_date.today(), activity_type="running", source="garmin",
+        )
+        main.add(new_act)
+        bump_revisions(main, user_id, ["activities"])
+        main.commit()
+
+        # The activity must still exist (proves the rollback was scoped).
+        survived = main.query(Activity).filter(
+            Activity.activity_id == "savepoint-test"
+        ).first()
+        assert survived is not None, "savepoint should have preserved Activity insert"
+
+        # And the revision must have advanced from the pre-seeded 99.
+        rev = main.query(CacheRevision).filter(
+            CacheRevision.user_id == user_id,
+            CacheRevision.scope == "activities",
+        ).first()
+        assert rev.revision == 100
+    finally:
+        main.close()
+
+
+def test_today_etag_changes_at_midnight(etag_client, monkeypatch):
+    """At midnight the time-windowed endpoints must hand out a new ETag even
+    with zero DB writes — otherwise a 304 would replay yesterday's framing
+    (current week, race countdown, "next 7 days" upcoming).
+    """
+    from api import etag as etag_mod
+
+    client, _ = etag_client
+
+    # Pin "today" to a known date, then advance it by one day.
+    class _FrozenDate:
+        _value = "2026-04-26"
+
+        @classmethod
+        def today(cls):
+            from datetime import date as _real_date
+            return _real_date.fromisoformat(cls._value)
+
+    monkeypatch.setattr(etag_mod, "date", _FrozenDate)
+    cold = client.get("/api/today")
+    yesterday_etag = cold.headers["etag"]
+    assert cold.status_code == 200
+
+    # Same DB state, but a new calendar day → guard salt flips → different ETag.
+    _FrozenDate._value = "2026-04-27"
+    next_day = client.get(
+        "/api/today", headers={"If-None-Match": yesterday_etag},
+    )
+    assert next_day.status_code == 200, "midnight rollover must NOT 304"
+    assert next_day.headers["etag"] != yesterday_etag
+
+    # /science doesn't depend on date.today(), so it should not flip on the
+    # day boundary alone.
+    _FrozenDate._value = "2026-04-26"
+    science_cold = client.get("/api/science")
+    science_etag = science_cold.headers["etag"]
+    _FrozenDate._value = "2026-04-27"
+    science_warm = client.get(
+        "/api/science", headers={"If-None-Match": science_etag},
+    )
+    assert science_warm.status_code == 304
 
 
 def test_settings_put_busts_today_etag(etag_client):
