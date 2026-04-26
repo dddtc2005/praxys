@@ -153,7 +153,16 @@ jobs:
           # /usr/src/app/bin/, only added to PATH inside /start.sh.
           # Calling /start.sh directly with the same args restores the
           # image's intended startup flow.
-          BASE_ARGS="--outputFolder /sitespeed.io/out/${CELL} -n 3"
+          # Skip the per-frame video-processing step (#163). Visual-metrics
+          # writes ~200 small PNGs per iteration to the Azure File mount;
+          # eastasia ACI → eastasia storage is ~2 ms SMB RTT and finishes
+          # in seconds, but cross-region (northeurope/westus → eastasia
+          # storage) is ~250 ms RTT plus 1000-IOPS share throttling, so
+          # the step hangs past any reasonable deadline. The Speed Index
+          # value it would have produced isn't surfaced in our perf docs;
+          # FCP / LCP / TTI / TTFB / CLS are still captured natively by
+          # Chrome and remain the load-bearing metrics for the checkpoint.
+          BASE_ARGS="--outputFolder /sitespeed.io/out/${CELL} -n 3 --browsertime.visualMetrics=false"
           if [ "${{ matrix.device }}" = "mobile" ]; then
             # Viewport only — no UA override. The local runner sets a UA
             # too but ACI's --command-line argv parser splits on
