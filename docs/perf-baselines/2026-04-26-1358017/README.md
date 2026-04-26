@@ -63,7 +63,7 @@
 | S2 today→training mobile API p95 | 4814 ms | 4196 ms | −618 ms (−13 %) |
 | **S3 warm-Today mobile LCP** | 9732 ms | **5452 ms** | **−4280 ms (−44 %)** |
 | **S4 cold landing desktop FCP** | 2892 ms (`667dcc2`) | **1636 ms** | **−1256 ms (−43 %)** |
-| **S4 cold landing mobile FCP** | 2840 ms | **1504 ms** | **−1336 ms (−47 %)** |
+| **S4 cold landing mobile FCP** | 2788 ms | **1504 ms** | **−1284 ms (−46 %)** |
 
 ## Observations
 
