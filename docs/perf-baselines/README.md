@@ -2,8 +2,6 @@
 
 Numbers, not opinions. Every performance fix lands with a before/after row in this directory so we can attribute each change to a measurable delta.
 
-> **Looking for the headline numbers?** [`summary.md`](./summary.md) is the one-page shareable summary — pre-arc → post-L3 deltas across every scenario, plus a layer-by-layer attribution of which fix bought which seconds. Start there if you want the result; the rest of this doc explains the measurement methodology behind it.
-
 ## Why this exists
 
 Mainland-China users cross the Great Firewall to hit our Azure East Asia deployment. Perceived slowness has multiple causes (render-blocking Google Fonts, no API compression, 1.3 MB monolithic bundle, 7-request Training waterfall, HTTP/2-over-lossy-TCP, no PWA). To know which fix bought which seconds, we need reproducible before/after measurements.
@@ -113,7 +111,7 @@ docs/perf-baselines/
 │   └── ... (one subdir per scenario × probe × device)
 ├── 2026-MM-DD-<sha>/      — after Phase 1 fix #1 (self-host fonts)
 │   └── ...
-└── summary.md             — running table of all baselines (start here for the result, see ./summary.md)
+└── summary.md             — running table of all baselines (created on first real baseline run)
 ```
 
 Each phase's PR description cites the row in `summary.md` that names the metrics that moved, by how much, and any that didn't move in the expected direction (= the fix didn't do what we thought).

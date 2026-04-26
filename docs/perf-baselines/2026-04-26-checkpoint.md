@@ -26,72 +26,6 @@ Cloud-region probes (`eastasia` / `westus` / `northeurope`) — eastasia capture
 
 ---
 
-## Cumulative arc summary — very-first-baseline → post-L3 (`981b657`)
-
-Single big-picture grid of every move from the rawest committed anchor to the post-L3 sitespeed sweep on 2026-04-27. cn-pc-2 (passwall2 OFF, real CN-ISP path) only — that's the user-perception number that matters. Pre-arc anchors differ by scenario as described above.
-
-### S1 — Cold first load /today (login-gated; pre-arc = `d37484b` 2026-04-25)
-
-Phase 1 + Phase 2 (#1-3) already landed by `d37484b`. This row captures **F2 + F4 + PR-139 + L1 + L2 + L3** combined.
-
-| Metric | Pre-arc | Post-L3 | Δ |
-|---|---|---|---|
-| Desktop FCP (ms) | 2892 | **1652** | **−1240 (−43 %)** |
-| Desktop LCP (ms) | 2892 | **1652** | **−1240 (−43 %)** |
-| Desktop TTFB (ms) | 1039 | **464** | **−575 (−55 %)** |
-| Desktop API p95 (ms) | 4112 | **1333** | **−2779 (−68 %)** |
-| Mobile FCP (ms) | 2840 | **1756** | **−1084 (−38 %)** |
-| Mobile LCP (ms) | 2840 | **1756** | **−1084 (−38 %)** |
-| Mobile TTFB (ms) | 984 | **489** | **−495 (−50 %)** |
-| Mobile API p95 (ms) | 3759 | **1230** | **−2529 (−67 %)** |
-
-### S2 — Today→Training cold transition (login-gated; pre-arc = `d37484b`)
-
-| Metric | Pre-arc | Post-L3 | Δ |
-|---|---|---|---|
-| Desktop FCP (ms) | 568 | 516 | −52 (−9 %) |
-| Desktop LCP (ms) | 1100 ⚠ outlier | 2516 | (mean was ~5 s pre-arc; treat as N/A) |
-| Desktop API p95 (ms) | 4102 | **1856** | **−2246 (−55 %)** |
-| Mobile FCP (ms) | 500 | 400 | −100 (−20 %) |
-| Mobile LCP (ms) | 5336 | **2436** | **−2900 (−54 %)** |
-| Mobile API p95 (ms) | 4814 | **1739** | **−3075 (−64 %)** |
-
-### S3 — Warm repeat /today (login-gated; pre-arc = `d37484b`)
-
-| Metric | Pre-arc | Post-L3 | Δ |
-|---|---|---|---|
-| Desktop FCP (ms) | 508 | 516 | +8 (~0 %) |
-| Desktop LCP (ms) | 4888 | **1424** | **−3464 (−71 %)** |
-| Desktop API p95 (ms) | 4147 | **305** | **−3842 (−93 %)** |
-| Mobile FCP (ms) | 440 | 432 | −8 (~0 %) |
-| Mobile LCP (ms) | 9732 | **1420** | **−8312 (−85 %)** |
-| Mobile API p95 (ms) | 4398 | **254** | **−4144 (−94 %)** |
-
-### S4 — Anonymous landing (no login; pre-arc = `468ce25` 2026-04-24, the raw "nothing-done-yet" anchor)
-
-This row captures **the entire arc from day one**: Phase 1 #1 (self-host fonts), Phase 1 #2-3 (code split, GZip), Phase 1 #4 (PWA), F4 (East Asia origin), and incidentally validates that L1/L2/L3 didn't touch S4 (no API in path, control unchanged from `1358017`).
-
-| Metric | Pre-arc | Post-L3 | Δ |
-|---|---|---|---|
-| Desktop FCP (ms) | **22476** | **1636** | **−20840 (−93 %)** |
-| Desktop LCP (ms) | 22476 | 1772 | −20704 (−92 %) |
-| Desktop TTFB (ms) | 1009 | 430 | −579 (−57 %) |
-| Mobile FCP (ms) | **22532** | **1704** | **−20828 (−92 %)** |
-| Mobile LCP (ms) | 22532 | 1836 | −20696 (−92 %) |
-| Mobile TTFB (ms) | 1039 | 514 | −525 (−51 %) |
-
-### Where each layer's contribution lives
-
-The arc summary above pools every fix into one Δ column. To see which layer drove which move, walk through the per-scenario sections below — each has the per-anchor breakdown (pre-arc → 1358017 → 981b657). Headline attributions:
-
-- **−21 s S4 FCP**: Phase 1 #1 (self-host fonts) did most of it — eliminated the GFW-blocked Google Fonts CSS request that was timing out at 22 s. F4 (East Asia origin) added the last ~580 ms TTFB cut.
-- **−43 % S1 FCP / −55 % S1 TTFB**: F4 dominantly. Pre-F4 every blocking asset paid the AMS round-trip; post-F4 they come from HK.
-- **−93-94 % S3 API p95**: L2 + L3 stack. ETag/304 short-circuit makes warm repeat visits return 304 in ms instead of recomputing.
-- **−54-64 % S2 cold API p95 / LCP halved**: L1 (per-endpoint pack split) + L3 (materialized cache reads instead of computes).
-- **−51-67 % S1 mobile API p95**: PR-139 (SQLite WAL + DEK cache) + L1 + L3.
-
----
-
 ## S1 — Cold first load, Today page (via login)
 
 ### cn-pc-2 (passwall2 OFF — real mainland-CN ISP, what your friends without VPN see)
@@ -503,43 +437,6 @@ Cache-instrumentation surface: `api.dashboard_cache.get_stats()` returns `{secti
 Baseline for the L3 measurement is the post-L2 row above. L3's win shape is different again: warm visits (304 path, no body) stay unchanged at L2 cost; cold-200 visits — first read, post-sync read, fresh client — should collapse from `{1130, 1379, ~}` ms p50 down toward the 50 ms band the issue projects (one indexed SELECT on `dashboard_cache` + blake2b-free direct payload return). The `/api/today` p50 < 100 ms cache-hit acceptance gate measures this; re-anchor will land under `2026-04-26-<post-L3-sha>/` once this PR deploys and the synthetic-load script runs against it.
 
 **Hold-before-merge** flag for this PR: the user has asked us to confirm the L2 PR's production test results (it merged ~3 hours before this PR was opened) before merging L3 on top. The L2 numbers will set the baseline this PR is measured against; merging L3 before L2's anchor lands would conflate the two layers' contributions in any post-merge measurement.
-
-### Post-L3 measured anchor — sitespeed cn-pc-2 + cn-pc, 2026-04-27 (`2026-04-27-981b657/`)
-
-End-to-end browser measurements against the deployed L3 code (`981b657`, deployed 2026-04-26 16:11 UTC). Same probe setup as `1358017` — operator PC, 3 iterations per cell, sitespeed.io 39.5.0 inside Docker. Full per-cell tables in [`2026-04-27-981b657/README.md`](2026-04-27-981b657/README.md).
-
-Headline cn-pc-2 deltas vs the pre-L1 anchor `1358017`:
-
-| Cell | Pre-L1 (1358017) | Post-L3 (981b657) | Δ |
-|---|---|---|---|
-| **S1 cold-Today desktop FCP** | 2056 ms | **1652 ms** | **−404 ms (−20 %)** |
-| **S1 cold-Today desktop API p95** | 3839 ms | **1333 ms** | **−2506 ms (−65 %)** |
-| **S1 cold-Today mobile API p95** | 2520 ms | **1230 ms** | **−1290 ms (−51 %)** |
-| **S2 today→training desktop LCP** | 4920 ms | **2516 ms** | **−2404 ms (−49 %)** |
-| **S2 today→training desktop API p95** | 4001 ms | **1856 ms** | **−2145 ms (−54 %)** |
-| **S2 today→training mobile LCP** | 5084 ms | **2436 ms** | **−2648 ms (−52 %)** |
-| **S2 today→training mobile API p95** | 4196 ms | **1739 ms** | **−2457 ms (−59 %)** |
-| **S3 warm-Today desktop LCP** | 5904 ms | **1424 ms** | **−4480 ms (−76 %)** |
-| **S3 warm-Today desktop API p95** | 4507 ms | **305 ms** | **−4202 ms (−93 %)** |
-| **S3 warm-Today mobile LCP** | 5452 ms | **1420 ms** | **−4032 ms (−74 %)** |
-| **S3 warm-Today mobile API p95** | 4452 ms | **254 ms** | **−4198 ms (−94 %)** |
-| S4 cold landing desktop FCP | 1636 ms | 1636 ms | 0 ms (control ✓) |
-| S4 cold landing mobile FCP | 1504 ms | 1704 ms | +200 ms (σ-noise; no API in path) |
-
-**The three takeaways.**
-
-1. **S3 warm-repeat is essentially instant.** Desktop and mobile API p95 dropped 93-94 % to 254-305 ms — that's "ETag check + indexed `cache_revisions` SELECT + 304 send + CN-ISP→HK round-trip". The synthetic-load script measured warm `/api/today` server-side at 17 ms p50 / 69 ms p95 (PR-157); the residual ~250 ms here is real-network-path overhead. LCP −74-76 % follows because the chart paints from browser HTTP-cache instead of a fresh API body.
-
-2. **S2 cold-Training LCP halved.** −49 % desktop / −52 % mobile. The largest element on /training is a chart that paints once `/api/training` returns; pre-L3 that wait was 4 s, post-L3 it's 1.8 s. This is the cold→cold transition users notice first when navigating Today → Training.
-
-3. **S4 unchanged is the control.** No API in the path → no expected change → none observed (desktop 1636 → 1636 ms identical; mobile +200 ms σ-noise on 3 iterations). Confirms the wins on S1/S2/S3 are squarely from the L1/L2/L3 stack rather than any other infrastructure factor moving between 1358017 and 981b657.
-
-cn-pc (passwall2 ON) vs cn-pc-2 (passwall2 OFF) flipped vs `1358017`: cn-pc is now faster on S2 desktop LCP (1304 vs 2516), S2 mobile LCP (1036 vs 2436), S1 mobile API p95 (789 vs 1230), and S4 desktop FCP (1420 vs 1636). With API tails now in the 250 ms-1.8 s range, the cn-pc-vs-cn-pc-2 path-cost gap is small enough that 3-iteration σ dominates; one iteration's tunnel-window variance can flip the median. Wait for a follow-up sweep before drawing architectural conclusions.
-
-**Open items:**
-
-- **Cold S1 desktop API p95 = 1333 ms.** Still elevated for a fully-cached response. Likely the post-deploy first-request warmup pattern (same shape we saw in PR-157's anchor). Should flatten as steady-state organic traffic exercises the materialized cache. The 24-h `praxys-today-latency-regression` alert covers regression detection.
-- **Cloud-region rows (eastasia / westus / northeurope) still TBD** for this checkpoint — pending the cross-region polling-deadline fix from PR-162 (#151) actually being run in anger. Once kicked off the cloud-region rows in this doc can be updated in-place against `981b657`.
 
 ## Tooling state
 
