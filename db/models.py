@@ -8,6 +8,7 @@ from datetime import date, datetime
 from uuid import uuid4
 
 from sqlalchemy import (
+    CheckConstraint,
     Column,
     String,
     Float,
@@ -260,9 +261,11 @@ class DashboardCache(Base):
     """Per-(user, section) materialized response payload (issue #148 / L3).
 
     Each row stores one endpoint's full JSON response, tagged with the
-    ``source_version`` it was computed from — a string of the L2 revision
-    counters for the scopes the endpoint reads (e.g.
-    ``"activities=12|recovery=3|plans=1|fitness=4|config=2|d=2026-04-26"``).
+    ``source_version`` it was computed from — a pipe-separated string of
+    the L2 revision counters for the scopes the endpoint reads, with
+    scopes sorted alphabetically so two callers produce byte-identical
+    strings. Example for ``today`` on 2026-04-26 with all-zero revisions:
+    ``"activities=0|config=0|fitness=0|plans=0|recovery=0|d=2026-04-26"``.
 
     Read path is two-step:
 
@@ -279,9 +282,15 @@ class DashboardCache(Base):
 
     Why a single table instead of one-per-section (the issue's literal
     spec): same correctness, half the schema. ``section`` is a small
-    closed enum, the PK ``(user_id, section)`` has one row per pair, and
-    SQLite's table-level write lock means per-section tables wouldn't
-    even reduce contention. Documented in the PR for #148.
+    closed enum (enforced by the CHECK constraint below), the PK
+    ``(user_id, section)`` has one row per pair, and SQLite's
+    database-level write lock means per-section tables wouldn't even
+    reduce contention. Documented in the PR for #148.
+
+    The CHECK constraint on ``section`` makes the closed enum
+    storage-layer enforced: a buggy writer that bypasses
+    ``api.dashboard_cache.write_cache`` cannot leave an orphan row
+    keyed on a typo'd section name.
     """
 
     __tablename__ = "dashboard_cache"
@@ -291,6 +300,13 @@ class DashboardCache(Base):
     source_version = Column(String(255), nullable=False)
     payload_json = Column(LargeBinary, nullable=False)
     computed_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        CheckConstraint(
+            "section IN ('today','training','goal')",
+            name="ck_dashboard_cache_section",
+        ),
+    )
 
 
 class TrainingPlan(Base):

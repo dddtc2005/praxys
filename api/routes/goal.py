@@ -1,10 +1,11 @@
 """Race / CP goal endpoint."""
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from api.auth import get_data_user_id
 from api.dashboard_cache import cached_or_compute
-from api.etag import ETagGuard, etag_guard_for_endpoint
+from api.etag import CACHE_CONTROL, ETagGuard, etag_guard_for_endpoint
 from api.packs import RequestContext, get_race_pack
 from db.session import get_db
 
@@ -29,15 +30,18 @@ def _build_goal_payload(user_id: str, db: Session) -> dict:
 
 @router.get("/goal")
 def get_goal(
-    response: Response,
     guard: ETagGuard = Depends(etag_guard_for_endpoint("goal")),
     user_id: str = Depends(get_data_user_id),
     db: Session = Depends(get_db),
 ):
     if guard.is_match:
         return guard.not_modified()
-    guard.apply(response)
-    return cached_or_compute(
+    body = cached_or_compute(
         db, user_id, "goal",
         compute=lambda: _build_goal_payload(user_id, db),
+    )
+    return Response(
+        content=body,
+        media_type="application/json",
+        headers={"ETag": guard.etag, "Cache-Control": CACHE_CONTROL},
     )

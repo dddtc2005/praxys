@@ -1,10 +1,11 @@
 """Training analysis endpoint."""
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from api.auth import get_data_user_id
 from api.dashboard_cache import cached_or_compute
-from api.etag import ETagGuard, etag_guard_for_endpoint
+from api.etag import CACHE_CONTROL, ETagGuard, etag_guard_for_endpoint
 from api.packs import RequestContext, get_diagnosis_pack, get_fitness_pack
 from db.session import get_db
 
@@ -32,15 +33,18 @@ def _build_training_payload(user_id: str, db: Session) -> dict:
 
 @router.get("/training")
 def get_training(
-    response: Response,
     guard: ETagGuard = Depends(etag_guard_for_endpoint("training")),
     user_id: str = Depends(get_data_user_id),
     db: Session = Depends(get_db),
 ):
     if guard.is_match:
         return guard.not_modified()
-    guard.apply(response)
-    return cached_or_compute(
+    body = cached_or_compute(
         db, user_id, "training",
         compute=lambda: _build_training_payload(user_id, db),
+    )
+    return Response(
+        content=body,
+        media_type="application/json",
+        headers={"ETag": guard.etag, "Cache-Control": CACHE_CONTROL},
     )
