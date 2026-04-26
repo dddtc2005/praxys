@@ -56,13 +56,16 @@ N/A — first anchor.
 
 ## Raw artifacts
 
-Kept in this directory (gitignored beyond what's listed):
-- `s4-<probe>-<device>/pages/www_praxys_run/data/browsertime.har` — full network HAR per cell (gitignore whitelists these)
-- This `README.md` — analyzer output + context
+HARs for this baseline are in the **`perfbaselines-archive`** Azure blob container (see `docs/perf-baselines/ci-setup.md` for retrieval). Cells captured by canonical path-pattern (after extraction):
+
+- `s4-<probe>-<device>/pages/www_praxys_run/data/browsertime.har` — full network HAR per cell
+
+This `README.md` is the analyzer output + context.
 
 Skipped (see repo `.gitignore`):
 - MP4 videos, filmstrip JPGs, key-event screenshots — heavy, not diff-useful
 - Sitespeed.io's HTML viewer bundle — duplicated across every cell, not baseline data
+- HAR files — moved to private Azure blob (see above) when the repo went public 2026-04-26
 
 To regenerate the metrics from the HARs:
 ```bash

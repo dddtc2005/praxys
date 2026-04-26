@@ -66,12 +66,14 @@ Mobile S3 LCP 9732 ms is the worst single number on the board. Probably one bad 
 
 ## Raw artifacts
 
+HARs for this baseline are in the **`perfbaselines-archive`** Azure blob container (see `docs/perf-baselines/ci-setup.md` for retrieval). Cells captured by canonical path-pattern (after extraction):
+
 - `s1-cn-pc-2-{desktop,mobile}/pages/www_praxys_run/s1-today-via-login/data/browsertime.har`
 - `s2-cn-pc-2-{desktop,mobile}/pages/www_praxys_run/s2-training/data/browsertime.har`
 - `s3-cn-pc-2-{desktop,mobile}/pages/www_praxys_run/s3-today-warm/data/browsertime.har`
 - (videos / filmstrip / screenshots dropped via `.gitignore`)
 
-To re-derive the metrics:
+To re-derive the metrics after extracting the archive:
 
 ```bash
 python scripts/analyze_baseline.py --baseline-dir docs/perf-baselines/2026-04-25-d37484b

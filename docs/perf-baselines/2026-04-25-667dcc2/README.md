@@ -93,12 +93,14 @@ None are urgent — flagged here as the next-most-addressable items if/when Phas
 
 ## Raw artifacts
 
+HARs for this baseline are in the **`perfbaselines-archive`** Azure blob container (see `docs/perf-baselines/ci-setup.md` for retrieval). Cells captured by canonical path-pattern (after extraction):
+
 - `s4-cn-pc-2-desktop/pages/www_praxys_run/data/browsertime.har` — full HAR, all 102 requests
 - `s4-cn-pc-2-mobile/pages/www_praxys_run/data/browsertime.har` — same for mobile
-- `www.praxys.run-20260425T110757.json` — Lighthouse 13 report, desktop form factor
+- `www.praxys.run-20260425T110757.json` — Lighthouse 13 report, desktop form factor (kept in-repo, no auth headers)
 - (videos / filmstrip / screenshots dropped via `.gitignore`)
 
-To re-derive the sitespeed metrics:
+To re-derive the sitespeed metrics after extracting the archive:
 
 ```bash
 python scripts/analyze_baseline.py --baseline-dir docs/perf-baselines/2026-04-25-667dcc2
