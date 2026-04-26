@@ -233,6 +233,29 @@ class AiInsight(Base):
     )
 
 
+class CacheRevision(Base):
+    """Per-(user, scope) monotonic counter for HTTP cache revalidation (issue #147).
+
+    A scope groups one or more underlying tables that an endpoint pack reads;
+    sync writers and config-mutation routes bump the relevant scopes after a
+    commit. The ETag for each /api/* response is built from the revisions of
+    the scopes that endpoint actually consumes, so a goal edit won't bust the
+    Today page's ETag and a sync writing only activities won't bust the
+    Science page's ETag.
+
+    A counter is preferred over a timestamp because two writes within the same
+    second still produce distinct revisions — no risk of a 304 hiding a fresh
+    write that landed in the same wall-clock second as the prior request.
+    """
+
+    __tablename__ = "cache_revisions"
+
+    user_id = Column(String(36), ForeignKey("users.id"), primary_key=True)
+    scope = Column(String(20), primary_key=True)
+    revision = Column(Integer, nullable=False, default=0)
+    bumped_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class TrainingPlan(Base):
     """Planned workouts (from Stryd, AI-generated, etc.)."""
 
