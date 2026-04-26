@@ -22,7 +22,7 @@ Numerical sources for every claim below are the committed baselines in `docs/per
 
 The S4 pre-arc starts from `468ce25` (raw, before any Phase-1 work) so the delta captures the full fix arc including self-host fonts. The S1/S2/S3 pre-arc starts from `d37484b` because that's our oldest login-scripted baseline; cn-pc S1/S2/S3 has no committed pre-arc data, so those rows show only "now".
 
-Cloud-region probes (`eastasia` / `westus` / `northeurope`) — pending; needs PR-145 (workflow rewrite) to land + a first sweep against the new origin. Will be appended to this file once we have the data.
+Cloud-region probes (`eastasia` / `westus` / `northeurope`) — eastasia captured (see [Cloud-region probes](#cloud-region-probes-azure-internal-sitespeedio-via-aci) below). Westus / northeurope TBD pending the cross-region polling-timeout fix flagged in that section.
 
 ---
 
@@ -173,6 +173,75 @@ Cloud-region probes (`eastasia` / `westus` / `northeurope`) — pending; needs P
 
 ---
 
+## Cloud-region probes (Azure-internal sitespeed.io via ACI)
+
+Captured 2026-04-26 via the matrix workflow (run [#24951134483](https://github.com/dddtc2005/praxys/actions/runs/24951134483)) right before the L1/L2/L3 arc starts. Three probes intended (eastasia, westus, northeurope), but the workflow's 15-min polling-step timeout proved too short for cross-region runs against a single East Asia origin: westus and northeurope cells terminated cleanly with no data captured (sitespeed.io was still mid-iteration when the timeout fired). Tracked as a follow-up to bump the timeout for cross-region runs (the workflow could probe `containers[0].instanceView.previousState` or use a state-aware deadline reset rather than a flat 15 min).
+
+So this section has **eastasia rows only**. Westus and northeurope rows are TBD pending the workflow timeout fix.
+
+### S1 — Cold first load, Today page (via login)
+
+| Probe | Device | FCP (ms) | LCP (ms) | TTI (ms) | TTFB (ms) | Static KB | API KB | # reqs | # API | API p50 | API p95 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| eastasia | Desktop | 900 | 900 | 151 | 96 | 1360.9 | 12.7 | 81 | 48 | 115 | 4427 |
+| eastasia | Mobile | 1212 | 1212 | 476 | 428 | 1010.4 | 12.6 | 75 | 48 | 79 | 3531 |
+| westus | Desktop | n/a (cell timed out) | | | | | | | | | |
+| westus | Mobile | n/a (cell timed out) | | | | | | | | | |
+| northeurope | Desktop | n/a (cell timed out) | | | | | | | | | |
+| northeurope | Mobile | n/a (cell timed out) | | | | | | | | | |
+
+### S2 — Today loaded → click to /training
+
+| Probe | Device | FCP (ms) | LCP (ms) | TTI (ms) | TTFB (ms) | Static KB | API KB | # reqs | # API | API p50 | API p95 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| eastasia | Desktop | 1100 | 1608 | 66 | 19 | 455.4 | 21.9 | 57 | 36 | 66 | 5136 |
+| eastasia | Mobile | 1520 | 2048 | 94 | 9 | 908.4 | 22.0 | 62 | 36 | 86 | 4534 |
+| westus | Desktop | n/a (cell timed out) | | | | | | | | | |
+| westus | Mobile | n/a (cell timed out) | | | | | | | | | |
+| northeurope | Desktop | n/a (cell timed out) | | | | | | | | | |
+| northeurope | Mobile | n/a (cell timed out) | | | | | | | | | |
+
+### S3 — Warm repeat /today (PWA shell from cache)
+
+| Probe | Device | FCP (ms) | LCP (ms) | TTI (ms) | TTFB (ms) | Static KB | API KB | # reqs | # API | API p50 | API p95 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| eastasia | Desktop | 444 | 4828 | 80 | 9 | 693.5 | 43.9 | 72 | 48 | 81 | 5436 |
+| eastasia | Mobile | 688 | 14828 | 88 | 12 | 927.5 | 43.9 | 76 | 47 | 86 | 4914 |
+| westus | Desktop | n/a (cell timed out) | | | | | | | | | |
+| westus | Mobile | n/a (cell timed out) | | | | | | | | | |
+| northeurope | Desktop | n/a (cell timed out) | | | | | | | | | |
+| northeurope | Mobile | n/a (cell timed out) | | | | | | | | | |
+
+### S4 — Anonymous Landing
+
+| Probe | Device | FCP (ms) | LCP (ms) | TTI (ms) | TTFB (ms) | Static KB | # reqs |
+|---|---|---|---|---|---|---|---|
+| eastasia | Desktop | 888 | 888 | 121 | 61 | 4955.3 | 101 |
+| eastasia | Mobile | 1128 | 1128 | 194 | 129 | 4955.3 | 101 |
+| westus | Desktop | n/a (cell timed out) | | | | | |
+| westus | Mobile | n/a (cell timed out) | | | | | |
+| northeurope | Desktop | n/a (cell timed out) | | | | | |
+| northeurope | Mobile | n/a (cell timed out) | | | | | |
+
+### Eastasia observations vs cn-pc-2 (the same origin, different probe path)
+
+The eastasia ACI runs from inside Azure East Asia hitting `https://www.praxys.run` (also East Asia App Service) — essentially "same datacenter network". cn-pc-2 hits the same origin but from raw mainland CN ISP, paying ~30-60 ms RTT.
+
+Comparing eastasia (datacenter) vs cn-pc-2 (real user) at this checkpoint:
+
+| Metric (S1 desktop) | eastasia | cn-pc-2 | Diff |
+|---|---|---|---|
+| FCP | 900 ms | 2056 ms | +1156 ms (CN-ISP overhead) |
+| TTFB | 96 ms | 570 ms | +474 ms (CN-ISP overhead) |
+| API p50 | 115 ms | 170 ms | +55 ms |
+| API p95 | 4427 ms | 3839 ms | -588 ms (sample noise) |
+
+The ~470 ms TTFB delta and ~1.1 s FCP delta is the **real-CN-ISP-vs-Azure-internal** cost. After F4 + PR-139, that's the residual network reality we can't optimize away from the server side. The L1/L2/L3 arc targets the API p50/p95 numbers (CPU-bound work in `get_dashboard_data()`); the FCP/TTFB cost stays put unless we add a CN-mainland CDN (post-ICP).
+
+### S3 mobile LCP outlier flag
+
+`s3-eastasia-mobile LCP = 14828 ms` vs `s3-eastasia-desktop LCP = 4828 ms`. 3× gap, no obvious render-path explanation — likely one bad iteration in the median. Worth a re-run if S3 mobile becomes load-bearing for an L1/L2/L3 acceptance gate; otherwise treat as σ-noise.
+
 ## Cross-endpoint API median (App Insights — server-side, real production traffic)
 
 ### Pre-PR-139 (1 week of organic traffic before PR-139 landed)
@@ -238,7 +307,7 @@ This is what the next three optimization layers target:
 ## Tooling state
 
 - **Local sitespeed runner** (`scripts/sitespeed_runner.sh`) — works against any URL, supports S1/S2/S3/S4 × desktop/mobile. The cn-pc / cn-pc-2 anchor numbers above all came from this. Gold standard for "what does the operator (and CN audience) actually feel."
-- **Cloud sitespeed runner** (`.github/workflows/perf-baseline.yml`) — being rewritten in PR-145: matrix-driven (`scenario × probe × device` = up to 24 cells per dispatch), polling-bug fixed (was hanging cross-region runs by relying on an unreliable state field). Once PR-145 lands, we have reliable Azure-internal probes for eastasia/westus/northeurope to triangulate audience experience without needing the operator's PC. **Cloud-region rows above are still TBD.**
+- **Cloud sitespeed runner** (`.github/workflows/perf-baseline.yml`) — matrix-driven (`scenario × probe × device` = up to 24 cells per dispatch), polling-bug fixed (PR-145). One cross-region quirk remaining: the 15-min polling timeout is too short for cells where the test driver in westus/northeurope is hitting an East Asia origin (~150 ms RTT × many requests = >15 min for 3 S1 iterations). Eastasia cells run cleanly. Tracked as a follow-up; the easy fix is bumping the timeout for cross-region cells or adding a state-aware deadline reset.
 - **Synthetic-load validator** (`scripts/perf_synthetic_load_check.py`) — drives 30-call bursts against a deployed environment, queries App Insights for server-side p50/p95 vs a baseline window. This is what produced the PR-139 −65 % p50 measurement that synthetic browser baselines couldn't capture cleanly because of small-sample p95 noise. Reusable for every backend perf change.
 - **Azure Monitor alert** — `praxys-today-latency-regression` fires when `/api/today` mean exceeds 3000 ms over a 24-h window. Catches future regressions on real traffic without us having to remember to look.
 

@@ -2,15 +2,22 @@
 
 Sports science that meets you where you are. Praxys syncs data from Garmin, Stryd, and Oura Ring, computes training metrics (fitness/fatigue/form, zone analysis, CP trend, race predictions), and serves a modern web dashboard with AI-powered coaching skills — for elite athletes, serious amateurs, and curious beginners alike.
 
-![Praxys — Sports science that meets you where you are.](data/screenshots/hero-showcase.png)
+![Praxys — every step, reasoned.](web/public/og-card.png)
 
-> **Note:** Praxys is the new name for the project formerly known as Trainsight. The on-disk database file (`trainsight.db`) and legacy `TRAINSIGHT_*` environment variables continue to work during the deprecation window — see `docs/brand/index.html` for the brand guideline.
+> **Note:** Praxys is the new name for the project formerly known as Trainsight. The on-disk database file (`trainsight.db`) and legacy `TRAINSIGHT_*` environment variables continue to work during the deprecation window — see [`docs/brand/index.html`](docs/brand/index.html) for the brand guideline.
 
-## Usage Modes
+## Where to Run It
 
-**Cloud app (recommended):** Deployed on Azure at [praxys.run](https://praxys.run). Register, connect your platforms, sync data, and view the dashboard from anywhere. AI features available via the CLI plugin in remote mode.
+| Surface | URL | Notes |
+|---------|-----|-------|
+| Web app | [`www.praxys.run`](https://www.praxys.run) | React SPA on Azure App Service; apex `praxys.run` redirects here. |
+| Backend API | [`api.praxys.run`](https://api.praxys.run) | FastAPI on Azure App Service (East Asia). JWT-auth on every route except `/api/register` and `/api/token`. |
+| WeChat Mini Program | `miniapp/` (Taro 4 + React) | Authenticates against the same backend via `/api/auth/wechat/*`. Build with `npm run build:weapp` and load `dist/` in WeChat DevTools. |
+| AI plugin | `plugins/praxys/` | 8 skills + a dual-mode MCP server (local SQLite, or remote against `api.praxys.run`). |
 
-**Local development:** Same codebase runs locally. Start the backend and frontend dev servers, register as the first user (becomes admin), and you are up and running.
+**Cloud app (recommended):** register, connect your platforms, sync data, view the dashboard from anywhere. AI features are available via the Praxys plugin in remote mode.
+
+**Local development:** the same codebase runs locally — start the backend and frontend dev servers, register as the first user (becomes admin), and you are up and running.
 
 ## Quick Start (Local Development)
 
@@ -33,6 +40,14 @@ cd web && npm install && npm run dev
 ```
 
 For sample data without API credentials: `python scripts/seed_sample_data.py`
+
+## What's Inside
+
+- **Pure-function metrics** in `analysis/metrics.py` — fitness/fatigue/form, CP trend, zone distribution, Riegel + Stryd race predictions, all with source citations.
+- **Pluggable data sources** in `analysis/providers/` — Garmin Connect, Stryd, Oura Ring v2, plus an optional AI provider for plan generation.
+- **Multi-user from day one** — JWT auth, invitation-based registration, Fernet-encrypted platform credentials, per-user Garmin token directories.
+- **Decoupled frontend host** — `frontend_server/` is a standalone App Service site (`praxys-frontend`), so the same `web/dist/` artifact can later sit behind Tencent COS for a CN audience without Azure-specific glue.
+- **Designed for scientific rigor** — every formula carries a citation, every estimate is flagged, the `science-reviewer` and `metric-addition-reviewer` agents enforce the discipline on every change.
 
 ## Documentation
 
@@ -63,4 +78,7 @@ Garmin, Stryd, Oura, and WeChat are trademarks of their respective owners. Praxy
 - **Stryd** — synced via the same email/password endpoints the Stryd web app uses. There is no official partner API for individual users. Same risk class as Garmin.
 - **Oura Ring** — synced via the [official Oura API v2](https://cloud.ouraring.com/v2/docs) using a Personal Access Token. This is a supported integration path.
 
-You retain full ownership of your data. Praxys stores it on your own database (local for local development, your own Azure deployment for cloud).
+### Where your data lives
+
+- **Self-hosted (local development or your own Azure deployment):** all data sits in your own SQLite database. You control the host, the backups, and who has access.
+- **Cloud app at `praxys.run`:** your activity, recovery, and goal data are stored in our managed Azure deployment. Your **platform credentials** (Garmin password, Stryd password, Oura access token) are protected with **envelope encryption** — per-user Fernet DEKs wrapped by a KEK held outside the database — so they're never stored in plaintext, never returned to the frontend, and never logged. Activity and recovery data themselves are not encrypted at the application layer beyond standard storage-level encryption. See [`docs/security.md`](docs/security.md) for the full scheme.
