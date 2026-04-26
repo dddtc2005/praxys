@@ -117,6 +117,12 @@ if not os.environ.get("WEBSITE_SITE_NAME"):
         allow_headers=["*"],
     )
 
+# Per-IP rate limit on the auth surface — see api/auth_rate_limit.py for the
+# threat model. Skipped only when explicitly disabled (tests / local dev).
+from api.auth_rate_limit import AuthRateLimitMiddleware, is_rate_limit_disabled
+if not is_rate_limit_disabled():
+    app.add_middleware(AuthRateLimitMiddleware)
+
 # Auth routes
 from api.users import fastapi_users, auth_backend
 
