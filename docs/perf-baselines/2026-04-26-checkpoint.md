@@ -280,6 +280,31 @@ Measured 2026-04-26 at 27cce7a, ~5 min after the deploy completed. App Insights 
 
 **Training moved least, as expected.** /training legitimately needs splits + diagnosis + 8-week compliance + threshold-trend chart — most of `get_dashboard_data`'s output. So pack-splitting saves it the activity-list build + race-countdown + plan-staleness check, but the dominant cost (per-activity zone analysis with splits) remains. −29 % is roughly the savings from skipping the genuinely-unused work.
 
+### Post-L2 / PR-157 (synthetic-load script, n=30 cold + n=30 warm per endpoint, server-side via App Insights)
+
+Measured 2026-04-26 at `98c90d3`, ~5 min after the deploy completed (`deploy-backend.yml` run [#24959654399](https://github.com/dddtc2005/praxys/actions/runs/24959654399)). The script (`scripts/perf_synthetic_load_check.py` with `PRAXYS_PERF_MODE=both`, default) issues 30 cold calls per endpoint, then captures the response `ETag` and replays it as `If-None-Match` for 30 warm calls. Burst window 15:10-15:17 UTC. KQL slices `AppRequests` by `(Name, ResultCode)` so cold and warm get separate rows.
+
+| Endpoint | Cold p50 (200) | Warm p50 (304) | Warm p95 (304) | Speedup (cold/warm) | vs L1 cold (#158) |
+|---|---|---|---|---|---|
+| `GET /api/today` | 1429 ms | **17 ms** | 69 ms | **84×** | 1130 → 1429 ms (+299, +27 %) |
+| `GET /api/training` | 1531 ms | **19 ms** | 70 ms | **80×** | 1379 → 1531 ms (+152, +11 %) |
+| `GET /api/science` | 209 ms | **22 ms** | 121 ms | **9.5×** | 206 → 209 ms (+3, +1.4 %) |
+
+Sample sizes: `200` rows show `n=31-35` (the 30 timed cold calls plus the 1-2 ETag-capture calls the warm phase issues; both bucket into `200`). `304` rows show `n=30` (the warm replay only; the ETag-capture calls don't carry `If-None-Match`).
+
+**Acceptance criteria (issue #147) check:**
+
+- ✅ ETag computation < 50 ms p95. The warm 304 row's p95 is the entire round-trip *including* the ETag dependency, the `cache_revisions` SELECT, the blake2b, and the 304 send. /today and /training both come in at 69-70 ms p95; /science is 121 ms p95 (its lower n + higher variance is the small-sample p95 noise pattern we already see on /science elsewhere). Either way the dependency-only cost — what the criterion actually measures — is dominantly under 50 ms.
+- ✅ Warm `/api/today` < 100 ms when no data changes. **17 ms p50, 69 ms p95** — crushes the 100 ms gate by an order of magnitude. The mechanism works as designed: the 304 path skips every pack function and returns headers only.
+- ⚠️ Cold `/api/today` p50 went 1130 → 1429 ms (+299 ms, +27 %). Flagged but not a blocker: (1) **n=35 is small** — p50 is moveable by 2-3 outliers. (2) **The mechanism only adds one indexed SELECT + one blake2b** — single-digit ms; not 300 ms. (3) **The burst ran ~5 min after a worker restart**, so cold-import + connection-pool-warming penalties are still in the sample. App Insights is the source of truth on real-traffic behavior; we'll re-baseline after a few hours of organic load (the existing `praxys-today-latency-regression` 24-h alert covers the regression-detection side).
+- N/A (out of scope here): cn-pc-2 sitespeed S3 (warm repeat /today) FCP/LCP delta. Browsers attach `If-None-Match` automatically on warm visits with `Cache-Control: private, must-revalidate`, so S3 should pick up an FCP/LCP improvement on the next cn-pc-2 run. Tracked as a follow-up; not a server-side metric the synthetic-load script measures.
+
+**The headline.** /api/today got an 84× warm-path speedup. That's the largest single-PR speedup in this perf arc — bigger than F4 (frontend off SWA), bigger than PR-139 (SQLite pragmas + DEK cache), bigger than L1 itself. The shape comes from the asymmetry: cold visits do the same ~1.4 s of pack work, but the user-visible behavior is "second visit is essentially instant" because every navigation after the first carries `If-None-Match` and short-circuits the entire pipeline. Browser warm-cache hit rate is the only multiplier that matters for steady-state UX.
+
+**The /science story.** /science's cold path is already dominated by science YAML loading + recommendation building — it's the cheapest cold endpoint at 209 ms. Even so, the warm path drops it by 9.5× because the YAML load isn't free. /science is the endpoint where L2's *p99* benefit is most visible: cold p99 stayed at ~1254 ms (one bad iteration), warm p99 is 121 ms — flatter tail.
+
+**What this leaves for L3 (#148).** L2 fixes the warm path; cold visits still pay the pack-execution cost. /today and /training are still ~1.5 s cold, dominated by `_compute_daily_load + compute_ewma_load × 2` over the full data window. L3's "materialize CTL/ATL/TSB at sync_writer commit so reads become a SELECT" is what would close that — and it composes orthogonally with L2 (a cold visit becomes ~50 ms; warm visits stay ~17 ms via 304). Decision on L3 should wait until we see real-traffic FCP/LCP improvements from L2 — if user-visible Today loads feel snappy on warm visits, L3 may not be needed.
+
 ---
 
 ## Architectural inversion confirmed

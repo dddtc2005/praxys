@@ -22,7 +22,11 @@ Optional env vars (all have safe defaults):
     PRAXYS_PERF_PASSWORD   default: demo
     PRAXYS_PERF_N          default: 30  (calls per endpoint)
     PRAXYS_PERF_PAUSE_MS   default: 200  (between requests)
-    PRAXYS_PERF_INGEST_S   default: 120  (App Insights ingestion lag)
+    PRAXYS_PERF_INGEST_S   default: 180  (App Insights ingestion lag — bumped
+                                    from 120 after observing empty queries
+                                    immediately post-burst on L2 measurement;
+                                    180 s is comfortably above the workspace's
+                                    p99 ingestion latency)
     PRAXYS_PERF_BASELINE_DAYS   default: 7  (lookback window for "before")
     PRAXYS_PERF_MODE       default: both
                                     "cold" runs the historical 200-only burst.
@@ -233,6 +237,23 @@ def _run_kql(query: str) -> list[dict]:
     return json.loads(result.stdout)
 
 
+def _kql_datetime(ts: datetime) -> str:
+    """Format a datetime as KQL's preferred ``YYYY-MM-DDTHH:MM:SSZ`` literal.
+
+    Python's ``datetime.isoformat()`` produces e.g. ``...+00:00`` which
+    KQL's ``datetime()`` does parse, but inconsistently across query
+    surfaces — App Insights' Log Analytics endpoint occasionally rejects
+    the offset form silently (returning an empty result instead of a
+    parse error), which manifests as "the script reports 0 rows but a
+    direct ``az`` probe with ``ago(...)`` returns full data." The Z-form
+    is the canonical KQL literal and parses everywhere.
+
+    Truncates microseconds because the burst's resolution is 200 ms+ and
+    fractional-second timestamps add no signal.
+    """
+    return ts.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def _server_window_summary(start: datetime, end: datetime) -> list[dict]:
     """Server-side p50/p95/p99 from App Insights for the synthetic-load window.
 
@@ -241,8 +262,8 @@ def _server_window_summary(start: datetime, end: datetime) -> list[dict]:
     is preserved on those endpoints; post-L2 each endpoint produces two
     rows when both phases ran.
     """
-    start_iso = start.isoformat()
-    end_iso = end.isoformat()
+    start_iso = _kql_datetime(start)
+    end_iso = _kql_datetime(end)
     query = f"""
         AppRequests
         | where TimeGenerated between (datetime({start_iso}) .. datetime({end_iso}))
@@ -269,7 +290,7 @@ def _server_baseline_summary(days: int, burst_start: datetime) -> list[dict]:
     query = f"""
         AppRequests
         | where TimeGenerated > ago({days}d)
-              and TimeGenerated < datetime({burst_start.isoformat()})
+              and TimeGenerated < datetime({_kql_datetime(burst_start)})
         | where Name in ("GET /api/today", "GET /api/training", "GET /api/science")
         | summarize n=count(),
                     p50=percentile(DurationMs, 50),
@@ -311,7 +332,7 @@ def main() -> int:
     pwd = os.environ.get("PRAXYS_PERF_PASSWORD", "demo")
     n = int(os.environ.get("PRAXYS_PERF_N", "30"))
     pause_ms = int(os.environ.get("PRAXYS_PERF_PAUSE_MS", "200"))
-    ingest_s = int(os.environ.get("PRAXYS_PERF_INGEST_S", "120"))
+    ingest_s = int(os.environ.get("PRAXYS_PERF_INGEST_S", "180"))
     baseline_days = int(os.environ.get("PRAXYS_PERF_BASELINE_DAYS", "7"))
     mode = os.environ.get("PRAXYS_PERF_MODE", "both").lower()
     if mode not in {"cold", "warm", "both"}:
