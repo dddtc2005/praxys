@@ -97,11 +97,15 @@ If this is a "before" anchor, skip. If this is "after Phase X #Y", name the prev
 
 ## Raw artifacts
 
-Saved in this directory. Naming convention: `sN-<probe>-<device>.<ext>`.
+**HARs are not committed alongside this README.** Per the HAR storage policy in `docs/perf-baselines/ci-setup.md`, raw HARs live in:
 
-- `sN-<probe>-<device>.har` — full network HAR export
-- `sN-<probe>-<device>.lighthouse.json` — Lighthouse JSON report
-- `sN-<probe>-<device>.filmstrip.png` — filmstrip strip (visual sanity check)
-- `sN-<probe>-<device>.wpt-link` — permalink to the WebPageTest result page
+- **GitHub Actions artifacts** (`baseline-<cell>-<run-id>` / `baseline-combined-<run-id>`) for 30 days post-run
+- **Azure blob `perfbaselines-archive`** on `stperftrainsight` for long-term durability
 
-Example: `s1-beijing-mobile.har`, `s4-hongkong-desktop.lighthouse.json`.
+Lighthouse JSON / filmstrip / Lighthouse-13 reports are also kept out of the repo via `.gitignore` (heavy binary, regenerable).
+
+For this baseline, list the cells that were captured by their canonical path-pattern below so a future operator can locate them after extraction:
+
+- `sN-<probe>-<device>/pages/<slug>/[<measure-name>/]data/browsertime.har`
+
+Example cells captured: ...
