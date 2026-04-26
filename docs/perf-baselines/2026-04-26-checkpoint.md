@@ -384,6 +384,34 @@ ETag computation cost is one indexed `SELECT (scope, revision) FROM cache_revisi
 
 Baseline for the L2 measurement is the post-L1 row from PR #158 above: `/api/today` 1130 ms / `/api/training` 1379 ms / `/api/science` 206 ms p50 from App Insights. L2's win shape is different from L1's: cold visits should land ~unchanged (one extra SELECT + blake2b on the 200 path), while warm visits with a valid `If-None-Match` should collapse to the dependency cost only (well under 100 ms — the synthetic-load script's warm-burst scenario will measure this). Re-anchor will land under a new `2026-04-26-<post-L2-sha>/` directory once this PR deploys.
 
+### Post-L3 anchor — code change landed (this PR, #148)
+
+L3 closes the gap on cold-200 reads: when L2's `If-None-Match` doesn't match (first visit, after a sync, mid-day on a fresh client), the response is materialised from a per-section cache row instead of re-running the L1 packs.
+
+Code-level summary of what shipped:
+
+- `db/models.py` — new `dashboard_cache(user_id, section, source_version, payload_json, computed_at)` table, PK `(user_id, section)`. `Base.metadata.create_all` covers it without an ALTER migration. Single table instead of one-per-section (the issue spec) — same correctness, half the schema; SQLite's table-level write lock means per-section tables wouldn't even reduce contention.
+- `api/dashboard_cache.py` — new module: `compute_source_version` (mirrors `compute_etag` but returns the raw revision string instead of a hash), `read_cache` / `write_cache` (savepoint-wrapped upsert so an integrity-error rollback doesn't trash the surrounding read transaction), and `cached_or_compute` (snapshot → SELECT → compare → fall through to L1 compute on mismatch → write back tagged with the snapshot).
+- `api/routes/{today,training,goal}.py` — each route is now `if guard.is_match: 304 else cached_or_compute(section, lambda: <L1 pack composition>)`. The L1 pack-based payload builder is extracted as a private `_build_<section>_payload(user_id, db)` so the route stays compact and the cache-miss path is identical to the pre-L3 hot path.
+- `tests/test_dashboard_cache.py` — 10 new tests covering the cold/warm/race/midnight/scope-isolation/corrupt-row matrix.
+
+Sections cached: `today`, `training`, `goal`. Deliberately deferred:
+
+- `/api/history` — paginated by `limit/offset/source` query params; a single row per (user, section) would either thrash on every page change or balloon into one row per param tuple. L2 already 304s warm history visits — defer until measurements show the cold path needs help.
+- `/api/science` — post-L1 p50 is ~206 ms (already inside target). The locale axis (`Accept-Language`) would require a two-key cache. Defer until measurements justify the complexity.
+
+Race-correctness mechanism (acceptance criterion in #148): the snapshot of `source_version` is taken BEFORE the compute runs, and the cache row is written tagged with that snapshot. If a write commits between snapshot and compute-finish, the cache row gets labelled with the older revisions; the next reader sees fresh revisions, mismatches, and recomputes. We never overwrite the cache with a payload labelled fresher than the data it was built from. The dedicated `test_race_condition_falls_through_to_compute` test reproduces this scenario by hand-injecting a sentinel payload into the cache row and asserting it is not served on the next read.
+
+Eager warmup vs lazy compute-on-miss: the issue describes either as acceptable. We ship lazy: the L1 fallback path doubles as the recompute trigger, the L2 `bump_revisions` calls in `db/sync_writer.py` and `api/routes/{settings,science,ai}.py` are exactly the right invalidation signal, and the architecture has no extra moving parts beyond the new table + helper module. If post-deploy measurements show a cold-after-sync latency spike worth eliminating, an eager warmup hook can be added on top of the same primitives without re-architecting.
+
+Suite: **519 passing** (509 prior + 10 new cache tests), 1 skipped.
+
+Cache-instrumentation surface: `api.dashboard_cache.get_stats()` returns `{section: {hits, misses, ratio}}` per-process; the acceptance criterion ">95 % hit ratio after 1 day" is measured from the production Application Insights stream once deployed (the in-process counters reset on worker restart and are advisory only).
+
+Baseline for the L3 measurement is the post-L2 row above. L3's win shape is different again: warm visits (304 path, no body) stay unchanged at L2 cost; cold-200 visits — first read, post-sync read, fresh client — should collapse from `{1130, 1379, ~}` ms p50 down toward the 50 ms band the issue projects (one indexed SELECT on `dashboard_cache` + blake2b-free direct payload return). The `/api/today` p50 < 100 ms cache-hit acceptance gate measures this; re-anchor will land under `2026-04-26-<post-L3-sha>/` once this PR deploys and the synthetic-load script runs against it.
+
+**Hold-before-merge** flag for this PR: the user has asked us to confirm the L2 PR's production test results (it merged ~3 hours before this PR was opened) before merging L3 on top. The L2 numbers will set the baseline this PR is measured against; merging L3 before L2's anchor lands would conflate the two layers' contributions in any post-merge measurement.
+
 ## Tooling state
 
 - **Local sitespeed runner** (`scripts/sitespeed_runner.sh`) — works against any URL, supports S1/S2/S3/S4 × desktop/mobile. The cn-pc / cn-pc-2 anchor numbers above all came from this. Gold standard for "what does the operator (and CN audience) actually feel."

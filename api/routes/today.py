@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from api.auth import get_data_user_id
+from api.dashboard_cache import cached_or_compute
 from api.etag import ETagGuard, etag_guard_for_endpoint
 from api.packs import (
     RequestContext,
@@ -27,20 +28,11 @@ def _recovery_theory_meta(science: dict) -> dict | None:
     }
 
 
-@router.get("/today")
-def get_today(
-    response: Response,
-    guard: ETagGuard = Depends(etag_guard_for_endpoint("today")),
-    user_id: str = Depends(get_data_user_id),
-    db: Session = Depends(get_db),
-):
-    if guard.is_match:
-        return guard.not_modified()
-    guard.apply(response)
+def _build_today_payload(user_id: str, db: Session) -> dict:
+    """Compute the /api/today response from L1 packs (cache miss path)."""
     ctx = RequestContext(user_id=user_id, db=db)
     signal = get_signal_pack(ctx)
     widgets = get_today_widgets(ctx)
-
     return {
         "signal": signal["signal"],
         "tsb_sparkline": signal["tsb_sparkline"],
@@ -55,3 +47,19 @@ def get_today(
         "data_meta": ctx.data_meta,
         "science_notes": ctx.science_notes,
     }
+
+
+@router.get("/today")
+def get_today(
+    response: Response,
+    guard: ETagGuard = Depends(etag_guard_for_endpoint("today")),
+    user_id: str = Depends(get_data_user_id),
+    db: Session = Depends(get_db),
+):
+    if guard.is_match:
+        return guard.not_modified()
+    guard.apply(response)
+    return cached_or_compute(
+        db, user_id, "today",
+        compute=lambda: _build_today_payload(user_id, db),
+    )

@@ -256,6 +256,43 @@ class CacheRevision(Base):
     bumped_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class DashboardCache(Base):
+    """Per-(user, section) materialized response payload (issue #148 / L3).
+
+    Each row stores one endpoint's full JSON response, tagged with the
+    ``source_version`` it was computed from — a string of the L2 revision
+    counters for the scopes the endpoint reads (e.g.
+    ``"activities=12|recovery=3|plans=1|fitness=4|config=2|d=2026-04-26"``).
+
+    Read path is two-step:
+
+      1. ``SELECT payload_json, source_version FROM dashboard_cache``
+         keyed on ``(user_id, section)``. If ``source_version`` matches the
+         currently-computed value, return ``payload_json`` directly —
+         sub-50 ms cache hit.
+      2. On mismatch (post-write or first visit), fall through to the
+         original pack-based compute path; write the result back keyed on
+         the snapshot taken BEFORE the compute. A concurrent write that
+         lands mid-compute leaves the cache row labelled with the older
+         revisions; the very next read sees fresh revisions, mismatches,
+         and recomputes — never wrong, just sometimes a wasted compute.
+
+    Why a single table instead of one-per-section (the issue's literal
+    spec): same correctness, half the schema. ``section`` is a small
+    closed enum, the PK ``(user_id, section)`` has one row per pair, and
+    SQLite's table-level write lock means per-section tables wouldn't
+    even reduce contention. Documented in the PR for #148.
+    """
+
+    __tablename__ = "dashboard_cache"
+
+    user_id = Column(String(36), ForeignKey("users.id"), primary_key=True)
+    section = Column(String(32), primary_key=True)
+    source_version = Column(String(255), nullable=False)
+    payload_json = Column(LargeBinary, nullable=False)
+    computed_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class TrainingPlan(Base):
     """Planned workouts (from Stryd, AI-generated, etc.)."""
 
