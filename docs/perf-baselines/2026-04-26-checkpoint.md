@@ -304,6 +304,29 @@ This is what the next three optimization layers target:
 
 **L1 is required before L2 and L3 make sense** — without splitting the kitchen-sink, neither caching strategy has a sane invalidation surface. Once L1 lands, L2 is additive and L3 stays in the toolbox until the warm-visit speed of L1 stops feeling adequate.
 
+### Post-L1 anchor — code change landed (this PR, #146)
+
+Code-level summary of what shipped:
+
+- `api/packs.py` — new `RequestContext` (request-scoped `cached_property` cache for config, deduplicated activities, thresholds, science, EWMA series) plus 7 packs: `get_signal_pack`, `get_today_widgets`, `get_diagnosis_pack`, `get_fitness_pack`, `get_race_pack`, `get_history_pack`, `get_science_pack`.
+- `api/routes/{today,training,goal,history,science}.py` — each rewired to construct one `RequestContext` and call only the packs it needs.
+- `api/deps.py` — left intact for legacy callers (`api/ai.py`, `api/routes/plan.py`, `plugins/praxys/mcp-server/server.py`); gradual deprecation, not a big-bang.
+- `tests/test_packs.py` — 10 new unit tests, including a parity check that `get_signal_pack` matches `get_dashboard_data['signal']` and a cache-counting test that proves `load_data_from_db` runs exactly once per request.
+
+Concrete work skipped per endpoint relative to legacy `get_dashboard_data`:
+
+| Endpoint | Skips |
+|---|---|
+| `/api/today` | diagnosis, workout flags, sleep-perf scatter, full activity list (extracts the latest row only), 8-week compliance (computes current week only), `_compute_threshold_data` |
+| `/api/training` | full activity list, race countdown, plan-staleness warnings |
+| `/api/goal` | diagnosis, workout flags, sleep-perf scatter, weekly compliance, full activity list |
+| `/api/history` | every metric (returns the deduplicated activities list only) |
+| `/api/science` | merged activities, splits, recovery, thresholds, EWMA load, threshold trend chart — does only `load_config + load_active_science + recommend_science` |
+
+Suite: **445 passing** (435 prior + 10 new pack tests), 1 skipped.
+
+Production p50 / FCP measurements vs the 1358017 cn-pc-2 anchor are pending deploy + sweep — `scripts/perf_synthetic_load_check.py` and a cn-pc-2 sitespeed run will be re-anchored under a new `2026-04-26-<post-L1-sha>/` directory once this lands and traffic flows.
+
 ## Tooling state
 
 - **Local sitespeed runner** (`scripts/sitespeed_runner.sh`) — works against any URL, supports S1/S2/S3/S4 × desktop/mobile. The cn-pc / cn-pc-2 anchor numbers above all came from this. Gold standard for "what does the operator (and CN audience) actually feel."

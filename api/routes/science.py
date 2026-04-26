@@ -3,13 +3,11 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from api.auth import get_data_user_id, require_write_access
-from api.deps import get_dashboard_data
 from analysis.config import (
-    load_config,
-    save_config,
     load_config_from_db,
     save_config_to_db,
 )
+from analysis.metrics import get_distance_config
 from analysis.science import (
     PILLARS,
     list_theories,
@@ -66,19 +64,27 @@ def get_science(
     user_id: str = Depends(get_data_user_id),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Return active theories, all available options, and recommendations."""
-    data = get_dashboard_data(user_id=user_id, db=db)
+    """Return active theories, all available options, and recommendations.
+
+    Doesn't go through the full dashboard pipeline: loading config + science
+    is enough. The legacy `recommend_science` call only inspects DataFrame
+    inputs (the previous code passed a list[dict], which never matched the
+    isinstance check), so passing ``None`` here produces byte-identical
+    recommendations while skipping the activity / split / threshold load.
+    """
     config = load_config_from_db(user_id, db)
     locale = _resolve_locale(config.language, request)
-    science = data.get("science", {})
 
-    # Active theories — reload in requested locale so the user sees translated
-    # prose without the dashboard loader needing to know about locales.
+    # Active theories — loaded in the requested locale so the user sees
+    # translated prose without the dashboard loader needing to know about
+    # locales.
+    science = load_active_science(
+        config.science, config.zone_labels, locale=locale,
+    )
+
     active = {}
-    from analysis.science import load_active_science
-    localized = load_active_science(config.science, config.zone_labels, locale=locale) if locale else science
     for pillar in PILLARS:
-        theory = localized.get(pillar)
+        theory = science.get(pillar)
         if theory:
             summary = _theory_summary(theory)
             if theory.tsb_zones_labeled:
@@ -99,16 +105,12 @@ def get_science(
     label_sets = [{"id": ls.id, "name": ls.name} for ls in list_label_sets()]
 
     # Recommendations
-    activities = data.get("activities", None)
-    recovery_df = data.get("recovery", None)
-    # Extract goal distance from config
-    from analysis.metrics import get_distance_config
     dist_key = str(config.goal.get("distance", "marathon"))
     goal_km = get_distance_config(dist_key).get("km")
 
     recs = recommend_science(
-        activities=activities,
-        recovery=recovery_df,
+        activities=None,
+        recovery=None,
         goal_distance_km=goal_km,
         connected_platforms=config.connections,
         training_base=config.training_base,

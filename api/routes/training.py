@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from api.auth import get_data_user_id
-from api.deps import get_dashboard_data
+from api.packs import RequestContext, get_diagnosis_pack, get_fitness_pack
 from db.session import get_db
 
 router = APIRouter()
@@ -14,16 +14,18 @@ def get_training(
     user_id: str = Depends(get_data_user_id),
     db: Session = Depends(get_db),
 ):
-    data = get_dashboard_data(user_id=user_id, db=db)
+    ctx = RequestContext(user_id=user_id, db=db)
+    diagnosis = get_diagnosis_pack(ctx)
+    fitness = get_fitness_pack(ctx)
     return {
-        "diagnosis": data["diagnosis"],
-        "fitness_fatigue": data["fitness_fatigue"],
-        "cp_trend": data["cp_trend"],
-        "weekly_review": data["weekly_review"],
-        "workout_flags": data["workout_flags"],
-        "sleep_perf": data["sleep_perf"],
-        "training_base": data["training_base"],
-        "display": data["display"],
-        "data_meta": data.get("data_meta"),
-        "science_notes": data.get("science_notes"),
+        "diagnosis": diagnosis["diagnosis"],
+        "fitness_fatigue": fitness["fitness_fatigue"],
+        "cp_trend": fitness["cp_trend"],
+        "weekly_review": fitness["weekly_review"],
+        "workout_flags": diagnosis["workout_flags"],
+        "sleep_perf": diagnosis["sleep_perf"],
+        "training_base": ctx.config.training_base,
+        "display": ctx.display,
+        "data_meta": ctx.data_meta,
+        "science_notes": ctx.science_notes,
     }
