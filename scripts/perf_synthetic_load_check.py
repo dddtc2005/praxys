@@ -24,6 +24,16 @@ Optional env vars (all have safe defaults):
     PRAXYS_PERF_PAUSE_MS   default: 200  (between requests)
     PRAXYS_PERF_INGEST_S   default: 120  (App Insights ingestion lag)
     PRAXYS_PERF_BASELINE_DAYS   default: 7  (lookback window for "before")
+    PRAXYS_PERF_MODE       default: both
+                                    "cold" runs the historical 200-only burst.
+                                    "warm" runs the L2 ETag-revalidation burst:
+                                    issue one cold call per endpoint to capture
+                                    the ``ETag``, then replay it as
+                                    ``If-None-Match`` for the remaining N-1 calls.
+                                    "both" runs cold first, then warm, in
+                                    sequence. The App Insights summary slices
+                                    by status code so 200 (cold) and 304
+                                    (warm) get separate p50/p95.
 
 Reads the workspace customer-id and tenant via the local az CLI cache,
 so no secrets in env vars. The demo account is read-only and (per
@@ -53,6 +63,8 @@ class ClientSample:
     endpoint: str
     duration_ms: float
     status: int
+    phase: str = "cold"  # "cold" | "warm" — kept on the sample so multi-phase
+                         # runs can be summarized without re-correlating times.
 
 
 def _login(base_url: str, email: str, password: str) -> str:
@@ -66,7 +78,8 @@ def _login(base_url: str, email: str, password: str) -> str:
     return r.json()["access_token"]
 
 
-def _drive_load(base_url: str, token: str, n: int, pause_ms: int) -> list[ClientSample]:
+def _drive_cold(base_url: str, token: str, n: int, pause_ms: int) -> list[ClientSample]:
+    """N requests per endpoint with no ``If-None-Match`` — full pack execution."""
     headers = {"Authorization": f"Bearer {token}"}
     samples: list[ClientSample] = []
     total = n * len(ENDPOINTS)
@@ -80,12 +93,81 @@ def _drive_load(base_url: str, token: str, n: int, pause_ms: int) -> list[Client
                     endpoint=endpoint,
                     duration_ms=(time.monotonic() - t0) * 1000,
                     status=r.status_code,
+                    phase="cold",
                 ))
             except requests.RequestException as e:
-                samples.append(ClientSample(endpoint=endpoint, duration_ms=-1, status=0))
+                samples.append(ClientSample(endpoint=endpoint, duration_ms=-1, status=0, phase="cold"))
                 print(f"  request failed: {e}", file=sys.stderr)
             done += 1
-            print(f"  {done}/{total}  {endpoint}  {samples[-1].duration_ms:.0f}ms", flush=True)
+            print(f"  {done}/{total}  cold {endpoint}  {samples[-1].duration_ms:.0f}ms", flush=True)
+            time.sleep(pause_ms / 1000)
+    return samples
+
+
+def _drive_warm(base_url: str, token: str, n: int, pause_ms: int) -> list[ClientSample]:
+    """One cold call per endpoint to capture ``ETag``, then N-1 warm calls
+    carrying ``If-None-Match: <etag>``.
+
+    Mirrors what a returning browser does on every navigation after its
+    initial cold paint: the browser caches the body and keys it on the
+    ETag, then includes ``If-None-Match`` on the next visit. With L2 the
+    server short-circuits to 304 + zero body, so the timing here measures
+    "ETag dependency + SELECT cache_revisions + blake2b" — not pack
+    execution. A 200 response in this phase is the L2 invariant violator
+    we want to know about: it means a write between the cold capture and
+    the warm replay flipped the ETag (or the dependency wasn't reached).
+    """
+    base_headers = {"Authorization": f"Bearer {token}"}
+    samples: list[ClientSample] = []
+    total = n * len(ENDPOINTS)
+    done = 0
+    for endpoint in ENDPOINTS:
+        # Capture ETag with one cold call. Don't time this one — it's
+        # paid by the cold burst already, so including it in warm samples
+        # would double-count the pack-execution cost.
+        try:
+            cold = requests.get(
+                f"{base_url}{endpoint}", headers=base_headers, timeout=60,
+            )
+        except requests.RequestException as e:
+            print(f"  warm: ETag-capture call for {endpoint} failed: {e}", file=sys.stderr)
+            done += n
+            continue
+        etag = cold.headers.get("ETag")
+        if not etag:
+            print(
+                f"  warm: {endpoint} returned no ETag header (status {cold.status_code}) "
+                f"— skipping warm phase for this endpoint",
+                file=sys.stderr,
+            )
+            done += n
+            continue
+
+        warm_headers = {**base_headers, "If-None-Match": etag}
+        # The warm burst issues N requests so its sample size matches the
+        # cold burst exactly — keeps the p50/p95 percentiles directly
+        # comparable.
+        for _ in range(n):
+            t0 = time.monotonic()
+            try:
+                r = requests.get(
+                    f"{base_url}{endpoint}", headers=warm_headers, timeout=60,
+                )
+                samples.append(ClientSample(
+                    endpoint=endpoint,
+                    duration_ms=(time.monotonic() - t0) * 1000,
+                    status=r.status_code,
+                    phase="warm",
+                ))
+            except requests.RequestException as e:
+                samples.append(ClientSample(endpoint=endpoint, duration_ms=-1, status=0, phase="warm"))
+                print(f"  request failed: {e}", file=sys.stderr)
+            done += 1
+            print(
+                f"  {done}/{total}  warm {endpoint}  "
+                f"{samples[-1].duration_ms:.0f}ms  HTTP {samples[-1].status}",
+                flush=True,
+            )
             time.sleep(pause_ms / 1000)
     return samples
 
@@ -100,10 +182,22 @@ def _percentile(values: list[float], pct: float) -> float:
     return s[f] + (s[c] - s[f]) * (k - f)
 
 
-def _client_summary(samples: list[ClientSample]) -> dict[str, dict[str, float]]:
+def _client_summary(
+    samples: list[ClientSample], phase: str, status: int = 200,
+) -> dict[str, dict[str, float]]:
+    """Bucket samples by endpoint for one (phase, status) slice.
+
+    Cold phase reports the 200 slice (the only outcome under L1). Warm phase
+    reports the 304 slice — the L2 short-circuit. A 200 in the warm phase
+    is reported separately as an invariant violator (a write between the
+    cold capture and the warm replay flipped the ETag).
+    """
     out: dict[str, dict[str, float]] = {}
     for ep in ENDPOINTS:
-        ds = [s.duration_ms for s in samples if s.endpoint == ep and s.status == 200]
+        ds = [
+            s.duration_ms for s in samples
+            if s.endpoint == ep and s.phase == phase and s.status == status
+        ]
         if not ds:
             out[ep] = {"n": 0}
             continue
@@ -140,7 +234,13 @@ def _run_kql(query: str) -> list[dict]:
 
 
 def _server_window_summary(start: datetime, end: datetime) -> list[dict]:
-    """Server-side p50/p95/p99 from App Insights for the synthetic-load window."""
+    """Server-side p50/p95/p99 from App Insights for the synthetic-load window.
+
+    Slices by ResultCode so 200 (cold) and 304 (warm) get separate rows.
+    Pre-L2 there were no 304s so the prior single-row-per-endpoint shape
+    is preserved on those endpoints; post-L2 each endpoint produces two
+    rows when both phases ran.
+    """
     start_iso = start.isoformat()
     end_iso = end.isoformat()
     query = f"""
@@ -152,8 +252,8 @@ def _server_window_summary(start: datetime, end: datetime) -> list[dict]:
                     p95=percentile(DurationMs, 95),
                     p99=percentile(DurationMs, 99),
                     maxMs=max(DurationMs)
-                  by Name
-        | order by Name asc
+                  by Name, ResultCode
+        | order by Name asc, ResultCode asc
     """
     return _run_kql(query)
 
@@ -176,20 +276,33 @@ def _server_baseline_summary(days: int, burst_start: datetime) -> list[dict]:
                     p95=percentile(DurationMs, 95),
                     p99=percentile(DurationMs, 99),
                     maxMs=max(DurationMs)
-                  by Name
-        | order by Name asc
+                  by Name, ResultCode
+        | order by Name asc, ResultCode asc
     """
     return _run_kql(query)
 
 
 def _print_table(title: str, rows: list[dict]) -> None:
     print(f"\n{title}")
-    print(f"  {'endpoint':<22} {'n':>4} {'p50':>8} {'p95':>8} {'p99':>8} {'max':>8}")
-    print(f"  {'-'*22} {'-'*4} {'-'*8} {'-'*8} {'-'*8} {'-'*8}")
+    print(f"  {'endpoint':<22} {'code':>4} {'n':>4} {'p50':>8} {'p95':>8} {'p99':>8} {'max':>8}")
+    print(f"  {'-'*22} {'-'*4} {'-'*4} {'-'*8} {'-'*8} {'-'*8} {'-'*8}")
     for r in rows:
-        print(f"  {r['Name']:<22} {int(float(r['n'])):>4} "
+        code = r.get("ResultCode", "?")
+        print(f"  {r['Name']:<22} {str(code):>4} {int(float(r['n'])):>4} "
               f"{float(r['p50']):>7.0f}ms {float(r['p95']):>7.0f}ms "
               f"{float(r['p99']):>7.0f}ms {float(r['maxMs']):>7.0f}ms")
+
+
+def _print_client_summary(title: str, summary: dict[str, dict[str, float]]) -> None:
+    print(f"\n  {title}")
+    print(f"  {'endpoint':<22} {'n':>4} {'p50':>8} {'p95':>8} {'p99':>8} {'mean':>8}")
+    print(f"  {'-'*22} {'-'*4} {'-'*8} {'-'*8} {'-'*8} {'-'*8}")
+    for ep, s in summary.items():
+        if s.get("n", 0) == 0:
+            print(f"  {ep:<22} (none)")
+            continue
+        print(f"  {ep:<22} {s['n']:>4} {s['p50']:>7.0f}ms {s['p95']:>7.0f}ms "
+              f"{s['p99']:>7.0f}ms {s['mean']:>7.0f}ms")
 
 
 def main() -> int:
@@ -200,30 +313,51 @@ def main() -> int:
     pause_ms = int(os.environ.get("PRAXYS_PERF_PAUSE_MS", "200"))
     ingest_s = int(os.environ.get("PRAXYS_PERF_INGEST_S", "120"))
     baseline_days = int(os.environ.get("PRAXYS_PERF_BASELINE_DAYS", "7"))
+    mode = os.environ.get("PRAXYS_PERF_MODE", "both").lower()
+    if mode not in {"cold", "warm", "both"}:
+        print(f"PRAXYS_PERF_MODE={mode!r} not in cold|warm|both", file=sys.stderr)
+        return 2
 
     print(f"Target: {base}")
-    print(f"Plan: {n} requests x {len(ENDPOINTS)} endpoints = "
-          f"{n * len(ENDPOINTS)} calls, {pause_ms}ms apart")
+    print(f"Mode: {mode}")
+    phases_planned = {"cold": ["cold"], "warm": ["warm"], "both": ["cold", "warm"]}[mode]
+    total_calls = n * len(ENDPOINTS) * len(phases_planned)
+    print(f"Plan: {n} requests x {len(ENDPOINTS)} endpoints x {len(phases_planned)} phase(s) = "
+          f"{total_calls} calls, {pause_ms}ms apart")
 
     print("\n[1/4] Logging in...")
     token = _login(base, user, pwd)
 
-    print(f"\n[2/4] Driving synthetic load...")
+    print(f"\n[2/4] Driving synthetic load ({', '.join(phases_planned)})...")
     start = datetime.now(timezone.utc)
-    samples = _drive_load(base, token, n, pause_ms)
+    all_samples: list[ClientSample] = []
+    if "cold" in phases_planned:
+        all_samples.extend(_drive_cold(base, token, n, pause_ms))
+    if "warm" in phases_planned:
+        all_samples.extend(_drive_warm(base, token, n, pause_ms))
     end = datetime.now(timezone.utc)
     print(f"\nClient wall-clock window: {start.isoformat()} .. {end.isoformat()}")
 
     print("\n[3/4] Client-side timings (includes network from this PC):")
-    cs = _client_summary(samples)
-    print(f"  {'endpoint':<22} {'n':>4} {'p50':>8} {'p95':>8} {'p99':>8} {'mean':>8}")
-    print(f"  {'-'*22} {'-'*4} {'-'*8} {'-'*8} {'-'*8} {'-'*8}")
-    for ep, s in cs.items():
-        if s.get("n", 0) == 0:
-            print(f"  {ep:<22} (none)")
-            continue
-        print(f"  {ep:<22} {s['n']:>4} {s['p50']:>7.0f}ms {s['p95']:>7.0f}ms "
-              f"{s['p99']:>7.0f}ms {s['mean']:>7.0f}ms")
+    if "cold" in phases_planned:
+        _print_client_summary(
+            "COLD (200 — full pack execution)",
+            _client_summary(all_samples, phase="cold", status=200),
+        )
+    if "warm" in phases_planned:
+        _print_client_summary(
+            "WARM 304 (L2 short-circuit — dependency + SELECT + blake2b only)",
+            _client_summary(all_samples, phase="warm", status=304),
+        )
+        # A 200 in the warm phase means the ETag was busted between the
+        # capture call and the warm replay — surface it so noise vs.
+        # invalidation-storms are visible.
+        warm_200 = _client_summary(all_samples, phase="warm", status=200)
+        if any(s.get("n", 0) > 0 for s in warm_200.values()):
+            _print_client_summary(
+                "WARM 200 (ETag busted between capture and replay — should be 0)",
+                warm_200,
+            )
 
     print(f"\n[4/4] Waiting {ingest_s}s for App Insights ingestion...")
     time.sleep(ingest_s)
@@ -245,12 +379,15 @@ def main() -> int:
         after = []
 
     if before and after:
-        print("\nDelta (negative = faster):")
-        before_by_name = {r["Name"]: r for r in before}
-        after_by_name = {r["Name"]: r for r in after}
-        for name in sorted(set(before_by_name) | set(after_by_name)):
-            b = before_by_name.get(name)
-            a = after_by_name.get(name)
+        # Compare 200-vs-200 only (304s have no historical baseline since
+        # L2 hadn't shipped). The 304 win is visible in the burst rows
+        # alone — orders of magnitude under p50 of the 200 row.
+        print("\nDelta — 200 only, negative = faster:")
+        before_200 = {r["Name"]: r for r in before if str(r.get("ResultCode")) == "200"}
+        after_200 = {r["Name"]: r for r in after if str(r.get("ResultCode")) == "200"}
+        for name in sorted(set(before_200) | set(after_200)):
+            b = before_200.get(name)
+            a = after_200.get(name)
             if not (b and a):
                 continue
             for stat in ("p50", "p95", "p99"):
