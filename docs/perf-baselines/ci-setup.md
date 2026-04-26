@@ -4,15 +4,19 @@ This documents the Azure resources + GitHub config that back `.github/workflows/
 
 ## What the workflow does
 
-Trigger: **manual** (`workflow_dispatch`) only. Inputs: `reason`, `probe` (Azure region — `eastasia` / `westus` / `northeurope`), `target_url`, `scenario` (`s1` / `s2` / `s3` / `s4`), `device`.
+Trigger: **manual** (`workflow_dispatch`) only. Inputs: `reason`, `probe` (`all` / `eastasia` / `westus` / `northeurope`), `scenario` (`all` / `s1` / `s2` / `s3` / `s4`), `device` (`both` / `desktop` / `mobile`), `target_url`.
+
+The workflow expands those inputs into a three-axis matrix (`scenario × probe × device`). With defaults (`scenario=all probe=all device=both`) one click produces 24 cells in a single workflow run, all running in parallel via GH Actions matrix (capped at 8 concurrent for ACI quota friendliness). Single-cell runs are still possible — set the specific axis values you want.
+
+Per-cell flow:
 
 1. Uses OIDC to log in to Azure with the same service principal `deploy-backend.yml` uses.
-2. Spins up an Azure Container Instance in the chosen region running `sitespeedio/sitespeed.io:latest`.
-3. ACI mounts an Azure Files share at `/sitespeed.io/out` so the HAR + browsertime output lands somewhere durable.
-4. Polls until the container exits, dumps its stdout log, then downloads the HARs from the share back to the GH runner.
-5. Uploads a GH Actions artifact per cell (one per probe × device pair in the matrix).
-6. Deletes the container + wipes the share path so nothing accumulates.
-7. A final summary job runs `scripts/analyze_baseline.py` across all cells and uploads the populated markdown table as its own artifact.
+2. (For S1/S2/S3) Uploads `scripts/sitespeed_scripts/*.js` preScripts to a `scripts/` subfolder of the perfbaselines share.
+3. Spins up an Azure Container Instance in the cell's region running `sitespeedio/sitespeed.io:latest` with the share mounted at `/sitespeed.io/out`.
+4. Waits for the container to terminate by polling **`exitCode != null`** (not `state == "Terminated"` — that field is unreliable cross-region). 15-min hard timeout; on timeout, downloads whatever made it to the share anyway.
+5. Downloads the cell's HARs back to the runner and uploads as a GH Actions artifact (`baseline-<cell>-<run-id>`).
+6. Deletes the container + wipes the cell's path on the share (`if: always()` — runs even on cell failure).
+7. A final summary job runs `scripts/analyze_baseline.py` across all cells in the run and uploads the populated markdown table as `baseline-combined-<run-id>`.
 
 ## Azure resources
 

@@ -1,8 +1,13 @@
 name: Perf Baseline (sitespeed.io via ACI)
 
-# Manual-trigger-only. Runs sitespeed.io inside an Azure Container Instance
-# in the chosen region, captures HAR + sitespeed output to an Azure Files
-# share, downloads back to the runner, uploads as a GH Action artifact.
+# Manual-trigger-only. Runs sitespeed.io inside Azure Container Instances
+# in the chosen regions, captures HAR + sitespeed output to an Azure Files
+# share, downloads back to the runner, uploads as GH Action artifacts.
+#
+# Matrix-driven: each input axis (scenario, probe, device) accepts 'all' or
+# a specific value. With defaults (scenario=all, probe=all, device=both)
+# one click produces the full sweep — 4 scenarios × 3 regions × 2 devices
+# = 24 cells, all running in parallel as separate matrix jobs.
 #
 # One-time prerequisites (see docs/perf-baselines/ci-setup.md):
 #   - Storage account `stperftrainsight` in rg-trainsight (already created)
@@ -15,42 +20,44 @@ on:
   workflow_dispatch:
     inputs:
       reason:
-        description: 'Why running this baseline (e.g. "anchor before phase 2" or "after self-host fonts")'
+        description: 'Why running this baseline (e.g. "anchor before phase 2" or "after L1 refactor")'
         required: true
         type: string
       probe:
-        description: 'Azure region the ACI runs in — three macro-regions matching real audience: APAC/CN, US-West, EU'
+        description: 'Azure region — three macro-regions matching audience: APAC/CN, US-West, EU; or all'
         required: false
         type: choice
-        default: 'eastasia'
+        default: 'all'
         options:
+          - 'all'
           - 'eastasia'
           - 'westus'
           - 'northeurope'
-      target_url:
-        description: 'URL or base URL — for S4 the page to load; for S1/S2/S3 the host without trailing slash (login flow appends /login etc.)'
-        required: false
-        type: string
-        default: 'https://www.praxys.run/'
       scenario:
-        description: 'Test scenario — S4=anonymous landing, S1=login→Today, S2=Today→Training, S3=warm-Today repeat'
+        description: 'Test scenario — S4=anonymous landing, S1=login→Today, S2=Today→Training, S3=warm-Today; or all'
         required: false
         type: choice
-        default: 's4'
+        default: 'all'
         options:
-          - 's4'
+          - 'all'
           - 's1'
           - 's2'
           - 's3'
+          - 's4'
       device:
         description: 'Device emulation'
         required: false
         type: choice
         default: 'both'
         options:
+          - 'both'
           - 'desktop'
           - 'mobile'
-          - 'both'
+      target_url:
+        description: 'URL or base URL — for S4 the page to load; for S1/S2/S3 the host (login flow appends /login etc.)'
+        required: false
+        type: string
+        default: 'https://www.praxys.run/'
 
 permissions:
   contents: read
@@ -63,32 +70,52 @@ env:
   FILE_SHARE: perfbaselines
 
 jobs:
-  resolve-devices:
+  resolve-matrix:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.build.outputs.matrix }}
+      scenarios: ${{ steps.build.outputs.scenarios }}
+      probes: ${{ steps.build.outputs.probes }}
+      devices: ${{ steps.build.outputs.devices }}
     steps:
       - id: build
         run: |
-          if [ "${{ inputs.device }}" = "both" ]; then
-            echo 'matrix=["desktop","mobile"]' >> "$GITHUB_OUTPUT"
-          else
-            echo 'matrix=["${{ inputs.device }}"]' >> "$GITHUB_OUTPUT"
-          fi
+          # Each axis accepts 'all' (expand to all known options) or a
+          # specific value (single-element list). Three nested matrix
+          # axes give us scenario × probe × device — the full sweep with
+          # 'all/all/both' = 24 cells.
+          case "${{ inputs.scenario }}" in
+            all) SCENARIOS='["s1","s2","s3","s4"]' ;;
+            *)   SCENARIOS='["${{ inputs.scenario }}"]' ;;
+          esac
+          case "${{ inputs.probe }}" in
+            all) PROBES='["eastasia","westus","northeurope"]' ;;
+            *)   PROBES='["${{ inputs.probe }}"]' ;;
+          esac
+          case "${{ inputs.device }}" in
+            both) DEVICES='["desktop","mobile"]' ;;
+            *)    DEVICES='["${{ inputs.device }}"]' ;;
+          esac
+          echo "scenarios=$SCENARIOS" >> "$GITHUB_OUTPUT"
+          echo "probes=$PROBES"      >> "$GITHUB_OUTPUT"
+          echo "devices=$DEVICES"    >> "$GITHUB_OUTPUT"
+          echo "Resolved matrix: scenarios=$SCENARIOS probes=$PROBES devices=$DEVICES"
 
   baseline:
-    needs: resolve-devices
+    needs: resolve-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      # Cap parallelism so we don't hammer Azure quotas with 24 simultaneous
+      # ACI creates. Default GH limit is 256 jobs, but ACI per-region quotas
+      # are much tighter. 8 in parallel finishes a full sweep in ~3 waves.
+      max-parallel: 8
       matrix:
-        device: ${{ fromJson(needs.resolve-devices.outputs.matrix) }}
+        scenario: ${{ fromJSON(needs.resolve-matrix.outputs.scenarios) }}
+        probe: ${{ fromJSON(needs.resolve-matrix.outputs.probes) }}
+        device: ${{ fromJSON(needs.resolve-matrix.outputs.devices) }}
     env:
-      CELL: ${{ inputs.scenario }}-${{ inputs.probe }}-${{ matrix.device }}
-      CONTAINER_NAME: sitespeed-${{ inputs.scenario }}-${{ inputs.probe }}-${{ matrix.device }}-${{ github.run_id }}-${{ github.run_attempt }}
-      # Strip trailing slash so preScripts can do `${baseUrl}/login` etc.
-      # without doubling it. target_url's default has a trailing slash for
-      # S4 (sitespeed.io accepts it as URL); S1/S2/S3 want the bare host.
+      CELL: ${{ matrix.scenario }}-${{ matrix.probe }}-${{ matrix.device }}
+      CONTAINER_NAME: sitespeed-${{ matrix.scenario }}-${{ matrix.probe }}-${{ matrix.device }}-${{ github.run_id }}-${{ github.run_attempt }}
       PRAXYS_PERF_BASE_URL: ${{ inputs.target_url }}
     steps:
       - uses: actions/checkout@v6
@@ -100,7 +127,7 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Upload preScripts (S1/S2/S3 only)
-        if: inputs.scenario != 's4'
+        if: matrix.scenario != 's4'
         run: |
           # The preScripts (s1.js etc.) drive Chrome through the login flow.
           # ACI mounts the perfbaselines file share at /sitespeed.io/out, so
@@ -145,24 +172,17 @@ jobs:
           # navigation. preScripts read PRAXYS_PERF_BASE_URL +
           # PRAXYS_PERF_USER + PRAXYS_PERF_PASSWORD env vars (set on the
           # ACI below), defaulting to the public demo account.
-          if [ "${{ inputs.scenario }}" = "s4" ]; then
+          if [ "${{ matrix.scenario }}" = "s4" ]; then
             TAIL_ARGS="${{ inputs.target_url }}"
           else
-            TAIL_ARGS="--multi /sitespeed.io/out/scripts/${{ inputs.scenario }}.js"
+            TAIL_ARGS="--multi /sitespeed.io/out/scripts/${{ matrix.scenario }}.js"
           fi
           echo "args=/start.sh ${TAIL_ARGS} ${BASE_ARGS} ${DEVICE_ARGS}" >> "$GITHUB_OUTPUT"
 
-      - name: Create ACI + wait for completion
+      - name: Create ACI
         run: |
           set -euo pipefail
-
-          # Strip trailing slash from base URL so preScripts can do
-          # ${baseUrl}/login without doubling the slash.
           BASE_URL="${PRAXYS_PERF_BASE_URL%/}"
-          # Public demo account — same defaults Landing.tsx ships in its
-          # "Try the demo" CTA; not secret. Override via repository secrets
-          # PRAXYS_PERF_USER / PRAXYS_PERF_PASSWORD if testing against a
-          # non-demo account.
           PERF_USER="${{ secrets.PRAXYS_PERF_USER || 'demo@trainsight.dev' }}"
           PERF_PASS="${{ secrets.PRAXYS_PERF_PASSWORD || 'demo' }}"
 
@@ -172,7 +192,7 @@ jobs:
             --name "$CONTAINER_NAME" \
             --image sitespeedio/sitespeed.io:latest \
             --os-type Linux \
-            --location "${{ inputs.probe }}" \
+            --location "${{ matrix.probe }}" \
             --cpu 2 --memory 4 \
             --restart-policy Never \
             --azure-file-volume-account-name "$STORAGE_ACCOUNT" \
@@ -186,37 +206,58 @@ jobs:
             --command-line "${{ steps.cmd.outputs.args }}" \
             --no-wait
 
-          # Poll until the container exits. ACI's single-run model surfaces
-          # state as "Terminated" with an exitCode once the process finishes.
-          while true; do
+      - name: Wait for container to terminate
+        id: wait
+        run: |
+          # Poll until exit code is set OR 15-min hard timeout. We use
+          # exit-code presence as the completion signal because the
+          # `currentState.state` field is unreliable cross-region —
+          # it can stay as "Running" even after the container has
+          # actually exited (we hung 15 of 15 cross-region runs on this
+          # before the rewrite). Exit code is the canonical "done"
+          # marker that's set exactly when the process terminates.
+          DEADLINE=$(($(date +%s) + 900))   # 15 min wall clock
+          EXIT_CODE=""
+          while [ "$(date +%s)" -lt "$DEADLINE" ]; do
+            EXIT_CODE=$(az container show \
+              --subscription "$AZ_SUBSCRIPTION" \
+              --resource-group "$AZ_RG" \
+              --name "$CONTAINER_NAME" \
+              --query "containers[0].instanceView.currentState.exitCode" -o tsv 2>/dev/null || true)
+            if [ -n "$EXIT_CODE" ] && [ "$EXIT_CODE" != "null" ]; then
+              break
+            fi
             STATE=$(az container show \
               --subscription "$AZ_SUBSCRIPTION" \
               --resource-group "$AZ_RG" \
               --name "$CONTAINER_NAME" \
               --query "containers[0].instanceView.currentState.state" -o tsv 2>/dev/null || true)
-            echo "[$(date -u +%T)] container state: ${STATE:-pending}"
-            if [ "$STATE" = "Terminated" ]; then break; fi
+            echo "[$(date -u +%T)] state=${STATE:-pending} exit_code=${EXIT_CODE:-pending}"
             sleep 20
           done
-
-          EXIT_CODE=$(az container show \
-            --subscription "$AZ_SUBSCRIPTION" \
-            --resource-group "$AZ_RG" \
-            --name "$CONTAINER_NAME" \
-            --query "containers[0].instanceView.currentState.exitCode" -o tsv)
-          echo "container exit code: $EXIT_CODE"
 
           echo "---- container logs (tail) ----"
           az container logs \
             --subscription "$AZ_SUBSCRIPTION" \
             --resource-group "$AZ_RG" \
-            --name "$CONTAINER_NAME" | tail -80
+            --name "$CONTAINER_NAME" 2>&1 | tail -80 || true
 
-          exit "$EXIT_CODE"
+          # Persist the exit code (or 'timeout') as a step output so
+          # downstream steps can decide whether to treat as success.
+          if [ -z "$EXIT_CODE" ] || [ "$EXIT_CODE" = "null" ]; then
+            echo "::warning::Polling timed out at 15 min — container exit code never appeared. Will still attempt to download whatever made it to the share."
+            echo "exit_code=timeout" >> "$GITHUB_OUTPUT"
+          else
+            echo "Container terminated with exit code: $EXIT_CODE"
+            echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Download HARs + strip heavy binaries
+        if: always()
         run: |
-          set -euo pipefail
+          # Run even on polling timeout — sitespeed.io may have written
+          # output to the share before our polling lost track of it.
+          set -uo pipefail
           mkdir -p baseline-output
           az storage file download-batch \
             --subscription "$AZ_SUBSCRIPTION" \
@@ -224,18 +265,37 @@ jobs:
             --account-key "${{ secrets.STORAGE_ACCOUNT_KEY }}" \
             --source "$FILE_SHARE" \
             --pattern "${CELL}/*" \
-            --destination ./baseline-output/
+            --destination ./baseline-output/ || true
 
           # Match the .gitignore pattern in docs/perf-baselines/: keep HAR +
           # light reports, drop videos/filmstrip/screenshots bundles.
           find baseline-output -type d \( -name video -o -name filmstrip -o -name screenshots \) \
             -exec rm -rf {} + 2>/dev/null || true
 
+          # If nothing came down, surface that — but don't fail the step
+          # (the upload-artifact step will skip an empty dir gracefully).
+          if [ -z "$(find baseline-output -name 'browsertime.har' 2>/dev/null)" ]; then
+            echo "::warning::No HARs in baseline-output for cell ${CELL} — sitespeed didn't produce output, or the share write is delayed."
+          fi
+
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: baseline-${{ env.CELL }}-${{ github.run_id }}
           path: baseline-output/
           retention-days: 30
+          if-no-files-found: warn
+
+      - name: Fail step if container exit was non-zero or timed out
+        run: |
+          # Surface failure AFTER artifact upload so we still capture data
+          # from cells that ran but reported a non-zero exit.
+          EC="${{ steps.wait.outputs.exit_code }}"
+          case "$EC" in
+            0)       echo "Cell ${CELL} succeeded." ;;
+            timeout) echo "::error::Cell ${CELL} polling timed out — see preceding warnings."; exit 1 ;;
+            *)       echo "::error::Cell ${CELL} container exit code: $EC"; exit "$EC" ;;
+          esac
 
       - name: Delete ACI
         if: always()
