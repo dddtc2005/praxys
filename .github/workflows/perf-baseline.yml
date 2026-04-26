@@ -209,14 +209,29 @@ jobs:
       - name: Wait for container to terminate
         id: wait
         run: |
-          # Poll until exit code is set OR 15-min hard timeout. We use
-          # exit-code presence as the completion signal because the
+          # Poll until exit code is set OR a region-aware hard timeout.
+          # We use exit-code presence as the completion signal because the
           # `currentState.state` field is unreliable cross-region —
           # it can stay as "Running" even after the container has
           # actually exited (we hung 15 of 15 cross-region runs on this
           # before the rewrite). Exit code is the canonical "done"
           # marker that's set exactly when the process terminates.
-          DEADLINE=$(($(date +%s) + 900))   # 15 min wall clock
+          #
+          # Region-aware deadline (#151): ACI cold-start dominates the
+          # cross-region wall-clock — westus / northeurope take ~8 min
+          # to provision against an East Asia origin (VM scheduling +
+          # 2 GB image pull + network setup), leaving < 7 min for the
+          # actual sitespeed run inside a flat 15-min budget. Eastasia
+          # provisions in ~3 min so the original budget still fits.
+          # Two-bucket case is the simplest signal that won't rot —
+          # adding a probe means adding a case, not a magic number.
+          case "${{ matrix.probe }}" in
+            eastasia) DEADLINE_SEC=900 ;;     # 15 min — provisioning ~3 min, fits
+            *)        DEADLINE_SEC=1800 ;;    # 30 min — cross-region provisioning ~8 min
+          esac
+          DEADLINE=$(($(date +%s) + DEADLINE_SEC))
+          DEADLINE_MIN=$((DEADLINE_SEC / 60))
+          echo "Deadline: ${DEADLINE_MIN} min for probe=${{ matrix.probe }}"
           EXIT_CODE=""
           while [ "$(date +%s)" -lt "$DEADLINE" ]; do
             EXIT_CODE=$(az container show \
@@ -245,7 +260,7 @@ jobs:
           # Persist the exit code (or 'timeout') as a step output so
           # downstream steps can decide whether to treat as success.
           if [ -z "$EXIT_CODE" ] || [ "$EXIT_CODE" = "null" ]; then
-            echo "::warning::Polling timed out at 15 min — container exit code never appeared. Will still attempt to download whatever made it to the share."
+            echo "::warning::Polling timed out at ${DEADLINE_MIN} min (probe=${{ matrix.probe }}) — container exit code never appeared. Will still attempt to download whatever made it to the share."
             echo "exit_code=timeout" >> "$GITHUB_OUTPUT"
           else
             echo "Container terminated with exit code: $EXIT_CODE"
