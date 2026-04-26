@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from api.auth import get_data_user_id
-from api.deps import get_dashboard_data
+from api.packs import RequestContext, get_history_pack
 from db.session import get_db
 
 router = APIRouter()
@@ -17,16 +17,13 @@ def get_history(
     user_id: str = Depends(get_data_user_id),
     db: Session = Depends(get_db),
 ):
-    from analysis.config import load_config_from_db
-    config = load_config_from_db(user_id, db)
-
-    data = get_dashboard_data(user_id=user_id, db=db)
-    activities = data["activities"]
+    ctx = RequestContext(user_id=user_id, db=db)
+    activities = get_history_pack(ctx)["activities"]
 
     # Smart dedup: when multiple sources have the same activity (same date +
     # similar duration), keep the primary source version. Activities that only
     # exist in one source are always shown.
-    primary_source = source or config.preferences.get("activities")
+    primary_source = source or ctx.config.preferences.get("activities")
 
     if primary_source:
         # Group by date
@@ -72,6 +69,6 @@ def get_history(
         "limit": limit,
         "offset": offset,
         "source_filter": primary_source,
-        "training_base": data["training_base"],
-        "display": data["display"],
+        "training_base": ctx.config.training_base,
+        "display": ctx.display,
     }

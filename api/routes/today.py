@@ -1,11 +1,13 @@
 """Today's training signal endpoint."""
-import pandas as pd
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from api.auth import get_data_user_id
-from api.deps import get_dashboard_data
-from api.views import last_activity, upcoming_workouts, week_load
+from api.packs import (
+    RequestContext,
+    get_signal_pack,
+    get_today_widgets,
+)
 from db.session import get_db
 
 router = APIRouter()
@@ -29,23 +31,21 @@ def get_today(
     user_id: str = Depends(get_data_user_id),
     db: Session = Depends(get_db),
 ):
-    data = get_dashboard_data(user_id=user_id, db=db)
-    science = data.get("science", {})
-    activities = data.get("activities", [])
-    weekly_review = data.get("weekly_review", {})
-    plan_df = data.get("plan", pd.DataFrame())
+    ctx = RequestContext(user_id=user_id, db=db)
+    signal = get_signal_pack(ctx)
+    widgets = get_today_widgets(ctx)
 
     return {
-        "signal": data["signal"],
-        "tsb_sparkline": data["tsb_sparkline"],
-        "warnings": data["warnings"],
-        "training_base": data["training_base"],
-        "display": data["display"],
-        "recovery_theory": _recovery_theory_meta(science),
-        "recovery_analysis": data.get("recovery_analysis"),
-        "last_activity": last_activity(activities),
-        "week_load": week_load(weekly_review),
-        "upcoming": upcoming_workouts(plan_df),
-        "data_meta": data.get("data_meta"),
-        "science_notes": data.get("science_notes"),
+        "signal": signal["signal"],
+        "tsb_sparkline": signal["tsb_sparkline"],
+        "warnings": signal["warnings"],
+        "training_base": ctx.config.training_base,
+        "display": ctx.display,
+        "recovery_theory": _recovery_theory_meta(ctx.science),
+        "recovery_analysis": signal["recovery_analysis"],
+        "last_activity": widgets["last_activity"],
+        "week_load": widgets["week_load"],
+        "upcoming": widgets["upcoming"],
+        "data_meta": ctx.data_meta,
+        "science_notes": ctx.science_notes,
     }
