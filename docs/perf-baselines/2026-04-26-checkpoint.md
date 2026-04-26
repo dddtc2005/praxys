@@ -22,7 +22,7 @@ Numerical sources for every claim below are the committed baselines in `docs/per
 
 The S4 pre-arc starts from `468ce25` (raw, before any Phase-1 work) so the delta captures the full fix arc including self-host fonts. The S1/S2/S3 pre-arc starts from `d37484b` because that's our oldest login-scripted baseline; cn-pc S1/S2/S3 has no committed pre-arc data, so those rows show only "now".
 
-Cloud-region probes (`eastasia` / `westus` / `northeurope`) — pending; needs PR-145 (workflow rewrite) to land + a first sweep against the new origin. Will be appended to this file once we have the data.
+Cloud-region probes (`eastasia` / `westus` / `northeurope`) — eastasia captured (see [Cloud-region probes](#cloud-region-probes-azure-internal-sitespeedio-via-aci) below). Westus / northeurope TBD pending the cross-region polling-timeout fix flagged in that section.
 
 ---
 
