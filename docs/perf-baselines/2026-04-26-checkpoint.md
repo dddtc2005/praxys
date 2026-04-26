@@ -382,7 +382,7 @@ Suite: **509 passing** (498 prior + 11 new ETag tests), 1 skipped. The +2 over t
 
 ETag computation cost is one indexed `SELECT (scope, revision) FROM cache_revisions WHERE user_id = ? AND scope IN (...)` followed by a 16-byte blake2b. Empirically <1 ms in unit tests on a fresh SQLite — well under the 50 ms p95 acceptance gate.
 
-Production p50 / FCP measurements vs the 1358017 cn-pc-2 anchor are deferred until the L1 perf-test sweep completes — measuring L2 on top of unmeasured L1 would mix two unknowns. Re-anchor will land under a new `2026-04-26-<post-L2-sha>/` directory once the L1 sweep is published.
+Baseline for the L2 measurement is the post-L1 row from PR #158 above: `/api/today` 1130 ms / `/api/training` 1379 ms / `/api/science` 206 ms p50 from App Insights. L2's win shape is different from L1's: cold visits should land ~unchanged (one extra SELECT + blake2b on the 200 path), while warm visits with a valid `If-None-Match` should collapse to the dependency cost only (well under 100 ms — the synthetic-load script's warm-burst scenario will measure this). Re-anchor will land under a new `2026-04-26-<post-L2-sha>/` directory once this PR deploys.
 
 ## Tooling state
 
