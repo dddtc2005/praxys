@@ -39,6 +39,12 @@ def wechat_client(monkeypatch):
     monkeypatch.setenv("WECHAT_MINIAPP_APPID", "test-appid")
     monkeypatch.setenv("WECHAT_MINIAPP_SECRET", "test-secret")
     monkeypatch.setenv("TRAINSIGHT_ADMIN_EMAIL", "")
+    # The auth rate limiter (api/auth_rate_limit.py) caps wechat/register
+    # at 5/hour per IP. TestClient pins client.host to "testclient", so a
+    # single test that calls register more than five times would otherwise
+    # bleed into 429s. Tests for the limiter itself live in
+    # tests/test_auth_rate_limit.py and re-enable it explicitly.
+    monkeypatch.setenv("PRAXYS_AUTH_RATE_LIMIT_DISABLED", "true")
 
     from db import session as db_session
     db_session.engine = None

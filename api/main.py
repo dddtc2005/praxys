@@ -117,6 +117,17 @@ if not os.environ.get("WEBSITE_SITE_NAME"):
         allow_headers=["*"],
     )
 
+# Per-IP rate limit on the auth surface — see api/auth_rate_limit.py for the
+# threat model. Skipped only when explicitly disabled (tests / local dev).
+from api.auth_rate_limit import AuthRateLimitMiddleware, is_rate_limit_disabled
+if is_rate_limit_disabled():
+    logging.getLogger(__name__).warning(
+        "Auth rate limit disabled by PRAXYS_AUTH_RATE_LIMIT_DISABLED — "
+        "/api/auth/* endpoints accept unlimited attempts per IP."
+    )
+else:
+    app.add_middleware(AuthRateLimitMiddleware)
+
 # Auth routes
 from api.users import fastapi_users, auth_backend
 
