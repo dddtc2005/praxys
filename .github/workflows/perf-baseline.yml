@@ -19,7 +19,7 @@ on:
         required: true
         type: string
       probe:
-        description: 'Azure region the ACI runs in'
+        description: 'Azure region the ACI runs in — three macro-regions matching real audience: APAC/CN, US-West, EU'
         required: false
         type: choice
         default: 'eastasia'
@@ -27,12 +27,21 @@ on:
           - 'eastasia'
           - 'westus'
           - 'northeurope'
-          - 'eastus'
       target_url:
-        description: 'URL to measure'
+        description: 'URL or base URL — for S4 the page to load; for S1/S2/S3 the host without trailing slash (login flow appends /login etc.)'
         required: false
         type: string
         default: 'https://www.praxys.run/'
+      scenario:
+        description: 'Test scenario — S4=anonymous landing, S1=login→Today, S2=Today→Training, S3=warm-Today repeat'
+        required: false
+        type: choice
+        default: 's4'
+        options:
+          - 's4'
+          - 's1'
+          - 's2'
+          - 's3'
       device:
         description: 'Device emulation'
         required: false
@@ -75,8 +84,12 @@ jobs:
       matrix:
         device: ${{ fromJson(needs.resolve-devices.outputs.matrix) }}
     env:
-      CELL: s4-${{ inputs.probe }}-${{ matrix.device }}
-      CONTAINER_NAME: sitespeed-s4-${{ inputs.probe }}-${{ matrix.device }}-${{ github.run_id }}-${{ github.run_attempt }}
+      CELL: ${{ inputs.scenario }}-${{ inputs.probe }}-${{ matrix.device }}
+      CONTAINER_NAME: sitespeed-${{ inputs.scenario }}-${{ inputs.probe }}-${{ matrix.device }}-${{ github.run_id }}-${{ github.run_attempt }}
+      # Strip trailing slash so preScripts can do `${baseUrl}/login` etc.
+      # without doubling it. target_url's default has a trailing slash for
+      # S4 (sitespeed.io accepts it as URL); S1/S2/S3 want the bare host.
+      PRAXYS_PERF_BASE_URL: ${{ inputs.target_url }}
     steps:
       - uses: actions/checkout@v6
 
@@ -85,6 +98,23 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Upload preScripts (S1/S2/S3 only)
+        if: inputs.scenario != 's4'
+        run: |
+          # The preScripts (s1.js etc.) drive Chrome through the login flow.
+          # ACI mounts the perfbaselines file share at /sitespeed.io/out, so
+          # we put scripts in a `scripts/` subfolder of that share — the
+          # container will then see them at /sitespeed.io/out/scripts/.
+          # Idempotent (overwrites on every run); not cleaned up between
+          # runs (tiny files, OK to leave).
+          az storage file upload-batch \
+            --subscription "$AZ_SUBSCRIPTION" \
+            --account-name "$STORAGE_ACCOUNT" \
+            --account-key "${{ secrets.STORAGE_ACCOUNT_KEY }}" \
+            --destination "$FILE_SHARE" \
+            --destination-path "scripts" \
+            --source scripts/sitespeed_scripts/
 
       - name: Build sitespeed.io command-line
         id: cmd
@@ -110,11 +140,31 @@ jobs:
           else
             DEVICE_ARGS=""
           fi
-          echo "args=/start.sh ${{ inputs.target_url }} ${BASE_ARGS} ${DEVICE_ARGS}" >> "$GITHUB_OUTPUT"
+          # S4 = plain URL test. S1/S2/S3 = --multi mode where the JS
+          # preScript drives the browser through login then measures the
+          # navigation. preScripts read PRAXYS_PERF_BASE_URL +
+          # PRAXYS_PERF_USER + PRAXYS_PERF_PASSWORD env vars (set on the
+          # ACI below), defaulting to the public demo account.
+          if [ "${{ inputs.scenario }}" = "s4" ]; then
+            TAIL_ARGS="${{ inputs.target_url }}"
+          else
+            TAIL_ARGS="--multi /sitespeed.io/out/scripts/${{ inputs.scenario }}.js"
+          fi
+          echo "args=/start.sh ${TAIL_ARGS} ${BASE_ARGS} ${DEVICE_ARGS}" >> "$GITHUB_OUTPUT"
 
       - name: Create ACI + wait for completion
         run: |
           set -euo pipefail
+
+          # Strip trailing slash from base URL so preScripts can do
+          # ${baseUrl}/login without doubling the slash.
+          BASE_URL="${PRAXYS_PERF_BASE_URL%/}"
+          # Public demo account — same defaults Landing.tsx ships in its
+          # "Try the demo" CTA; not secret. Override via repository secrets
+          # PRAXYS_PERF_USER / PRAXYS_PERF_PASSWORD if testing against a
+          # non-demo account.
+          PERF_USER="${{ secrets.PRAXYS_PERF_USER || 'demo@trainsight.dev' }}"
+          PERF_PASS="${{ secrets.PRAXYS_PERF_PASSWORD || 'demo' }}"
 
           az container create \
             --subscription "$AZ_SUBSCRIPTION" \
@@ -129,6 +179,10 @@ jobs:
             --azure-file-volume-account-key "${{ secrets.STORAGE_ACCOUNT_KEY }}" \
             --azure-file-volume-share-name "$FILE_SHARE" \
             --azure-file-volume-mount-path /sitespeed.io/out \
+            --environment-variables \
+              "PRAXYS_PERF_BASE_URL=$BASE_URL" \
+              "PRAXYS_PERF_USER=$PERF_USER" \
+              "PRAXYS_PERF_PASSWORD=$PERF_PASS" \
             --command-line "${{ steps.cmd.outputs.args }}" \
             --no-wait
 
