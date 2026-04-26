@@ -4,7 +4,7 @@ This documents the Azure resources + GitHub config that back `.github/workflows/
 
 ## What the workflow does
 
-Trigger: **manual** (`workflow_dispatch`) only. Inputs: `reason`, `probe` (Azure region), `target_url`, `device`.
+Trigger: **manual** (`workflow_dispatch`) only. Inputs: `reason`, `probe` (Azure region — `eastasia` / `westus` / `northeurope`), `target_url`, `scenario` (`s1` / `s2` / `s3` / `s4`), `device`.
 
 1. Uses OIDC to log in to Azure with the same service principal `deploy-backend.yml` uses.
 2. Spins up an Azure Container Instance in the chosen region running `sitespeedio/sitespeed.io:latest`.
@@ -83,10 +83,21 @@ gh workflow run perf-baseline.yml --repo dddtc2005/praxys \
   -f device=both
 ```
 
-Outputs land as GH Actions artifacts named `baseline-s4-<probe>-<device>-<run-id>/`. Download + merge into a `docs/perf-baselines/<YYYY-MM-DD>-<sha>/` directory per the `README.md` / `TEMPLATE.md` convention.
+Outputs land as GH Actions artifacts named `baseline-<scenario>-<probe>-<device>-<run-id>/`. Download + merge into a `docs/perf-baselines/<YYYY-MM-DD>-<sha>/` directory per the `README.md` / `TEMPLATE.md` convention.
+
+## Login-scripted scenarios (S1/S2/S3)
+
+When `scenario` is `s1`, `s2`, or `s3`, the workflow uploads `scripts/sitespeed_scripts/*.js` to a `scripts/` subfolder of the same `perfbaselines` Azure File share before the ACI starts. The container mounts the share at `/sitespeed.io/out`, so the preScripts appear at `/sitespeed.io/out/scripts/<scenario>.js`. Sitespeed.io is then invoked with `--multi /sitespeed.io/out/scripts/<scenario>.js` instead of a target URL.
+
+The preScripts read three env vars (passed via `az container create --environment-variables`):
+
+- `PRAXYS_PERF_BASE_URL` — derived from the workflow's `target_url` input (trailing slash stripped, e.g. `https://www.praxys.run`).
+- `PRAXYS_PERF_USER` — defaults to `demo@trainsight.dev` (public demo account, same one Landing's "Try the demo" CTA ships). Override via repo secret `PRAXYS_PERF_USER`.
+- `PRAXYS_PERF_PASSWORD` — defaults to `demo`. Override via repo secret `PRAXYS_PERF_PASSWORD`.
+
+The defaults match `scripts/sitespeed_runner.sh` so a cloud cell and a local cell of the same scenario measure the same flow against the same account.
 
 ## Known limitations
 
 - **No mainland-China POPs.** Azure has none in the public cloud; closest is `eastasia` (Hong Kong). For CN-from-inside-the-GFW numbers keep using `scripts/sitespeed_runner.sh` on an operator PC.
-- **Single scenario.** Only S4 (Anonymous Landing) is implemented today. S1-S3 (login-scripted scenarios) need a perf-test account + credential handling first.
 - **Cost scales with cadence.** At a baseline-per-week cadence, ~$3/month. More frequent runs scale linearly on ACI compute.
