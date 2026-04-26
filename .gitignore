@@ -54,14 +54,18 @@ docs/superpowers/
 web/screenshot-*.png
 /screenshot-*.png
 
-# Performance baselines: keep the HAR (the source of truth for the
-# analyzer) + the hand-curated README.md per baseline directory. Drop
-# sitespeed.io's heavy binary artifacts (videos, filmstrips, key-event
-# screenshots) and its prebuilt viewer bundle (HTML + CSS + JS + PNGs).
-# Path patterns use ** because S1-S3 scenarios add an extra
-# <measure-name> directory layer (data lives under
-# pages/<slug>/<measure-name>/data/) compared to S4's flat
-# pages/<slug>/data/.
+# Performance baselines: keep ONLY the hand-curated README.md per
+# baseline directory. HARs and all sitespeed.io output stay out of the
+# repo — the public-repo move (2026-04-26) made HAR contents reachable
+# to anyone (including stale auth tokens), so HARs now live in two
+# places only:
+#   - GH Actions artifacts (30-day retention; fine for recent reviews)
+#   - Azure blob container `perfbaselines-archive` on stperftrainsight
+#     (private, durable; see docs/perf-baselines/ci-setup.md for
+#     retrieval).
+# A pre-public-archive bundle of the HARs that used to live here is at
+# perfbaselines-HARs-pre-public-2026-04-26.tar.gz in that container.
+docs/perf-baselines/**/*.har
 docs/perf-baselines/**/data/video/
 docs/perf-baselines/**/data/filmstrip/
 docs/perf-baselines/**/data/screenshots/

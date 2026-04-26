@@ -87,7 +87,32 @@ gh workflow run perf-baseline.yml --repo dddtc2005/praxys \
   -f device=both
 ```
 
-Outputs land as GH Actions artifacts named `baseline-<scenario>-<probe>-<device>-<run-id>/`. Download + merge into a `docs/perf-baselines/<YYYY-MM-DD>-<sha>/` directory per the `README.md` / `TEMPLATE.md` convention.
+Outputs land as GH Actions artifacts named `baseline-<scenario>-<probe>-<device>-<run-id>/`. Each run also produces a single `baseline-combined-<run-id>` artifact with the run's analyzed README pre-rendered.
+
+For long-term references, **commit only the README** to `docs/perf-baselines/<YYYY-MM-DD>-<sha>/`. HARs and other heavy outputs are gitignored deliberately — see "HAR storage policy" below.
+
+## HAR storage policy
+
+Since the repo went public on 2026-04-26, raw HAR files are kept **out of the repo**. They contain HTTP request/response metadata including authorization headers (which had stale JWT bearer tokens before the JWT rotation that accompanied the public flip). HARs now live in two places:
+
+1. **GitHub Actions artifacts** (`baseline-<cell>-<run-id>` and `baseline-combined-<run-id>`). 30-day retention, downloadable via the Actions UI or `gh run download <run-id>`. Sufficient for "I want to re-analyze the most recent sweep".
+2. **Azure blob container `perfbaselines-archive`** on storage account `stperftrainsight` in `rg-trainsight`. Private, durable, requires az auth. Holds anything older than 30 days that's worth keeping. The pre-public bundle of all HARs that used to be committed is at `perfbaselines-HARs-pre-public-2026-04-26.tar.gz`.
+
+To retrieve the pre-public archive (e.g. to re-analyze an old baseline against a current code change):
+
+```bash
+KEY=$(az storage account keys list -g rg-trainsight -n stperftrainsight --query "[0].value" -o tsv)
+az storage blob download \
+  --account-name stperftrainsight \
+  --account-key "$KEY" \
+  --container-name perfbaselines-archive \
+  --name perfbaselines-HARs-pre-public-2026-04-26.tar.gz \
+  --file ./pre-public-hars.tar.gz
+tar xzf ./pre-public-hars.tar.gz   # extracts into docs/perf-baselines/<date>/...
+python scripts/analyze_baseline.py --baseline-dir docs/perf-baselines/<date>-<sha>
+```
+
+The `.gitignore` rule `docs/perf-baselines/**/*.har` ensures these extracted HARs don't accidentally re-enter the repo on the next commit.
 
 ## Login-scripted scenarios (S1/S2/S3)
 
