@@ -1,0 +1,4 @@
+{
+  "desc": "Lets WeChat search index reachable pages.",
+  "rules": [{ "action": "allow", "page": "*" }]
+}

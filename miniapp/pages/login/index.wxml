@@ -1,0 +1,105 @@
+<view class="login-root {{themeClass}}">
+  <!-- Brand mark — race flag PNG from docs/brand/assets, per § II
+       of the brand guide. Wordmark uses nested <text> so "Praxys"
+       reads as one run (no inter-letter flex gaps). -->
+  <view class="login-brand">
+    <image class="login-mark" src="/assets/brand/mark.png" mode="aspectFit" />
+    <view class="login-wordmark">
+      <text class="login-wordmark__text">Pra<text class="login-wordmark__accent">x</text>ys</text>
+    </view>
+    <text class="login-tagline">Sports science that meets you where you are.</text>
+  </view>
+
+  <block wx:if="{{stage === 'idle'}}">
+    <text class="login-title">Welcome back</text>
+    <text class="login-detail">
+      Power-based training, on your wrist or in your pocket. Sign in with
+      WeChat to access your training data.
+    </text>
+    <button class="ts-button login-cta" bindtap="onSignInTap">Sign in with WeChat</button>
+  </block>
+
+  <block wx:elif="{{stage === 'loading'}}">
+    <text class="login-title">Signing you in…</text>
+  </block>
+
+  <block wx:elif="{{stage === 'error'}}">
+    <text class="login-title ts-destructive">Sign-in failed</text>
+    <text class="login-detail">{{errorMessage}}</text>
+    <button class="ts-button login-cta" bindtap="onRetry">Retry</button>
+  </block>
+
+  <block wx:elif="{{stage === 'choose'}}">
+    <text class="login-title">Welcome to Praxys</text>
+    <text class="login-detail">Let's connect your WeChat to a Praxys account.</text>
+    <button class="ts-button login-cta" bindtap="goChooseLink">I already have an account</button>
+    <button class="ts-button ts-button--secondary login-cta" bindtap="goChooseRegister">I'm new</button>
+  </block>
+
+  <block wx:elif="{{stage === 'link'}}">
+    <text class="login-title">Link your account</text>
+    <text class="login-detail">Enter the email + password you use on praxys.app.</text>
+    <input
+      class="ts-input login-input"
+      type="text"
+      placeholder="email"
+      placeholder-style="color: #8b93a7;"
+      value="{{linkEmail}}"
+      bindinput="onLinkEmailInput"
+    />
+    <input
+      class="ts-input login-input"
+      password="{{true}}"
+      placeholder="password"
+      placeholder-style="color: #8b93a7;"
+      value="{{linkPassword}}"
+      bindinput="onLinkPasswordInput"
+    />
+    <text wx:if="{{linkError}}" class="login-error ts-destructive">{{linkError}}</text>
+    <button
+      class="ts-button login-cta"
+      loading="{{linkSubmitting}}"
+      bindtap="onLinkSubmit"
+    >Link</button>
+    <button class="ts-button ts-button--secondary login-cta" bindtap="goBackToChoose">Back</button>
+  </block>
+
+  <block wx:elif="{{stage === 'register'}}">
+    <text class="login-title">Create your account</text>
+    <text class="login-detail">
+      Praxys is invite-only while in beta. Email + password are optional
+      (you can add them later to also log in on the web).
+    </text>
+    <input
+      class="ts-input login-input"
+      type="text"
+      placeholder="invitation code (required)"
+      placeholder-style="color: #8b93a7;"
+      value="{{regInvitation}}"
+      bindinput="onRegInvitationInput"
+    />
+    <input
+      class="ts-input login-input"
+      type="text"
+      placeholder="email (optional)"
+      placeholder-style="color: #8b93a7;"
+      value="{{regEmail}}"
+      bindinput="onRegEmailInput"
+    />
+    <input
+      class="ts-input login-input"
+      password="{{true}}"
+      placeholder="password (optional)"
+      placeholder-style="color: #8b93a7;"
+      value="{{regPassword}}"
+      bindinput="onRegPasswordInput"
+    />
+    <text wx:if="{{regError}}" class="login-error ts-destructive">{{regError}}</text>
+    <button
+      class="ts-button login-cta"
+      loading="{{regSubmitting}}"
+      bindtap="onRegSubmit"
+    >Sign up</button>
+    <button class="ts-button ts-button--secondary login-cta" bindtap="goBackToChoose">Back</button>
+  </block>
+</view>

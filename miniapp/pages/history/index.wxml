@@ -1,0 +1,85 @@
+<view class="history-root {{themeClass}}">
+  <nav-bar title="Activities" theme-class="{{themeClass}}" show-wordmark="{{true}}" />
+
+  <scroll-view
+    scroll-y="{{true}}"
+    refresher-enabled="{{true}}"
+    refresher-triggered="{{refreshing}}"
+    bindrefresherrefresh="onScrollRefresh"
+    bindscrolltolower="onScrollToBottom"
+    lower-threshold="{{200}}"
+    class="history-scroll"
+  >
+    <view class="history-content">
+      <text wx:if="{{hasActivities}}" class="history-total ts-muted">{{totalLine}}</text>
+
+      <block wx:if="{{loading && !hasActivities}}">
+        <view class="ts-card"><view class="ts-skeleton" style="height: 120rpx;"></view></view>
+        <view class="ts-card"><view class="ts-skeleton" style="height: 120rpx;"></view></view>
+        <view class="ts-card"><view class="ts-skeleton" style="height: 120rpx;"></view></view>
+      </block>
+
+      <block wx:elif="{{errorMessage && !hasActivities}}">
+        <view class="ts-card">
+          <text class="history-header ts-destructive">{{tr.failedToLoad}}</text>
+          <text class="ts-muted">{{errorMessage}}</text>
+          <button class="ts-button" bindtap="onRetry">{{tr.retry}}</button>
+        </view>
+      </block>
+
+      <block wx:else>
+        <view
+          wx:for="{{activities}}"
+          wx:key="id"
+          class="ts-card history-row"
+          data-id="{{item.id}}"
+          bindtap="toggleExpand"
+        >
+          <view class="history-row-head">
+            <text class="history-row-date ts-muted">{{item.date}}</text>
+            <text class="history-row-type">{{item.type}}</text>
+          </view>
+          <view class="history-row-metrics">
+            <view
+              wx:for="{{item.metrics}}"
+              wx:key="label"
+              wx:for-item="metric"
+              class="history-metric"
+            >
+              <text class="history-metric-label ts-muted">{{metric.label}}</text>
+              <text class="history-metric-value ts-value">{{metric.value}}</text>
+            </view>
+          </view>
+
+          <view wx:if="{{item.hasSplits && item.expanded}}" class="history-splits">
+            <text class="ts-section-label">Splits ({{item.splitCount}})</text>
+            <view
+              wx:for="{{item.splitsDisplay}}"
+              wx:key="num"
+              wx:for-item="split"
+              class="history-split-row"
+            >
+              <text class="history-split-num ts-muted">{{split.num}}</text>
+              <text
+                wx:for="{{split.cells}}"
+                wx:key="*this"
+                wx:for-item="cell"
+                class="history-split-cell ts-value"
+              >{{cell}}</text>
+            </view>
+            <text wx:if="{{item.hasMoreSplits}}" class="ts-muted history-split-more">
+              + {{item.moreSplitsCount}} more
+            </text>
+          </view>
+
+          <text wx:if="{{item.hasSplits && !item.expanded}}" class="history-tap-hint ts-muted">
+            {{item.tapHint}}
+          </text>
+        </view>
+
+        <text wx:if="{{loadingMore}}" class="history-footer ts-muted">{{tr.loadingMore}}</text>
+        <text wx:elif="{{hasReachedEnd}}" class="history-footer ts-muted">{{tr.endOfActivities}}</text>
+      </block>
+    </view>
+  </scroll-view>
+</view>

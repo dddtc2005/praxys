@@ -1,0 +1,80 @@
+.nav-bar {
+  width: 100%;
+  background-color: var(--bg);
+  border-bottom: 2rpx solid var(--border-subtle);
+  // Page roots are flex-column with a <scroll-view> below this nav-bar,
+  // so the nav-bar is automatically pinned at the top by the parent's
+  // layout — no need for position: sticky. (Skyline supports sticky but
+  // it's redundant here and adds a stacking context we don't need.)
+}
+
+.nav-bar__status {
+  // Reserved area for the device status bar — drawn empty so the bar's
+  // background matches the page background.
+  width: 100%;
+}
+
+.nav-bar__content {
+  position: relative;
+  display: flex;
+  align-items: center;
+  // Left padding gives the title breathing room from the screen edge;
+  // right padding is set inline because the WeChat capsule is over there
+  // and its position is device-specific.
+  padding-left: 32rpx;
+}
+
+.nav-bar__back {
+  // Tapped to navigate back. The Unicode ‹ matches WeChat's own back
+  // glyph closely enough at this size that we don't need an SVG.
+  font-size: 56rpx;
+  font-weight: 300;
+  line-height: 1;
+  color: var(--text);
+  width: 60rpx;
+  text-align: left;
+  margin-right: 8rpx;
+}
+
+.nav-bar__title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  // Single-line ellipsis: Skyline requires explicit overflow on <text>.
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+// --- Praxys logo + wordmark in nav-bar ---
+// Per docs/brand/index.html: race-flag mark + "Pra<x>ys" wordmark
+// sentence-case, font Geist 500, the 'x' in --primary. Tight
+// letter-spacing (-0.055em) so the wordmark reads as a unit.
+.nav-bar__wordmark {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+.nav-bar__logo {
+  width: 44rpx;
+  height: 44rpx;
+  flex-shrink: 0;
+}
+// Wordmark is a SINGLE text run with a nested <text> for the accented
+// x. This avoids the flex-gap bug ("Pra x ys" with visible spaces) that
+// happens when each glyph is a separate flex item under gap: Nrpx.
+.nav-bar__brand {
+  font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont,
+    'PingFang SC', 'Hiragino Sans GB', sans-serif;
+  font-size: 36rpx;
+  font-weight: 500;
+  letter-spacing: -2rpx;
+  line-height: 1;
+  color: var(--text);
+}
+.nav-bar__brand-accent {
+  // Inherits font + size from parent <text>; only color changes.
+  color: var(--primary);
+}

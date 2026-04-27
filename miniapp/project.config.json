@@ -1,16 +1,31 @@
 {
-  "miniprogramRoot": "dist/",
   "projectname": "praxys-miniapp",
   "description": "Praxys — 个性化耐力训练平台",
   "appid": "wx65e36494e7cf3ffb",
   "setting": {
+    "useCompilerPlugins": [
+      "typescript",
+      "sass"
+    ],
     "urlCheck": true,
-    "es6": false,
-    "enhance": false,
-    "postcss": false,
     "minified": false,
     "newFeature": true,
     "bigPackageSizeSupport": false,
+    "es6": true,
+    "postcss": false,
+    "compileWorklet": false,
+    "uglifyFileName": false,
+    "uploadWithSourceMap": true,
+    "enhance": true,
+    "packNpmManually": false,
+    "packNpmRelationList": [],
+    "minifyWXSS": true,
+    "minifyWXML": true,
+    "localPlugins": false,
+    "disableUseStrict": false,
+    "condition": false,
+    "swc": false,
+    "disableSWC": true,
     "babelSetting": {
       "ignore": [],
       "disablePlugins": [],
@@ -19,5 +34,11 @@
   },
   "compileType": "miniprogram",
   "libVersion": "3.5.5",
-  "condition": {}
+  "condition": {},
+  "simulatorPluginLibVersion": {},
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "editorSetting": {}
 }

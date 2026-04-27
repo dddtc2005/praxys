@@ -1,0 +1,40 @@
+{
+  "pages": [
+    "pages/login/index",
+    "pages/today/index",
+    "pages/training/index",
+    "pages/goal/index",
+    "pages/history/index",
+    "pages/settings/index",
+    "pages/science/index"
+  ],
+  "renderer": "skyline",
+  "lazyCodeLoading": "requiredComponents",
+  "rendererOptions": {
+    "skyline": {
+      "defaultDisplayBlock": true,
+      "defaultContentBox": true
+    }
+  },
+  "componentFramework": "glass-easel",
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationStyle": "custom",
+    "backgroundColor": "#faf9f5"
+  },
+  "tabBar": {
+    "custom": true,
+    "color": "#6b6b66",
+    "selectedColor": "#1e8e5b",
+    "backgroundColor": "#faf9f5",
+    "borderStyle": "white",
+    "list": [
+      { "pagePath": "pages/today/index", "text": "Today" },
+      { "pagePath": "pages/training/index", "text": "Training" },
+      { "pagePath": "pages/history/index", "text": "Activities" },
+      { "pagePath": "pages/goal/index", "text": "Goal" },
+      { "pagePath": "pages/settings/index", "text": "Settings" }
+    ]
+  },
+  "sitemapLocation": "sitemap.json"
+}

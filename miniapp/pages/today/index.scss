@@ -1,0 +1,328 @@
+.today-root {
+  // Skyline pages don't auto-scroll — the page is a fixed viewport, and
+  // any content overflowing it is clipped. The fix is a flex-column root
+  // with a <scroll-view> inside taking the remaining height. The nav-bar
+  // pins itself at the top via the parent's flex layout (no need for
+  // position: sticky).
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.today-scroll {
+  flex: 1;
+  // `min-height: 0` lets the flex child shrink past its content size,
+  // which is what allows scroll-view to know its scrollable boundary.
+  // Without it, flex: 1 with a tall scroll-view-content above-fold gets
+  // pushed beyond 100vh and scroll-view never gets a finite height.
+  min-height: 0;
+}
+
+.today-content {
+  padding: 32rpx 32rpx 200rpx;
+}
+
+.today-header {
+  font-size: 52rpx;
+  font-weight: 700;
+  color: var(--text);
+  display: block;
+}
+
+.today-date {
+  font-size: 26rpx;
+  color: var(--text-muted);
+  display: block;
+  margin-bottom: 32rpx;
+}
+
+// --- SignalHero (round, pulsing status indicator — mirrors web) ---
+.signal-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24rpx;
+  padding: 48rpx 32rpx;
+}
+
+// Tiny share button in the top-right of the signal card. open-type=share
+// is a real <button>, but we strip every default style and reapply a
+// minimal circular pill so it reads as an icon-only affordance.
+.signal-share-fab {
+  position: absolute;
+  top: 16rpx;
+  right: 16rpx;
+  width: 64rpx;
+  height: 64rpx;
+  padding: 0;
+  margin: 0;
+  background-color: var(--surface-subtle);
+  border-radius: 32rpx;
+  border: 1rpx solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+// WeChat <button> renders a default ::after border. Strip it.
+.signal-share-fab::after {
+  border: none;
+}
+.signal-share-fab--press {
+  background-color: var(--border-subtle);
+}
+
+// Lucide share icon (square-arrow-up-right) carved out via mask-image.
+.signal-share-fab__icon {
+  width: 32rpx;
+  height: 32rpx;
+  background-color: var(--text-muted);
+  -webkit-mask-size: contain;
+          mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+          mask-position: center;
+  -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7'/%3E%3Cpolyline points='16 3 21 3 21 8'/%3E%3Cline x1='10' y1='14' x2='21' y2='3'/%3E%3C/svg%3E");
+          mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7'/%3E%3Cpolyline points='16 3 21 3 21 8'/%3E%3Cline x1='10' y1='14' x2='21' y2='3'/%3E%3C/svg%3E");
+}
+
+.signal-circle {
+  position: relative;
+  width: 240rpx;
+  height: 240rpx;
+  border-radius: 120rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.signal-circle--green {
+  border: 6rpx solid rgba(0, 255, 135, 0.3);
+  box-shadow: 0 0 40rpx rgba(0, 255, 135, 0.3);
+}
+.signal-circle--amber {
+  border: 6rpx solid rgba(245, 158, 11, 0.3);
+  box-shadow: 0 0 40rpx rgba(245, 158, 11, 0.3);
+}
+.signal-circle--red {
+  border: 6rpx solid rgba(239, 68, 68, 0.3);
+  box-shadow: 0 0 40rpx rgba(239, 68, 68, 0.3);
+}
+
+// Pulsing glow inside the ring — fades 10%↔30% so it reads as a soft
+// breathing animation. Skyline supports CSS keyframes on opacity.
+.signal-glow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 120rpx;
+  opacity: 0.12;
+  animation: signal-pulse 2s ease-in-out infinite;
+}
+.signal-glow--green { background-color: #00ff87; }
+.signal-glow--amber { background-color: #f59e0b; }
+.signal-glow--red { background-color: #ef4444; }
+
+@keyframes signal-pulse {
+  0%, 100% { opacity: 0.10; }
+  50% { opacity: 0.30; }
+}
+
+.signal-label {
+  position: relative;
+  font-size: 52rpx;
+  font-weight: 700;
+  letter-spacing: 4rpx;
+}
+.signal-label--green { color: #00ff87; }
+.signal-label--amber { color: #f59e0b; }
+.signal-label--red { color: #ef4444; }
+
+.signal-subtitle {
+  font-size: 32rpx;
+  font-weight: 600;
+}
+.signal-subtitle--green { color: #00ff87; }
+.signal-subtitle--amber { color: #f59e0b; }
+.signal-subtitle--red { color: #ef4444; }
+
+.signal-reason {
+  font-size: 26rpx;
+  text-align: center;
+  line-height: 1.5;
+  color: var(--text-muted);
+  max-width: 540rpx;
+}
+
+.today-recovery-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid var(--border-subtle);
+}
+
+.today-recovery-row:last-child {
+  border-bottom: none;
+}
+
+.today-recovery-label,
+.today-recovery-value {
+  font-size: 28rpx;
+}
+
+.today-upcoming-row {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid var(--border-subtle);
+}
+
+.today-upcoming-row:last-child {
+  border-bottom: none;
+}
+
+.today-upcoming-date {
+  font-size: 24rpx;
+  color: var(--text-muted);
+  width: 160rpx;
+  font-variant-numeric: tabular-nums;
+}
+
+.today-upcoming-name {
+  font-size: 28rpx;
+  color: var(--text);
+  flex: 1;
+}
+
+.today-upcoming-meta {
+  font-size: 24rpx;
+  color: var(--text-muted);
+}
+
+.today-last-date {
+  font-size: 28rpx;
+  color: var(--text);
+  display: block;
+  margin-bottom: 16rpx;
+}
+
+.today-last-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32rpx;
+}
+
+.today-metric {
+  min-width: 160rpx;
+}
+
+.today-metric-label {
+  font-size: 22rpx;
+  text-transform: uppercase;
+  letter-spacing: 1rpx;
+  display: block;
+  margin-bottom: 4rpx;
+}
+
+.today-metric-value {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--text);
+  display: block;
+}
+
+.today-warnings .today-warning-item {
+  font-size: 26rpx;
+  display: block;
+  padding: 8rpx 0;
+  line-height: 1.5;
+}
+
+.today-tsb-headline-row {
+  display: flex;
+  align-items: baseline;
+  gap: 16rpx;
+  margin-bottom: 16rpx;
+}
+
+.today-tsb-value {
+  font-size: 56rpx;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.today-tsb-zone {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1rpx;
+}
+
+.today-tsb-headline {
+  font-size: 26rpx;
+  display: block;
+  margin-bottom: 12rpx;
+}
+
+// (Big bottom Share button removed — replaced with the small FAB on
+// the signal hero card, which is closer to the content people share.)
+
+// --- Weekly Load mini ---
+.today-week-load-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 12rpx;
+}
+
+.today-week-load-week {
+  font-size: 20rpx;
+  text-transform: lowercase;
+  letter-spacing: 0;
+}
+
+.today-week-load-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12rpx;
+  margin-bottom: 16rpx;
+}
+
+.today-week-load-actual {
+  font-size: 44rpx;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.today-week-load-planned {
+  font-size: 24rpx;
+}
+
+.today-week-load-pct {
+  margin-left: auto;
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.today-week-load-track {
+  height: 12rpx;
+  border-radius: 6rpx;
+  background-color: var(--border-subtle);
+  overflow: hidden;
+}
+
+.today-week-load-fill {
+  height: 100%;
+  border-radius: 6rpx;
+  background-color: var(--primary);
+  // The accent class on the fill recolors via the helper utilities;
+  // the default is --primary (green = on target).
+  &.ts-warning { background-color: var(--warning); }
+  &.ts-destructive { background-color: var(--destructive); }
+}

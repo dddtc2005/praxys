@@ -1,0 +1,239 @@
+<view class="goal-root {{themeClass}}">
+  <nav-bar title="Goal" theme-class="{{themeClass}}" show-wordmark="{{true}}" />
+
+  <scroll-view
+    scroll-y="{{true}}"
+    refresher-enabled="{{true}}"
+    refresher-triggered="{{refreshing}}"
+    bindrefresherrefresh="onScrollRefresh"
+    class="goal-scroll"
+  >
+    <view class="goal-content">
+
+    <block wx:if="{{loading && !hasResponse}}">
+      <view class="ts-card"><view class="ts-skeleton"></view></view>
+    </block>
+
+    <block wx:elif="{{errorMessage}}">
+      <view class="ts-card">
+        <text class="goal-header ts-destructive">{{tr.failedToLoad}}</text>
+        <text class="ts-muted">{{errorMessage}}</text>
+        <button class="ts-button" bindtap="onRetry">{{tr.retry}}</button>
+      </view>
+    </block>
+
+    <!-- ============================================================
+         RACE-DATE MODE
+         ============================================================ -->
+    <block wx:elif="{{mode === 'race_date'}}">
+      <view class="ts-card goal-hero">
+        <text class="ts-section-label">{{rdDistLabel}} Countdown</text>
+        <view class="goal-countdown-block">
+          <text class="goal-countdown-value ts-value" wx:if="{{rdHasDays}}">{{rdDaysLeft}}</text>
+          <text class="goal-countdown-value ts-value" wx:else>—</text>
+          <text class="goal-countdown-label ts-muted">days until {{rdRaceDate}}</text>
+          <text class="goal-status-badge {{rdStatusAccent}}">{{rdStatusText}}</text>
+        </view>
+        <view class="goal-time-grid {{rdHasTarget ? 'goal-time-grid--two' : 'goal-time-grid--one'}}">
+          <view>
+            <text class="goal-time-label ts-muted">Predicted {{rdDistLabel}}</text>
+            <text class="goal-time-value ts-value">{{rdPredictedTime}}</text>
+          </view>
+          <view wx:if="{{rdHasTarget}}">
+            <text class="goal-time-label ts-muted">Target</text>
+            <text class="goal-time-value ts-value">{{rdTargetTime}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{rdShowReality}}" class="ts-card">
+        <text class="ts-section-label">{{tr.realityCheck}}</text>
+        <text class="goal-assessment {{rdAssessmentAccent}}">{{rdAssessment}}</text>
+
+        <view wx:if="{{rdHasGapRow}}" class="goal-gap-row">
+          <view class="goal-gap-cell">
+            <text class="goal-gap-label ts-muted">Current {{rdAbbrev}}</text>
+            <text class="goal-gap-value ts-value">{{rdCurrentCp}}</text>
+          </view>
+          <text class="goal-gap-arrow ts-muted">→</text>
+          <view class="goal-gap-cell">
+            <text class="goal-gap-label ts-muted">Needed {{rdAbbrev}}</text>
+            <text class="goal-gap-value ts-value">{{rdNeededCp}}</text>
+          </view>
+          <view wx:if="{{rdHasGapValue}}" class="goal-gap-cell goal-gap-cell--last">
+            <text class="goal-gap-label ts-muted">Gap</text>
+            <text class="goal-gap-value ts-value {{rdAssessmentAccent}}">{{rdGapValue}}</text>
+          </view>
+        </view>
+
+        <text wx:if="{{rdHasTrendNote}}" class="goal-trend-note">{{rdTrendNote}}</text>
+
+        <view wx:if="{{rdHasRealistic}}" class="goal-realistic">
+          <text class="ts-section-label">Realistic Alternative Targets</text>
+          <view class="goal-realistic-row">
+            <view class="goal-realistic-cell">
+              <text class="goal-time-label ts-muted">{{tr.comfortable}}</text>
+              <text class="goal-time-value ts-primary">{{rdComfortable}}</text>
+            </view>
+            <view class="goal-realistic-cell">
+              <text class="goal-time-label ts-muted">{{tr.stretch}}</text>
+              <text class="goal-time-value ts-warning">{{rdStretch}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{rdShowTrendOnly}}" class="ts-card">
+        <text class="ts-section-label">{{tr.fitnessTrend}}</text>
+        <text class="goal-assessment {{rdAssessmentAccent}}">{{rdAssessment}}</text>
+        <text class="goal-trend-note">{{rdTrendNote}}</text>
+      </view>
+    </block>
+
+    <!-- ============================================================
+         CP-MILESTONE MODE
+         ============================================================ -->
+    <block wx:elif="{{mode === 'cp_milestone'}}">
+      <view class="ts-card goal-hero">
+        <text class="ts-section-label">{{cmHero}}</text>
+
+        <view
+          wx:if="{{cmHasPredicted}}"
+          class="goal-time-grid {{cmHasTarget ? 'goal-time-grid--two' : 'goal-time-grid--one'}}"
+        >
+          <view>
+            <text class="goal-time-label ts-muted">Predicted {{cmDistLabel}}</text>
+            <text class="goal-time-value ts-value">{{cmPredictedTime}}</text>
+          </view>
+          <view wx:if="{{cmHasTarget}}">
+            <text class="goal-time-label ts-muted">Target</text>
+            <text class="goal-time-value ts-value">{{cmTargetTime}}</text>
+          </view>
+        </view>
+
+        <view wx:if="{{cmHasCpProgress}}" class="goal-cp-progress">
+          <view class="goal-cp-progress-row">
+            <text class="goal-cp-progress-current ts-value">{{cmCurrentCp}}</text>
+            <text class="goal-cp-progress-arrow ts-muted">→</text>
+            <text class="goal-cp-progress-target ts-value ts-muted">{{cmTargetCp}}</text>
+            <text class="goal-cp-progress-unit ts-muted">{{cmThresholdUnit}}</text>
+          </view>
+          <view class="goal-progress-track">
+            <view class="goal-progress-fill" style="width: {{cmProgressBarPct}}%;"></view>
+          </view>
+          <text class="goal-progress-pct ts-value">{{cmProgressPctLabel}}</text>
+        </view>
+
+        <text class="goal-status-badge {{cmStatusAccent}}">{{cmStatusText}}</text>
+      </view>
+
+      <view wx:if="{{cmHasMilestones}}" class="ts-card">
+        <text class="ts-section-label">{{tr.milestones}}</text>
+        <view
+          wx:for="{{cmMilestones}}"
+          wx:key="cp"
+          class="{{item.rowClass}}"
+        >
+          <text class="{{item.iconClass}}">{{item.reached ? '✓' : '○'}}</text>
+          <text class="goal-ms-cp ts-value">{{item.cpDisplay}}</text>
+          <text class="goal-ms-marathon ts-muted">{{item.marathon}}</text>
+          <text wx:if="{{item.isCurrent}}" class="goal-ms-current-badge">{{tr.current}}</text>
+        </view>
+      </view>
+
+      <view wx:if="{{cmHasAssessment}}" class="ts-card">
+        <text class="ts-section-label">{{tr.assessment}}</text>
+        <text class="goal-assessment {{cmAssessmentAccent}}">{{cmAssessment}}</text>
+        <view wx:if="{{cmHasEstimatedMonths}}" class="goal-est-row">
+          <text class="ts-muted">{{tr.estimatedTime}}</text>
+          <text class="goal-est-value ts-value">{{cmEstimatedMonths}}</text>
+        </view>
+        <text wx:if="{{cmHasTrendNote}}" class="goal-trend-note">{{cmTrendNote}}</text>
+      </view>
+    </block>
+
+    <!-- ============================================================
+         CONTINUOUS MODE (also covers 'none' as a friendly empty state)
+         ============================================================ -->
+    <block wx:elif="{{mode === 'continuous' || mode === 'none'}}">
+      <view class="ts-card goal-hero">
+        <text class="ts-section-label">{{tr.currentFitness}}</text>
+        <view class="goal-cont-row">
+          <text class="goal-cont-cp ts-value">{{ctCurrentCp}}</text>
+          <text class="goal-cont-unit ts-muted">{{ctThresholdUnit}}</text>
+        </view>
+        <view wx:if="{{ctHasTrend}}" class="goal-cont-trend">
+          <text class="goal-cont-direction {{ctTrendAccent}}">{{ctTrendDirection}}</text>
+          <text wx:if="{{ctHasSlope}}" class="goal-cont-slope ts-muted">{{ctSlopeText}}</text>
+        </view>
+        <view wx:if="{{ctHasPredicted}}" class="goal-cont-predicted">
+          <text class="goal-time-label ts-muted">Predicted {{ctDistLabel}}</text>
+          <text class="goal-time-value ts-value">{{ctPredictedTime}}</text>
+        </view>
+      </view>
+
+      <view wx:if="{{ctHasAssessment}}" class="ts-card">
+        <text class="ts-section-label">{{tr.trend}}</text>
+        <text class="goal-assessment {{ctAssessmentAccent}}">{{ctAssessment}}</text>
+        <text wx:if="{{ctHasTrendNote}}" class="goal-trend-note">{{ctTrendNote}}</text>
+      </view>
+    </block>
+
+    <!-- Science notes — expandable "How this is calculated" sections.
+         Mirrors web's <ScienceNote> usage on each mode. The link rows
+         are tap-to-copy because WeChat <rich-text> <a> tags don't
+         navigate; copying gives users a path to open in browser. -->
+    <view
+      wx:if="{{hasResponse && notePredictionText}}"
+      class="ts-card goal-note-card"
+    >
+      <view class="goal-note-toggle" bindtap="toggleNotePrediction">
+        <text class="goal-note-arrow">{{notePredictionExpanded ? '▾' : '▸'}}</text>
+        <text class="goal-note-label">{{tr.howCalculated}}</text>
+      </view>
+      <view wx:if="{{notePredictionExpanded}}" class="goal-note-body">
+        <text class="goal-note-text">{{notePredictionText}}</text>
+        <view
+          wx:if="{{notePredictionUrl}}"
+          class="goal-note-source-row"
+          bindtap="onTapPredictionSource"
+        >
+          <text class="goal-note-source ts-primary">Source — tap to copy URL</text>
+        </view>
+      </view>
+    </view>
+
+    <view
+      wx:if="{{hasResponse && hasUltraNote}}"
+      class="ts-card goal-note-card"
+    >
+      <view class="goal-note-toggle" bindtap="toggleNoteUltra">
+        <text class="goal-note-arrow">{{noteUltraExpanded ? '▾' : '▸'}}</text>
+        <text class="goal-note-label">Ultra distance caveat</text>
+      </view>
+      <view wx:if="{{noteUltraExpanded}}" class="goal-note-body">
+        <text class="goal-note-text">{{noteUltraText}}</text>
+        <view class="goal-note-source-row" bindtap="onTapUltraSource">
+          <text class="goal-note-source ts-primary">Discussion — tap to copy URL</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- CP trend chart — shared by all modes that have data. The
+         reference line shows target_cp on race_date / cp_milestone
+         modes; null on continuous mode (no target). -->
+    <view wx:if="{{hasResponse && hasCpTrend}}" class="ts-card">
+      <text class="ts-section-label">CP trend</text>
+      <line-chart
+        canvas-id="goal-cp-trend"
+        height="{{240}}"
+        show-legend="{{false}}"
+        dates="{{cpTrendDates}}"
+        series="{{cpTrendSeries}}"
+        reference-y="{{cpTrendReferenceY}}"
+      />
+    </view>
+
+    </view>
+  </scroll-view>
+</view>

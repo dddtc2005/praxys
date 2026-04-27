@@ -1,0 +1,383 @@
+.goal-root {
+  // Skyline pages need flex-column root + scroll-view for content overflow.
+  // See pages/today/index.scss for the full reasoning.
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.goal-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.goal-content {
+  padding: 32rpx 32rpx 200rpx;
+}
+
+.goal-header {
+  font-size: 52rpx;
+  font-weight: 700;
+  color: var(--text);
+  display: block;
+  margin-bottom: 24rpx;
+}
+
+// --- Hero card (used by all three modes) ---
+.goal-hero {
+  text-align: center;
+  padding: 48rpx 32rpx;
+}
+
+.goal-countdown-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+  margin-bottom: 24rpx;
+}
+
+.goal-countdown-value {
+  font-size: 96rpx;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+
+.goal-countdown-label {
+  font-size: 26rpx;
+  display: block;
+}
+
+.goal-status-badge {
+  display: inline-block;
+  padding: 6rpx 16rpx;
+  border-radius: 20rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+  letter-spacing: 2rpx;
+  background-color: var(--surface-subtle);
+  margin-top: 8rpx;
+}
+
+// --- Time grid (predicted vs target) ---
+.goal-time-grid {
+  display: grid;
+  gap: 24rpx;
+  margin-top: 16rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid var(--border-subtle);
+}
+
+.goal-time-grid--two {
+  grid-template-columns: 1fr 1fr;
+}
+
+.goal-time-grid--one {
+  grid-template-columns: 1fr;
+}
+
+.goal-time-label {
+  font-size: 22rpx;
+  text-transform: uppercase;
+  letter-spacing: 1rpx;
+  display: block;
+  margin-bottom: 4rpx;
+}
+
+.goal-time-value {
+  font-size: 40rpx;
+  font-weight: 600;
+  color: var(--text);
+  display: block;
+}
+
+// --- Race-date mode: gap row ---
+.goal-assessment {
+  display: block;
+  font-size: 28rpx;
+  line-height: 1.5;
+  margin-bottom: 16rpx;
+  font-weight: 500;
+}
+
+.goal-gap-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 20rpx 24rpx;
+  background-color: var(--surface-subtle);
+  border-radius: 12rpx;
+  margin-bottom: 16rpx;
+}
+
+.goal-gap-cell {
+  text-align: center;
+}
+
+.goal-gap-cell--last {
+  margin-left: auto;
+}
+
+.goal-gap-label {
+  font-size: 20rpx;
+  text-transform: uppercase;
+  letter-spacing: 1rpx;
+  display: block;
+  margin-bottom: 4rpx;
+}
+
+.goal-gap-value {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text);
+  display: block;
+}
+
+.goal-gap-arrow {
+  font-size: 24rpx;
+}
+
+.goal-trend-note {
+  display: block;
+  font-size: 24rpx;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-top: 8rpx;
+}
+
+// --- Realistic targets ---
+.goal-realistic {
+  margin-top: 16rpx;
+  padding: 16rpx 24rpx;
+  background-color: var(--surface-subtle);
+  border-radius: 12rpx;
+}
+
+.goal-realistic-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24rpx;
+  margin-top: 8rpx;
+}
+
+.goal-realistic-cell {
+  text-align: center;
+}
+
+// --- CP-milestone progress block ---
+.goal-cp-progress {
+  margin-top: 24rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx solid var(--border-subtle);
+}
+
+.goal-cp-progress-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 12rpx;
+  margin-bottom: 12rpx;
+}
+
+.goal-cp-progress-current {
+  font-size: 56rpx;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.goal-cp-progress-arrow {
+  font-size: 28rpx;
+}
+
+.goal-cp-progress-target {
+  font-size: 36rpx;
+}
+
+.goal-cp-progress-unit {
+  font-size: 24rpx;
+}
+
+.goal-progress-track {
+  margin: 12rpx auto;
+  max-width: 480rpx;
+  height: 16rpx;
+  border-radius: 8rpx;
+  background-color: var(--border-subtle);
+  overflow: hidden;
+}
+
+.goal-progress-fill {
+  height: 100%;
+  background-color: var(--primary);
+  border-radius: 8rpx;
+}
+
+.goal-progress-pct {
+  display: block;
+  font-size: 22rpx;
+  color: var(--text-muted);
+  margin-top: 4rpx;
+}
+
+// --- Milestones ---
+.goal-ms-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 14rpx 16rpx;
+  border-radius: 12rpx;
+}
+
+.goal-ms-row--current {
+  background-color: var(--surface-subtle);
+}
+
+.goal-ms-icon {
+  font-size: 28rpx;
+  width: 36rpx;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.goal-ms-icon--reached {
+  color: var(--primary);
+}
+
+.goal-ms-cp {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 100rpx;
+}
+
+.goal-ms-marathon {
+  font-size: 26rpx;
+  flex: 1;
+}
+
+.goal-ms-current-badge {
+  font-size: 18rpx;
+  text-transform: uppercase;
+  letter-spacing: 1rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 16rpx;
+  background-color: var(--primary);
+  color: var(--primary-on);
+  font-weight: 600;
+}
+
+.goal-est-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 24rpx;
+  background-color: var(--surface-subtle);
+  border-radius: 12rpx;
+  margin-top: 16rpx;
+}
+
+.goal-est-value {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text);
+}
+
+// --- Continuous mode ---
+.goal-cont-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 12rpx;
+  margin-bottom: 12rpx;
+}
+
+.goal-cont-cp {
+  font-size: 80rpx;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+
+.goal-cont-unit {
+  font-size: 26rpx;
+}
+
+.goal-cont-trend {
+  display: flex;
+  justify-content: center;
+  gap: 12rpx;
+  align-items: baseline;
+}
+
+.goal-cont-direction {
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.goal-cont-slope {
+  font-size: 22rpx;
+}
+
+.goal-cont-predicted {
+  margin-top: 24rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx solid var(--border-subtle);
+}
+
+// --- Science note (expandable) ---
+.goal-note-card {
+  padding: 20rpx 32rpx;
+}
+
+.goal-note-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.goal-note-arrow {
+  font-size: 22rpx;
+  color: var(--text-muted);
+  width: 24rpx;
+}
+
+.goal-note-label {
+  font-size: 22rpx;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1rpx;
+  font-weight: 600;
+}
+
+.goal-note-body {
+  margin-top: 12rpx;
+  padding-top: 12rpx;
+  border-top: 1rpx solid var(--border-subtle);
+}
+
+.goal-note-text {
+  display: block;
+  font-size: 24rpx;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-bottom: 12rpx;
+}
+
+.goal-note-source-row {
+  // Tap target — full-width hit area. The underline-on-text styling
+  // mimics a hyperlink without using <a> (which doesn't navigate in
+  // mini programs anyway).
+  padding: 8rpx 0;
+}
+
+.goal-note-source {
+  font-size: 24rpx;
+  text-decoration: underline;
+}
+
+.goal-share {
+  margin-top: 32rpx;
+  padding: 0 16rpx;
+}
+.goal-share-btn { width: 100%; }

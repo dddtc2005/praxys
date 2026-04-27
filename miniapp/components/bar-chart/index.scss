@@ -1,0 +1,39 @@
+.bar-chart {
+  width: 100%;
+}
+
+.bar-chart-canvas {
+  width: 100%;
+  display: block;
+}
+
+.bar-chart-wrap {
+  position: relative;
+}
+
+.bar-chart-tooltip {
+  position: absolute;
+  top: 8rpx;
+  transform: translateX(-50%);
+  background-color: var(--surface);
+  border: 1rpx solid var(--border);
+  border-radius: 8rpx;
+  padding: 6rpx 12rpx;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.bar-chart-tooltip-week {
+  display: block;
+  font-size: 18rpx;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+}
+
+.bar-chart-tooltip-value {
+  display: block;
+  font-size: 22rpx;
+  font-weight: 600;
+  color: var(--text);
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+}

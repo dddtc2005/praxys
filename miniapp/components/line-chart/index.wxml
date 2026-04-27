@@ -1,0 +1,28 @@
+<view class="line-chart">
+  <view wx:if="{{showLegend}}" class="line-chart-legend">
+    <view
+      wx:for="{{series}}"
+      wx:key="label"
+      class="line-chart-legend-item"
+    >
+      <view class="line-chart-legend-dot" style="background-color: {{item.color}};"></view>
+      <text class="line-chart-legend-label">{{item.label}}</text>
+    </view>
+  </view>
+  <view class="line-chart-wrap" bindtap="onChartTap">
+    <canvas
+      type="2d"
+      id="{{canvasId}}"
+      class="line-chart-canvas"
+      style="height: {{height}}rpx;"
+    ></canvas>
+    <view
+      wx:if="{{tooltipVisible}}"
+      class="line-chart-tooltip"
+      style="left: {{tooltipLeft}}px;"
+    >
+      <text wx:if="{{tooltipDate}}" class="line-chart-tooltip-date">{{tooltipDate}}</text>
+      <text class="line-chart-tooltip-value">{{tooltipValue}}</text>
+    </view>
+  </view>
+</view>

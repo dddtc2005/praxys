@@ -1,0 +1,8 @@
+{
+  "usingComponents": {
+    "nav-bar": "/components/nav-bar/index",
+    "line-chart": "/components/line-chart/index",
+    "scatter-chart": "/components/scatter-chart/index",
+    "bar-chart": "/components/bar-chart/index"
+  }
+}

@@ -1,0 +1,117 @@
+<view class="settings-root {{themeClass}}">
+  <nav-bar title="Settings" theme-class="{{themeClass}}" show-wordmark="{{true}}" />
+
+  <scroll-view scroll-y="{{true}}" class="settings-scroll">
+    <view class="settings-content">
+    <block wx:if="{{loading && !hasResponse}}">
+      <view class="ts-card"><view class="ts-skeleton"></view></view>
+    </block>
+
+    <block wx:elif="{{errorMessage}}">
+      <view class="ts-card">
+        <text class="settings-header ts-destructive">{{tr.failedToLoad}}</text>
+        <text class="ts-muted">{{errorMessage}}</text>
+        <button class="ts-button" bindtap="onRetry">{{tr.retry}}</button>
+      </view>
+    </block>
+
+    <block wx:elif="{{hasResponse}}">
+      <view class="ts-section">
+        <text class="ts-section-label">{{tr.profile}}</text>
+        <view
+          wx:for="{{profileRows}}"
+          wx:key="label"
+          class="settings-row"
+        >
+          <text class="settings-label ts-muted">{{item.label}}</text>
+          <text class="settings-value ts-value">{{item.value}}</text>
+        </view>
+      </view>
+
+      <view class="ts-section">
+        <text class="ts-section-label">{{tr.connections}}</text>
+        <block wx:if="{{hasConnections}}">
+          <view
+            wx:for="{{connectionRows}}"
+            wx:key="key"
+            class="settings-row"
+          >
+            <text class="settings-label ts-muted">{{item.label}}</text>
+            <text class="settings-value ts-value">{{tr.connected}}</text>
+          </view>
+          <text class="settings-hint ts-muted">{{tr.manageOnWeb}}</text>
+        </block>
+        <text wx:else class="settings-empty ts-muted">{{tr.noPlatformsHint}}</text>
+      </view>
+
+      <view class="ts-section">
+        <text class="ts-section-label">{{tr.thresholds}}</text>
+        <block wx:if="{{hasThresholds}}">
+          <view
+            wx:for="{{thresholdRows}}"
+            wx:key="key"
+            class="settings-row"
+          >
+            <view>
+              <text class="settings-label ts-muted">{{item.label}}</text>
+              <text wx:if="{{item.hasOrigin}}" class="settings-origin ts-muted">{{item.origin}}</text>
+            </view>
+            <text class="settings-value ts-value">{{item.display}}</text>
+          </view>
+          <text class="settings-hint ts-muted">{{tr.thresholdsHint}}</text>
+        </block>
+        <text wx:else class="settings-empty ts-muted">{{tr.thresholdsEmpty}}</text>
+      </view>
+
+      <!-- Tappable nav row keeps a card surface for affordance — the
+           chevron + tap area need to feel pressable. -->
+      <view class="ts-card settings-nav-card" bindtap="onNavigateToScience">
+        <view class="settings-nav-row">
+          <view>
+            <text class="settings-nav-title">{{tr.trainingScience}}</text>
+            <text class="settings-nav-sub ts-muted">{{tr.scienceSubtitle}}</text>
+          </view>
+          <text class="settings-nav-chevron ts-muted">›</text>
+        </view>
+      </view>
+
+      <view class="ts-section">
+        <text class="ts-section-label">{{tr.theme}}</text>
+        <view class="settings-theme-row">
+          <text
+            wx:for="{{themeOptions}}"
+            wx:key="key"
+            class="{{item.className}}"
+            data-theme="{{item.key}}"
+            bindtap="onPickTheme"
+          >{{item.label}}</text>
+        </view>
+        <text class="settings-hint ts-muted">{{tr.themeHint}}</text>
+      </view>
+
+      <view class="ts-section">
+        <text class="ts-section-label">{{tr.language}}</text>
+        <view class="settings-theme-row">
+          <text
+            wx:for="{{languageOptions}}"
+            wx:key="key"
+            class="{{item.className}}"
+            data-lang="{{item.key}}"
+            bindtap="onPickLanguage"
+          >{{item.label}}</text>
+        </view>
+        <text class="settings-hint ts-muted">{{tr.languageHint}}</text>
+      </view>
+
+      <view class="settings-actions">
+        <button class="ts-button ts-button--secondary settings-action-btn" bindtap="onCopyUrl">
+          {{tr.openOnWeb}}
+        </button>
+        <button class="ts-button ts-button--secondary settings-action-btn" bindtap="onSignOut">
+          {{tr.signOut}}
+        </button>
+      </view>
+    </block>
+    </view>
+  </scroll-view>
+</view>

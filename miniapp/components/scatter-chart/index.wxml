@@ -1,0 +1,17 @@
+<view class="scatter-chart">
+  <view class="scatter-chart-wrap" bindtap="onChartTap">
+    <canvas
+      type="2d"
+      id="{{canvasId}}"
+      class="scatter-chart-canvas"
+      style="height: {{height}}rpx;"
+    ></canvas>
+    <view
+      wx:if="{{tooltipVisible}}"
+      class="scatter-chart-tooltip"
+      style="left: {{tooltipLeft}}px; top: {{tooltipTop}}px;"
+    >
+      <text class="scatter-chart-tooltip-text">{{tooltipText}}</text>
+    </view>
+  </view>
+</view>

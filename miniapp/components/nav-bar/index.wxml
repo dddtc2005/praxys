@@ -1,0 +1,14 @@
+<view class="nav-bar {{themeClass}}" style="height: {{totalHeight}}px;">
+  <view class="nav-bar__status" style="height: {{statusBarHeight}}px;"></view>
+  <view
+    class="nav-bar__content"
+    style="height: {{contentHeight}}px; padding-right: {{capsuleReservedPx}}px;"
+  >
+    <view wx:if="{{showBack}}" class="nav-bar__back" bindtap="onBackTap">‹</view>
+    <view wx:if="{{showWordmark}}" class="nav-bar__wordmark">
+      <image class="nav-bar__logo" src="/assets/brand/mark.png" mode="aspectFit" />
+      <text class="nav-bar__brand">Pra<text class="nav-bar__brand-accent">x</text>ys</text>
+    </view>
+    <text wx:else class="nav-bar__title">{{title}}</text>
+  </view>
+</view>
