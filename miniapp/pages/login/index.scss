@@ -1,35 +1,44 @@
-// Refined-minimal centered landing. The whole page is a flex column
-// rooted at full viewport height with `justify-content: space-between`
-// so the brand stack vertical-centers between the (ample) top padding
-// and the footer's hairline-separated "new here?" row.
+// Refined-minimal centered landing.
+//
+// WeChat layout constraints we have to respect:
+//   * Top-right is RESERVED for the system capsule (`...` + `⊙`). Mini
+//     programs can't draw there — anything we place collides with it.
+//     So the language toggle goes top-LEFT below the status bar.
+//   * iOS home indicator (~34pt / ~65rpx on notched devices) needs
+//     `env(safe-area-inset-bottom)` clearance. WebView renderer (which
+//     this page uses) honors it; the fixed-rpx fallback covers cases
+//     where env() resolves to 0.
+//
+// Composition strategy: the whole brand stack + footer is *one* visual
+// composition centered on the screen. We don't pin the footer to the
+// absolute bottom — that creates a scroll-inducing dead zone on tall
+// phones (iPhone 12/13/14/15 Pro all 1623rpx tall, way bigger than the
+// content needs). Centering keeps everything in the eye's natural
+// reading band, and the explicit `margin-top` on the footer sets the
+// gap between stack and footer to a fixed, comfortable distance.
 .login-root {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  padding: calc(48rpx + env(safe-area-inset-top)) 56rpx
-           calc(48rpx + env(safe-area-inset-bottom));
+  padding: calc(40rpx + env(safe-area-inset-top)) 56rpx
+           calc(80rpx + env(safe-area-inset-bottom));
   text-align: center;
   position: relative;
 }
 
-// Brand stack — mark, wordmark, hero tagline, description, CTA.
-// flex: 1 so it claims the middle band of the screen and the footer
-// settles at the bottom regardless of stack height.
+// Brand stack — mark, wordmark, hero, description, CTA. Natural height,
+// just centered horizontally and stacked with consistent gap.
 .login-stack {
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: 24rpx;
   width: 100%;
   max-width: 560rpx;
 }
 
-// Race-flag mark — real PNG asset (cobalt pole + green flag with the
-// inward pinch). Slightly smaller than before so it doesn't dominate.
 .login-mark {
   width: 144rpx;
   height: 144rpx;
@@ -55,8 +64,6 @@
   color: var(--primary);
 }
 
-// Hero — matches web's H1 ("Train like a pro. Whatever your level.")
-// in size and weight. Only line on the page that gets weight.
 .login-hero {
   display: block;
   font-size: 44rpx;
@@ -67,8 +74,6 @@
   max-width: 520rpx;
 }
 
-// Long descriptive paragraph — capped width and 1.6 line-height so it
-// reads at a comfortable cadence on a phone.
 .login-description {
   display: block;
   font-size: 26rpx;
@@ -78,13 +83,12 @@
   max-width: 520rpx;
 }
 
-// CTA fills the stack width up to the max — primary green.
 .login-cta {
   width: 100%;
   margin-top: 28rpx;
 }
 
-// Inputs in the link stage retain the same column flow.
+// Inputs in the link stage.
 .login-input { margin-top: 16rpx; width: 100%; }
 .login-input + .login-input { margin-top: 16rpx; }
 
@@ -96,15 +100,20 @@
   text-align: center;
 }
 
-// Footer — hairline divider above, "new here? praxys.run" centered.
-// Sits at the bottom of the column thanks to the parent's
-// justify-content: space-between.
+// Footer "new here?" row — sits below the stack with a fixed margin so
+// the visual gap is consistent, hairline divider above. Because the
+// whole composition is centered (root has `justify-content: center`),
+// any extra screen height above-and-below distributes evenly: footer
+// always reads as anchored to the lower portion without being literally
+// pinned to the bottom edge (which would be hidden behind the home
+// indicator on iOS or scroll off on tiny screens).
 .login-footer {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4rpx;
   padding-top: 24rpx;
+  margin-top: 64rpx;
   border-top: 1rpx solid var(--border-subtle);
   width: 80%;
   max-width: 480rpx;
@@ -128,18 +137,23 @@
   font-size: 22rpx;
 }
 
-// Top-right floating language toggle. Out-of-flow so it doesn't shift
-// the centered brand stack. EN · 中, with the active locale at full
-// text color and the inactive one muted. Tap to switch — the page
-// re-launches so all the catalog-bound strings flip on the next paint.
+// Top-LEFT language toggle. WeChat's `... | ⊙` capsule reserves the
+// top-right; placing anything there causes the overlap visible in
+// real-device testing. Top-left is fully ours below the status bar.
+//
+// Vertical position: status-bar height + 20rpx breathing room. Using
+// env() works in both Skyline and WebView; if it resolves to 0 (older
+// WeChat clients) the fixed fallback still keeps the toggle clear of
+// the iOS clock display.
 .login-lang-toggle {
   position: absolute;
-  top: calc(20rpx + env(safe-area-inset-top));
-  right: 32rpx;
+  top: calc(28rpx + env(safe-area-inset-top));
+  left: 32rpx;
   display: flex;
   flex-direction: row;
   gap: 12rpx;
   align-items: center;
+  z-index: 10;
 }
 .login-lang-toggle-opt {
   font-size: 26rpx;
@@ -156,9 +170,9 @@
 }
 
 // Single orchestrated entrance: mark fades first, each subsequent
-// element 80ms after. Translate-from-below 8rpx to add depth without
-// being showy. `both` keeps the start state visible so we never get
-// the unmounted-flicker that some Skyline animations can show.
+// element 80ms after. Translate-from-below 8rpx adds a hint of depth
+// without being showy. `both` keeps the start state visible so we
+// never get the unmounted-flicker that some Skyline animations show.
 @keyframes login-fade-in {
   from { opacity: 0; transform: translateY(8rpx); }
   to   { opacity: 1; transform: translateY(0); }

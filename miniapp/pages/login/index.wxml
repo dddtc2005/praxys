@@ -1,8 +1,8 @@
 <view class="login-root {{themeClass}}">
-  <!-- Top-right language toggle — switches between EN and 中 by writing
-       praxys-language to wx storage and reLaunching the page. Out of
-       flow so the centered brand stack below doesn't shift when the
-       toggle re-renders. -->
+  <!-- Top-LEFT language toggle. WeChat reserves the top-right for its
+       capsule (`...` + `⊙`); placing anything there overlaps it on
+       real devices. Tap to switch — writes praxys-language to wx
+       storage and reLaunches so all `t()` calls re-resolve. -->
   <view class="login-lang-toggle">
     <text
       class="login-lang-toggle-opt {{locale === 'en' ? 'login-lang-toggle-opt--active' : ''}}"
@@ -43,7 +43,6 @@
       <image class="login-mark" src="/assets/brand/mark.png" mode="aspectFit" />
       <text class="login-hero">{{tr.signingIn}}</text>
     </view>
-    <view class="login-footer"></view>
   </block>
 
   <block wx:elif="{{stage === 'error'}}">
@@ -53,7 +52,6 @@
       <text class="login-description">{{errorMessage}}</text>
       <button class="ts-button login-cta" bindtap="onRetry">{{tr.retry}}</button>
     </view>
-    <view class="login-footer"></view>
   </block>
 
   <!-- Link form: WeChat is unbound on the backend. Same brand stack at
