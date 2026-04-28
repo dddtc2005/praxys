@@ -387,46 +387,63 @@
 }
 .goal-share-btn { width: 100%; }
 
-// Edit affordance pinned top-right inside each goal-hero card.
-// Pencil icon + "Change goal" text — reads as an inline-edit cue
-// rather than a top-of-page action that fights with the hero.
-.goal-hero {
-  position: relative;
-}
-// Icon-only edit button at the top-right corner of the hero card —
-// tighter than the previous icon+text chip, which crowded the
-// section heading on cp_milestone mode ("Building toward 3:00:00
-// Marathon" was wrapping awkwardly to fit beside it). Round
-// affordance reads as a card-level "edit" cue without competing
-// with the data layout.
-.goal-edit-affordance {
-  position: absolute;
-  top: 16rpx;
-  right: 16rpx;
-  width: 56rpx;
-  height: 56rpx;
-  border-radius: 999rpx;
-  background-color: var(--surface-subtle);
-  border: 1rpx solid var(--border-subtle);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2;
-}
-.goal-edit-affordance__icon {
+// --- Inline edit affordances -------------------------------------------
+// Shared pencil icon used inline next to the Target value and in the
+// "Change goal" row on continuous mode. Background-color shows through
+// the mask so the icon themes via plain CSS without any SVG fill edits.
+%pencil-icon {
   width: 26rpx;
   height: 26rpx;
   background-color: var(--text-muted);
+  flex-shrink: 0;
   -webkit-mask-size: contain;
           mask-size: contain;
   -webkit-mask-repeat: no-repeat;
           mask-repeat: no-repeat;
   -webkit-mask-position: center;
           mask-position: center;
-  // Lucide pencil icon as URL-encoded SVG mask. The element's
-  // background-color shows through, so the icon themes via plain CSS.
   -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z'/%3E%3Cpath d='m15 5 4 4'/%3E%3C/svg%3E");
           mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z'/%3E%3Cpath d='m15 5 4 4'/%3E%3C/svg%3E");
+}
+
+// Target cell: the whole grid cell is tappable in race/cp-milestone mode.
+.goal-target-cell {
+  text-align: left;
+}
+
+// Row inside the target cell — value + inline pencil side by side.
+.goal-target-row {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.goal-inline-edit {
+  @extend %pencil-icon;
+}
+
+// "Set target" placeholder shown when no target is configured.
+.goal-set-target {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 500;
+  margin-top: 4rpx;
+}
+
+// "Change goal" row used at the bottom of the continuous-mode hero
+// card (no Target cell to anchor the edit to there).
+.goal-change-goal-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  margin-top: 24rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid var(--border-subtle);
+}
+
+.goal-change-goal-label {
+  font-size: 24rpx;
 }
 
 // --- Goal editor bottom sheet -------------------------------------------
@@ -542,6 +559,9 @@
 .goal-editor-input--text {
   font-size: 28rpx;
   color: var(--text);
+}
+.goal-editor-input-placeholder {
+  color: var(--text-muted);
 }
 .goal-editor-input-value {
   font-size: 28rpx;

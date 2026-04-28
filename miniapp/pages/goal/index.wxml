@@ -29,9 +29,6 @@
          ============================================================ -->
     <block wx:if="{{mode === 'race_date'}}">
       <view class="ts-card goal-hero">
-        <view class="goal-edit-affordance" bindtap="onOpenEditor">
-          <view class="goal-edit-affordance__icon"></view>
-        </view>
         <text class="ts-section-label">{{rdDistLabel}} Countdown</text>
         <view class="goal-countdown-block">
           <text class="goal-countdown-value ts-value" wx:if="{{rdHasDays}}">{{rdDaysLeft}}</text>
@@ -39,14 +36,18 @@
           <text class="goal-countdown-label ts-muted">days until {{rdRaceDate}}</text>
           <text class="goal-status-badge {{rdStatusAccent}}">{{rdStatusText}}</text>
         </view>
-        <view class="goal-time-grid {{rdHasTarget ? 'goal-time-grid--two' : 'goal-time-grid--one'}}">
+        <view class="goal-time-grid goal-time-grid--two">
           <view>
             <text class="goal-time-label ts-muted">Predicted {{rdDistLabel}}</text>
             <text class="goal-time-value ts-value">{{rdPredictedTime}}</text>
           </view>
-          <view wx:if="{{rdHasTarget}}">
+          <view class="goal-target-cell" bindtap="onOpenEditor">
             <text class="goal-time-label ts-muted">Target</text>
-            <text class="goal-time-value ts-value">{{rdTargetTime}}</text>
+            <view wx:if="{{rdHasTarget}}" class="goal-target-row">
+              <text class="goal-time-value ts-value">{{rdTargetTime}}</text>
+              <view class="goal-inline-edit"></view>
+            </view>
+            <text wx:else class="goal-set-target ts-primary">+ Set target</text>
           </view>
         </view>
       </view>
@@ -100,22 +101,23 @@
          ============================================================ -->
     <block wx:elif="{{mode === 'cp_milestone'}}">
       <view class="ts-card goal-hero">
-        <view class="goal-edit-affordance" bindtap="onOpenEditor">
-          <view class="goal-edit-affordance__icon"></view>
-        </view>
         <text class="ts-section-label">{{cmHero}}</text>
 
         <view
           wx:if="{{cmHasPredicted}}"
-          class="goal-time-grid {{cmHasTarget ? 'goal-time-grid--two' : 'goal-time-grid--one'}}"
+          class="goal-time-grid goal-time-grid--two"
         >
           <view>
             <text class="goal-time-label ts-muted">Predicted {{cmDistLabel}}</text>
             <text class="goal-time-value ts-value">{{cmPredictedTime}}</text>
           </view>
-          <view wx:if="{{cmHasTarget}}">
+          <view class="goal-target-cell" bindtap="onOpenEditor">
             <text class="goal-time-label ts-muted">Target</text>
-            <text class="goal-time-value ts-value">{{cmTargetTime}}</text>
+            <view wx:if="{{cmHasTarget}}" class="goal-target-row">
+              <text class="goal-time-value ts-value">{{cmTargetTime}}</text>
+              <view class="goal-inline-edit"></view>
+            </view>
+            <text wx:else class="goal-set-target ts-primary">+ Set target</text>
           </view>
         </view>
 
@@ -165,9 +167,6 @@
          ============================================================ -->
     <block wx:elif="{{mode === 'continuous' || mode === 'none'}}">
       <view class="ts-card goal-hero">
-        <view class="goal-edit-affordance" bindtap="onOpenEditor">
-          <view class="goal-edit-affordance__icon"></view>
-        </view>
         <text class="ts-section-label">{{tr.currentFitness}}</text>
         <view class="goal-cont-row">
           <text class="goal-cont-cp ts-value">{{ctCurrentCp}}</text>
@@ -180,6 +179,10 @@
         <view wx:if="{{ctHasPredicted}}" class="goal-cont-predicted">
           <text class="goal-time-label ts-muted">Predicted {{ctDistLabel}}</text>
           <text class="goal-time-value ts-value">{{ctPredictedTime}}</text>
+        </view>
+        <view class="goal-change-goal-row" bindtap="onOpenEditor">
+          <view class="goal-inline-edit"></view>
+          <text class="goal-change-goal-label ts-muted">Change goal</text>
         </view>
       </view>
 
@@ -316,7 +319,11 @@
         class="goal-editor-input goal-editor-input--text"
         type="text"
         placeholder="{{editorTargetPlaceholder}}"
+        placeholder-class="goal-editor-input-placeholder"
         value="{{editorTargetTime}}"
+        cursor-spacing="{{40}}"
+        adjust-position="{{true}}"
+        confirm-type="done"
         bindinput="onEditorTargetTimeInput"
       />
       <text class="goal-editor-hint ts-muted">{{editorTargetHint}}</text>
