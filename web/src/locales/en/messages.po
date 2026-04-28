@@ -1,4 +1,4 @@
-msgid ""
+﻿msgid ""
 msgstr ""
 "POT-Creation-Date: 2026-04-18 00:00+0000\n"
 "MIME-Version: 1.0\n"
@@ -274,6 +274,34 @@ msgstr "Avg HR"
 #: src/components/ActivityCard.tsx:96
 msgid "Avg Power"
 msgstr "Avg Power"
+
+#: src/components/charts/FormSparkline.tsx:27
+msgid "Freshened up — good window for racing or testing."
+msgstr "Freshened up — good window for racing or testing."
+
+#: src/components/charts/FormSparkline.tsx:28
+msgid "Good balance of fitness and recovery. Ready for quality work."
+msgstr "Good balance of fitness and recovery. Ready for quality work."
+
+#: src/components/charts/FormSparkline.tsx:29
+msgid "Building fitness with manageable fatigue."
+msgstr "Building fitness with manageable fatigue."
+
+#: src/components/charts/FormSparkline.tsx:30
+msgid "Absorbing training while maintaining fitness."
+msgstr "Absorbing training while maintaining fitness."
+
+#: src/components/charts/FormSparkline.tsx:31
+msgid "Fatigue is climbing — watch recovery before adding load."
+msgstr "Fatigue is climbing — watch recovery before adding load."
+
+#: src/components/charts/FormSparkline.tsx:32
+msgid "High fatigue accumulation. Prioritize recovery."
+msgstr "High fatigue accumulation. Prioritize recovery."
+
+#: src/components/charts/FormSparkline.tsx:33
+msgid "Extended rest period. Fitness declining."
+msgstr "Extended rest period. Fitness declining."
 
 #: src/components/charts/SleepPerfChart.tsx:46
 #: src/components/charts/SleepPerfChart.tsx:49

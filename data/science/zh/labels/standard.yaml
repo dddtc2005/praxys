@@ -1,14 +1,20 @@
 id: standard
 name: 标准
 author: system
+# `key` mirrors the English identifier; only `label` is translated.
 tsb_zone_labels:
-- label: 训练不足
+- key: Detraining
+  label: 训练不足
   color: '#64748b'
-- label: 竞赛状态
+- key: Performance
+  label: 竞赛状态
   color: '#00ff87'
-- label: 最佳平衡
+- key: Optimal
+  label: 最佳平衡
   color: '#3b82f6'
-- label: 高效训练
+- key: Productive
+  label: 高效训练
   color: '#22c55e'
-- label: 过度训练
+- key: Overreaching
+  label: 过度训练
   color: '#ef4444'

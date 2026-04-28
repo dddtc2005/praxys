@@ -45,6 +45,13 @@ class TsbZoneLabeled:
     """TSB zone with boundary + display label (merged from theory + labels)."""
     min: float | None = None
     max: float | None = None
+    # Stable English identifier for client-side dictionary lookups (e.g. zone
+    # insight prose). By convention, zh label files mirror the same key values
+    # as their English counterparts so lookups stay locale-invariant. When a
+    # label set predates this field, merge_zones_with_labels() falls back to
+    # the localized `label` — so key equals label in that path, and clients
+    # can treat a non-empty key as stable and a missing/empty one as "use label".
+    key: str = ""
     label: str = ""
     color: str = "#64748b"
     description: str = ""
@@ -210,10 +217,18 @@ def merge_zones_with_labels(
     label_list = labels.tsb_zone_labels or []
     for i, zone in enumerate(zones):
         lbl = label_list[i] if i < len(label_list) else {}
+        label = lbl.get("label", f"Zone {i + 1}")
+        # When `key` is absent from the YAML, fall back to `label` so the
+        # client's dictionary lookup still works for English (where key and
+        # label are the same). For zh, a missing key means the client's
+        # fallback to `zone.label` also fails — so zh label files must
+        # always carry `key`. This is a convention, not enforced at load time.
+        key = lbl.get("key", label)
         result.append(TsbZoneLabeled(
             min=zone.min,
             max=zone.max,
-            label=lbl.get("label", f"Zone {i + 1}"),
+            key=key,
+            label=label,
             color=lbl.get("color", "#64748b"),
             description=lbl.get("description", ""),
         ))
