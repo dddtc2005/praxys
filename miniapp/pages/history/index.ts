@@ -1,3 +1,4 @@
+import type { IAppOption } from '../../app';
 import { apiGet } from '../../utils/api-client';
 import type { ApiError } from '../../utils/api-client';
 import type { Activity, HistoryResponse } from '../../types/api';
@@ -57,7 +58,7 @@ interface HistoryState {
 }
 
 const initialData: HistoryState = {
-  themeClass: 'theme-light',
+  themeClass: getApp<IAppOption>().globalData.themeClass,
   loading: true,
   loadingMore: false,
   errorMessage: '',

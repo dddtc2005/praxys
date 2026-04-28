@@ -1,3 +1,4 @@
+import type { IAppOption } from '../../app';
 import { apiGet, apiPut } from '../../utils/api-client';
 import type { ApiError } from '../../utils/api-client';
 import type {
@@ -98,7 +99,7 @@ interface SciState {
 }
 
 const initialData: SciState = {
-  themeClass: 'theme-light',
+  themeClass: getApp<IAppOption>().globalData.themeClass,
   loading: true,
   errorMessage: '',
   hasResponse: false,

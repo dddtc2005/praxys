@@ -1,3 +1,4 @@
+import type { IAppOption } from '../../app';
 import { apiGet } from '../../utils/api-client';
 import type { ApiError } from '../../utils/api-client';
 import type { TrainingResponse } from '../../types/api';
@@ -137,7 +138,7 @@ interface TrainingState {
 }
 
 const initialData: TrainingState = {
-  themeClass: 'theme-light',
+  themeClass: getApp<IAppOption>().globalData.themeClass,
   chartTheme: 'light',
   loading: true,
   errorMessage: '',

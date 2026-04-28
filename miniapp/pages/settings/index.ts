@@ -6,8 +6,10 @@ import {
   getThemePreference,
   setThemePreference,
   themeClassName,
+  resolveTheme,
 } from '../../utils/theme';
 import type { ThemePref } from '../../utils/theme';
+import type { IAppOption } from '../../app';
 import { getLanguagePreference, setLanguagePreference } from '../../utils/share';
 import { t } from '../../utils/i18n';
 import type { SettingsResponse } from '../../types/api';
@@ -36,7 +38,7 @@ function buildSettingsTr() {
     themeAuto: t('Auto'),
     themeDark: t('Dark'),
     themeLight: t('Light'),
-    themeHint: t('Auto follows your WeChat system theme. Changing this reloads the app.'),
+    themeHint: t('Auto follows your WeChat system theme.'),
     language: t('Language'),
     languageAuto: t('Auto'),
     languageHint: t(
@@ -161,7 +163,7 @@ interface TrainingBaseOption {
 }
 
 const initialData: SettingsState = {
-  themeClass: 'theme-light',
+  themeClass: getApp<IAppOption>().globalData.themeClass,
   loading: true,
   errorMessage: '',
   hasResponse: false,
@@ -367,12 +369,43 @@ Page({
     const next = e.currentTarget.dataset.theme as ThemePref;
     if (!next || next === this.data.theme) return;
     setThemePreference(next);
-    // Mini programs don't share a DOM across pages — every page already
-    // read the old preference during its mount. wx.reLaunch is the
-    // cleanest way to force every page to re-evaluate themeClassName()
-    // and pick up new colours. Re-launch back to settings (not today)
-    // so the user stays on this page after the swap.
-    wx.reLaunch({ url: '/pages/settings/index' });
+
+    // Resolve the new theme class from the stored preference.
+    const newThemeClass = themeClassName();
+    const newChartTheme: 'light' | 'dark' = resolveTheme(next) === 'light' ? 'light' : 'dark';
+
+    // Update global cache so newly mounted pages get the correct class.
+    getApp<IAppOption>().globalData.themeClass = newThemeClass;
+
+    // Push the new theme to every currently-mounted page without a
+    // reLaunch. Pages bind their root <view> class to `themeClass`, so
+    // setData here re-renders CSS variables instantly — no restart needed.
+    const pages = getCurrentPages();
+    for (const page of pages) {
+      const p = page as WechatMiniprogram.Page.Instance<
+        Record<string, unknown>,
+        Record<string, unknown>
+      >;
+      p.setData({ themeClass: newThemeClass, chartTheme: newChartTheme });
+    }
+
+    // Update the custom tab bar Component on the current page (it isn't
+    // a regular page so getCurrentPages() doesn't include it).
+    const tabBar = (
+      this as unknown as { getTabBar?: () => { setData: (d: unknown) => void } | null }
+    ).getTabBar?.();
+    tabBar?.setData({ themeClass: newThemeClass });
+
+    // Repaint the WeChat-native tab bar style (background, selected
+    // colour) and the system status-bar style.
+    applyThemeChrome();
+
+    // Update the Settings page's own picker so the active pip moves.
+    this.setData({
+      theme: next,
+      themeOptions: buildThemeOptions(next),
+      themeClass: newThemeClass,
+    });
   },
 
   onNavigateToScience() {

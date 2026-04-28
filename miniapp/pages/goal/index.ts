@@ -1,3 +1,4 @@
+import type { IAppOption } from '../../app';
 import { apiGet, apiPut } from '../../utils/api-client';
 import type { ApiError } from '../../utils/api-client';
 import type { GoalResponse, Milestone } from '../../types/api';
@@ -274,7 +275,7 @@ interface GoalState {
 const DISTANCE_CHOICES = buildDistanceChoices();
 
 const initialData: GoalState = {
-  themeClass: 'theme-light',
+  themeClass: getApp<IAppOption>().globalData.themeClass,
   chartTheme: 'light',
   loading: true,
   errorMessage: '',

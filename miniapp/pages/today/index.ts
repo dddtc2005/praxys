@@ -1,3 +1,4 @@
+import type { IAppOption } from '../../app';
 import { apiGet } from '../../utils/api-client';
 import type { ApiError } from '../../utils/api-client';
 import type { TodayResponse } from '../../types/api';
@@ -274,7 +275,7 @@ interface RefreshState {
 }
 
 const initialData: RenderState & RefreshState = {
-  themeClass: 'theme-light',
+  themeClass: getApp<IAppOption>().globalData.themeClass,
   chartTheme: 'light',
   today: '',
   loading: true,

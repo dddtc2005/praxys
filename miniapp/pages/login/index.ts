@@ -9,6 +9,7 @@ import { applyThemeChrome, themeClassName } from '../../utils/theme';
 import { detectShareLocale, getShareMessage, setLanguagePreference } from '../../utils/share';
 import { detectLocale, t } from '../../utils/i18n';
 import type { Locale } from '../../utils/i18n-catalog';
+import type { IAppOption } from '../../app';
 
 const SIGNUP_URL = 'https://www.praxys.run';
 
@@ -129,7 +130,7 @@ interface PageMethods extends WechatMiniprogram.IAnyObject {
 const initialLocale: Locale = 'zh';
 const initialData: PageData = {
   stage: 'idle',
-  themeClass: 'theme-light',
+  themeClass: getApp<IAppOption>().globalData.themeClass,
   ticket: '',
   errorMessage: '',
   locale: initialLocale,
