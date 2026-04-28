@@ -476,3 +476,58 @@ def test_link_refuses_to_rebind_account_with_different_openid(wechat_client):
     )
     assert second.status_code == 409
     assert "WECHAT_LINK_ACCOUNT_ALREADY_LINKED" in second.text
+
+
+def test_unlink_returns_was_bound_true_and_clears_openid(wechat_client):
+    # Bootstrap an admin + grab the JWT, then unlink and verify next login
+    # is treated as needs_setup (since wx_openid was wiped).
+    admin_ticket = _get_ticket(wechat_client, "openid-unlink-A")
+    wechat_client.post(
+        "/api/auth/wechat/register",
+        json={"wechat_login_ticket": admin_ticket, "invitation_code": ""},
+    )
+    token = wechat_client.post(
+        "/api/auth/wechat/login", json={"js_code": "c-unlink-A"}
+    ).json()["access_token"]
+
+    unlink = wechat_client.post(
+        "/api/auth/wechat/unlink",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert unlink.status_code == 200, unlink.text
+    body = unlink.json()
+    assert body["status"] == "ok"
+    assert body["was_bound"] is True
+
+    # Same openid now looks brand new to /login.
+    wechat_client.wechat_mock.next_openid = "openid-unlink-A"
+    after = wechat_client.post("/api/auth/wechat/login", json={"js_code": "c-after-unlink"})
+    assert after.status_code == 200
+    assert after.json()["status"] == "needs_setup"
+
+
+def test_unlink_idempotent_when_no_binding(wechat_client):
+    # An admin user whose wechat_openid we manually clear, then unlink
+    # again — must succeed with was_bound=False.
+    admin_ticket = _get_ticket(wechat_client, "openid-unlink-B")
+    wechat_client.post(
+        "/api/auth/wechat/register",
+        json={"wechat_login_ticket": admin_ticket, "invitation_code": ""},
+    )
+    token = wechat_client.post(
+        "/api/auth/wechat/login", json={"js_code": "c-unlink-B"}
+    ).json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    first = wechat_client.post("/api/auth/wechat/unlink", headers=headers)
+    assert first.status_code == 200
+    assert first.json()["was_bound"] is True
+
+    second = wechat_client.post("/api/auth/wechat/unlink", headers=headers)
+    assert second.status_code == 200
+    assert second.json()["was_bound"] is False
+
+
+def test_unlink_requires_authentication(wechat_client):
+    no_auth = wechat_client.post("/api/auth/wechat/unlink")
+    assert no_auth.status_code == 401

@@ -1,4 +1,4 @@
-import { apiGet } from '../../utils/api-client';
+import { apiGet, apiPost } from '../../utils/api-client';
 import type { ApiError } from '../../utils/api-client';
 import { clearToken } from '../../utils/auth';
 import {
@@ -44,6 +44,10 @@ function buildSettingsTr() {
     ),
     openOnWeb: t('Open Praxys on web'),
     signOut: t('Log out'),
+    switchAccount: t('Switch Praxys account'),
+    switchAccountHint: t(
+      'Unbind your WeChat profile from this Praxys account so you can sign in as someone else or test the first-time onboarding flow.',
+    ),
     connected: t('Connected'),
   };
 }
@@ -315,6 +319,48 @@ Page({
   },
 
   onSignOut() {
+    clearToken();
+    wx.reLaunch({ url: '/pages/login/index' });
+  },
+
+  /**
+   * Detach the current Praxys account from this WeChat profile so the user
+   * can sign in as a different Praxys account, or test the first-run
+   * onboarding flow without flashing the database. Calls the unlink
+   * endpoint, clears the local JWT, then reLaunches to login — the next
+   * `wx.login()` will return `needs_setup` and show the choose / link /
+   * register UI.
+   */
+  onSwitchAccount() {
+    wx.showModal({
+      title: t('Switch Praxys account'),
+      content: t(
+        "This unlinks your WeChat profile from the current Praxys account. You'll be signed out and can sign in to a different account on next launch.",
+      ),
+      confirmText: t('Switch'),
+      cancelText: t('Cancel'),
+      success: (res) => {
+        if (!res.confirm) return;
+        void this.runSwitchAccount();
+      },
+    });
+  },
+
+  async runSwitchAccount() {
+    wx.showLoading({ title: t('Unlinking…'), mask: true });
+    try {
+      await apiPost('/api/auth/wechat/unlink');
+    } catch (e) {
+      // If the unlink fails we still proceed locally — the user wanted
+      // out. Worst case, the next sign-in returns 'ok' for the same
+      // account, and they can try Switch again. Toast the error so the
+      // failure isn't completely silent.
+      const detail = (e as Partial<ApiError>)?.detail ?? String(e);
+      // eslint-disable-next-line no-console
+      console.warn('[settings] wechat unlink failed:', detail);
+    } finally {
+      wx.hideLoading();
+    }
     clearToken();
     wx.reLaunch({ url: '/pages/login/index' });
   },

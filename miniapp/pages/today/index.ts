@@ -10,7 +10,6 @@ import {
   detectShareLocale,
   getShareMessage,
 } from '../../utils/share';
-import { generateShareCard } from '../../utils/share-image';
 
 interface SignalMeta {
   label: string;
@@ -352,13 +351,19 @@ Page({
   },
 
   onShareAppMessage(options: WechatMiniprogram.Page.IShareAppMessageOption) {
-    // Two share paths, distinguished by `options.from`:
-    //   - 'menu'   (top-right …): share Praxys itself with the static
-    //              og-card brand image. Generic, evergreen.
-    //   - 'button' (small share FAB on the signal card): share the
-    //              user's actual training signal with the dynamically
-    //              rendered branded card. Personal "show off" use case.
-    // WeChat passes `from` automatically; we just route on it.
+    // Two share paths distinguished by `options.from`:
+    //   - 'menu'   (top-right ⋯): generic Praxys share, brand og-card.
+    //   - 'button' (signal-card FAB): personalized title with the
+    //              user's current signal, but the same bundled brand
+    //              image as the cover.
+    //
+    // We deliberately do NOT pass the canvas-rendered tempFilePath as
+    // `imageUrl`. On unverified personal mini programs, WeChat shows a
+    // "微信认证 (verification) required" advisory when shares use a
+    // tempFilePath (`wxfile://...`) thumbnail. Using the project-bundled
+    // /assets/og-card-wechat.jpg avoids the prompt entirely. Once the
+    // mini program is enterprise-verified, we can swap back to the
+    // dynamic image without changing the rest of the flow.
     const fromButton = options?.from === 'button';
     if (!fromButton) {
       return getShareMessage(detectShareLocale(), '/pages/today/index');
@@ -366,17 +371,13 @@ Page({
 
     const label = (this.data.signalLabel as string) || '';
     const subtitle = (this.data.signalSubtitle as string) || '';
-    const sharePath = (this.data.shareImagePath as string) || '';
-    let base;
-    if (label) {
-      const locale = detectShareLocale();
-      const lead = locale === 'zh' ? '今日训练信号' : 'Today';
-      const title = subtitle ? `${lead}: ${label} — ${subtitle}` : `${lead}: ${label}`;
-      base = buildShareMessage(title, '/pages/today/index');
-    } else {
-      base = getShareMessage(detectShareLocale(), '/pages/today/index');
+    if (!label) {
+      return getShareMessage(detectShareLocale(), '/pages/today/index');
     }
-    return sharePath ? { ...base, imageUrl: sharePath } : base;
+    const locale = detectShareLocale();
+    const lead = locale === 'zh' ? '今日训练信号' : 'Today';
+    const title = subtitle ? `${lead}: ${label} — ${subtitle}` : `${lead}: ${label}`;
+    return buildShareMessage(title, '/pages/today/index');
   },
 
   onShareTimeline() {
@@ -412,25 +413,12 @@ Page({
       this.setData(
         buildRenderState(response, this.data.themeClass, this.data.today) as Record<string, unknown>,
       );
-      // Render the branded share card off-screen so it's ready by the
-      // time the user taps share. Failure is non-fatal — falls back to
-      // the static og-card. Clear the previous path on failure so we
-      // never keep serving stale signal data on the next share tap.
-      try {
-        const meta = SIGNAL_META[response.signal.recommendation] ?? SIGNAL_META.follow_plan;
-        const path = await generateShareCard({
-          label: meta.label,
-          subtitle: meta.subtitle,
-          reason: response.signal.reason,
-          color: meta.color,
-          locale: detectShareLocale(),
-        });
-        this.setData({ shareImagePath: path });
-      } catch (cardErr) {
-        // eslint-disable-next-line no-console
-        console.warn('[today] share card generation failed:', cardErr);
-        this.setData({ shareImagePath: '' });
-      }
+      // Note: we used to render a canvas-based branded share card here
+      // and pass the tempFilePath as `imageUrl` in onShareAppMessage.
+      // Unverified personal mini programs see a "微信认证 required"
+      // advisory when sharing with `wxfile://` paths, so we fall back to
+      // the bundled og-card. Once the mini program is verified the call
+      // (utils/share-image.ts is still in the tree) can be re-enabled.
     } catch (e) {
       const err = e as Partial<ApiError>;
       if (err?.code === 'UNAUTHENTICATED') return;
