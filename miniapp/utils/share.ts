@@ -33,7 +33,7 @@ export const SHARE_IMAGE_URL = '/assets/og-card-wechat.jpg';
 export function getShareMessage(locale: ShareLocale, path?: string): ShareMessage {
   const title =
     locale === 'zh'
-      ? '像专业选手一样训练 — 无论水平高低。'
+      ? '像专业选手一样训练，无论水平高低。'
       : 'Train like a pro. Whatever your level.';
 
   return {

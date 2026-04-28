@@ -385,7 +385,7 @@ Page({
     const subtitle = (this.data.signalSubtitle as string) || '';
     const locale = detectShareLocale();
     const fallback =
-      locale === 'zh' ? '像专业选手一样训练' : 'Train like a pro. Whatever your level.';
+      locale === 'zh' ? '像专业选手一样训练，无论水平高低。' : 'Train like a pro. Whatever your level.';
     const title = label
       ? subtitle
         ? `${label} — ${subtitle}`

@@ -12,6 +12,7 @@
 
 import { I18N_CATALOG } from './i18n-catalog';
 import type { Locale } from './i18n-catalog';
+import { I18N_EXTRA } from './i18n-extra';
 
 const LANGUAGE_STORAGE_KEY = 'praxys-language';
 
@@ -47,12 +48,19 @@ export function detectLocale(): Locale {
 }
 
 /**
- * Translate a string. Falls back to the key itself (English source) if
- * no translation exists for the active locale, which matches lingui's
- * default behavior.
+ * Translate a string. Resolution order:
+ *   1. `I18N_EXTRA` — mini-program-local strings (login copy, switch-
+ *      account modal, sync-now button, …). Hand-written; takes
+ *      precedence so we can override any web translation that doesn't
+ *      fit the mini-program voice.
+ *   2. `I18N_CATALOG` — auto-synced from web's lingui .po files. The
+ *      vast majority of keys live here.
+ *   3. The key itself — same fallback as lingui's default behavior.
  */
 export function t(key: string): string {
   const locale = detectLocale();
+  const extra = I18N_EXTRA[locale]?.[key];
+  if (extra != null) return extra;
   const catalog = I18N_CATALOG[locale];
   return catalog?.[key] ?? key;
 }

@@ -677,7 +677,7 @@ Page({
   onShareTimeline() {
     const locale = detectShareLocale();
     const fallback =
-      locale === 'zh' ? '像专业选手一样训练' : 'Train like a pro. Whatever your level.';
+      locale === 'zh' ? '像专业选手一样训练，无论水平高低。' : 'Train like a pro. Whatever your level.';
     const days = (this.data.rdDaysLeft as string) || '';
     const dist = (this.data.rdDistLabel as string) || '';
     const hasRace = this.data.mode === 'race_date' && days && dist;

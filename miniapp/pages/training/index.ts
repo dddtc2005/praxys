@@ -390,7 +390,7 @@ Page({
     const km = (this.data.weeklyKm as string) || '';
     const locale = detectShareLocale();
     const fallback =
-      locale === 'zh' ? '像专业选手一样训练' : 'Train like a pro. Whatever your level.';
+      locale === 'zh' ? '像专业选手一样训练，无论水平高低。' : 'Train like a pro. Whatever your level.';
     return buildTimelineMessage(cp && km ? `${cp} CP · ${km}` : fallback);
   },
 
