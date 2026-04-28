@@ -32,6 +32,7 @@ function buildGoalTr() {
     currentFitness: t('Current Fitness'),
     trend: t('Trend'),
     milestones: t('Milestones'),
+    realisticTargets: t('Realistic targets'),
     assessment: t('Assessment'),
     estimatedTime: t('Estimated time to target'),
     comfortable: t('Comfortable'),

@@ -82,12 +82,20 @@ interface TrainingState {
   cpHintDetail: string;
   cpTrendDates: string[];
   cpTrendSeries: SeriesPayload[];
+  /** One-liner above the chart — "CP rising · +12W over 8 weeks" or
+   *  "CP holding steady". Empty string hides the line. */
+  cpTakeaway: string;
+  cpTakeawayAccent: string;
 
   ffSufficient: boolean;
   ffHintMessage: string;
   ffHintDetail: string;
   ffDates: string[];
   ffSeries: SeriesPayload[];
+  /** One-liner above the chart — "Fresh · TSB +6" / "Balanced · TSB -2" /
+   *  "Carrying fatigue · TSB -18". Empty string hides the line. */
+  ffTakeaway: string;
+  ffTakeawayAccent: string;
 
   hasDistribution: boolean;
   zoneSectionLabel: string;
@@ -147,12 +155,16 @@ const initialData: TrainingState = {
   cpHintDetail: '',
   cpTrendDates: [],
   cpTrendSeries: [],
+  cpTakeaway: '',
+  cpTakeawayAccent: '',
 
   ffSufficient: true,
   ffHintMessage: '',
   ffHintDetail: '',
   ffDates: [],
   ffSeries: [],
+  ffTakeaway: '',
+  ffTakeawayAccent: '',
 
   hasDistribution: false,
   zoneSectionLabel: 'Zone distribution',
@@ -210,6 +222,72 @@ function complianceColor(planned: number | null, actual: number | null): string 
   if (pct < 80) return COMPLIANCE_AMBER;
   if (pct > 120) return COMPLIANCE_RED;
   return COMPLIANCE_GREEN;
+}
+
+/**
+ * Compact one-liner above the CP-trend chart. Looks at the last ~8
+ * non-null values, computes the simple delta, and reports a direction +
+ * magnitude. Empty when we don't have enough data points to be useful
+ * (so the WXML hides the line).
+ *
+ * Mini-program-only feature — web's TrainingPage carries this context
+ * inline through DiagnosisCard's findings list, but on a phone-sized
+ * screen those findings live below five charts and require scrolling.
+ * The takeaway above the chart catches the eye.
+ */
+function buildCpTakeaway(values: (number | null)[]): { text: string; accent: string } {
+  const recent = values.filter((v): v is number => v != null).slice(-8);
+  if (recent.length < 4) return { text: '', accent: '' };
+  const delta = recent[recent.length - 1] - recent[0];
+  const span = recent.length;
+  if (Math.abs(delta) < 2) {
+    return {
+      text: detectShareLocale() === 'zh' ? 'CP 趋势平稳' : 'CP holding steady',
+      accent: 'ts-muted',
+    };
+  }
+  const sign = delta > 0 ? '+' : '';
+  const w = `${sign}${Math.round(delta)}W`;
+  const text =
+    detectShareLocale() === 'zh'
+      ? delta > 0
+        ? `CP 上升 · ${span} 周内 ${w}`
+        : `CP 下降 · ${span} 周内 ${w}`
+      : delta > 0
+        ? `CP rising · ${w} over ${span} weeks`
+        : `CP dropping · ${w} over ${span} weeks`;
+  return {
+    text,
+    accent: delta > 0 ? 'ts-primary' : 'ts-warning',
+  };
+}
+
+/**
+ * Form (TSB) takeaway above the Fitness/Fatigue chart. Most actionable
+ * single value on the page — captures whether the user is fresh,
+ * balanced, or carrying fatigue.
+ */
+function buildFfTakeaway(tsb: (number | null)[]): { text: string; accent: string } {
+  const lastTsb = [...tsb].reverse().find((v): v is number => v != null);
+  if (lastTsb == null) return { text: '', accent: '' };
+  const v = lastTsb >= 0 ? `+${lastTsb.toFixed(0)}` : lastTsb.toFixed(0);
+  const isZh = detectShareLocale() === 'zh';
+  if (lastTsb > 5) {
+    return {
+      text: isZh ? `状态良好 · TSB ${v}` : `Fresh · TSB ${v}`,
+      accent: 'ts-primary',
+    };
+  }
+  if (lastTsb > -10) {
+    return {
+      text: isZh ? `状态平衡 · TSB ${v}` : `Balanced · TSB ${v}`,
+      accent: 'ts-muted',
+    };
+  }
+  return {
+    text: isZh ? `疲劳累积 · TSB ${v}` : `Carrying fatigue · TSB ${v}`,
+    accent: 'ts-warning',
+  };
 }
 
 function buildState(response: TrainingResponse, themeClass: string): Partial<TrainingState> {
@@ -289,6 +367,12 @@ function buildState(response: TrainingResponse, themeClass: string): Partial<Tra
     cpTrendSeries: cp_trend
       ? [{ label: 'CP', color: '#00ff87', values: cp_trend.values, fill: true }]
       : [],
+    ...(cp_trend
+      ? (() => {
+          const tk = buildCpTakeaway(cp_trend.values);
+          return { cpTakeaway: tk.text, cpTakeawayAccent: tk.accent };
+        })()
+      : { cpTakeaway: '', cpTakeawayAccent: '' }),
 
     ffSufficient,
     ffHintMessage: 'Not enough data for accurate fitness tracking',
@@ -302,6 +386,12 @@ function buildState(response: TrainingResponse, themeClass: string): Partial<Tra
           { label: 'Form (TSB)', color: '#3b82f6', values: fitness_fatigue.tsb },
         ]
       : [],
+    ...(fitness_fatigue
+      ? (() => {
+          const tk = buildFfTakeaway(fitness_fatigue.tsb);
+          return { ffTakeaway: tk.text, ffTakeawayAccent: tk.accent };
+        })()
+      : { ffTakeaway: '', ffTakeawayAccent: '' }),
 
     hasDistribution: zoneRows.length > 0,
     zoneSectionLabel: diagnosis?.theory_name

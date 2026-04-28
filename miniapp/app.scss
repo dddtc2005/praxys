@@ -92,13 +92,17 @@ page {
   padding-top: 32rpx;
 }
 
+// Section labels — sentence case at 24rpx muted. The previous
+// uppercase + 2rpx letter-spacing treatment read like a desktop-
+// dashboard accent, especially when stacked through every page
+// ("FORM TSB" / "RECOVERY" / "WEEKLY LOAD"). iOS / native-mobile
+// convention is sentence case, with hierarchy carried by the
+// numeric values directly below.
 .ts-section-label {
   display: block;
-  font-size: 22rpx;
-  text-transform: uppercase;
-  letter-spacing: 2rpx;
+  font-size: 24rpx;
   color: var(--text-muted);
-  font-weight: 600;
+  font-weight: 500;
   margin-bottom: 12rpx;
 }
 

@@ -73,8 +73,13 @@
 }
 
 // --- Active + alternative theory cards ---
+// Active card gets the primary-color left rail AND a tinted background
+// so the selection state reads at thumb-arm distance. Previous design
+// relied only on a tiny ACTIVE badge; the badge alone disappeared in
+// the visual scan when scrolling through alternatives below.
 .sci-active-card {
   border-left: 4rpx solid var(--primary);
+  background-color: rgba(30, 142, 91, 0.06); // ~6% --primary
 }
 
 .sci-alt-card {
@@ -95,7 +100,9 @@
 }
 
 .sci-active-badge {
-  font-size: 18rpx;
+  // Bumped 18rpx → 22rpx so the active state reads even when the user
+  // skims past the active card to compare alternatives.
+  font-size: 22rpx;
   letter-spacing: 1rpx;
   font-weight: 700;
   padding: 2rpx 10rpx;

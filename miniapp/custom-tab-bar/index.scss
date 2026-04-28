@@ -31,7 +31,13 @@
   flex-direction: row;
   align-items: stretch;
   justify-content: space-around;
-  height: 110rpx;
+  // `min-height` (was `height: 110rpx`) so the bar grows by the
+  // safe-area-inset-bottom on notched devices instead of squishing the
+  // padding into the icon row. iPhone SE (no inset) stays at 110rpx;
+  // iPhone 12+ (~65rpx inset) becomes ~175rpx, which keeps the icons
+  // a comfortable distance above the home indicator.
+  min-height: 110rpx;
+  height: auto;
   background-color: var(--bg);
   border-top: 1rpx solid var(--border-subtle);
   padding-bottom: env(safe-area-inset-bottom);

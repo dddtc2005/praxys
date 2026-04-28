@@ -319,10 +319,14 @@
 
 .today-week-load-fill {
   height: 100%;
-  border-radius: 6rpx;
+  // No own border-radius — at low fill % a 6rpx radius on all four
+  // corners produced a visible right-side "bump" that didn't meet the
+  // track edge cleanly. The track's overflow: hidden + 6rpx radius
+  // clips the fill correctly at both 0% and 100%, so we let the track
+  // own all the corner shaping.
   background-color: var(--primary);
-  // The accent class on the fill recolors via the helper utilities;
-  // the default is --primary (green = on target).
+  // Accent classes on the fill recolor via the helper utilities;
+  // default is --primary (green = on target).
   &.ts-warning { background-color: var(--warning); }
   &.ts-destructive { background-color: var(--destructive); }
 }

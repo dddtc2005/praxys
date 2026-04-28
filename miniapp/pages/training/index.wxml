@@ -42,6 +42,7 @@
           <text class="train-hero-value ts-value">{{latestCpDisplay}}</text>
           <text class="train-hero-meta ts-muted">latest estimate · {{cpDataPointCount}} data points</text>
         </view>
+        <text wx:if="{{cpTakeaway}}" class="train-takeaway {{cpTakeawayAccent}}">{{cpTakeaway}}</text>
         <line-chart
           wx:if="{{cpSufficient}}"
           canvas-id="train-cp-trend"
@@ -59,6 +60,7 @@
 
       <view class="ts-card">
         <text class="ts-section-label">{{tr.fitnessFatigue}}</text>
+        <text wx:if="{{ffTakeaway}}" class="train-takeaway {{ffTakeawayAccent}}">{{ffTakeaway}}</text>
         <line-chart
           wx:if="{{ffSufficient}}"
           canvas-id="train-ctl-atl-tsb"

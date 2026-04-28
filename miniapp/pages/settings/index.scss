@@ -37,10 +37,9 @@
 .settings-value {
   font-size: 28rpx;
 }
-
-.settings-label {
-  text-transform: capitalize;
-}
+// Source strings are already canonical-cased (e.g. "Training base"
+// not "training base"); a capitalize transform turned that into
+// "Training Base" which is wrong. Trust the source.
 
 .settings-hint {
   font-size: 24rpx;

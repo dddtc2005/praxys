@@ -182,3 +182,15 @@
   font-size: 22rpx;
   line-height: 1.5;
 }
+
+// One-line "what's the chart telling you" sentence above CP-trend and
+// Fitness/Fatigue charts. Sits between the section label / hero value
+// and the chart canvas. The accent class (`ts-primary` / `ts-warning`
+// / `ts-muted`) carries the directional cue.
+.train-takeaway {
+  display: block;
+  margin-bottom: 12rpx;
+  font-size: 24rpx;
+  font-weight: 500;
+  line-height: 1.4;
+}

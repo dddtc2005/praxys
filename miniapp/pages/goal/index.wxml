@@ -78,7 +78,7 @@
         <text wx:if="{{rdHasTrendNote}}" class="goal-trend-note">{{rdTrendNote}}</text>
 
         <view wx:if="{{rdHasRealistic}}" class="goal-realistic">
-          <text class="ts-section-label">Realistic Alternative Targets</text>
+          <text class="ts-section-label">{{tr.realisticTargets}}</text>
           <view class="goal-realistic-row">
             <view class="goal-realistic-cell">
               <text class="goal-time-label ts-muted">{{tr.comfortable}}</text>
