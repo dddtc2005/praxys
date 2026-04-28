@@ -23,6 +23,8 @@ function buildTrainingTr() {
     complianceOk: t('On target'),
     complianceOff: t('Off target'),
     complianceNoPlan: t('No plan'),
+    showCorrelation: t('Show correlation'),
+    hideCorrelation: t('Hide correlation'),
   };
 }
 import {
@@ -123,6 +125,12 @@ interface TrainingState {
   sleepPerfYLabel: string;
   sleepPerfPairs: [number, number][];
   sleepPerfYIsPace: boolean;
+  /** One-liner above the scatter — "Sleep helps performance · r=0.42". */
+  sleepTakeaway: string;
+  sleepTakeawayAccent: string;
+  /** Scatter is collapsed by default — the takeaway above answers the
+   *  90% question, the chart is the deeper dive. */
+  showSleepCorrelation: boolean;
 
   // Weekly compliance bars (web parity, issue #76).
   complianceSufficient: boolean;
@@ -134,6 +142,9 @@ interface TrainingState {
   compliancePlanned: number[];
   complianceActual: number[];
   complianceActualColors: string[];
+  /** One-liner above the bar chart — "On plan · 5/6 weeks within ±20%". */
+  complianceTakeaway: string;
+  complianceTakeawayAccent: string;
 }
 
 import type { IAppOption } from '../../app';
@@ -193,6 +204,9 @@ const initialData: TrainingState = {
   sleepPerfYLabel: '',
   sleepPerfPairs: [],
   sleepPerfYIsPace: false,
+  sleepTakeaway: '',
+  sleepTakeawayAccent: '',
+  showSleepCorrelation: false,
 
   complianceSufficient: true,
   complianceHintMessage: '',
@@ -203,6 +217,8 @@ const initialData: TrainingState = {
   compliancePlanned: [],
   complianceActual: [],
   complianceActualColors: [],
+  complianceTakeaway: '',
+  complianceTakeawayAccent: '',
 };
 
 function clampPct(v: number): number {
@@ -297,6 +313,112 @@ function buildFfTakeaway(tsb: (number | null)[]): { text: string; accent: string
   return {
     text: isZh ? `疲劳累积 · TSB ${v}` : `Carrying fatigue · TSB ${v}`,
     accent: 'ts-warning',
+  };
+}
+
+/**
+ * Compliance takeaway above the Weekly Load chart. Counts how many of
+ * the last N weeks were within ±20% of the planned load — that's the
+ * threshold web's complianceColor uses for "ok" green vs "off" amber.
+ *
+ * Empty when there's no plan baseline to compare against (all planned
+ * values are 0/null) so we don't claim "0/0 weeks on plan".
+ */
+function buildComplianceTakeaway(
+  weeks: string[],
+  planned: number[],
+  actual: number[],
+): { text: string; accent: string } {
+  if (!weeks.length) return { text: '', accent: '' };
+  let comparable = 0;
+  let onPlan = 0;
+  for (let i = 0; i < weeks.length; i++) {
+    const p = planned[i];
+    const a = actual[i];
+    if (p == null || p <= 0 || a == null) continue;
+    comparable++;
+    const ratio = a / p;
+    if (ratio >= 0.8 && ratio <= 1.2) onPlan++;
+  }
+  if (comparable === 0) return { text: '', accent: '' };
+  const isZh = detectShareLocale() === 'zh';
+  const off = comparable - onPlan;
+  // Most actionable framing: lead with what's off vs on-plan.
+  if (off === 0) {
+    return {
+      text: isZh
+        ? `执行良好 · ${onPlan}/${comparable} 周达标`
+        : `On plan · ${onPlan}/${comparable} weeks within ±20%`,
+      accent: 'ts-primary',
+    };
+  }
+  if (off >= Math.ceil(comparable / 2)) {
+    return {
+      text: isZh
+        ? `偏离计划 · ${off}/${comparable} 周差距 >20%`
+        : `Off plan · ${off}/${comparable} weeks >20% off`,
+      accent: 'ts-warning',
+    };
+  }
+  return {
+    text: isZh
+      ? `多数达标 · ${onPlan}/${comparable} 周接近计划`
+      : `Mostly on · ${onPlan}/${comparable} weeks near plan`,
+    accent: 'ts-muted',
+  };
+}
+
+/**
+ * Sleep×Performance takeaway. Web's scatter doesn't compute a number,
+ * but a one-line correlation hint makes the chart actionable on a
+ * phone-sized screen where the trend is hard to read by eye.
+ *
+ * Uses Pearson r on the (sleep_score, metric) pairs. When metric is
+ * pace (lower=better), invert the sign so "positive" always means
+ * "better sleep → better performance" in the user-facing copy.
+ */
+function buildSleepTakeaway(
+  pairs: [number, number][],
+  yIsPace: boolean,
+): { text: string; accent: string } {
+  if (pairs.length < 4) return { text: '', accent: '' };
+  const xs = pairs.map((p) => p[0]);
+  const ys = pairs.map((p) => p[1]);
+  const n = xs.length;
+  const mx = xs.reduce((s, v) => s + v, 0) / n;
+  const my = ys.reduce((s, v) => s + v, 0) / n;
+  let num = 0;
+  let dx2 = 0;
+  let dy2 = 0;
+  for (let i = 0; i < n; i++) {
+    const a = xs[i] - mx;
+    const b = ys[i] - my;
+    num += a * b;
+    dx2 += a * a;
+    dy2 += b * b;
+  }
+  if (dx2 === 0 || dy2 === 0) return { text: '', accent: '' };
+  let r = num / Math.sqrt(dx2 * dy2);
+  // Pace lower-is-better: a negative raw correlation means more sleep →
+  // faster pace, which is the *positive* outcome. Invert so the
+  // takeaway always reads in user-intuitive direction.
+  if (yIsPace) r = -r;
+  const isZh = detectShareLocale() === 'zh';
+  if (r >= 0.3) {
+    return {
+      text: isZh ? `睡眠与表现正相关 · r=${r.toFixed(2)}` : `Sleep helps performance · r=${r.toFixed(2)}`,
+      accent: 'ts-primary',
+    };
+  }
+  if (r <= -0.3) {
+    return {
+      text: isZh ? `睡眠与表现负相关 · r=${r.toFixed(2)}` : `Sleep vs performance · r=${r.toFixed(2)}`,
+      accent: 'ts-warning',
+    };
+  }
+  return {
+    text: isZh ? `相关性弱 · r=${r.toFixed(2)}` : `Weak correlation · r=${r.toFixed(2)}`,
+    accent: 'ts-muted',
   };
 }
 
@@ -435,6 +557,12 @@ function buildState(response: TrainingResponse, themeClass: string): Partial<Tra
       : '',
     sleepPerfPairs: sleep_perf?.pairs ?? [],
     sleepPerfYIsPace: sleep_perf?.metric_unit === 'sec/km',
+    ...(sleep_perf
+      ? (() => {
+          const tk = buildSleepTakeaway(sleep_perf.pairs ?? [], sleep_perf.metric_unit === 'sec/km');
+          return { sleepTakeaway: tk.text, sleepTakeawayAccent: tk.accent };
+        })()
+      : { sleepTakeaway: '', sleepTakeawayAccent: '' }),
 
     // Weekly compliance bars. Web threshold: 14 days of data.
     complianceSufficient,
@@ -455,6 +583,16 @@ function buildState(response: TrainingResponse, themeClass: string): Partial<Tra
           ),
         )
       : [],
+    ...(weekly_review
+      ? (() => {
+          const tk = buildComplianceTakeaway(
+            weekly_review.weeks ?? [],
+            weekly_review.planned_load ?? [],
+            weekly_review.actual_load ?? [],
+          );
+          return { complianceTakeaway: tk.text, complianceTakeawayAccent: tk.accent };
+        })()
+      : { complianceTakeaway: '', complianceTakeawayAccent: '' }),
   };
 }
 
@@ -501,6 +639,14 @@ Page({
 
   onRetry() {
     void this.refetch();
+  },
+
+  // The Sleep×Performance scatter is collapsed by default — the
+  // takeaway line answers "did sleep correlate with performance?"
+  // for 90% of glances. Tapping the toggle reveals the chart for
+  // users who want the underlying scatter.
+  toggleSleepCorrelation() {
+    this.setData({ showSleepCorrelation: !this.data.showSleepCorrelation });
   },
 
   async refetch() {

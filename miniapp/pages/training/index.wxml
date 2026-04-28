@@ -105,6 +105,7 @@
 
       <view class="ts-card">
         <text class="ts-section-label">{{tr.weeklyCompliance}}</text>
+        <text wx:if="{{complianceTakeaway}}" class="train-takeaway {{complianceTakeawayAccent}}">{{complianceTakeaway}}</text>
         <block wx:if="{{complianceSufficient}}">
           <text wx:if="{{hasComplianceEstimateNote}}" class="train-compliance-note ts-muted">
             {{complianceEstimateNote}}
@@ -145,8 +146,23 @@
 
       <view class="ts-card">
         <text class="ts-section-label">{{sleepPerfTitle}}</text>
-        <scatter-chart
+        <text wx:if="{{sleepTakeaway}}" class="train-takeaway {{sleepTakeawayAccent}}">{{sleepTakeaway}}</text>
+        <!-- Scatter is collapsed by default — the takeaway above
+             answers the headline question, the chart is the deeper
+             dive. Toggle row exposes it on demand. -->
+        <view
           wx:if="{{sleepSufficient}}"
+          class="train-collapse-toggle"
+          bindtap="toggleSleepCorrelation"
+          hover-class="train-collapse-toggle--press"
+        >
+          <text class="train-collapse-toggle-label ts-muted">
+            {{showSleepCorrelation ? tr.hideCorrelation : tr.showCorrelation}}
+          </text>
+          <text class="train-collapse-toggle-chev ts-muted">{{showSleepCorrelation ? '▾' : '▸'}}</text>
+        </view>
+        <scatter-chart
+          wx:if="{{sleepSufficient && showSleepCorrelation}}"
           canvas-id="train-sleep-perf"
           height="{{280}}"
           x-label="Sleep Score"
@@ -156,7 +172,7 @@
           pairs="{{sleepPerfPairs}}"
           theme="{{chartTheme}}"
         />
-        <view wx:else class="train-data-hint">
+        <view wx:if="{{!sleepSufficient}}" class="train-data-hint">
           <text class="train-data-hint-message ts-muted">{{sleepHintMessage}}</text>
           <text class="train-data-hint-detail ts-muted">{{sleepHintDetail}}</text>
         </view>
