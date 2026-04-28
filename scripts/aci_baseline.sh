@@ -221,7 +221,7 @@ SHARE_OUT_PATH="out-${RUN_ID}"
 # the ACI we control, and inlining keeps the orchestration logic in one
 # file. Keep this dead-simple — it runs inside the official sitespeed.io
 # image where /start.sh prepares Chrome and execs sitespeed.io.
-WRAPPER_TMP="$(mktemp -t aci-baseline-run.XXXXXX.sh)"
+WRAPPER_TMP="$(mktemp "${TMPDIR:-/tmp}/aci-baseline-run.XXXXXX.sh")"
 
 # `mktemp` returns the MSYS-style path (`/tmp/...`) on Git Bash. With
 # MSYS_NO_PATHCONV=1 set above, Git Bash now leaves that path literal
@@ -269,7 +269,7 @@ cat >"$WRAPPER_TMP" <<'WRAPPER_EOF'
 # In-container wrapper. Reads everything from env vars; keeps ACI's
 # whitespace-shredding argv parser out of the picture (passing the
 # scenario list via env survives, passing it via --command-line does
-# not — see the comment block in the GHA workflow we replaced).
+# not — see issue #161 for the original ACI argv-shredding bug).
 set -u
 echo "[wrapper] RUN_ID=$RUN_ID PROBE=$PROBE DEVICE=$DEVICE SCENARIOS=$SCENARIOS"
 echo "[wrapper] BASE_URL=$BASE_URL RUNS=$RUNS"
@@ -279,7 +279,7 @@ SCRIPTS_DIR="/sitespeed.io/out/$SHARE_SCRIPTS_PATH"
 mkdir -p "$OUT_ROOT"
 
 if [ "$DEVICE" = "mobile" ]; then
-  # Viewport-only — see the GHA workflow comment we replaced for why we
+  # Viewport-only — the old GHA matrix (issue #161) noted why we
   # don't pass --browsertime.userAgent through ACI argv. Inside the
   # wrapper, sitespeed.io's own argv parser handles quoted UA strings
   # fine, but keeping parity with the original CI cell makes
@@ -336,7 +336,8 @@ cleanup_share_paths() {
       --account-key "$STORAGE_KEY" \
       --source "$FILE_SHARE" \
       --pattern "${path}/*" \
-      --output none 2>/dev/null || true
+      --output none 2>&1 || \
+        echo "WARN: could not delete share path ${path}/* — stale files may accumulate on share quota" >&2
   done
 }
 
@@ -411,9 +412,10 @@ run_one_device() {
     --no-wait \
     --output none
 
-  # Region-aware deadline (#151): cross-region cold-start runs ~8 min
-  # before sitespeed even starts, plus ~5 min × 4 scenarios serial = ~28
-  # min worst case. eastasia provisions in ~3 min so 25 min is plenty.
+  # Region-aware deadlines: eastasia ~3 min cold-start + ~5 min × 4
+  # scenarios serial = ~23 min worst case → 25 min budget.
+  # Cross-region (westus/northeurope): ~8 min cold-start + ~20 min
+  # scenarios = ~28 min worst case → 45 min budget.
   case "$PROBE" in
     eastasia) DEADLINE_SEC=1500 ;;        # 25 min
     *)        DEADLINE_SEC=2700 ;;        # 45 min — cross-region
@@ -422,10 +424,14 @@ run_one_device() {
   local deadline=$(($(date +%s) + DEADLINE_SEC))
   echo "Polling for exit (deadline ${deadline_min} min)..."
   local exit_code=""
+  local consecutive_empty=0
   while [ "$(date +%s)" -lt "$deadline" ]; do
-    # Exit code presence is the canonical "done" marker — currentState.state
-    # can read "Running" after the process actually exited (we hung 15 of
-    # 15 cross-region runs on that bug before switching to exit_code).
+    # exitCode is the canonical "done" marker — currentState.state can
+    # read "Running" after the process actually exited (we hung 15 of 15
+    # cross-region runs before switching to exitCode). 2>/dev/null silences
+    # az deprecation warnings that appear on every call; real errors
+    # (auth failures, 429s) produce no stdout, so consecutive_empty
+    # catches them below.
     exit_code="$(az container show \
       --subscription "$AZ_SUBSCRIPTION" \
       --resource-group "$AZ_RG" \
@@ -440,6 +446,18 @@ run_one_device() {
       --resource-group "$AZ_RG" \
       --name "$container_name" \
       --query "containers[0].instanceView.currentState.state" -o tsv 2>/dev/null || true)"
+    if [ -z "${exit_code}${state}" ]; then
+      consecutive_empty=$(( consecutive_empty + 1 ))
+      # After 5 consecutive empty results the az CLI is likely failing
+      # (expired token, RBAC denial, transient 429). Surface a warning
+      # rather than spinning the full 25/45-min deadline silently.
+      if [ "$consecutive_empty" -ge 5 ]; then
+        echo "  WARN: az container show returned empty output $consecutive_empty times in a row — check az auth (run 'az account show') or Azure service health" >&2
+        consecutive_empty=0   # reset so we don't flood on every tick
+      fi
+    else
+      consecutive_empty=0
+    fi
     echo "  [$(date -u +%T)] state=${state:-pending} exit=${exit_code:-pending}"
     sleep 20
   done
@@ -458,8 +476,10 @@ run_one_device() {
   fi
 
   echo "Downloading results from share://${SHARE_OUT_PATH}/ → $OUTDIR/"
-  # `set +e` for the download because we want to keep going even if a
-  # cell produced no output — the next step warns about it.
+  # `set +e` so a partial or empty download (container exited with no
+  # output, network hiccup) doesn't abort before the mv/cleanup steps
+  # that preserve what did land. Capture exit code so a real failure is
+  # surfaced as a WARN, not silently ignored.
   set +e
   az storage file download-batch \
     --subscription "$AZ_SUBSCRIPTION" \
@@ -469,7 +489,11 @@ run_one_device() {
     --pattern "${SHARE_OUT_PATH}/*" \
     --destination "$OUTDIR_HOST" \
     --output none
+  local dl_rc=$?
   set -e
+  if [ "$dl_rc" -ne 0 ]; then
+    echo "WARN: download-batch returned rc=$dl_rc — results may be incomplete in $OUTDIR" >&2
+  fi
 
   # Move out-<runid>/s<N>-<probe>-<device>/ → s<N>-<probe>-<device>/
   # so analyze_baseline.py's per-cell expectation lines up. Loop is
@@ -555,8 +579,8 @@ finalize() {
         --subscription "$AZ_SUBSCRIPTION" \
         --resource-group "$AZ_RG" \
         --name "$c" \
-        --yes --output none 2>/dev/null || \
-          echo "  WARN: failed to delete $c — clean up manually with az container delete" >&2
+        --yes --output none || \
+          echo "  WARN: failed to delete $c — manual cleanup: az container delete -g $AZ_RG -n $c --yes --subscription $AZ_SUBSCRIPTION" >&2
     done
   fi
 
@@ -574,7 +598,7 @@ archive_to_blob() {
   local container="perfbaselines-archive"
   local archive_blob="aci-$(date +%Y%m%d-%H%M%S)-${PROBE}-${SHA}.tar.gz"
   local archive_local
-  archive_local="$(mktemp -t "aci-baseline-archive.XXXXXX.tar.gz")"
+  archive_local="$(mktemp "${TMPDIR:-/tmp}/aci-baseline-archive.XXXXXX.tar.gz")"
   local archive_local_host
   archive_local_host="$(to_host_path "$archive_local")"
 
@@ -607,7 +631,12 @@ archive_to_blob() {
   # second on the same probe with the same sha) doesn't silently
   # overwrite an earlier archive. The mktemp + RUN_ID + timestamp combo
   # makes that essentially impossible, but the safety belt is free.
-  if az storage blob upload \
+  # Capture upload output separately so $? reflects `az`, not `tail`.
+  # `| tail -5` would make the `if` test tail's exit (always 0) — any
+  # auth failure or missing-container error would silently appear as
+  # success. Instead capture to a var and print on failure.
+  local upload_out
+  if upload_out="$(az storage blob upload \
       --subscription "$AZ_SUBSCRIPTION" \
       --account-name "$STORAGE_ACCOUNT" \
       --account-key "$STORAGE_KEY" \
@@ -615,11 +644,12 @@ archive_to_blob() {
       --name "$archive_blob" \
       --file "$archive_local_host" \
       --overwrite false \
-      --output none 2>&1 | tail -5; then
+      --output none 2>&1)"; then
     echo "✓ Archived to https://${STORAGE_ACCOUNT}.blob.core.windows.net/${container}/${archive_blob}"
     echo "  Retrieve later: az storage blob download -c ${container} -n ${archive_blob} -f ./<local>.tar.gz"
   else
     echo "WARN: blob upload failed — local copy is in $OUTDIR" >&2
+    echo "$upload_out" | tail -5 >&2
   fi
   rm -f "$archive_local"
   # Explicit success: rm -f returns 0 even on missing file, but be
