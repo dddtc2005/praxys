@@ -175,10 +175,10 @@ case "$DEVICES" in
   *) echo "Error: --device must be desktop|mobile|both" >&2; exit 1 ;;
 esac
 
+if [[ -z "$SHA" ]]; then
+  SHA="$(git rev-parse --short HEAD 2>/dev/null || echo nogit)"
+fi
 if [[ -z "$OUTDIR" ]]; then
-  if [[ -z "$SHA" ]]; then
-    SHA="$(git rev-parse --short HEAD 2>/dev/null || echo nogit)"
-  fi
   OUTDIR="docs/perf-baselines/$(date +%Y-%m-%d)-${SHA}"
 fi
 mkdir -p "$OUTDIR"
@@ -563,10 +563,73 @@ finalize() {
   cleanup_share_paths
 }
 
+archive_to_blob() {
+  # Bundle every cell this run produced into one tarball and push to the
+  # `perfbaselines-archive` blob container on stperftrainsight. Why blob,
+  # not the existing perfbaselines File share: File is for active
+  # staging (5 GB quota, ~3× the per-GB cost of blob); blob is the right
+  # primitive for an immutable, named, per-run snapshot. Already
+  # documented as the archive tier in docs/perf-baselines/ci-setup.md
+  # under "HAR storage policy".
+  local container="perfbaselines-archive"
+  local archive_blob="aci-$(date +%Y%m%d-%H%M%S)-${PROBE}-${SHA}.tar.gz"
+  local archive_local
+  archive_local="$(mktemp -t "aci-baseline-archive.XXXXXX.tar.gz")"
+  local archive_local_host
+  archive_local_host="$(to_host_path "$archive_local")"
+
+  # Only tar cells from THIS run's probe. OUTDIR is shared per-day-per-sha
+  # and may already contain cells from earlier --probe invocations; we
+  # don't want to re-archive those on every run. Pattern matches the
+  # cell-naming convention enforced in run_one_device:
+  # `s<N>-${PROBE}-{desktop|mobile}`.
+  local -a cells=()
+  local d
+  for d in "$OUTDIR"/s*-"${PROBE}"-*; do
+    [ -d "$d" ] || continue
+    cells+=("$(basename "$d")")
+  done
+  if [ ${#cells[@]} -eq 0 ]; then
+    echo "WARN: no cells matched s*-${PROBE}-* in $OUTDIR — skipping blob archive" >&2
+    rm -f "$archive_local"
+    return
+  fi
+
+  echo
+  echo "Archiving ${#cells[@]} cell(s) to blob://${container}/${archive_blob}..."
+  if ! tar -czf "$archive_local" -C "$OUTDIR" "${cells[@]}" 2>/dev/null; then
+    echo "WARN: tar failed — skipping blob upload (local copy is in $OUTDIR)" >&2
+    rm -f "$archive_local"
+    return
+  fi
+
+  # `--overwrite false` ensures a clock collision (two runs in the same
+  # second on the same probe with the same sha) doesn't silently
+  # overwrite an earlier archive. The mktemp + RUN_ID + timestamp combo
+  # makes that essentially impossible, but the safety belt is free.
+  if az storage blob upload \
+      --subscription "$AZ_SUBSCRIPTION" \
+      --account-name "$STORAGE_ACCOUNT" \
+      --account-key "$STORAGE_KEY" \
+      --container-name "$container" \
+      --name "$archive_blob" \
+      --file "$archive_local_host" \
+      --overwrite false \
+      --output none 2>&1 | tail -5; then
+    echo "✓ Archived to https://${STORAGE_ACCOUNT}.blob.core.windows.net/${container}/${archive_blob}"
+    echo "  Retrieve later: az storage blob download -c ${container} -n ${archive_blob} -f ./<local>.tar.gz"
+  else
+    echo "WARN: blob upload failed — local copy is in $OUTDIR" >&2
+  fi
+  rm -f "$archive_local"
+}
+
 upload_inputs
 for device in "${DEVICE_LIST[@]}"; do
   run_one_device "$device"
 done
+
+archive_to_blob
 
 echo
 echo "Outputs landed in: $OUTDIR"

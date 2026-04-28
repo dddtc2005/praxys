@@ -191,13 +191,32 @@ rotation that accompanied the public flip). HARs now live in two places:
    recent sweep on my own machine."
 2. **Azure blob container `perfbaselines-archive`** on storage account
    `stperftrainsight` in `rg-trainsight`. Private, durable, requires
-   az auth. Holds anything older than 30 days that's worth keeping.
-   The pre-public bundle of all HARs that used to be committed is at
-   `perfbaselines-HARs-pre-public-2026-04-26.tar.gz`.
+   az auth. **`aci_baseline.sh` auto-uploads here at the end of every
+   successful run** as a single tarball
+   `aci-<YYYYMMDD-HHMMSS>-<probe>-<sha>.tar.gz` containing all cells
+   the run produced. Holds the pre-public bundle of all HARs that used
+   to be committed at `perfbaselines-HARs-pre-public-2026-04-26.tar.gz`.
 
 There is no longer a "GitHub Actions artifact" tier — the workflow that
-produced those was retired. If you need to share a HAR with another
-developer, upload it to the archive container by hand:
+produced those was retired. To share results with another developer or
+re-analyze months later, just download the relevant `aci-*.tar.gz`:
+
+```bash
+# List what's available
+az storage blob list -c perfbaselines-archive --account-name stperftrainsight \
+  --query "[].name" -o tsv | sort
+
+# Pull a specific run
+az storage blob download -c perfbaselines-archive --account-name stperftrainsight \
+  -n aci-20260428-205432-northeurope-2c51a2c.tar.gz \
+  -f ./baseline-bundle.tar.gz
+mkdir -p docs/perf-baselines/recovered/ && \
+  tar xzf ./baseline-bundle.tar.gz -C docs/perf-baselines/recovered/
+python scripts/analyze_baseline.py --baseline-dir docs/perf-baselines/recovered
+```
+
+If you ran a baseline manually (e.g. via `sitespeed_runner.sh` from a CN
+PC) and want to push it into the same archive for sharing:
 
 ```bash
 KEY=$(az storage account keys list -g rg-trainsight -n stperftrainsight \
@@ -208,6 +227,13 @@ az storage blob upload \
   --name "<descriptive-name>.tar.gz" \
   --file ./local-bundle.tar.gz
 ```
+
+Why blob, not the existing `perfbaselines` File share: File is for
+active staging during a run (5 GB quota, ~3× the per-GB cost of blob);
+blob is the right primitive for an immutable, named, per-run snapshot
+that lives forever. The script also tears down the share namespace at
+the end of every run so concurrent invocations don't trip over each
+other — leaving cells on the share would defeat that.
 
 To retrieve the pre-public archive (e.g. to re-analyze an old baseline
 against a current code change):
