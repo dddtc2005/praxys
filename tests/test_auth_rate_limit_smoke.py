@@ -17,6 +17,8 @@ from fastapi.testclient import TestClient
 
 _FAKE_IP = "198.51.100.99"
 _LOGIN_URL = "/api/auth/login"
+# FastAPI-Users OAuth2 login expects form-encoded data (OAuth2PasswordRequestForm),
+# not JSON — use data= not json= when posting.
 _BAD_CREDS = {"username": "nobody@example.com", "password": "wrong-password"}
 _XFF = {"X-Forwarded-For": _FAKE_IP}
 
@@ -76,15 +78,21 @@ def test_login_rate_limit_production_wiring(
     inverts is_rate_limit_disabled(), or reorders middleware so a later layer
     swallows the 429 would fail here.
     """
-    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
-        app = _build_app(monkeypatch, tmpdir, rate_limit_disabled)
+    from db import session as db_session
+
+    tmpdir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+    try:
+        app = _build_app(monkeypatch, tmpdir.name, rate_limit_disabled)
         client = TestClient(app)
 
-        # 10 requests — all must pass the limiter (or all pass because disabled).
+        # 10 requests — all must return 400/401 (bad credentials), not 429.
+        # Asserting 400/401 (not just != 429) catches DB setup failures or
+        # form-encoding mistakes that would otherwise produce misleading errors.
         for i in range(10):
             r = client.post(_LOGIN_URL, data=_BAD_CREDS, headers=_XFF)
-            assert r.status_code != 429, (
-                f"unexpected 429 on attempt {i + 1} before limit reached: {r.text}"
+            assert r.status_code in (400, 401), (
+                f"attempt {i + 1}: expected 400/401 from bad creds, "
+                f"got {r.status_code}: {r.text}"
             )
 
         # The 11th: blocked when limiter active, bypassed when disabled.
@@ -98,7 +106,18 @@ def test_login_rate_limit_production_wiring(
             assert payload["detail"] == "AUTH_RATE_LIMITED"
             assert isinstance(payload.get("retry_after"), int)
             assert int(r11.headers["retry-after"]) >= 1
+            assert r11.headers["content-type"].startswith("application/json")
         else:
             assert r11.status_code != 429, (
                 f"limiter should be bypassed but got 429 on 11th attempt: {r11.text}"
             )
+    finally:
+        try:
+            if db_session.engine is not None:
+                db_session.engine.dispose()
+        except Exception:
+            pass
+        try:
+            tmpdir.cleanup()
+        except Exception:
+            pass
