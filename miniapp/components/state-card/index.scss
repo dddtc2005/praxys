@@ -1,0 +1,94 @@
+// Shared container — inherits ts-card via the global class (addGlobalClass:
+// true). All three states (loading / error / empty) share this wrapper so
+// the card size stays consistent across the state transitions. The visual
+// "jolt" the previous ad-hoc patterns had (skeleton tall → error short →
+// empty text) is eliminated.
+.state-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 40rpx 32rpx;
+  // When used inside a ts-card the outer card already supplies the
+  // surface/radius/shadow. When used standalone it needs the same.
+  background-color: var(--surface);
+  border-radius: 16rpx;
+  margin-bottom: 24rpx;
+}
+
+// --- Skeleton (loading state) ---
+// Two bars at different widths suggest a title + body layout.
+.state-card__skeleton {
+  width: 100%;
+  background-color: var(--border-subtle);
+  border-radius: 8rpx;
+  animation: stateCardPulse 1.4s ease-in-out infinite;
+}
+.state-card__skeleton--tall {
+  height: 40rpx;
+  margin-bottom: 16rpx;
+}
+.state-card__skeleton--short {
+  height: 20rpx;
+  width: 60%;
+}
+@keyframes stateCardPulse {
+  0%   { opacity: 0.7; }
+  50%  { opacity: 1; }
+  100% { opacity: 0.7; }
+}
+
+// --- Icon (error + empty states) ---
+.state-card__icon-row {
+  margin-bottom: 16rpx;
+}
+
+.state-card__icon {
+  width: 56rpx;
+  height: 56rpx;
+  background-color: var(--text-muted);
+  -webkit-mask-size: contain;
+          mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+          mask-position: center;
+}
+
+// Lucide alert-circle for error state.
+.state-card__icon--error {
+  background-color: var(--destructive);
+  -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cline x1='12' y1='8' x2='12' y2='12'/%3E%3Cline x1='12' y1='16' x2='12.01' y2='16'/%3E%3C/svg%3E");
+          mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cline x1='12' y1='8' x2='12' y2='12'/%3E%3Cline x1='12' y1='16' x2='12.01' y2='16'/%3E%3C/svg%3E");
+}
+
+// Lucide inbox for empty state.
+.state-card__icon--empty {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='22 12 16 12 14 15 10 15 8 12 2 12'/%3E%3Cpath d='M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z'/%3E%3C/svg%3E");
+          mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='22 12 16 12 14 15 10 15 8 12 2 12'/%3E%3Cpath d='M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z'/%3E%3C/svg%3E");
+}
+
+// --- Headline and detail ---
+.state-card__headline {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
+  margin-bottom: 8rpx;
+}
+.state-card__headline--error {
+  color: var(--destructive);
+}
+
+.state-card__detail {
+  display: block;
+  font-size: 24rpx;
+  line-height: 1.5;
+  margin-bottom: 24rpx;
+}
+
+.state-card__retry {
+  margin-top: 16rpx;
+  min-width: 240rpx;
+}

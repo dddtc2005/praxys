@@ -14,17 +14,13 @@
       <text wx:if="{{hasActivities}}" class="history-total ts-muted">{{totalLine}}</text>
 
       <block wx:if="{{loading && !hasActivities}}">
-        <view class="ts-card"><view class="ts-skeleton" style="height: 120rpx;"></view></view>
-        <view class="ts-card"><view class="ts-skeleton" style="height: 120rpx;"></view></view>
-        <view class="ts-card"><view class="ts-skeleton" style="height: 120rpx;"></view></view>
+        <state-card type="loading" />
+        <state-card type="loading" />
+        <state-card type="loading" />
       </block>
 
       <block wx:elif="{{errorMessage && !hasActivities}}">
-        <view class="ts-card">
-          <text class="history-header ts-destructive">{{tr.failedToLoad}}</text>
-          <text class="ts-muted">{{errorMessage}}</text>
-          <button class="ts-button" bindtap="onRetry">{{tr.retry}}</button>
-        </view>
+        <state-card type="error" headline="{{tr.failedToLoad}}" detail="{{errorMessage}}" show-retry bindretry="onRetry" />
       </block>
 
       <block wx:else>

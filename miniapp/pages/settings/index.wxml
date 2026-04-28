@@ -4,15 +4,11 @@
   <scroll-view scroll-y="{{true}}" class="settings-scroll">
     <view class="settings-content">
     <block wx:if="{{loading && !hasResponse}}">
-      <view class="ts-card"><view class="ts-skeleton"></view></view>
+      <state-card type="loading" />
     </block>
 
     <block wx:elif="{{errorMessage}}">
-      <view class="ts-card">
-        <text class="settings-header ts-destructive">{{tr.failedToLoad}}</text>
-        <text class="ts-muted">{{errorMessage}}</text>
-        <button class="ts-button" bindtap="onRetry">{{tr.retry}}</button>
-      </view>
+      <state-card type="error" headline="{{tr.failedToLoad}}" detail="{{errorMessage}}" show-retry bindretry="onRetry" />
     </block>
 
     <block wx:elif="{{hasResponse}}">

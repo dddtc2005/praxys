@@ -1,0 +1,41 @@
+<!--
+  Unified loading / error / empty card component.
+
+  All three states share the same ts-card container so switching
+  between them doesn't produce the "layout jolt" that happened when
+  a skeleton bar (tall, pulsing) was replaced by a small muted text
+  (short, static) or a destructive error block (different padding).
+
+  Usage:
+    <state-card type="loading" />
+    <state-card type="error" headline="Failed to load" detail="{{errorMessage}}" show-retry bindretry="onRetry" />
+    <state-card type="empty" headline="No activities yet" detail="Sync from Garmin to see your history." />
+-->
+<view class="state-card {{addGlobalClass ? '' : ''}}">
+  <!-- Loading — animated skeleton bars (tall enough to suggest content) -->
+  <block wx:if="{{type === 'loading'}}">
+    <view class="state-card__skeleton state-card__skeleton--tall"></view>
+    <view class="state-card__skeleton state-card__skeleton--short"></view>
+  </block>
+
+  <!-- Error — small icon + bold headline + optional detail + retry -->
+  <block wx:elif="{{type === 'error'}}">
+    <view class="state-card__icon-row">
+      <view class="state-card__icon state-card__icon--error"></view>
+    </view>
+    <text class="state-card__headline state-card__headline--error">{{headline}}</text>
+    <text wx:if="{{detail}}" class="state-card__detail ts-muted">{{detail}}</text>
+    <button wx:if="{{showRetry}}" class="ts-button state-card__retry" bindtap="onRetryTap">
+      {{retryLabel}}
+    </button>
+  </block>
+
+  <!-- Empty — icon + muted headline + optional detail -->
+  <block wx:elif="{{type === 'empty'}}">
+    <view class="state-card__icon-row">
+      <view class="state-card__icon state-card__icon--empty"></view>
+    </view>
+    <text class="state-card__headline ts-muted">{{headline}}</text>
+    <text wx:if="{{detail}}" class="state-card__detail ts-muted">{{detail}}</text>
+  </block>
+</view>
