@@ -393,23 +393,29 @@
 .goal-hero {
   position: relative;
 }
+// Icon-only edit button at the top-right corner of the hero card —
+// tighter than the previous icon+text chip, which crowded the
+// section heading on cp_milestone mode ("Building toward 3:00:00
+// Marathon" was wrapping awkwardly to fit beside it). Round
+// affordance reads as a card-level "edit" cue without competing
+// with the data layout.
 .goal-edit-affordance {
   position: absolute;
   top: 16rpx;
   right: 16rpx;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8rpx;
-  padding: 6rpx 14rpx 6rpx 10rpx;
+  width: 56rpx;
+  height: 56rpx;
   border-radius: 999rpx;
   background-color: var(--surface-subtle);
   border: 1rpx solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   z-index: 2;
 }
 .goal-edit-affordance__icon {
-  width: 24rpx;
-  height: 24rpx;
+  width: 26rpx;
+  height: 26rpx;
   background-color: var(--text-muted);
   -webkit-mask-size: contain;
           mask-size: contain;
@@ -421,12 +427,6 @@
   // background-color shows through, so the icon themes via plain CSS.
   -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z'/%3E%3Cpath d='m15 5 4 4'/%3E%3C/svg%3E");
           mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z'/%3E%3Cpath d='m15 5 4 4'/%3E%3C/svg%3E");
-}
-.goal-edit-affordance__label {
-  font-size: 22rpx;
-  font-weight: 500;
-  color: var(--text-muted);
-  line-height: 1;
 }
 
 // --- Goal editor bottom sheet -------------------------------------------

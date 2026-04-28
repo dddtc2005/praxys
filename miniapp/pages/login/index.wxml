@@ -65,28 +65,36 @@
       </view>
       <text class="login-hero">{{tr.linkTitle}}</text>
       <text class="login-description">{{tr.linkDetail}}</text>
-      <input
-        class="ts-input login-input"
-        type="text"
-        placeholder="{{tr.emailPlaceholder}}"
-        placeholder-style="color: #8b93a7;"
-        style="color: {{themeClass === 'theme-light' ? '#15192a' : '#e8ebf0'}};"
-        cursor-spacing="{{40}}"
-        adjust-position="{{true}}"
-        value="{{linkEmail}}"
-        bindinput="onLinkEmailInput"
-      />
-      <input
-        class="ts-input login-input"
-        password="{{true}}"
-        placeholder="{{tr.passwordPlaceholder}}"
-        placeholder-style="color: #8b93a7;"
-        style="color: {{themeClass === 'theme-light' ? '#15192a' : '#e8ebf0'}};"
-        cursor-spacing="{{40}}"
-        adjust-position="{{true}}"
-        value="{{linkPassword}}"
-        bindinput="onLinkPasswordInput"
-      />
+      <view class="login-field">
+        <view class="login-field__icon login-field__icon--mail"></view>
+        <input
+          class="login-field__input"
+          type="text"
+          placeholder="{{tr.emailPlaceholder}}"
+          placeholder-class="login-field__placeholder"
+          style="color: {{themeClass === 'theme-light' ? '#15192a' : '#e8ebf0'}}; text-align: left;"
+          cursor-spacing="{{40}}"
+          adjust-position="{{true}}"
+          confirm-type="next"
+          value="{{linkEmail}}"
+          bindinput="onLinkEmailInput"
+        />
+      </view>
+      <view class="login-field">
+        <view class="login-field__icon login-field__icon--lock"></view>
+        <input
+          class="login-field__input"
+          password="{{true}}"
+          placeholder="{{tr.passwordPlaceholder}}"
+          placeholder-class="login-field__placeholder"
+          style="color: {{themeClass === 'theme-light' ? '#15192a' : '#e8ebf0'}}; text-align: left;"
+          cursor-spacing="{{40}}"
+          adjust-position="{{true}}"
+          confirm-type="done"
+          value="{{linkPassword}}"
+          bindinput="onLinkPasswordInput"
+        />
+      </view>
       <text wx:if="{{linkError}}" class="login-error ts-destructive">{{linkError}}</text>
       <button
         class="ts-button login-cta"

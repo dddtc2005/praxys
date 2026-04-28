@@ -31,7 +31,6 @@
       <view class="ts-card goal-hero">
         <view class="goal-edit-affordance" bindtap="onOpenEditor">
           <view class="goal-edit-affordance__icon"></view>
-          <text class="goal-edit-affordance__label">{{tr.changeGoal}}</text>
         </view>
         <text class="ts-section-label">{{rdDistLabel}} Countdown</text>
         <view class="goal-countdown-block">
@@ -103,7 +102,6 @@
       <view class="ts-card goal-hero">
         <view class="goal-edit-affordance" bindtap="onOpenEditor">
           <view class="goal-edit-affordance__icon"></view>
-          <text class="goal-edit-affordance__label">{{tr.changeGoal}}</text>
         </view>
         <text class="ts-section-label">{{cmHero}}</text>
 
@@ -169,7 +167,6 @@
       <view class="ts-card goal-hero">
         <view class="goal-edit-affordance" bindtap="onOpenEditor">
           <view class="goal-edit-affordance__icon"></view>
-          <text class="goal-edit-affordance__label">{{tr.changeGoal}}</text>
         </view>
         <text class="ts-section-label">{{tr.currentFitness}}</text>
         <view class="goal-cont-row">

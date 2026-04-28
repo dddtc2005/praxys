@@ -92,7 +92,10 @@
   position: relative;
   width: 240rpx;
   height: 240rpx;
-  border-radius: 120rpx;
+  // 50% (not a fixed rpx) — the 6rpx border puts the outer dimension
+  // at 252rpx, so a fixed 120rpx radius can't fully round 126rpx-half
+  // corners and Skyline shows flat edges left/right ("oval" appearance).
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -119,7 +122,9 @@
   left: 0;
   right: 0;
   bottom: 0;
-  border-radius: 120rpx;
+  // Same 50% logic as .signal-circle — guarantees the glow inherits
+  // the parent's exact rounding regardless of border thickness.
+  border-radius: 50%;
   opacity: 0.12;
   animation: signal-pulse 2s ease-in-out infinite;
 }

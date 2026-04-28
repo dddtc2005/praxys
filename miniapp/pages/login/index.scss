@@ -98,9 +98,99 @@
   margin-top: 28rpx;
 }
 
-// Inputs in the link stage.
-.login-input { margin-top: 16rpx; width: 100%; }
-.login-input + .login-input { margin-top: 16rpx; }
+// --- Login form fields ---
+//
+// WeChat's `<input>` is a *native iOS input* on real device even when
+// the page is in WebView renderer mode. The native pipeline has known
+// quirks:
+//   1. CSS `color` from a class often loses to native input rendering.
+//      Inline `style="color: ..."` is the only way to ensure the value
+//      text is visible. (This was the "typed text invisible on real
+//      device" bug.)
+//   2. `placeholder-style` (style attribute) can bleed into the value
+//      color on some iOS WeChat versions; `placeholder-class` (class
+//      attribute) is the recommended path.
+//   3. The native input ignores parent `font-family` cascade — needs an
+//      explicit stack so 'PingFang SC' wins for zh.
+//   4. The native input inherits parent's `text-align: center` (which
+//      `.login-root` has) and renders the value in the wrong place.
+//      Reset it explicitly on the input.
+//
+// Visual treatment: filled-pill row with a leading icon (envelope for
+// email, lock for password). 88rpx tall to clear iOS HIG min tap
+// targets. No border by default; primary-green hairline ring + soft
+// glow on focus replaces the iOS native focus indicator with a
+// brand-aligned one. Reads as a "container the user fills" rather
+// than a styled rectangle — same affordance as iOS Settings, Mail,
+// or Stripe checkout.
+.login-field {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
+  width: 100%;
+  height: 88rpx;
+  padding: 0 24rpx;
+  margin-top: 16rpx;
+  background-color: var(--surface);
+  border: 1rpx solid var(--border-subtle);
+  border-radius: 16rpx;
+  box-sizing: border-box;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.login-field:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2rpx rgba(30, 142, 91, 0.12);
+}
+
+.login-field__icon {
+  flex-shrink: 0;
+  width: 28rpx;
+  height: 28rpx;
+  background-color: var(--text-muted);
+  -webkit-mask-size: contain;
+          mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+          mask-position: center;
+}
+.login-field__icon--mail {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='4' width='20' height='16' rx='2'/%3E%3Cpath d='m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7'/%3E%3C/svg%3E");
+          mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='4' width='20' height='16' rx='2'/%3E%3Cpath d='m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7'/%3E%3C/svg%3E");
+}
+.login-field__icon--lock {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='18' height='11' x='3' y='11' rx='2' ry='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E");
+          mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='18' height='11' x='3' y='11' rx='2' ry='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E");
+}
+
+.login-field__input {
+  flex: 1;
+  height: 100%;
+  font-size: 30rpx;
+  // Native iOS input ignores parent's font-family cascade — declare
+  // the stack explicitly so 'PingFang SC' wins for zh and the Latin
+  // glyphs match.
+  font-family: -apple-system, system-ui, BlinkMacSystemFont,
+    'PingFang SC', 'Hiragino Sans GB', sans-serif;
+  // Reset the native input's transparent background and any platform
+  // border so only the parent .login-field's chrome shows. The value
+  // text inherits contrast from the parent surface, never fighting a
+  // hidden background fill that some WeChat versions inject.
+  background-color: transparent;
+  border: none;
+  padding: 0;
+  // Belt-and-suspenders fallback if the inline `text-align: left`
+  // doesn't propagate from the WXML attribute.
+  text-align: left;
+}
+
+// `placeholder-class` route — class-driven placeholder color so the
+// native input doesn't conflate it with the value color attribute.
+.login-field__placeholder {
+  color: #8b93a7;
+  font-size: 30rpx;
+}
 
 .login-error {
   display: block;
