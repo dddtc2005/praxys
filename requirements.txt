@@ -10,7 +10,7 @@
 # exact exception text "JWT_WEB cookie not set after ticket consumption".
 # A minor-version bump can rename any of these. Re-validate with
 # scripts/garmin_diagnose.py before loosening this bound.
-garminconnect>=0.3.0,<0.4.0
+garminconnect>=0.3.3,<0.4.0
 requests>=2.33.1
 python-dotenv>=1.0.0
 pandas>=2.1.0
