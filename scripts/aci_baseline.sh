@@ -67,6 +67,18 @@ SHA=""
 REASON=""
 KEEP_ACI=0
 
+# Git Bash on Windows translates any argument that looks Unix-absolute
+# (`/sitespeed.io/out`) into a Windows path (`D:/Program Files/Git/sitespeed.io/out`)
+# before exec'ing the child process. Two of the args we pass to
+# `az container create` — `--azure-file-volume-mount-path` and
+# `--command-line` — are deliberately container-side Linux paths. With
+# the conversion they end up containing `:` (the drive-letter colon),
+# which trips `az` with "The volume mount path cannot contain ':'".
+# `MSYS_NO_PATHCONV=1` opts out of the translation. No-op on macOS /
+# Linux. (The local Docker runner sets this per-command for the same
+# reason — see `MSYS_NO_PATHCONV=1 docker run …` in sitespeed_runner.sh.)
+export MSYS_NO_PATHCONV=1
+
 usage() {
   cat >&2 <<'EOF'
 Usage: aci_baseline.sh --probe <region> [options]
@@ -211,6 +223,27 @@ SHARE_OUT_PATH="out-${RUN_ID}"
 # image where /start.sh prepares Chrome and execs sitespeed.io.
 WRAPPER_TMP="$(mktemp -t aci-baseline-run.XXXXXX.sh)"
 
+# `mktemp` returns the MSYS-style path (`/tmp/...`) on Git Bash. With
+# MSYS_NO_PATHCONV=1 set above, Git Bash now leaves that path literal
+# when we exec child processes — but `az` is a Python program that
+# doesn't share MSYS's /tmp mount fiction, so it tries to open
+# `D:\tmp\…` and 404s. cygpath -aw turns the path into a Windows-style
+# absolute (`C:\Users\…\Temp\aci-baseline-run.…`) that `az` resolves
+# correctly. Local upload paths that go to `az` in this script (the
+# preScripts dir, the wrapper) need this conversion; everything else
+# is either a share path (no leading slash, MSYS-untouched) or an
+# explicit container-side path that we *want* literal.
+to_host_path() {
+  if command -v cygpath >/dev/null 2>&1; then
+    cygpath -aw "$1"
+  else
+    echo "$1"
+  fi
+}
+WRAPPER_TMP_HOST="$(to_host_path "$WRAPPER_TMP")"
+SCRIPTS_LOCAL_DIR_HOST="$(to_host_path "$SCRIPTS_LOCAL_DIR")"
+OUTDIR_HOST="$(to_host_path "$OUTDIR")"
+
 # Containers we've asked Azure to create. Populated *before* the create
 # call so that even if creation 5xxs partway through, the trap still
 # attempts deletion (a delete against a nonexistent name is idempotent).
@@ -318,7 +351,7 @@ upload_inputs() {
     --account-key "$STORAGE_KEY" \
     --destination "$FILE_SHARE" \
     --destination-path "$SHARE_SCRIPTS_PATH" \
-    --source "$SCRIPTS_LOCAL_DIR" \
+    --source "$SCRIPTS_LOCAL_DIR_HOST" \
     --output none
   az storage file upload \
     --subscription "$AZ_SUBSCRIPTION" \
@@ -326,7 +359,7 @@ upload_inputs() {
     --account-key "$STORAGE_KEY" \
     --share-name "$FILE_SHARE" \
     --path "$SHARE_SCRIPTS_PATH/run.sh" \
-    --source "$WRAPPER_TMP" \
+    --source "$WRAPPER_TMP_HOST" \
     --output none
 }
 
@@ -434,7 +467,7 @@ run_one_device() {
     --account-key "$STORAGE_KEY" \
     --source "$FILE_SHARE" \
     --pattern "${SHARE_OUT_PATH}/*" \
-    --destination "$OUTDIR/" \
+    --destination "$OUTDIR_HOST" \
     --output none
   set -e
 
