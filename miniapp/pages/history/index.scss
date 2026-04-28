@@ -76,10 +76,17 @@
   display: block;
 }
 
-.history-tap-hint {
-  font-size: 22rpx;
-  display: block;
-  margin-top: 16rpx;
+// Disclosure chevron — rotates from pointing-right (collapsed) to
+// pointing-down (expanded) on tap. Matches the pattern users know
+// from iOS Health activity rows.
+.history-row-chev {
+  margin-left: auto;
+  font-size: 36rpx;
+  line-height: 1;
+  transition: transform 160ms ease;
+}
+.history-row-chev--open {
+  transform: rotate(90deg);
 }
 
 .history-splits {

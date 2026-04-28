@@ -138,7 +138,9 @@
   display: flex;
   flex-direction: column;
   gap: 16rpx;
-  padding: 0 8rpx 32rpx;
+  // Safe-area inset so the action stack doesn't tuck under the iPhone
+  // home indicator on notch-era devices.
+  padding: 0 8rpx calc(32rpx + env(safe-area-inset-bottom));
 }
 .settings-action-btn { width: 100%; }
 

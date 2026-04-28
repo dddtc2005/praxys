@@ -141,9 +141,12 @@ page {
 }
 
 .ts-button--secondary {
-  background-color: transparent;
+  // Lift slightly off the page so the chip is visible on dark theme.
+  // The previous transparent + --border combo failed WCAG-AA contrast
+  // against --bg in dark mode (both navy-grey).
+  background-color: var(--surface);
   color: var(--text);
-  border: 2rpx solid var(--border);
+  border: 2rpx solid var(--text-muted);
 }
 
 .ts-input {

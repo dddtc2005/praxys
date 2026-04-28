@@ -1,5 +1,5 @@
 <view class="train-root {{themeClass}}">
-  <nav-bar title="Training" theme-class="{{themeClass}}" show-wordmark="{{true}}" />
+  <nav-bar title="Training" theme-class="{{themeClass}}" />
 
   <scroll-view
     scroll-y="{{true}}"

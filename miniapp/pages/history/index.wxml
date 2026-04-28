@@ -1,5 +1,5 @@
 <view class="history-root {{themeClass}}">
-  <nav-bar title="Activities" theme-class="{{themeClass}}" show-wordmark="{{true}}" />
+  <nav-bar title="Activities" theme-class="{{themeClass}}" />
 
   <scroll-view
     scroll-y="{{true}}"
@@ -38,6 +38,10 @@
           <view class="history-row-head">
             <text class="history-row-date ts-muted">{{item.date}}</text>
             <text class="history-row-type">{{item.type}}</text>
+            <text
+              wx:if="{{item.hasSplits}}"
+              class="history-row-chev ts-muted {{item.expanded ? 'history-row-chev--open' : ''}}"
+            >›</text>
           </view>
           <view class="history-row-metrics">
             <view
@@ -72,9 +76,6 @@
             </text>
           </view>
 
-          <text wx:if="{{item.hasSplits && !item.expanded}}" class="history-tap-hint ts-muted">
-            {{item.tapHint}}
-          </text>
         </view>
 
         <text wx:if="{{loadingMore}}" class="history-footer ts-muted">{{tr.loadingMore}}</text>

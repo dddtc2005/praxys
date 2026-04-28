@@ -28,7 +28,7 @@ function buildTabs(): TabConfig[] {
     { pagePath: 'pages/today/index', text: t('Today'), kind: 'today' },
     { pagePath: 'pages/training/index', text: t('Training'), kind: 'training' },
     { pagePath: 'pages/history/index', text: t('Activities'), kind: 'activities' },
-    { pagePath: 'pages/goal/index', text: t('Goal Tracker'), kind: 'goal' },
+    { pagePath: 'pages/goal/index', text: t('Goal'), kind: 'goal' },
     { pagePath: 'pages/settings/index', text: t('Settings'), kind: 'settings' },
   ];
 }
