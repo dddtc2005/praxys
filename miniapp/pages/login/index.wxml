@@ -69,7 +69,7 @@
         <view class="login-field__icon login-field__icon--mail"></view>
         <input
           class="login-field__input"
-          type="text"
+          type="email"
           placeholder="{{tr.emailPlaceholder}}"
           placeholder-class="login-field__placeholder"
           style="color: {{themeClass === 'theme-light' ? '#15192a' : '#e8ebf0'}}; text-align: left;"

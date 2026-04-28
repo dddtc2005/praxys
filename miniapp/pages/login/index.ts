@@ -127,9 +127,11 @@ interface PageMethods extends WechatMiniprogram.IAnyObject {
 }
 
 const initialLocale: Locale = 'zh';
+import type { IAppOption } from '../../app';
+
 const initialData: PageData = {
   stage: 'idle',
-  themeClass: 'theme-light',
+  themeClass: getApp<IAppOption>().globalData.themeClass,
   ticket: '',
   errorMessage: '',
   locale: initialLocale,

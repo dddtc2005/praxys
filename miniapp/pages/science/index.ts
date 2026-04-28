@@ -97,8 +97,10 @@ interface SciState {
   selectingPillar: SciencePillar | '';
 }
 
+import type { IAppOption } from '../../app';
+
 const initialData: SciState = {
-  themeClass: 'theme-light',
+  themeClass: getApp<IAppOption>().globalData.themeClass,
   loading: true,
   errorMessage: '',
   hasResponse: false,

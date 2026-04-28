@@ -28,6 +28,13 @@ Component({
     /** Show /PRAXYS wordmark instead of title — used by tab pages so the
      *  brand identity is on every screen. Sub-pages keep title. */
     showWordmark: { type: Boolean as BooleanConstructor, value: false },
+    /** Right-slot action label (e.g. "Edit"). Tap fires `rightaction`
+     *  event so the parent page can react. Ignored when rightShare=true. */
+    rightText: { type: String as StringConstructor, value: '' },
+    /** Render the right slot as a native share button. Tap is handled by
+     *  WeChat (calls the page's onShareAppMessage); the parent does NOT
+     *  receive a `rightaction` event in this mode. */
+    rightShare: { type: Boolean as BooleanConstructor, value: false },
   },
 
   data: {
@@ -69,6 +76,13 @@ Component({
       } else {
         wx.reLaunch({ url: '/pages/today/index' });
       }
+    },
+
+    onRightTap() {
+      // Bubble out so the parent page's `bindrightaction` handler runs.
+      // We don't pass any detail — pages know their own context (e.g.
+      // Goal page interprets this as "open editor").
+      this.triggerEvent('rightaction');
     },
   },
 });

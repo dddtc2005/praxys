@@ -1,4 +1,5 @@
 {
+  "orientation": "portrait",
   "usingComponents": {
     "nav-bar": "/components/nav-bar/index",
     "line-chart": "/components/line-chart/index",

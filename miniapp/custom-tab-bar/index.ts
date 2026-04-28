@@ -13,6 +13,7 @@
  */
 
 import { t } from '../utils/i18n';
+import type { IAppOption } from '../app';
 
 interface TabConfig {
   pagePath: string;
@@ -57,7 +58,7 @@ Component({
   data: {
     tabs: TABS,
     selected: 0,
-    themeClass: 'theme-light',
+    themeClass: getApp<IAppOption>().globalData.themeClass,
   },
 
   lifetimes: {

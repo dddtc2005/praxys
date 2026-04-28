@@ -46,47 +46,9 @@
   padding: 48rpx 32rpx;
 }
 
-// Tiny share button in the top-right of the signal card. open-type=share
-// is a real <button>, but we strip every default style and reapply a
-// minimal circular pill so it reads as an icon-only affordance.
-.signal-share-fab {
-  position: absolute;
-  top: 16rpx;
-  right: 16rpx;
-  width: 64rpx;
-  height: 64rpx;
-  padding: 0;
-  margin: 0;
-  background-color: var(--surface-subtle);
-  border-radius: 32rpx;
-  border: 1rpx solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 0;
-}
-// WeChat <button> renders a default ::after border. Strip it.
-.signal-share-fab::after {
-  border: none;
-}
-.signal-share-fab--press {
-  background-color: var(--border-subtle);
-}
-
-// Lucide share icon (square-arrow-up-right) carved out via mask-image.
-.signal-share-fab__icon {
-  width: 32rpx;
-  height: 32rpx;
-  background-color: var(--text-muted);
-  -webkit-mask-size: contain;
-          mask-size: contain;
-  -webkit-mask-repeat: no-repeat;
-          mask-repeat: no-repeat;
-  -webkit-mask-position: center;
-          mask-position: center;
-  -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7'/%3E%3Cpolyline points='16 3 21 3 21 8'/%3E%3Cline x1='10' y1='14' x2='21' y2='3'/%3E%3C/svg%3E");
-          mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7'/%3E%3Cpolyline points='16 3 21 3 21 8'/%3E%3Cline x1='10' y1='14' x2='21' y2='3'/%3E%3C/svg%3E");
-}
+// Share affordance moved to the nav-bar (rightShare prop) so every page
+// can opt in via a single attribute. The previous .signal-share-fab
+// styles lived here; they're now consolidated in components/nav-bar/.
 
 .signal-circle {
   position: relative;
@@ -324,11 +286,15 @@
 
 .today-week-load-fill {
   height: 100%;
-  // No own border-radius — at low fill % a 6rpx radius on all four
-  // corners produced a visible right-side "bump" that didn't meet the
-  // track edge cleanly. The track's overflow: hidden + 6rpx radius
-  // clips the fill correctly at both 0% and 100%, so we let the track
-  // own all the corner shaping.
+  // Round only the right edge so at low fill % the fill reads as a
+  // small pill on the left rather than a square stub butting against
+  // the track's rounded interior. Left edges stay square — the track's
+  // overflow: hidden + 6rpx radius clips the fill's left side to the
+  // same curve as the track. Rounding all 4 corners on the fill itself
+  // produced a visible right-side "bump" inside the track at low %; the
+  // asymmetric treatment avoids that while fixing the square-stub case.
+  border-top-right-radius: 6rpx;
+  border-bottom-right-radius: 6rpx;
   background-color: var(--primary);
   // Accent classes on the fill recolor via the helper utilities;
   // default is --primary (green = on target).
