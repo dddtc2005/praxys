@@ -43,7 +43,7 @@ class SyncRequest(BaseModel):
 _sync_status: dict[str, dict[str, dict]] = {}
 _sync_lock = threading.Lock()
 
-_DEFAULT_SOURCES = ["garmin", "strava", "stryd", "oura"]
+_DEFAULT_SOURCES = ["garmin", "strava", "stryd", "oura", "coros"]
 
 
 def _get_user_status(user_id: str) -> dict[str, dict]:
@@ -203,6 +203,9 @@ def _run_sync(user_id: str, source: str, creds: dict,
         elif source == "oura":
             counts = _sync_oura(user_id, creds, from_date, db)
 
+        elif source == "coros":
+            counts = _sync_coros(user_id, creds, from_date, db)
+
         else:
             raise ValueError(f"Unknown source: {source}")
 
@@ -212,7 +215,7 @@ def _run_sync(user_id: str, source: str, creds: dict,
         # power observations (Garmin, Strava, Stryd — not Oura). The fit
         # itself is cheap and idempotent; skipping Oura just avoids the
         # no-op DB read.
-        if source in ("garmin", "strava", "stryd"):
+        if source in ("garmin", "strava", "stryd", "coros"):
             try:
                 from db.sync_writer import update_cp_from_activities
                 fit = update_cp_from_activities(user_id, db)
@@ -907,6 +910,165 @@ def _sync_oura(user_id: str, creds: dict, from_date: str | None,
         user_id, readiness_rows, sleep_rows, hrv_by_date, db
     )
     return {"recovery": count}
+
+
+def _sync_coros(user_id: str, creds: dict, from_date: str | None,
+                db) -> dict:
+    """Fetch COROS data and write directly to DB."""
+    import time as time_mod
+
+    from db import sync_writer
+    from sync.coros_sync import (
+        refresh_if_needed,
+        fetch_activities,
+        fetch_activity_detail,
+        fetch_daily_metrics,
+        fetch_fitness_summary,
+        parse_activities,
+        parse_splits,
+        parse_daily_metrics as parse_daily,
+        parse_fitness_summary as parse_fitness,
+        mobile_login,
+        fetch_sleep,
+        parse_sleep,
+    )
+
+    email = creds.get("email", "")
+    password = creds.get("password", "")
+    region = creds.get("region", "us")
+
+    # Build token creds from stored credentials
+    token_creds = {
+        "access_token": creds.get("access_token", ""),
+        "user_id": creds.get("coros_user_id", ""),
+        "region": region,
+        "timestamp": creds.get("timestamp", 0),
+    }
+    token_creds, changed = refresh_if_needed(token_creds, email, password)
+    if changed:
+        updated = dict(creds)
+        updated["access_token"] = token_creds["access_token"]
+        updated["coros_user_id"] = token_creds["user_id"]
+        updated["timestamp"] = token_creds["timestamp"]
+        _persist_credentials(user_id, "coros", updated, db)
+        db.commit()
+
+    access_token = token_creds["access_token"]
+    end = date.today().isoformat()
+    start = from_date or (date.today() - timedelta(days=14)).isoformat()
+
+    status = _get_user_status(user_id)
+
+    # Activities
+    raw_activities = fetch_activities(access_token, region, start, end)
+    activity_rows = parse_activities(raw_activities)
+    for row in activity_rows:
+        row.setdefault("activity_type", "other")
+        row.setdefault("source", "coros")
+    act_count = sync_writer.write_activities(user_id, activity_rows, db)
+
+    # Splits (per-activity laps)
+    all_splits = []
+    total = len(raw_activities)
+    for idx, raw_act in enumerate(raw_activities):
+        act_id = str(raw_act.get("labelId") or raw_act.get("activityId") or "")
+        if not act_id:
+            continue
+        with _sync_lock:
+            status.setdefault("coros", {})["progress"] = f"Fetching splits: {idx + 1}/{total}"
+        try:
+            detail = fetch_activity_detail(access_token, region, act_id)
+            all_splits.extend(parse_splits(act_id, detail))
+            time_mod.sleep(0.3)
+        except Exception as e:
+            logger.debug("COROS splits for %s: skipped (%s)", act_id, e)
+    split_count = sync_writer.write_splits(user_id, all_splits, db)
+
+    # Daily metrics (HRV, resting HR, training load)
+    # Fetch a wider window (90 days) to ensure enough HRV readings for
+    # baseline analysis (requires ≥5 data points).
+    dm_count = 0
+    recovery_count = 0
+    dm_start = (date.today() - timedelta(days=90)).isoformat()
+    try:
+        raw_daily = fetch_daily_metrics(access_token, region, dm_start, end)
+        daily_rows = parse_daily(raw_daily)
+
+        # Write recovery data (HRV, resting HR)
+        recovery_rows = [
+            r for r in daily_rows
+            if r.get("hrv_ms") or r.get("resting_hr")
+        ]
+        if recovery_rows:
+            recovery_count = sync_writer.write_recovery(
+                user_id, [], [], {}, db,
+                garmin_recovery=recovery_rows,
+                recovery_source="coros",
+            )
+    except Exception as e:
+        logger.warning("COROS daily metrics fetch failed for user %s: %s", user_id, e)
+
+    # Sleep data (via mobile API)
+    sleep_count = 0
+    try:
+        mobile_token = creds.get("mobile_access_token", "")
+        mobile_ts = int(creds.get("mobile_timestamp", 0))
+        # Re-login if no mobile token or expired (same TTL as hub token)
+        if not mobile_token or (time_mod.time() - mobile_ts) > 23 * 3600:
+            mobile_creds = mobile_login(email, password, region)
+            mobile_token = mobile_creds["mobile_access_token"]
+            updated = dict(creds)
+            updated["mobile_access_token"] = mobile_token
+            updated["mobile_timestamp"] = mobile_creds["mobile_timestamp"]
+            _persist_credentials(user_id, "coros", updated, db)
+            db.commit()
+
+        raw_sleep = fetch_sleep(mobile_token, region, dm_start, end)
+        sleep_rows = parse_sleep(raw_sleep)
+        logger.info("COROS sleep: %d nights fetched for user %s", len(sleep_rows), user_id)
+
+        if sleep_rows:
+            # Merge sleep into recovery rows: write_recovery handles upsert
+            sleep_recovery = []
+            for sr in sleep_rows:
+                row = {"date": sr["date"], "source": "coros"}
+                if sr.get("sleep_score"):
+                    row["sleep_score"] = sr["sleep_score"]
+                if sr.get("total_sleep_sec"):
+                    # Convert to hours for write_recovery compatibility
+                    row["total_sleep_hours"] = str(round(int(sr["total_sleep_sec"]) / 3600, 2))
+                if sr.get("deep_sleep_sec"):
+                    row["deep_sleep_sec"] = sr["deep_sleep_sec"]
+                if sr.get("rem_sleep_sec"):
+                    row["rem_sleep_sec"] = sr["rem_sleep_sec"]
+                sleep_recovery.append(row)
+            sleep_count = sync_writer.write_recovery(
+                user_id, [], [], {}, db,
+                garmin_recovery=sleep_recovery,
+                recovery_source="coros",
+            )
+    except Exception as e:
+        logger.warning("COROS sleep fetch failed for user %s: %s", user_id, e)
+
+    # Fitness summary (VO2max, LTHR)
+    profile_count = 0
+    try:
+        fitness_raw = fetch_fitness_summary(access_token, region)
+        fitness_parsed = parse_fitness(fitness_raw)
+        if fitness_parsed:
+            profile_count = sync_writer.write_profile_thresholds(
+                user_id, fitness_parsed, db,
+                source="coros",
+            )
+    except Exception as e:
+        logger.warning("COROS fitness summary fetch failed for user %s: %s", user_id, e)
+
+    return {
+        "activities": act_count,
+        "splits": split_count,
+        "recovery": recovery_count + sleep_count,
+        "profile": profile_count,
+    }
 
 
 @router.get("/sync/status")

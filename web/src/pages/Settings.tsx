@@ -28,7 +28,7 @@ import { formatTime, formatPace } from '@/lib/format';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocale } from '@/contexts/LocaleContext';
 import { detectBrowserLocale } from '@/lib/locale-detect';
-import { GarminWordmark, StrydWordmark, StravaWordmark, OuraWordmark } from '@/components/PlatformWordmark';
+import { GarminWordmark, StrydWordmark, StravaWordmark, OuraWordmark, CorosWordmark } from '@/components/PlatformWordmark';
 import { Trans, useLingui } from '@lingui/react/macro';
 import { msg } from '@lingui/core/macro';
 import type { MessageDescriptor } from '@lingui/core';
@@ -44,6 +44,7 @@ const PLATFORM_META: Record<string, { label: string; wordmark?: React.ReactNode 
   strava: { label: 'Strava', wordmark: <StravaWordmark /> },
   stryd: { label: 'Stryd', wordmark: <StrydWordmark /> },
   oura: { label: 'Oura Ring', wordmark: <OuraWordmark /> },
+  coros: { label: 'COROS', wordmark: <CorosWordmark /> },
   ai: { label: 'AI' },
 };
 
@@ -112,7 +113,7 @@ function useThresholdSourceLabel() {
   };
 }
 
-const CONNECTABLE_PLATFORMS = ['garmin', 'strava', 'stryd', 'oura'] as const;
+const CONNECTABLE_PLATFORMS = ['garmin', 'strava', 'stryd', 'oura', 'coros'] as const;
 const SYNC_INTERVAL_OPTIONS = [
   { hours: 6,  recommended: true },
   { hours: 12, recommended: false },
@@ -144,6 +145,13 @@ const PLATFORM_CRED_FIELDS: Record<string, { fields: { key: string; label: strin
       { key: 'token', label: 'Personal Access Token', type: 'password' },
     ],
     help: 'Generate a token at cloud.ouraring.com/personal-access-tokens.',
+  },
+  coros: {
+    fields: [
+      { key: 'email', label: 'Email', type: 'email' },
+      { key: 'password', label: 'Password', type: 'password' },
+    ],
+    help: 'Use your COROS Training Hub credentials. Syncs activities, HRV, VO2max, and training load.',
   },
 };
 
@@ -205,6 +213,7 @@ export default function Settings() {
   const [connectRegion, setConnectRegion] = useState<'international' | 'cn'>(
     String(config?.source_options?.garmin_region) === 'cn' ? 'cn' : 'international'
   );
+  const [corosRegion, setCorosRegion] = useState<'eu' | 'us' | 'cn'>('us');
   const [goalEditorOpen, setGoalEditorOpen] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
@@ -420,6 +429,9 @@ export default function Settings() {
       // read-only label stays accurate.
       if (connectPlatform === 'garmin') {
         body.is_cn = connectRegion === 'cn';
+      }
+      if (connectPlatform === 'coros') {
+        body.region = corosRegion;
       }
       const res = await fetch(`${API_BASE}/api/settings/connections/${connectPlatform}`, {
         method: 'POST',
@@ -914,6 +926,31 @@ export default function Settings() {
                   </div>
                   <p className="text-[10px] text-muted-foreground">
                     <Trans>Garmin International and Garmin China are separate account systems. Pick the one your credentials belong to.</Trans>
+                  </p>
+                </div>
+              )}
+              {connectPlatform === 'coros' && (
+                <div className="space-y-2">
+                  <Label><Trans>Region</Trans></Label>
+                  <div className="flex gap-2">
+                    {([['us', t`US`], ['eu', t`EU`], ['cn', t`Asia/CN`]] as const).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setCorosRegion(value)}
+                        disabled={connecting}
+                        className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all border ${
+                          corosRegion === value
+                            ? 'border-primary/40 bg-primary/10 text-primary'
+                            : 'border-border bg-muted text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    <Trans>Select the region matching your COROS account.</Trans>
                   </p>
                 </div>
               )}

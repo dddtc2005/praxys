@@ -84,3 +84,14 @@ export function OuraWordmark({ className }: WordmarkProps) {
   );
 }
 
+export function CorosWordmark({ className }: WordmarkProps) {
+  return (
+    <span
+      className={`inline-flex h-5 items-center text-[0.95rem] font-bold uppercase leading-none tracking-[0.12em] ${className ?? ''}`}
+      aria-label="COROS"
+    >
+      COROS
+    </span>
+  );
+}
+
