@@ -220,6 +220,7 @@ interface GoalState {
   cpTrendDates: string[];
   cpTrendSeries: SeriesPayload[];
   cpTrendReferenceY: number | null;
+  cpTrendUnit: string;
 
   refreshing: boolean;
 
@@ -337,6 +338,7 @@ const initialData: GoalState = {
   cpTrendDates: [],
   cpTrendSeries: [],
   cpTrendReferenceY: null,
+  cpTrendUnit: '',
 
   refreshing: false,
 
@@ -473,6 +475,11 @@ function buildState(response: GoalResponse, themeClass: string): Partial<GoalSta
     // a specific CP target — race_date AND cp_milestone both expose
     // rc.target_cp; continuous mode does not (target_cp is null).
     cpTrendReferenceY: rc.target_cp ?? null,
+    // CP trend is always W or bpm — never pace, since pace is for race
+    // times not threshold values. The '/km' unit on display.threshold
+    // refers to other surfaces (target time previews); for the chart's
+    // y-axis it would be misleading, so swap to empty.
+    cpTrendUnit: isPace ? '' : unit,
 
     notePredictionText: note.text,
     notePredictionUrl: note.url,

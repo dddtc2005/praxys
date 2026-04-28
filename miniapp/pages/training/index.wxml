@@ -50,6 +50,7 @@
           show-legend="{{false}}"
           dates="{{cpTrendDates}}"
           series="{{cpTrendSeries}}"
+          y-unit="W"
           theme="{{chartTheme}}"
         />
         <view wx:else class="train-data-hint">
