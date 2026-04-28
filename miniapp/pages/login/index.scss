@@ -17,15 +17,22 @@
 // reading band, and the explicit `margin-top` on the footer sets the
 // gap between stack and footer to a fixed, comfortable distance.
 .login-root {
-  min-height: 100vh;
+  // Lock to viewport height + disableScroll (set in index.json) so the
+  // page cannot scroll. Math: on the smallest mainstream device
+  // (iPhone SE, 1230rpx tall) the composition needs ~1080rpx including
+  // padding; the centered layout tolerates the slack everywhere else.
+  // height (not min-height) clamps a too-tall content block to the
+  // viewport so a future addition can't accidentally re-introduce scroll.
+  height: 100vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: calc(40rpx + env(safe-area-inset-top)) 56rpx
-           calc(80rpx + env(safe-area-inset-bottom));
+  padding: calc(32rpx + env(safe-area-inset-top)) 56rpx
+           calc(56rpx + env(safe-area-inset-bottom));
   text-align: center;
   position: relative;
+  overflow: hidden;
 }
 
 // Brand stack — mark, wordmark, hero, description, CTA. Natural height,
@@ -34,7 +41,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 24rpx;
+  // 20rpx gap (was 24rpx) — saves ~16rpx total across the stack so the
+  // composition fits iPhone SE without scroll while staying airy on
+  // taller phones.
+  gap: 20rpx;
   width: 100%;
   max-width: 560rpx;
 }
@@ -112,8 +122,10 @@
   flex-direction: column;
   align-items: center;
   gap: 4rpx;
-  padding-top: 24rpx;
-  margin-top: 64rpx;
+  padding-top: 20rpx;
+  // 48rpx margin-top (was 64rpx) — tighter footer-to-stack gap so the
+  // composition fits iPhone SE.
+  margin-top: 48rpx;
   border-top: 1rpx solid var(--border-subtle);
   width: 80%;
   max-width: 480rpx;
@@ -138,35 +150,42 @@
 }
 
 // Top-LEFT language toggle. WeChat's `... | ⊙` capsule reserves the
-// top-right; placing anything there causes the overlap visible in
-// real-device testing. Top-left is fully ours below the status bar.
-//
-// Vertical position: status-bar height + 20rpx breathing room. Using
-// env() works in both Skyline and WebView; if it resolves to 0 (older
-// WeChat clients) the fixed fallback still keeps the toggle clear of
-// the iOS clock display.
+// top-right; top-LEFT below the status bar is fully ours. Visual
+// treatment: a single pill with two segments. Active segment gets an
+// inset surface chip + bolder text; inactive sits muted on the pill
+// background. Mirrors web's small chip-style toggle while feeling
+// native to a touch surface (44rpx tall hit targets).
 .login-lang-toggle {
   position: absolute;
-  top: calc(28rpx + env(safe-area-inset-top));
+  top: calc(128rpx + env(safe-area-inset-top));
   left: 32rpx;
   display: flex;
   flex-direction: row;
-  gap: 12rpx;
   align-items: center;
+  background-color: var(--surface-subtle);
+  border: 1rpx solid var(--border-subtle);
+  border-radius: 999rpx;
+  padding: 4rpx;
   z-index: 10;
 }
 .login-lang-toggle-opt {
-  font-size: 26rpx;
+  font-size: 24rpx;
   font-weight: 500;
   color: var(--text-muted);
-  padding: 8rpx 6rpx;
+  // Generous horizontal padding so each segment is a comfortable hit
+  // target; vertical padding keeps the pill compact.
+  padding: 8rpx 20rpx;
+  border-radius: 999rpx;
+  line-height: 1.2;
+  transition: background-color 160ms ease, color 160ms ease;
 }
 .login-lang-toggle-opt--active {
   color: var(--text);
   font-weight: 600;
-}
-.login-lang-toggle-sep {
-  font-size: 22rpx;
+  background-color: var(--surface);
+  // Tiny inner shadow so the active chip reads as "lifted on top of
+  // the pill track" rather than just a color swap.
+  box-shadow: 0 1rpx 3rpx rgba(0, 0, 0, 0.06);
 }
 
 // Single orchestrated entrance: mark fades first, each subsequent

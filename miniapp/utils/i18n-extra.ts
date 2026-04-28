@@ -117,7 +117,7 @@ export const I18N_EXTRA: Record<Locale, Record<string, string>> = {
     email: '邮箱',
     password: '密码',
     'Email and password are required': '请填写邮箱和密码',
-    'New here? Sign up at': '首次使用？立即注册',
+    'New here? Sign up at': '没有账号？立即注册',
     'tap to copy URL': '点击复制链接',
     'URL copied': '链接已复制',
     Retry: '重试',

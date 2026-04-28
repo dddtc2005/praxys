@@ -1,4 +1,5 @@
 {
   "renderer": "webview",
+  "disableScroll": true,
   "usingComponents": {}
 }

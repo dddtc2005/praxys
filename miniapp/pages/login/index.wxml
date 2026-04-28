@@ -9,7 +9,6 @@
       data-lang="en"
       bindtap="onSwitchLang"
     >EN</text>
-    <text class="login-lang-toggle-sep ts-muted">·</text>
     <text
       class="login-lang-toggle-opt {{locale === 'zh' ? 'login-lang-toggle-opt--active' : ''}}"
       data-lang="zh"
