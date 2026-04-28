@@ -187,11 +187,14 @@ def write_splits(user_id: str, rows: list[dict], db: Session) -> int:
 def write_recovery(user_id: str, readiness_rows: list[dict],
                    sleep_rows: list[dict], hrv_by_date: dict,
                    db: Session,
-                   garmin_recovery: list[dict] | None = None) -> int:
+                   garmin_recovery: list[dict] | None = None,
+                   recovery_source: str = "garmin") -> int:
     """Write recovery data (readiness + sleep merged) to DB. Returns count of new.
 
     Supports both Oura (readiness_rows + sleep_rows + hrv_by_date) and
-    Garmin (garmin_recovery list with pre-parsed fields).
+    Garmin-style (garmin_recovery list with pre-parsed fields).
+    ``recovery_source`` controls the source tag for garmin_recovery rows
+    (default "garmin"; pass "coros" etc. for other platforms).
     """
     count = 0
 
@@ -230,23 +233,23 @@ def write_recovery(user_id: str, readiness_rows: list[dict],
         existing_oura.add(d)
         count += 1
 
-    # --- Garmin recovery ---
+    # --- Garmin-style recovery ---
     if garmin_recovery:
-        existing_garmin = {
+        existing_src = {
             r[0] for r in db.query(RecoveryData.date).filter(
-                RecoveryData.user_id == user_id, RecoveryData.source == "garmin"
+                RecoveryData.user_id == user_id, RecoveryData.source == recovery_source
             ).all()
         }
         for row in garmin_recovery:
             d = _parse_date(row.get("date"))
             if not d:
                 continue
-            if d in existing_garmin:
+            if d in existing_src:
                 # Update existing
                 existing = db.query(RecoveryData).filter(
                     RecoveryData.user_id == user_id,
                     RecoveryData.date == d,
-                    RecoveryData.source == "garmin",
+                    RecoveryData.source == recovery_source,
                 ).first()
                 if existing:
                     if row.get("readiness_score"):
@@ -259,6 +262,10 @@ def write_recovery(user_id: str, readiness_rows: list[dict],
                         existing.sleep_score = _float(row["sleep_score"])
                     if row.get("total_sleep_hours"):
                         existing.total_sleep_sec = _float(row["total_sleep_hours"]) * 3600 if _float(row["total_sleep_hours"]) else None
+                    if row.get("deep_sleep_sec"):
+                        existing.deep_sleep_sec = _float(row["deep_sleep_sec"])
+                    if row.get("rem_sleep_sec"):
+                        existing.rem_sleep_sec = _float(row["rem_sleep_sec"])
                     count += 1
             else:
                 total_sleep_sec = None
@@ -266,14 +273,16 @@ def write_recovery(user_id: str, readiness_rows: list[dict],
                     h = _float(row["total_sleep_hours"])
                     total_sleep_sec = h * 3600 if h else None
                 db.add(RecoveryData(
-                    user_id=user_id, date=d, source="garmin",
+                    user_id=user_id, date=d, source=recovery_source,
                     readiness_score=_float(row.get("readiness_score")),
                     hrv_avg=_float(row.get("hrv_ms")),
                     resting_hr=_float(row.get("resting_hr")),
                     sleep_score=_float(row.get("sleep_score")),
                     total_sleep_sec=total_sleep_sec,
+                    deep_sleep_sec=_float(row.get("deep_sleep_sec")),
+                    rem_sleep_sec=_float(row.get("rem_sleep_sec")),
                 ))
-                existing_garmin.add(d)
+                existing_src.add(d)
                 count += 1
 
     if count > 0:

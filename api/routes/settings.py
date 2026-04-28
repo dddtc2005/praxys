@@ -345,6 +345,8 @@ class ConnectPlatformRequest(BaseModel):
     token: str | None = None
     # Garmin-specific
     is_cn: bool = False
+    # COROS-specific region
+    region: str | None = None
     # Strava manual token fallback
     access_token: str | None = None
     refresh_token: str | None = None
@@ -623,6 +625,17 @@ def connect_platform(
         creds = {"email": body.email, "password": body.password}
         if platform == "garmin":
             creds["is_cn"] = body.is_cn
+    elif platform == "coros":
+        if not body.email or not body.password:
+            return {"status": "error", "message": "email and password required"}
+        coros_region = body.region or "us"
+        if coros_region not in ("eu", "us", "cn"):
+            coros_region = "us"
+        creds: dict[str, Any] = {
+            "email": body.email,
+            "password": body.password,
+            "region": coros_region,
+        }
     elif platform == "oura":
         if not body.token:
             return {"status": "error", "message": "token required"}

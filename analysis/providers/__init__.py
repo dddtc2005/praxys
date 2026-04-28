@@ -73,5 +73,6 @@ def _ensure_registered() -> None:
     import analysis.providers.stryd  # noqa: F401
     import analysis.providers.strava  # noqa: F401
     import analysis.providers.oura  # noqa: F401
+    import analysis.providers.coros  # noqa: F401
     import analysis.providers.ai  # noqa: F401
     _registered = True
