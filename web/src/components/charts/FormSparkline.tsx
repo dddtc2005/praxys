@@ -19,10 +19,9 @@ import { msg } from '@lingui/core/macro';
 import type { MessageDescriptor } from '@lingui/core';
 
 // Zone insights are keyed by the stable English `key` from the science
-// label set, so the lookup survives label localization (the localized
-// `label` field is rendered separately). When `key` is missing — older
-// data, or a custom label set without keys — we fall back to looking up
-// the (English) `label` to keep the en path lossless.
+// label set, so the lookup survives label localization. When `key` is
+// missing we fall back to `label`: lossless for en (key === label in
+// English), silent miss for zh (translated label won't match any key).
 const ZONE_INSIGHTS: Record<string, MessageDescriptor> = {
   Performance: msg`Freshened up — good window for racing or testing.`,
   Optimal: msg`Good balance of fitness and recovery. Ready for quality work.`,

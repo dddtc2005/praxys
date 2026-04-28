@@ -1509,7 +1509,7 @@ def get_dashboard_data(user_id: str = None, db=None) -> dict:
         },
         "data_meta": data_meta,
         "tsb_zones": [
-            {"key": z.key, "min": z.min, "max": z.max, "label": z.label, "color": z.color}
+            {**({"key": z.key} if z.key else {}), "min": z.min, "max": z.max, "label": z.label, "color": z.color}
             for z in (load_theory.tsb_zones_labeled if load_theory else [])
         ],
     }

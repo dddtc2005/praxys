@@ -275,9 +275,6 @@ msgstr "Avg HR"
 msgid "Avg Power"
 msgstr "Avg Power"
 
-#: src/components/charts/SleepPerfChart.tsx:46
-#: src/components/charts/SleepPerfChart.tsx:49
-
 #: src/components/charts/FormSparkline.tsx:27
 msgid "Freshened up — good window for racing or testing."
 msgstr "Freshened up — good window for racing or testing."
@@ -306,6 +303,8 @@ msgstr "High fatigue accumulation. Prioritize recovery."
 msgid "Extended rest period. Fitness declining."
 msgstr "Extended rest period. Fitness declining."
 
+#: src/components/charts/SleepPerfChart.tsx:46
+#: src/components/charts/SleepPerfChart.tsx:49
 #~ msgid "Avg Power (W)"
 #~ msgstr "Avg Power (W)"
 

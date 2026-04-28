@@ -100,7 +100,7 @@ def get_science(
             summary = _theory_summary(theory)
             if theory.tsb_zones_labeled:
                 summary["tsb_zones"] = [
-                    {"key": z.key, "min": z.min, "max": z.max, "label": z.label, "color": z.color}
+                    {**({"key": z.key} if z.key else {}), "min": z.min, "max": z.max, "label": z.label, "color": z.color}
                     for z in theory.tsb_zones_labeled
                 ]
             active[pillar] = summary

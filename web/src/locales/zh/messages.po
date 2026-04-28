@@ -1999,9 +1999,6 @@ msgstr "基于乳酸阈值心率的区间与负荷"
 #: src/pages/Setup.tsx:163
 msgid "Zones & load from Threshold Pace"
 msgstr "基于阈值配速的区间与负荷"
-#: src/components/charts/SleepPerfChart.tsx:46
-#: src/components/charts/SleepPerfChart.tsx:49
-
 #: src/components/charts/FormSparkline.tsx:27
 msgid "Freshened up — good window for racing or testing."
 msgstr "状态新鲜 — 适合比赛或测试。"
@@ -2030,6 +2027,8 @@ msgstr "疲劳大量积累，优先安排恢复。"
 msgid "Extended rest period. Fitness declining."
 msgstr "持续休息，体能正在下降。"
 
+#: src/components/charts/SleepPerfChart.tsx:46
+#: src/components/charts/SleepPerfChart.tsx:49
 #~ msgid "Avg Power (W)"
 #~ msgstr "平均功率 (W)"
 
