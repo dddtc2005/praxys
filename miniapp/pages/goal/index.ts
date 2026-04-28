@@ -88,6 +88,7 @@ interface MilestoneRow {
 
 interface GoalState {
   themeClass: string;
+  chartTheme: 'light' | 'dark';
   loading: boolean;
   errorMessage: string;
   hasResponse: boolean;
@@ -187,6 +188,7 @@ interface GoalState {
 
 const initialData: GoalState = {
   themeClass: 'theme-light',
+  chartTheme: 'light',
   loading: true,
   errorMessage: '',
   hasResponse: false,
@@ -522,7 +524,8 @@ Page({
   data: { ...initialData },
 
   onLoad() {
-    this.setData({ themeClass: themeClassName() });
+    const tc = themeClassName();
+    this.setData({ themeClass: tc, chartTheme: tc === 'theme-light' ? 'light' : 'dark' });
     void this.refetch();
   },
 
@@ -535,31 +538,39 @@ Page({
 
   onShareAppMessage() {
     // Dynamic per-mode share so friends see the actual countdown / target.
+    // Each branch is fully localized — no Chinese-mixed-into-English copy.
     const mode = this.data.mode as string;
     const locale = detectShareLocale();
     const days = (this.data.rdDaysLeft as string) || '';
     const dist = (this.data.rdDistLabel as string) || '';
     const predicted = (this.data.rdPredictedTime as string) || '';
     if (mode === 'race_date' && days && dist) {
-      const lead = locale === 'zh' ? '距离比赛' : 'Race countdown';
-      const tail = predicted && predicted !== '—' ? ` · 预计 ${predicted}` : '';
-      return buildShareMessage(`${lead}: ${days} 天 · ${dist}${tail}`, '/pages/goal/index');
+      const hasPred = predicted && predicted !== '—';
+      const title =
+        locale === 'zh'
+          ? `距离比赛: ${days} 天 · ${dist}${hasPred ? ` · 预计 ${predicted}` : ''}`
+          : `Race countdown: ${days} days · ${dist}${hasPred ? ` · predicted ${predicted}` : ''}`;
+      return buildShareMessage(title, '/pages/goal/index');
     }
     if (mode === 'cp_milestone') {
       const cur = this.data.cmCurrentCp as string;
       const target = this.data.cmTargetCp as string;
       const unit = this.data.cmThresholdUnit as string;
       if (cur && target) {
-        const lead = locale === 'zh' ? '冲击目标' : 'Targeting';
-        return buildShareMessage(`${lead} ${target}${unit} (${cur}${unit} now)`, '/pages/goal/index');
+        const title =
+          locale === 'zh'
+            ? `冲击目标 ${target}${unit} (当前 ${cur}${unit})`
+            : `Targeting ${target}${unit} (${cur}${unit} now)`;
+        return buildShareMessage(title, '/pages/goal/index');
       }
     }
     if (mode === 'continuous') {
       const cur = this.data.ctCurrentCp as string;
       const unit = this.data.ctThresholdUnit as string;
       if (cur) {
-        const lead = locale === 'zh' ? '当前体能' : 'Current fitness';
-        return buildShareMessage(`${lead}: ${cur}${unit}`, '/pages/goal/index');
+        const title =
+          locale === 'zh' ? `当前体能: ${cur}${unit}` : `Current fitness: ${cur}${unit}`;
+        return buildShareMessage(title, '/pages/goal/index');
       }
     }
     return getShareMessage(locale, '/pages/goal/index');
@@ -571,10 +582,12 @@ Page({
       locale === 'zh' ? '像专业选手一样训练' : 'Train like a pro. Whatever your level.';
     const days = (this.data.rdDaysLeft as string) || '';
     const dist = (this.data.rdDistLabel as string) || '';
-    const title =
-      this.data.mode === 'race_date' && days && dist
-        ? `${days} days · ${dist}`
-        : fallback;
+    const hasRace = this.data.mode === 'race_date' && days && dist;
+    const title = hasRace
+      ? locale === 'zh'
+        ? `${days} 天 · ${dist}`
+        : `${days} days · ${dist}`
+      : fallback;
     return buildTimelineMessage(title);
   },
 
@@ -609,7 +622,12 @@ Page({
       const response = await apiGet<GoalResponse>('/api/goal');
       this.setData(buildState(response, this.data.themeClass) as Record<string, unknown>);
     } catch (e) {
-      const detail = (e as Partial<ApiError>)?.detail ?? String(e);
+      const err = e as Partial<ApiError>;
+      // The api-client throws UNAUTHENTICATED *and* schedules a reLaunch.
+      // Skip the error UI so the page doesn't flash the raw code before
+      // it's unmounted; the toast in api-client already explains.
+      if (err?.code === 'UNAUTHENTICATED') return;
+      const detail = err?.detail ?? String(e);
       this.setData({ loading: false, errorMessage: detail, hasResponse: false });
     }
   },

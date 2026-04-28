@@ -8,6 +8,26 @@ import {
 import type { ApiError } from '../../utils/api-client';
 import { applyThemeChrome, themeClassName } from '../../utils/theme';
 import { detectShareLocale, getShareMessage } from '../../utils/share';
+import { t } from '../../utils/i18n';
+
+/**
+ * Map auth-flow error codes to user-facing copy. Untranslated machine
+ * codes ("WECHAT_NO_LOGIN_CODE") are useless to the user; we fall back
+ * to the original detail when there's no mapping so backend FastAPI
+ * `detail` strings still surface verbatim.
+ */
+function friendlyAuthError(detail: string): string {
+  if (detail === 'WECHAT_NO_LOGIN_CODE') {
+    return t('Sign-in code unavailable. Please try again.');
+  }
+  if (detail === 'WECHAT_NOT_CONFIGURED') {
+    return t('WeChat sign-in is not configured on this server.');
+  }
+  if (detail === 'UNAUTHENTICATED') {
+    return t('Your session expired. Please sign in again.');
+  }
+  return detail;
+}
 
 /**
  * Login page lifecycle:
@@ -118,8 +138,8 @@ Page<PageData, PageMethods>({
       }
       this.setData({ stage: 'error', errorMessage: 'Unexpected login response' });
     } catch (e) {
-      const msg = (e as Partial<ApiError>)?.detail ?? String(e);
-      this.setData({ stage: 'error', errorMessage: msg });
+      const detail = (e as Partial<ApiError>)?.detail ?? String(e);
+      this.setData({ stage: 'error', errorMessage: friendlyAuthError(detail) });
     }
   },
 
@@ -161,7 +181,7 @@ Page<PageData, PageMethods>({
     } catch (e) {
       this.setData({
         linkSubmitting: false,
-        linkError: (e as Partial<ApiError>)?.detail ?? String(e),
+        linkError: friendlyAuthError((e as Partial<ApiError>)?.detail ?? String(e)),
       });
     }
   },
@@ -191,7 +211,7 @@ Page<PageData, PageMethods>({
     } catch (e) {
       this.setData({
         regSubmitting: false,
-        regError: (e as Partial<ApiError>)?.detail ?? String(e),
+        regError: friendlyAuthError((e as Partial<ApiError>)?.detail ?? String(e)),
       });
     }
   },

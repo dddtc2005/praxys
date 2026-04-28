@@ -76,6 +76,12 @@ export interface ChartColors {
   grid: string;
   tick: string;
   zero: string;
+  /** Target/reference horizontal line (e.g. target CP). Amber so it's
+   *  distinct from data series and the zero line in both themes. */
+  reference: string;
+  /** Translucent fill for "planned" bars in the compliance chart. */
+  planned: string;
+  plannedStroke: string;
 }
 
 const DARK_CHART: ChartColors = {
@@ -83,6 +89,9 @@ const DARK_CHART: ChartColors = {
   grid: '#161b2e',
   tick: '#8b93a7',
   zero: '#00ff87',
+  reference: '#f59e0b',
+  planned: 'rgba(139, 147, 167, 0.35)',
+  plannedStroke: 'rgba(139, 147, 167, 0.6)',
 };
 
 const LIGHT_CHART: ChartColors = {
@@ -90,6 +99,9 @@ const LIGHT_CHART: ChartColors = {
   grid: '#edeae0',
   tick: '#6b6b66',
   zero: '#1e8e5b',
+  reference: '#b45309',
+  planned: 'rgba(107, 107, 102, 0.18)',
+  plannedStroke: 'rgba(107, 107, 102, 0.45)',
 };
 
 export function chartColors(theme: ResolvedTheme = resolveTheme()): ChartColors {

@@ -4,26 +4,10 @@
  * in onShareAppMessage so friends see a Praxys-branded card with the
  * user's actual training signal — not the static og-card.
  *
- * Layout (750×600 — WeChat share thumbnails are 5:4):
- *
- *   ┌─────────────────────────────────────────────┐
- *   │ ▌                                            │  ← primary-color top accent
- *   │                                              │
- *   │  [logo]  Pra·x·ys                            │  ← wordmark with green x
- *   │                                              │
- *   │  TODAY'S SIGNAL                              │  ← small label
- *   │                                              │
- *   │      EASY                                    │  ← big signal in signal color
- *   │                                              │
- *   │      Go Easy                                 │  ← subtitle
- *   │      HRV below threshold. Keep today …       │  ← reason (truncated)
- *   │                                              │
- *   │  praxys.run · power-based training           │  ← footer
- *   └─────────────────────────────────────────────┘
- *
- * Custom fonts (Geist) don't load in WeChat canvas; we fall back to
- * system sans/serif. Same for OKLCH — we use the hex equivalents that
- * already power app.scss.
+ * Canvas dimensions are 750×600 (WeChat share thumbnails crop to 5:4).
+ * Custom fonts (Geist) don't load in WeChat canvas, so the wordmark
+ * falls back to system sans-serif. OKLCH from app.scss is collapsed to
+ * the hex equivalents below since canvas color parsing is conservative.
  */
 
 export type SignalColor = 'green' | 'amber' | 'red';
@@ -83,6 +67,9 @@ function wrapLines(
   maxLines: number,
 ): string[] {
   if (!text) return [];
+  // U+4E00..U+9FFF — the Unicode CJK Unified Ideographs block. Covers the
+  // common Chinese characters used in Praxys signal copy; a hit means the
+  // text has no space-delimited words, so we wrap per character instead.
   const isCjk = /[一-鿿]/.test(text);
   const tokens = isCjk ? Array.from(text) : text.split(/\s+/);
   const sep = isCjk ? '' : ' ';

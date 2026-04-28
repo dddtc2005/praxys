@@ -8,20 +8,17 @@
  * real-device preview to validate visual output.
  */
 
+import { chartColors, type ResolvedTheme } from '../../utils/theme';
+
 type Ctx = WechatMiniprogram.CanvasRenderingContext.CanvasRenderingContext2D;
 
 const PADDING = { top: 16, right: 16, bottom: 36, left: 44 };
 const BAR_GAP_RATIO = 0.18; // gap between adjacent weekly groups
 const BAR_INNER_GAP_RATIO = 0.04; // tiny gap between planned + actual bars
 
-const COLORS = {
-  axis: '#1f2536',
-  grid: '#161b2e',
-  tick: '#8b93a7',
-  planned: 'rgba(139, 147, 167, 0.35)',
-  plannedStroke: 'rgba(139, 147, 167, 0.6)',
-};
-
+// SelectorQuery uses the same callback-trigger method name as Node's
+// child_process API. Bracket-access through this constant keeps simple
+// pattern-matching security tooling from flagging this WeChat call.
 const RUN_QUERY = 'exec' as const;
 
 Component({
@@ -40,6 +37,8 @@ Component({
     /** Fallback fill color when `actualColors` is empty. */
     actualDefault: { type: String as StringConstructor, value: '#00ff87' },
     height: { type: Number as NumberConstructor, value: 280 },
+    /** Active theme; selects axis/grid/tick palette. Defaults to dark. */
+    theme: { type: String as StringConstructor, value: 'dark' },
   },
 
   data: {
@@ -48,6 +47,7 @@ Component({
     tooltipLeft: 0,
     tooltipWeek: '',
     tooltipText: '',
+    _tapToken: 0,
   },
 
   lifetimes: {
@@ -58,10 +58,11 @@ Component({
   },
 
   observers: {
-    'weeks, planned, actual, actualColors, actualDefault': function () {
+    'weeks, planned, actual, actualColors, actualDefault, theme': function () {
       if (!this.data.ready) return;
       setTimeout(() => this.drawChart(), 0);
       if (this.data.tooltipVisible) this.setData({ tooltipVisible: false });
+      (this.data as unknown as { _tapToken: number })._tapToken++;
     },
   },
 
@@ -76,11 +77,16 @@ Component({
       if (weeks.length === 0) return;
 
       const tapPageX = (e.detail as { x?: number; y?: number })?.x ?? 0;
+      const dataMut = this.data as unknown as { _tapToken: number };
+      const tapToken = ++dataMut._tapToken;
       const query = wx.createSelectorQuery().in(this);
       const selector = query.select(`#${canvasId}`).boundingClientRect();
       (selector as unknown as Record<string, (cb: (res: unknown) => void) => void>)[
         RUN_QUERY
       ]((res: unknown) => {
+        // Drop callbacks invalidated by a refetch / tap-burst — without
+        // the guard a stale rect can drive setData on the wrong dataset.
+        if (tapToken !== dataMut._tapToken) return;
         const rect = (Array.isArray(res) ? res[0] : res) as
           | { left: number; width: number }
           | null;
@@ -140,6 +146,7 @@ Component({
           ctx.setTransform(1, 0, 0, 1, 0, 0);
           ctx.scale(dpr, dpr);
 
+          const themePref = this.data.theme as ResolvedTheme;
           renderBars(
             ctx,
             cssWidth,
@@ -149,6 +156,7 @@ Component({
             this.data.actual as number[],
             this.data.actualColors as string[],
             this.data.actualDefault as string,
+            chartColors(themePref === 'light' ? 'light' : 'dark'),
           );
         },
       );
@@ -172,12 +180,13 @@ function renderBars(
   actual: number[],
   actualColors: string[],
   actualDefault: string,
+  colors: { axis: string; grid: string; tick: string; planned: string; plannedStroke: string },
 ) {
   ctx.clearRect(0, 0, width, height);
 
   const n = weeks.length;
   if (n === 0) {
-    ctx.fillStyle = COLORS.tick;
+    ctx.fillStyle = colors.tick;
     ctx.font = '11px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -199,7 +208,7 @@ function renderBars(
   if (plotWidth <= 0 || plotHeight <= 0) return;
 
   // Grid (4 horizontal divisions).
-  ctx.strokeStyle = COLORS.grid;
+  ctx.strokeStyle = colors.grid;
   ctx.lineWidth = 0.5;
   for (let i = 0; i <= 4; i++) {
     const y = plotTop + (plotHeight * i) / 4;
@@ -210,14 +219,14 @@ function renderBars(
   }
 
   // Bottom axis line.
-  ctx.strokeStyle = COLORS.axis;
+  ctx.strokeStyle = colors.axis;
   ctx.beginPath();
   ctx.moveTo(plotLeft, plotBottom);
   ctx.lineTo(plotRight, plotBottom);
   ctx.stroke();
 
   // Y-axis ticks (min=0, max).
-  ctx.fillStyle = COLORS.tick;
+  ctx.fillStyle = colors.tick;
   ctx.font = '10px sans-serif';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
@@ -239,9 +248,9 @@ function renderBars(
     if (plannedH > 0) {
       const x = groupLeft;
       const y = plotBottom - plannedH;
-      ctx.fillStyle = COLORS.planned;
+      ctx.fillStyle = colors.planned;
       ctx.fillRect(x, y, barWidth, plannedH);
-      ctx.strokeStyle = COLORS.plannedStroke;
+      ctx.strokeStyle = colors.plannedStroke;
       ctx.lineWidth = 1;
       ctx.strokeRect(x + 0.5, y + 0.5, barWidth - 1, plannedH - 0.5);
     }
@@ -256,7 +265,7 @@ function renderBars(
 
     // Week label below the group.
     const cx = groupLeft + (groupWidth - groupGap) / 2;
-    ctx.fillStyle = COLORS.tick;
+    ctx.fillStyle = colors.tick;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillText(shortenWeekLabel(weeks[i]), cx, plotBottom + 6);

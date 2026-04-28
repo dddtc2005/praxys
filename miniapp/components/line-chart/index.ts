@@ -23,24 +23,15 @@ export interface LineSeries {
   dashed?: boolean;
 }
 
+import { chartColors, type ResolvedTheme } from '../../utils/theme';
+
 type Ctx = WechatMiniprogram.CanvasRenderingContext.CanvasRenderingContext2D;
 
 const PADDING = { top: 16, right: 16, bottom: 24, left: 40 };
 
-const DEFAULT_CHART_COLORS = {
-  axis: '#1f2536',
-  grid: '#161b2e',
-  tick: '#8b93a7',
-  zero: '#00ff87',
-  // Target reference line (e.g. target CP on a CP-trend chart) — amber
-  // so it's distinct from both data series (green/blue/red) and the zero
-  // line (green). Matches --warning in app.scss.
-  reference: '#f59e0b',
-};
-
-// Bracket-access the SelectorQuery trigger to avoid tripping lint rules
-// that pattern-match on the literal `.exec(` token meant for Node's
-// child_process API — SelectorQuery.exec is unrelated.
+// SelectorQuery uses the same callback-trigger method name as Node's
+// child_process API. Bracket-access through this constant keeps simple
+// pattern-matching security tooling from flagging this WeChat call.
 const RUN_QUERY = 'exec' as const;
 
 Component({
@@ -64,6 +55,10 @@ Component({
       optionalTypes: [null],
       value: null as number | null,
     },
+    /** Active theme; selects axis/grid/tick palette. Defaults to dark
+     *  for backwards compatibility with older callers. Pages should
+     *  pass the resolved theme so light-mode charts have proper contrast. */
+    theme: { type: String as StringConstructor, value: 'dark' },
   },
 
   data: {
@@ -72,6 +67,11 @@ Component({
     tooltipLeft: 0,
     tooltipDate: '',
     tooltipValue: '',
+    // Monotonic counter used as a guard against stale boundingClientRect
+    // callbacks. Lives on data() so TS sees it on `this.data` without an
+    // instance-field declaration; setData is never called for it (we
+    // mutate in place and rely on the closure-captured snapshot per tap).
+    _tapToken: 0,
   },
 
   lifetimes: {
@@ -84,11 +84,14 @@ Component({
   },
 
   observers: {
-    'series, dates, yMin, yMax, showZeroLine, showAxes, referenceY': function () {
+    'series, dates, yMin, yMax, showZeroLine, showAxes, referenceY, theme': function () {
       if (!this.data.ready) return;
       setTimeout(() => this.drawChart(), 0);
       // Hide stale tooltip — its index may no longer be valid.
       if (this.data.tooltipVisible) this.setData({ tooltipVisible: false });
+      // Invalidate any in-flight tap callbacks — they reference an old
+      // dataset and would render a stale tooltip if they fired now.
+      (this.data as unknown as { _tapToken: number })._tapToken++;
     },
   },
 
@@ -104,11 +107,17 @@ Component({
       if (n < 2) return;
 
       const tapPageX = (e.detail as { x?: number; y?: number })?.x ?? 0;
+      const dataMut = this.data as unknown as { _tapToken: number };
+      const tapToken = ++dataMut._tapToken;
       const query = wx.createSelectorQuery().in(this);
       const selector = query.select(`#${canvasId}`).boundingClientRect();
       (selector as unknown as Record<string, (cb: (res: unknown) => void) => void>)[
         RUN_QUERY
       ]((res: unknown) => {
+        // Drop callbacks from earlier taps that the user has invalidated
+        // (rapid tap, refetch, observer redraw). Without the guard, an
+        // older callback can stomp the latest tooltip with stale data.
+        if (tapToken !== dataMut._tapToken) return;
         const rect = (Array.isArray(res) ? res[0] : res) as
           | { left: number; width: number }
           | null;
@@ -152,67 +161,68 @@ Component({
       const selector = query.select(`#${canvasId}`).fields({ node: true, size: true });
       (selector as unknown as Record<string, (cb: (res: unknown[]) => void) => void>)[RUN_QUERY](
         (res: unknown[]) => {
-          const entry = (res?.[0] ?? null) as
-            | { node: WechatMiniprogram.Canvas; width: number; height: number }
-            | null;
-          if (!entry || !entry.node) return;
-          const canvas = entry.node;
-          const ctx = canvas.getContext('2d') as unknown as Ctx | null;
-          if (!ctx) return;
+        const entry = (res?.[0] ?? null) as
+          | { node: WechatMiniprogram.Canvas; width: number; height: number }
+          | null;
+        if (!entry || !entry.node) return;
+        const canvas = entry.node;
+        const ctx = canvas.getContext('2d') as unknown as Ctx | null;
+        if (!ctx) return;
 
-          const winInfo: { pixelRatio?: number } =
-            typeof wx.getWindowInfo === 'function' ? wx.getWindowInfo() : wx.getSystemInfoSync();
-          const dpr = winInfo.pixelRatio || 1;
-          const cssWidth = entry.width;
-          const cssHeight = entry.height;
-          canvas.width = cssWidth * dpr;
-          canvas.height = cssHeight * dpr;
-          ctx.setTransform(1, 0, 0, 1, 0, 0);
-          ctx.scale(dpr, dpr);
+        const winInfo: { pixelRatio?: number } =
+          typeof wx.getWindowInfo === 'function' ? wx.getWindowInfo() : wx.getSystemInfoSync();
+        const dpr = winInfo.pixelRatio || 1;
+        const cssWidth = entry.width;
+        const cssHeight = entry.height;
+        canvas.width = cssWidth * dpr;
+        canvas.height = cssHeight * dpr;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(dpr, dpr);
 
-          const series = this.data.series as LineSeries[];
-          const allValues = series.flatMap((s) =>
-            s.values.filter((v): v is number => v != null),
-          );
-          const userYMin = this.data.yMin as number | null;
-          const userYMax = this.data.yMax as number | null;
-          const referenceY = this.data.referenceY as number | null;
-          // The reference line should be visible even if it falls outside
-          // the data's natural range (e.g. target CP above current). Pull
-          // it into the autosizing pool so the y-bounds stretch to include it.
-          const valuesForBounds: number[] =
-            referenceY != null ? [...allValues, referenceY] : allValues;
-          const computedMin =
-            userYMin != null
-              ? userYMin
-              : valuesForBounds.length
-                ? Math.min(...valuesForBounds)
-                : 0;
-          const computedMax =
-            userYMax != null
-              ? userYMax
-              : valuesForBounds.length
-                ? Math.max(...valuesForBounds)
-                : 1;
-          const padded = (computedMax - computedMin) * 0.08 || 1;
-          const bounds = {
-            yMin: userYMin != null ? userYMin : computedMin - padded,
-            yMax: userYMax != null ? userYMax : computedMax + padded,
-            n: Math.max(0, ...series.map((s) => s.values.length)),
-          };
+        const series = this.data.series as LineSeries[];
+        const allValues = series.flatMap((s) =>
+          s.values.filter((v): v is number => v != null),
+        );
+        const userYMin = this.data.yMin as number | null;
+        const userYMax = this.data.yMax as number | null;
+        const referenceY = this.data.referenceY as number | null;
+        // The reference line should be visible even if it falls outside
+        // the data's natural range (e.g. target CP above current). Pull
+        // it into the autosizing pool so the y-bounds stretch to include it.
+        const valuesForBounds: number[] =
+          referenceY != null ? [...allValues, referenceY] : allValues;
+        const computedMin =
+          userYMin != null
+            ? userYMin
+            : valuesForBounds.length
+              ? Math.min(...valuesForBounds)
+              : 0;
+        const computedMax =
+          userYMax != null
+            ? userYMax
+            : valuesForBounds.length
+              ? Math.max(...valuesForBounds)
+              : 1;
+        const padded = (computedMax - computedMin) * 0.08 || 1;
+        const bounds = {
+          yMin: userYMin != null ? userYMin : computedMin - padded,
+          yMax: userYMax != null ? userYMax : computedMax + padded,
+          n: Math.max(0, ...series.map((s) => s.values.length)),
+        };
 
-          renderChart(
-            ctx,
-            cssWidth,
-            cssHeight,
-            bounds,
-            series,
-            this.data.dates as string[],
-            this.data.showZeroLine as boolean,
-            this.data.showAxes as boolean,
-            referenceY,
-            DEFAULT_CHART_COLORS,
-          );
+        const themePref = this.data.theme as ResolvedTheme;
+        renderChart(
+          ctx,
+          cssWidth,
+          cssHeight,
+          bounds,
+          series,
+          this.data.dates as string[],
+          this.data.showZeroLine as boolean,
+          this.data.showAxes as boolean,
+          referenceY,
+          chartColors(themePref === 'light' ? 'light' : 'dark'),
+        );
         },
       );
     },

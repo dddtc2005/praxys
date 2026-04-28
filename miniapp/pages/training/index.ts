@@ -55,6 +55,7 @@ interface SeriesPayload {
 
 interface TrainingState {
   themeClass: string;
+  chartTheme: 'light' | 'dark';
   loading: boolean;
   errorMessage: string;
   hasResponse: boolean;
@@ -121,6 +122,7 @@ interface TrainingState {
 
 const initialData: TrainingState = {
   themeClass: 'theme-light',
+  chartTheme: 'light',
   loading: true,
   errorMessage: '',
   hasResponse: false,
@@ -343,7 +345,8 @@ Page({
   data: { ...initialData, tr: buildTrainingTr() },
 
   onLoad() {
-    this.setData({ themeClass: themeClassName() });
+    const tc = themeClassName();
+    this.setData({ themeClass: tc, chartTheme: tc === 'theme-light' ? 'light' : 'dark' });
     void this.refetch();
   },
 
@@ -389,7 +392,9 @@ Page({
       const response = await apiGet<TrainingResponse>('/api/training');
       this.setData(buildState(response, this.data.themeClass) as Record<string, unknown>);
     } catch (e) {
-      const detail = (e as Partial<ApiError>)?.detail ?? String(e);
+      const err = e as Partial<ApiError>;
+      if (err?.code === 'UNAUTHENTICATED') return;
+      const detail = err?.detail ?? String(e);
       this.setData({ loading: false, errorMessage: detail, hasResponse: false });
     }
   },

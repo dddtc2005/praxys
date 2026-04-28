@@ -64,6 +64,9 @@ interface SparklineSeries {
 
 interface RenderState {
   themeClass: string;
+  /** 'light' | 'dark' — narrow form passed to chart components. Derived
+   *  from `themeClass` once on onLoad and updated whenever it changes. */
+  chartTheme: 'light' | 'dark';
   today: string;
   loading: boolean;
   errorMessage: string;
@@ -273,6 +276,7 @@ interface RefreshState {
 
 const initialData: RenderState & RefreshState = {
   themeClass: 'theme-light',
+  chartTheme: 'light',
   today: '',
   loading: true,
   errorMessage: '',
@@ -328,8 +332,10 @@ Page({
   data: { ...initialData, tr: initialTr },
 
   onLoad() {
+    const tc = themeClassName();
     this.setData({
-      themeClass: themeClassName(),
+      themeClass: tc,
+      chartTheme: tc === 'theme-light' ? 'light' : 'dark',
       today: todayFormatted(),
       tr: buildTranslations(),
     });
@@ -408,7 +414,8 @@ Page({
       );
       // Render the branded share card off-screen so it's ready by the
       // time the user taps share. Failure is non-fatal — falls back to
-      // the static og-card.
+      // the static og-card. Clear the previous path on failure so we
+      // never keep serving stale signal data on the next share tap.
       try {
         const meta = SIGNAL_META[response.signal.recommendation] ?? SIGNAL_META.follow_plan;
         const path = await generateShareCard({
@@ -422,9 +429,12 @@ Page({
       } catch (cardErr) {
         // eslint-disable-next-line no-console
         console.warn('[today] share card generation failed:', cardErr);
+        this.setData({ shareImagePath: '' });
       }
     } catch (e) {
-      const detail = (e as Partial<ApiError>)?.detail ?? String(e);
+      const err = e as Partial<ApiError>;
+      if (err?.code === 'UNAUTHENTICATED') return;
+      const detail = err?.detail ?? String(e);
       this.setData({ loading: false, errorMessage: detail, hasResponse: false });
     }
   },

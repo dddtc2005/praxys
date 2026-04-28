@@ -68,6 +68,7 @@
           show-zero-line="{{true}}"
           dates="{{sparklineDates}}"
           series="{{sparklineSeries}}"
+          theme="{{chartTheme}}"
         />
       </view>
 

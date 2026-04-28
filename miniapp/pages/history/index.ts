@@ -179,7 +179,9 @@ Page({
         offset,
       });
     } catch (e) {
-      const detail = (e as Partial<ApiError>)?.detail ?? String(e);
+      const err = e as Partial<ApiError>;
+      if (err?.code === 'UNAUTHENTICATED') return;
+      const detail = err?.detail ?? String(e);
       this.setData({
         loading: false,
         loadingMore: false,

@@ -8,17 +8,16 @@
  * real-device preview to validate visual output.
  */
 
+import { chartColors, type ResolvedTheme } from '../../utils/theme';
+
 type Ctx = WechatMiniprogram.CanvasRenderingContext.CanvasRenderingContext2D;
 
 const PADDING = { top: 16, right: 16, bottom: 36, left: 48 };
 const POINT_RADIUS = 3.5;
 
-const COLORS = {
-  axis: '#1f2536',
-  grid: '#161b2e',
-  tick: '#8b93a7',
-};
-
+// SelectorQuery uses the same callback-trigger method name as Node's
+// child_process API. Bracket-access through this constant keeps simple
+// pattern-matching security tooling from flagging this WeChat call.
 const RUN_QUERY = 'exec' as const;
 
 Component({
@@ -37,6 +36,8 @@ Component({
     color: { type: String as StringConstructor, value: '#3b82f6' },
     /** When true, format y-axis ticks as M:SS pace instead of raw numbers. */
     yIsPace: { type: Boolean as BooleanConstructor, value: false },
+    /** Active theme; selects axis/grid/tick palette. Defaults to dark. */
+    theme: { type: String as StringConstructor, value: 'dark' },
   },
 
   data: {
@@ -45,6 +46,7 @@ Component({
     tooltipLeft: 0,
     tooltipTop: 0,
     tooltipText: '',
+    _tapToken: 0,
   },
 
   lifetimes: {
@@ -55,10 +57,11 @@ Component({
   },
 
   observers: {
-    'pairs, height, color, yIsPace': function () {
+    'pairs, height, color, yIsPace, theme': function () {
       if (!this.data.ready) return;
       setTimeout(() => this.drawChart(), 0);
       if (this.data.tooltipVisible) this.setData({ tooltipVisible: false });
+      (this.data as unknown as { _tapToken: number })._tapToken++;
     },
   },
 
@@ -72,11 +75,17 @@ Component({
 
       const tapPageX = (e.detail as { x?: number; y?: number })?.x ?? 0;
       const tapPageY = (e.detail as { x?: number; y?: number })?.y ?? 0;
+      const dataMut = this.data as unknown as { _tapToken: number };
+      const tapToken = ++dataMut._tapToken;
       const query = wx.createSelectorQuery().in(this);
       const selector = query.select(`#${canvasId}`).boundingClientRect();
       (selector as unknown as Record<string, (cb: (res: unknown) => void) => void>)[
         RUN_QUERY
       ]((res: unknown) => {
+        // Drop callbacks from earlier taps invalidated by a refetch / tap-
+        // burst — without the guard a stale rect can drive setData on the
+        // wrong dataset.
+        if (tapToken !== dataMut._tapToken) return;
         const rect = (Array.isArray(res) ? res[0] : res) as
           | { left: number; top: number; width: number; height: number }
           | null;
@@ -126,9 +135,11 @@ Component({
 
         const [px, py] = pairs[bestIdx];
         const yIsPace = this.data.yIsPace as boolean;
+        // y is power/HR — the value being formatted. Use its own magnitude
+        // to decide decimal places, not the x-axis sleep-score.
         const yText = yIsPace
           ? `${Math.floor(py / 60)}:${String(Math.round(py % 60)).padStart(2, '0')}`
-          : px >= 100
+          : py >= 100
             ? py.toFixed(0)
             : py.toFixed(1);
         const xText = px >= 1 ? Math.round(px).toString() : px.toFixed(2);
@@ -167,6 +178,7 @@ Component({
           ctx.setTransform(1, 0, 0, 1, 0, 0);
           ctx.scale(dpr, dpr);
 
+          const themePref = this.data.theme as ResolvedTheme;
           renderScatter(
             ctx,
             cssWidth,
@@ -176,6 +188,7 @@ Component({
             this.data.yLabel as string,
             this.data.color as string,
             this.data.yIsPace as boolean,
+            chartColors(themePref === 'light' ? 'light' : 'dark'),
           );
         },
       );
@@ -192,11 +205,12 @@ function renderScatter(
   yLabel: string,
   color: string,
   yIsPace: boolean,
+  colors: { axis: string; grid: string; tick: string },
 ) {
   ctx.clearRect(0, 0, width, height);
 
   if (pairs.length === 0) {
-    ctx.fillStyle = COLORS.tick;
+    ctx.fillStyle = colors.tick;
     ctx.font = '11px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -230,7 +244,7 @@ function renderScatter(
   const yScale = (v: number) => plotBottom - ((v - yMin) / (yMax - yMin)) * plotHeight;
 
   // Grid: 4 horizontal divisions.
-  ctx.strokeStyle = COLORS.grid;
+  ctx.strokeStyle = colors.grid;
   ctx.lineWidth = 0.5;
   for (let i = 0; i <= 4; i++) {
     const y = plotTop + (plotHeight * i) / 4;
@@ -241,14 +255,14 @@ function renderScatter(
   }
 
   // Bottom axis line.
-  ctx.strokeStyle = COLORS.axis;
+  ctx.strokeStyle = colors.axis;
   ctx.beginPath();
   ctx.moveTo(plotLeft, plotBottom);
   ctx.lineTo(plotRight, plotBottom);
   ctx.stroke();
 
   // Y-axis ticks: min/max only.
-  ctx.fillStyle = COLORS.tick;
+  ctx.fillStyle = colors.tick;
   ctx.font = '10px sans-serif';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';

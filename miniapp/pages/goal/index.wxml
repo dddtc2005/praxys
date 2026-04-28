@@ -231,6 +231,7 @@
         dates="{{cpTrendDates}}"
         series="{{cpTrendSeries}}"
         reference-y="{{cpTrendReferenceY}}"
+        theme="{{chartTheme}}"
       />
     </view>
 

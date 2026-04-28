@@ -21,6 +21,15 @@ export interface ApiError {
   status: number;
   /** FastAPI's `detail` field if present; otherwise a generic message. */
   detail: string;
+  /**
+   * Stable machine code for callers that want to react programmatically
+   * without parsing the human-readable `detail`. The 401-with-existing-
+   * token case sets this to `'UNAUTHENTICATED'` so pages can render a
+   * "session expired" toast before the reLaunch unmounts them.
+   */
+  code?: 'UNAUTHENTICATED' | 'NETWORK' | 'TIMEOUT' | 'OFFLINE';
+  /** wx.request errno when status is 0 (network-layer failure). */
+  errno?: number;
 }
 
 interface RequestOptions {
@@ -56,12 +65,20 @@ function isOnLoginPage(): boolean {
 }
 
 function redirectToLogin(): void {
-  wx.removeStorageSync(TOKEN_KEY);
+  // Caller is responsible for clearing TOKEN_KEY before calling this so
+  // the order matches "session is dead → tell user → navigate". A short
+  // toast surfaces *why* the redirect is happening; without it the user
+  // just sees the login page reappear with no explanation.
+  try {
+    wx.showToast({ title: 'Session expired', icon: 'none', duration: 1500 });
+  } catch {
+    /* showToast is unavailable during onLaunch — silent fallback is fine */
+  }
   wx.reLaunch({
     url: `/${LOGIN_PAGE}`,
     fail: () => {
-      // If the current page is already /pages/login/index the reLaunch
-      // rejects with "redundant"; that's fine — we're already there.
+      // wx.reLaunch rejects with "redundant" if we're already on the
+      // login page — caller already guards via isOnLoginPage().
     },
   });
 }
@@ -97,28 +114,31 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       },
     });
   } catch (e) {
-    // wx.request fail callbacks deliver `{ errMsg: "request:fail ..." }`
+    // wx.request fail callbacks deliver `{ errMsg: "request:fail ...", errno }`
     // — translate to our ApiError shape so the page error UI shows
-    // something meaningful instead of "[object Object]".
+    // something meaningful instead of "[object Object]". errno is
+    // surfaced separately so callers can distinguish offline (~600003) from
+    // timeout (-202) without parsing the message string.
     const errMsg =
       (e as { errMsg?: string })?.errMsg ?? (e instanceof Error ? e.message : String(e));
-    throw { status: 0, detail: errMsg } as ApiError;
+    const errno = (e as { errno?: number })?.errno;
+    const code: ApiError['code'] = /timeout/i.test(errMsg)
+      ? 'TIMEOUT'
+      : /fail|abort|offline/i.test(errMsg)
+        ? 'OFFLINE'
+        : 'NETWORK';
+    throw { status: 0, detail: errMsg, code, errno } as ApiError;
   }
 
   const status = response.statusCode;
   if (status === 401 && !options.skipAuthRedirect) {
-    // If we're already on the login page, don't reLaunch (would no-op
-    // with "redundant") and don't return a never-settling Promise — that
-    // would hang the caller's loading state forever. Instead, clear the
-    // dead token and surface the 401 so the login page's onLoad can react.
-    if (isOnLoginPage()) {
-      wx.removeStorageSync(TOKEN_KEY);
-      throw { status: 401, detail: 'UNAUTHENTICATED' } as ApiError;
-    }
-    redirectToLogin();
-    // The reLaunch unmounts the caller — the never-settling promise
-    // keeps the awaiter from resolving into discarded state.
-    return new Promise<T>(() => {});
+    // Always clear the dead token and surface a typed `UNAUTHENTICATED`
+    // ApiError so callers' `finally`/`catch` branches actually run.
+    // Pages catching `code === 'UNAUTHENTICATED'` can show a session-
+    // expired toast before the reLaunch unmounts them.
+    wx.removeStorageSync(TOKEN_KEY);
+    if (!isOnLoginPage()) redirectToLogin();
+    throw { status: 401, detail: 'UNAUTHENTICATED', code: 'UNAUTHENTICATED' } as ApiError;
   }
 
   if (status >= 200 && status < 300) {

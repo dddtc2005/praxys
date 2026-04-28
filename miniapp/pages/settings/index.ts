@@ -275,7 +275,9 @@ Page({
       const response = await apiGet<SettingsResponse>('/api/settings');
       this.setData(buildSettingsState(response) as Record<string, unknown>);
     } catch (e) {
-      const detail = (e as Partial<ApiError>)?.detail ?? String(e);
+      const err = e as Partial<ApiError>;
+      if (err?.code === 'UNAUTHENTICATED') return;
+      const detail = err?.detail ?? String(e);
       this.setData({ loading: false, errorMessage: detail, hasResponse: false });
     }
   },
