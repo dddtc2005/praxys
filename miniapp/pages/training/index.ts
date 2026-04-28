@@ -35,6 +35,11 @@ interface ZoneRow {
   hasTarget: boolean;
   targetClamped: number;
   label: string;
+  /** "" | "fill--under" | "fill--over" | "fill--ok" — coloring class
+   *  applied to the bar based on how far actual sits from the target.
+   *  Empty when no target is set so we don't paint a green bar that's
+   *  actually unevaluated. */
+  fillClass: string;
 }
 
 interface FindingRow {
@@ -234,12 +239,24 @@ function buildState(response: TrainingResponse, themeClass: string): Partial<Tra
   const zoneRows: ZoneRow[] = distribution.map((z) => {
     const actual = z.actual_pct ?? 0;
     const target = z.target_pct;
+    // Compliance buckets used by web's ZoneAnalysisCard: within ±5% of
+    // target reads as on-track; further off in either direction is a
+    // warning. With no target we leave the class empty and let the bar
+    // render as the default neutral color (no implicit green).
+    let fillClass = '';
+    if (target != null) {
+      const delta = actual - target;
+      if (Math.abs(delta) <= 5) fillClass = 'train-zonebar-fill--ok';
+      else if (delta < 0) fillClass = 'train-zonebar-fill--under';
+      else fillClass = 'train-zonebar-fill--over';
+    }
     return {
       name: z.name,
       actualClamped: clampPct(actual),
       hasTarget: target != null,
       targetClamped: target != null ? clampPct(target) : 0,
       label: `${actual.toFixed(0)}%${target != null ? ` / ${target.toFixed(0)}%` : ''}`,
+      fillClass,
     };
   });
 

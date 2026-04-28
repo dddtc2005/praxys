@@ -66,7 +66,10 @@ Component({
     tooltipVisible: false,
     tooltipLeft: 0,
     tooltipDate: '',
-    tooltipValue: '',
+    // One row per series at the tapped index. Rendering vertically
+    // avoids the "long single string wraps mid-label" failure mode where
+    // 'Fitness (CTL): 37.8' becomes one word per line.
+    tooltipRows: [] as { label: string; value: string }[],
     // Monotonic counter used as a guard against stale boundingClientRect
     // callbacks. Lives on data() so TS sees it on `this.data` without an
     // instance-field declaration; setData is never called for it (we
@@ -141,16 +144,18 @@ Component({
           .filter((sv): sv is { label: string; value: number } => sv.value != null);
         if (seriesValues.length === 0) return;
 
-        const valueText =
+        // Single-series charts don't need a label column — show just the
+        // value. Multi-series shows label + value per row.
+        const tooltipRows =
           seriesValues.length === 1
-            ? formatValue(seriesValues[0].value)
-            : seriesValues.map((sv) => `${sv.label}: ${formatValue(sv.value)}`).join(' · ');
+            ? [{ label: '', value: formatValue(seriesValues[0].value) }]
+            : seriesValues.map((sv) => ({ label: sv.label, value: formatValue(sv.value) }));
 
         this.setData({
           tooltipVisible: true,
           tooltipLeft: snappedX,
           tooltipDate: date,
-          tooltipValue: valueText,
+          tooltipRows,
         });
       });
     },

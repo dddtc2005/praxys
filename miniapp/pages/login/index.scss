@@ -91,3 +91,33 @@
   font-size: 26rpx;
   line-height: 1.5;
 }
+
+// "New here? Sign up at praxys.run" row. Sits below the primary CTA on
+// the idle screen and below the link form on choose/link. Tapping the
+// URL copies it to clipboard since mini programs can't open external
+// URLs in the system browser.
+.login-newhere {
+  margin-top: 48rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  align-items: center;
+}
+.login-newhere-label {
+  font-size: 24rpx;
+}
+.login-signup-row {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 12rpx;
+  padding: 8rpx 0;
+}
+.login-signup-url {
+  font-size: 32rpx;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+}
+.login-signup-hint {
+  font-size: 22rpx;
+}

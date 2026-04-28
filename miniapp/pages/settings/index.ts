@@ -46,7 +46,10 @@ function buildSettingsTr() {
     signOut: t('Log out'),
     switchAccount: t('Switch Praxys account'),
     switchAccountHint: t(
-      'Unbind your WeChat profile from this Praxys account so you can sign in as someone else or test the first-time onboarding flow.',
+      'Unbind your WeChat profile from this Praxys account so you can sign in as a different user.',
+    ),
+    switchAccountFailed: t(
+      "Couldn't unlink your account on the server. Try again in a moment, or sign out instead and contact support if it keeps failing.",
     ),
     connected: t('Connected'),
     syncNow: t('Sync now'),
@@ -446,20 +449,38 @@ Page({
   },
 
   async runSwitchAccount() {
+    const tr = this.data.tr as ReturnType<typeof buildSettingsTr>;
     wx.showLoading({ title: t('Unlinking…'), mask: true });
+    let unlinkOk = false;
+    let detail = '';
     try {
       await apiPost('/api/auth/wechat/unlink');
+      unlinkOk = true;
     } catch (e) {
-      // If the unlink fails we still proceed locally — the user wanted
-      // out. Worst case, the next sign-in returns 'ok' for the same
-      // account, and they can try Switch again. Toast the error so the
-      // failure isn't completely silent.
-      const detail = (e as Partial<ApiError>)?.detail ?? String(e);
-      // eslint-disable-next-line no-console
-      console.warn('[settings] wechat unlink failed:', detail);
+      const err = e as Partial<ApiError>;
+      // 401 means the api-client is already redirecting to login. The
+      // session is dead; treat this as success from the user's
+      // perspective — they're being signed out anyway.
+      if (err?.code === 'UNAUTHENTICATED') return;
+      detail = err?.detail ?? String(e);
     } finally {
       wx.hideLoading();
     }
+
+    if (!unlinkOk) {
+      // Don't local-logout when the server still has the WeChat binding —
+      // doing so leaves the user "signed out locally, bound on server",
+      // which is exactly the bug the user reported. Surface a modal
+      // explaining the failure and let them decide.
+      wx.showModal({
+        title: tr.switchAccount,
+        content: detail ? `${tr.switchAccountFailed}\n\n(${detail})` : tr.switchAccountFailed,
+        showCancel: false,
+        confirmText: t('OK'),
+      });
+      return;
+    }
+
     clearToken();
     wx.reLaunch({ url: '/pages/login/index' });
   },

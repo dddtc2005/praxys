@@ -45,21 +45,36 @@
   background-color: var(--surface);
   border: 1rpx solid var(--border);
   border-radius: 8rpx;
-  padding: 8rpx 12rpx;
+  padding: 10rpx 14rpx;
   pointer-events: none;
-  // Cap the visible width so a long multi-series line doesn't overflow.
-  max-width: 280rpx;
+  // Wider than before so multi-series rows like "Fitness (CTL)" don't
+  // wrap word-by-word into a column. Each row is a flex row with label
+  // and value flush left/right.
+  max-width: 360rpx;
 }
 .line-chart-tooltip-date {
   display: block;
   font-size: 18rpx;
   color: var(--text-muted);
   font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  margin-bottom: 4rpx;
 }
-.line-chart-tooltip-value {
-  display: block;
+.line-chart-tooltip-row {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 12rpx;
+  // Single-series rows have an empty label and just show the value.
+}
+.line-chart-tooltip-row-label {
+  font-size: 20rpx;
+  color: var(--text-muted);
+}
+.line-chart-tooltip-row-value {
+  margin-left: auto;
   font-size: 24rpx;
   font-weight: 600;
   color: var(--text);
   font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  font-variant-numeric: tabular-nums;
 }

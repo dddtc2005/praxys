@@ -22,8 +22,23 @@ interface DistanceChoice {
   placeholder: string;
 }
 
-function buildEditorTr() {
+function buildGoalTr() {
   return {
+    // Page-level chrome
+    failedToLoad: t('Failed to load'),
+    retry: t('Retry'),
+    realityCheck: t('Reality Check'),
+    fitnessTrend: t('Fitness Trend'),
+    currentFitness: t('Current Fitness'),
+    trend: t('Trend'),
+    milestones: t('Milestones'),
+    assessment: t('Assessment'),
+    estimatedTime: t('Estimated time to target'),
+    comfortable: t('Comfortable'),
+    stretch: t('Stretch'),
+    howCalculated: t('How this is calculated'),
+    current: t('current'),
+    // Goal editor
     changeGoal: t('Change Goal'),
     editorTitle: t('Set Your Goal'),
     goalType: t('Goal type'),
@@ -604,7 +619,7 @@ function buildContinuousState(
 }
 
 Page({
-  data: { ...initialData, tr: buildEditorTr() },
+  data: { ...initialData, tr: buildGoalTr() },
 
   onLoad() {
     const tc = themeClassName();
@@ -706,7 +721,7 @@ Page({
    */
   onOpenEditor() {
     const cached = (this.data as { _response?: GoalResponse })._response;
-    const tr = this.data.tr as ReturnType<typeof buildEditorTr>;
+    const tr = this.data.tr as ReturnType<typeof buildGoalTr>;
     const goal = (cached?.race_countdown ?? null) as
       | { distance?: string | null; race_date?: string | null; target_time_sec?: number | null }
       | null;
@@ -743,7 +758,7 @@ Page({
   onPickEditorType(e: WechatMiniprogram.TouchEvent) {
     const type = e.currentTarget.dataset.type as 'race' | 'continuous' | undefined;
     if (!type) return;
-    const tr = this.data.tr as ReturnType<typeof buildEditorTr>;
+    const tr = this.data.tr as ReturnType<typeof buildGoalTr>;
     this.setData({
       editorType: type,
       editorTargetHint: type === 'race' ? tr.timeBlankRace : tr.timeBlankCont,
@@ -768,7 +783,7 @@ Page({
   },
 
   async onSaveEditor() {
-    const tr = this.data.tr as ReturnType<typeof buildEditorTr>;
+    const tr = this.data.tr as ReturnType<typeof buildGoalTr>;
     const editorType = this.data.editorType as 'race' | 'continuous';
     const editorDistanceIndex = this.data.editorDistanceIndex as number;
     const editorRaceDate = this.data.editorRaceDate as string;

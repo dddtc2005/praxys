@@ -33,9 +33,14 @@
 }
 
 .history-row-head {
+  // Skyline's flex-row with justify-content + auto-margins on children
+  // collapses gaps unpredictably. Stick to a single layout strategy:
+  // date on left, type on right (margin-left: auto), chevron after type
+  // with a small gap.
   display: flex;
-  justify-content: space-between;
+  flex-direction: row;
   align-items: baseline;
+  gap: 12rpx;
   margin-bottom: 12rpx;
 }
 
@@ -46,6 +51,7 @@
 }
 
 .history-row-type {
+  margin-left: auto;
   font-size: 26rpx;
   color: var(--text);
   text-transform: capitalize;
@@ -78,9 +84,9 @@
 
 // Disclosure chevron — rotates from pointing-right (collapsed) to
 // pointing-down (expanded) on tap. Matches the pattern users know
-// from iOS Health activity rows.
+// from iOS Health activity rows. Sits after the type (which already
+// has margin-left: auto), so we just need a small gap.
 .history-row-chev {
-  margin-left: auto;
   font-size: 36rpx;
   line-height: 1;
   transition: transform 160ms ease;

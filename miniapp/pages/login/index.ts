@@ -3,12 +3,13 @@ import {
   runLaunchLogin,
   saveToken,
   wechatLinkWithPassword,
-  wechatRegister,
 } from '../../utils/auth';
 import type { ApiError } from '../../utils/api-client';
 import { applyThemeChrome, themeClassName } from '../../utils/theme';
 import { detectShareLocale, getShareMessage } from '../../utils/share';
 import { t } from '../../utils/i18n';
+
+const SIGNUP_URL = 'https://www.praxys.run';
 
 /**
  * Map auth-flow error codes to user-facing copy. Untranslated machine
@@ -29,23 +30,56 @@ function friendlyAuthError(detail: string): string {
   return detail;
 }
 
+function buildLoginTr() {
+  return {
+    tagline: t('Sports science that meets you where you are.'),
+    welcomeBack: t('Welcome back'),
+    idleDetail: t(
+      'Power-based training, on your wrist or in your pocket. Sign in with WeChat to access your training data.',
+    ),
+    signInWeChat: t('Sign in with WeChat'),
+    signingIn: t('Signing you in…'),
+    signInFailed: t('Sign-in failed'),
+    retry: t('Retry'),
+    linkTitle: t('Sign in to Praxys'),
+    linkDetail: t(
+      'Use the email and password you registered with on praxys.run.',
+    ),
+    emailPlaceholder: t('email'),
+    passwordPlaceholder: t('password'),
+    linkAction: t('Sign in'),
+    newHere: t('New here? Sign up at'),
+    tapToCopyUrl: t('tap to copy URL'),
+    urlCopied: t('URL copied'),
+    emailPasswordRequired: t('Email and password are required'),
+  };
+}
+
 /**
  * Login page lifecycle:
  *   onLoad inspects storage:
  *     - token present  → reLaunch to /pages/today (auto-skip)
- *     - token missing  → show 'idle' stage with "Sign in with WeChat" button.
+ *     - token missing  → show 'idle' stage with "Sign in with WeChat".
  *
  *   User taps Sign in → wx.login() → /api/auth/wechat/login
- *     - status 'ok' + access_token: save JWT, reLaunch to /pages/today
- *     - status 'needs_setup' + ticket: show choose-account-or-register
- *     - failure: show error + retry button
+ *     - status 'ok' + access_token: save JWT, reLaunch to /pages/today.
+ *     - status 'needs_setup' + ticket: show the sign-in (link) form.
+ *       Account creation lives on praxys.run; the form has a "new here?"
+ *       row that copies the signup URL to clipboard.
+ *     - failure: show error + retry button.
  *
- * The 'idle' stage is what makes sign-out actually log the user out: with
- * a token present, the auto-skip kicks in; clearing the token in onSignOut
- * lands here in idle state, and the user must explicitly tap to re-auth.
+ * The 'idle' stage is what makes sign-out actually log the user out:
+ * with a token present, the auto-skip kicks in; clearing the token in
+ * Settings → Switch / Sign out lands here in idle, and the user must
+ * explicitly tap to re-auth.
+ *
+ * Why no register stage in the mini program: the full onboarding flow
+ * (platform connections, training base, threshold setup) lives on web.
+ * Sending a brand-new WeChat user to praxys.run keeps the mini program
+ * focused on view + manage for already-registered users.
  */
 
-type Stage = 'idle' | 'loading' | 'choose' | 'link' | 'register' | 'error';
+type Stage = 'idle' | 'loading' | 'choose' | 'link' | 'error';
 
 interface PageData {
   stage: Stage;
@@ -58,27 +92,17 @@ interface PageData {
   linkSubmitting: boolean;
   linkError: string;
 
-  regInvitation: string;
-  regEmail: string;
-  regPassword: string;
-  regSubmitting: boolean;
-  regError: string;
+  tr: ReturnType<typeof buildLoginTr>;
 }
 
 interface PageMethods extends WechatMiniprogram.IAnyObject {
   onSignInTap(): void;
   runLogin(): Promise<void>;
   onRetry(): void;
-  goChooseLink(): void;
-  goChooseRegister(): void;
-  goBackToChoose(): void;
   onLinkEmailInput(e: WechatMiniprogram.Input): void;
   onLinkPasswordInput(e: WechatMiniprogram.Input): void;
   onLinkSubmit(): Promise<void>;
-  onRegInvitationInput(e: WechatMiniprogram.Input): void;
-  onRegEmailInput(e: WechatMiniprogram.Input): void;
-  onRegPasswordInput(e: WechatMiniprogram.Input): void;
-  onRegSubmit(): Promise<void>;
+  onCopySignupUrl(): void;
 }
 
 const initialData: PageData = {
@@ -90,18 +114,14 @@ const initialData: PageData = {
   linkPassword: '',
   linkSubmitting: false,
   linkError: '',
-  regInvitation: '',
-  regEmail: '',
-  regPassword: '',
-  regSubmitting: false,
-  regError: '',
+  tr: buildLoginTr(),
 };
 
 Page<PageData, PageMethods>({
   data: { ...initialData },
 
   onLoad() {
-    this.setData({ themeClass: themeClassName() });
+    this.setData({ themeClass: themeClassName(), tr: buildLoginTr() });
     // Auto-skip if a JWT is already stored (returning user). Otherwise
     // sit in 'idle' until the user taps Sign in — this is what makes
     // sign-out work. Without this check we'd silently re-authenticate.
@@ -133,7 +153,8 @@ Page<PageData, PageMethods>({
         return;
       }
       if (result.status === 'needs_setup' && result.wechat_login_ticket) {
-        this.setData({ stage: 'choose', ticket: result.wechat_login_ticket });
+        // Skip the choose-link-or-register split — register lives on web.
+        this.setData({ stage: 'link', ticket: result.wechat_login_ticket });
         return;
       }
       this.setData({ stage: 'error', errorMessage: 'Unexpected login response' });
@@ -148,18 +169,6 @@ Page<PageData, PageMethods>({
     void this.runLogin();
   },
 
-  goChooseLink() {
-    this.setData({ stage: 'link', linkError: '' });
-  },
-
-  goChooseRegister() {
-    this.setData({ stage: 'register', regError: '' });
-  },
-
-  goBackToChoose() {
-    this.setData({ stage: 'choose' });
-  },
-
   onLinkEmailInput(e) {
     this.setData({ linkEmail: e.detail.value });
   },
@@ -168,9 +177,9 @@ Page<PageData, PageMethods>({
   },
 
   async onLinkSubmit() {
-    const { linkEmail, linkPassword, ticket } = this.data;
+    const { linkEmail, linkPassword, ticket, tr } = this.data;
     if (!linkEmail || !linkPassword) {
-      this.setData({ linkError: 'Email and password are required' });
+      this.setData({ linkError: tr.emailPasswordRequired });
       return;
     }
     this.setData({ linkSubmitting: true, linkError: '' });
@@ -186,33 +195,18 @@ Page<PageData, PageMethods>({
     }
   },
 
-  onRegInvitationInput(e) {
-    this.setData({ regInvitation: e.detail.value.toUpperCase() });
-  },
-  onRegEmailInput(e) {
-    this.setData({ regEmail: e.detail.value });
-  },
-  onRegPasswordInput(e) {
-    this.setData({ regPassword: e.detail.value });
-  },
-
-  async onRegSubmit() {
-    const { regInvitation, regEmail, regPassword, ticket } = this.data;
-    this.setData({ regSubmitting: true, regError: '' });
-    try {
-      const r = await wechatRegister(
-        ticket,
-        regInvitation,
-        regEmail || undefined,
-        regPassword || undefined,
-      );
-      saveToken(r.access_token);
-      wx.reLaunch({ url: '/pages/today/index' });
-    } catch (e) {
-      this.setData({
-        regSubmitting: false,
-        regError: friendlyAuthError((e as Partial<ApiError>)?.detail ?? String(e)),
-      });
-    }
+  /**
+   * "New here?" row taps copy the signup URL to clipboard. WeChat doesn't
+   * let mini programs open external URLs in the system browser, so the
+   * UX is "copy the URL → user opens it in their browser of choice".
+   */
+  onCopySignupUrl() {
+    const tr = this.data.tr;
+    wx.setClipboardData({
+      data: SIGNUP_URL,
+      success: () => {
+        wx.showToast({ title: tr.urlCopied, icon: 'success', duration: 1500 });
+      },
+    });
   },
 });

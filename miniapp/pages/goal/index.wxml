@@ -22,9 +22,10 @@
       </view>
     </block>
 
+    <block wx:elif="{{hasResponse}}">
     <!-- Change-goal action lives at the top so it's always reachable
          regardless of which mode is being rendered below. -->
-    <view wx:if="{{hasResponse}}" class="goal-actions">
+    <view class="goal-actions">
       <button class="ts-button ts-button--secondary goal-edit-btn" bindtap="onOpenEditor">
         {{tr.changeGoal}}
       </button>
@@ -33,7 +34,7 @@
     <!-- ============================================================
          RACE-DATE MODE
          ============================================================ -->
-    <block wx:elif="{{mode === 'race_date'}}">
+    <block wx:if="{{mode === 'race_date'}}">
       <view class="ts-card goal-hero">
         <text class="ts-section-label">{{rdDistLabel}} Countdown</text>
         <view class="goal-countdown-block">
@@ -242,6 +243,7 @@
         theme="{{chartTheme}}"
       />
     </view>
+    </block>
 
     </view>
   </scroll-view>

@@ -86,7 +86,7 @@
             <text class="train-zonebar-value ts-value">{{item.label}}</text>
           </view>
           <view class="train-zonebar-track">
-            <view class="train-zonebar-fill" style="width: {{item.actualClamped}}%;"></view>
+            <view class="train-zonebar-fill {{item.fillClass}}" style="width: {{item.actualClamped}}%;"></view>
             <view
               wx:if="{{item.hasTarget}}"
               class="train-zonebar-target"

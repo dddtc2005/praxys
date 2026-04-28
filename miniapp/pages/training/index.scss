@@ -92,8 +92,22 @@
 
 .train-zonebar-fill {
   height: 100%;
-  background-color: var(--primary);
+  // Default to muted when there's no target (no compliance to color).
+  background-color: var(--text-muted);
   border-radius: 8rpx;
+}
+// Within ±5% of the recommended target — on plan.
+.train-zonebar-fill--ok {
+  background-color: var(--primary);
+}
+// Below target — under-trained that zone. Amber to read as "watch this".
+.train-zonebar-fill--under {
+  background-color: var(--warning);
+}
+// Above target — over-trained that zone. Same amber; the marker tick
+// position carries the direction info.
+.train-zonebar-fill--over {
+  background-color: var(--warning);
 }
 
 .train-zonebar-target {

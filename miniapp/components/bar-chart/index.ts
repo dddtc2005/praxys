@@ -13,8 +13,7 @@ import { chartColors, type ResolvedTheme } from '../../utils/theme';
 type Ctx = WechatMiniprogram.CanvasRenderingContext.CanvasRenderingContext2D;
 
 const PADDING = { top: 16, right: 16, bottom: 36, left: 44 };
-const BAR_GAP_RATIO = 0.18; // gap between adjacent weekly groups
-const BAR_INNER_GAP_RATIO = 0.04; // tiny gap between planned + actual bars
+const BAR_GAP_RATIO = 0.28; // gap between adjacent weekly bars (single-bar layout)
 
 // SelectorQuery uses the same callback-trigger method name as Node's
 // child_process API. Bracket-access through this constant keeps simple
@@ -233,38 +232,65 @@ function renderBars(
   ctx.fillText(`${Math.round(yMax)}`, plotLeft - 6, plotTop);
   ctx.fillText('0', plotLeft - 6, plotBottom);
 
-  // Per-week group sizing.
+  // Single-bar-per-week "filling bar" layout: planned is the outline
+  // (the target), actual fills inside it (clipped to planned). If actual
+  // exceeds planned, the overflow draws above the planned outline so
+  // the overshoot is visible. Reads as a vertical progress bar — easier
+  // to scan on a phone than the old two-bar group.
   const groupWidth = plotWidth / n;
   const groupGap = groupWidth * BAR_GAP_RATIO;
-  const innerGap = groupWidth * BAR_INNER_GAP_RATIO;
-  const barWidth = (groupWidth - groupGap - innerGap) / 2;
+  const barWidth = groupWidth - groupGap;
+  // OVERFLOW_RATIO: how far above the planned ceiling we visually clip
+  // an over-shoot. Anything beyond becomes "the bar fills, plus a small
+  // chip at the top". 1.2 = 20% headroom.
+  const OVERFLOW_RATIO = 1.2;
 
   for (let i = 0; i < n; i++) {
     const groupLeft = plotLeft + i * groupWidth + groupGap / 2;
-    const plannedH = planned[i] != null ? (planned[i] / yMax) * plotHeight : 0;
-    const actualH = actual[i] != null ? (actual[i] / yMax) * plotHeight : 0;
+    const p = planned[i] ?? 0;
+    const a = actual[i] ?? 0;
+    const plannedH = p > 0 ? (p / yMax) * plotHeight : 0;
+    const actualH = a > 0 ? (a / yMax) * plotHeight : 0;
+    const x = groupLeft;
+    const fillColor = actualColors[i] || actualDefault;
 
-    // Planned bar (left, translucent gray with thin stroke).
     if (plannedH > 0) {
-      const x = groupLeft;
-      const y = plotBottom - plannedH;
+      // Planned outline = the track. Drawn first so the actual fill
+      // sits on top, inside it.
+      const py = plotBottom - plannedH;
       ctx.fillStyle = colors.planned;
-      ctx.fillRect(x, y, barWidth, plannedH);
+      ctx.fillRect(x, py, barWidth, plannedH);
       ctx.strokeStyle = colors.plannedStroke;
       ctx.lineWidth = 1;
-      ctx.strokeRect(x + 0.5, y + 0.5, barWidth - 1, plannedH - 0.5);
+      ctx.strokeRect(x + 0.5, py + 0.5, barWidth - 1, plannedH - 0.5);
     }
 
-    // Actual bar (right, color by compliance).
     if (actualH > 0) {
-      const x = groupLeft + barWidth + innerGap;
-      const y = plotBottom - actualH;
-      ctx.fillStyle = actualColors[i] || actualDefault;
-      ctx.fillRect(x, y, barWidth, actualH);
+      // Fill portion = min(actual, planned) painted from the bottom up
+      // inside the track. Capped at 100% of planned so the track never
+      // overflows visually.
+      const insideH = plannedH > 0 ? Math.min(actualH, plannedH) : actualH;
+      const insideY = plotBottom - insideH;
+      ctx.fillStyle = fillColor;
+      ctx.fillRect(x, insideY, barWidth, insideH);
+
+      // Overflow chip if actual > planned: render the excess above the
+      // planned ceiling, capped at OVERFLOW_RATIO so a runaway week
+      // can't blow up the whole chart.
+      if (plannedH > 0 && actualH > plannedH) {
+        const cappedActualH = Math.min(actualH, plannedH * OVERFLOW_RATIO);
+        const overflowH = cappedActualH - plannedH;
+        const overflowY = plotBottom - cappedActualH;
+        ctx.fillStyle = fillColor;
+        ctx.fillRect(x, overflowY, barWidth, overflowH);
+        // Hairline divider so the eye sees the planned ceiling.
+        ctx.fillStyle = colors.plannedStroke;
+        ctx.fillRect(x, plotBottom - plannedH - 0.5, barWidth, 1);
+      }
     }
 
-    // Week label below the group.
-    const cx = groupLeft + (groupWidth - groupGap) / 2;
+    // Week label below the bar.
+    const cx = groupLeft + barWidth / 2;
     ctx.fillStyle = colors.tick;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
