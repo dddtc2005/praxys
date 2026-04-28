@@ -1,4 +1,4 @@
-msgid ""
+﻿msgid ""
 msgstr ""
 "POT-Creation-Date: 2026-04-18 00:00+0000\n"
 "MIME-Version: 1.0\n"
@@ -2001,6 +2001,35 @@ msgid "Zones & load from Threshold Pace"
 msgstr "基于阈值配速的区间与负荷"
 #: src/components/charts/SleepPerfChart.tsx:46
 #: src/components/charts/SleepPerfChart.tsx:49
+
+#: src/components/charts/FormSparkline.tsx:27
+msgid "Freshened up — good window for racing or testing."
+msgstr "状态新鲜 — 适合比赛或测试。"
+
+#: src/components/charts/FormSparkline.tsx:28
+msgid "Good balance of fitness and recovery. Ready for quality work."
+msgstr "体能与恢复均衡，适合高质量训练。"
+
+#: src/components/charts/FormSparkline.tsx:29
+msgid "Building fitness with manageable fatigue."
+msgstr "在可控疲劳下积累体能。"
+
+#: src/components/charts/FormSparkline.tsx:30
+msgid "Absorbing training while maintaining fitness."
+msgstr "在维持体能的同时吸收训练刺激。"
+
+#: src/components/charts/FormSparkline.tsx:31
+msgid "Fatigue is climbing — watch recovery before adding load."
+msgstr "疲劳上升 — 增加负荷前请注意恢复。"
+
+#: src/components/charts/FormSparkline.tsx:32
+msgid "High fatigue accumulation. Prioritize recovery."
+msgstr "疲劳大量积累，优先安排恢复。"
+
+#: src/components/charts/FormSparkline.tsx:33
+msgid "Extended rest period. Fitness declining."
+msgstr "持续休息，体能正在下降。"
+
 #~ msgid "Avg Power (W)"
 #~ msgstr "平均功率 (W)"
 

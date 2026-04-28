@@ -45,6 +45,11 @@ class TsbZoneLabeled:
     """TSB zone with boundary + display label (merged from theory + labels)."""
     min: float | None = None
     max: float | None = None
+    # Stable English identifier for client-side dictionary lookups (e.g. zone
+    # insight prose). Mirrors across locales so zh users still hit the same
+    # key. Empty when a label set predates the field — clients should fall
+    # back to `label` in that case.
+    key: str = ""
     label: str = ""
     color: str = "#64748b"
     description: str = ""
@@ -210,10 +215,16 @@ def merge_zones_with_labels(
     label_list = labels.tsb_zone_labels or []
     for i, zone in enumerate(zones):
         lbl = label_list[i] if i < len(label_list) else {}
+        label = lbl.get("label", f"Zone {i + 1}")
+        # Fall back to label when `key` isn't set so older or custom label
+        # sets don't lose the dictionary lookup path on the client. zh label
+        # files always mirror the English `key` from their en counterpart.
+        key = lbl.get("key", label)
         result.append(TsbZoneLabeled(
             min=zone.min,
             max=zone.max,
-            label=lbl.get("label", f"Zone {i + 1}"),
+            key=key,
+            label=label,
             color=lbl.get("color", "#64748b"),
             description=lbl.get("description", ""),
         ))

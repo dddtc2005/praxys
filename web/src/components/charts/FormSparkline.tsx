@@ -8,27 +8,30 @@ import {
   Tooltip,
   XAxis,
 } from 'recharts';
-import type { TsbSparkline } from '@/types/api';
+import type { TsbSparkline, ScienceNoteInfo } from '@/types/api';
 import { useScience, tsbZoneFromConfig } from '@/contexts/ScienceContext';
 import ZoneLegend from '@/components/charts/ZoneLegend';
 import ScienceNote from '@/components/ScienceNote';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useChartColors } from '@/hooks/useChartColors';
-import { Trans } from '@lingui/react/macro';
+import { Trans, useLingui } from '@lingui/react/macro';
+import { msg } from '@lingui/core/macro';
+import type { MessageDescriptor } from '@lingui/core';
 
-// NOTE: ZONE_INSIGHTS lookup is keyed by the English zone label. After zh
-// labels were translated, zh users fall through the lookup below and see
-// no insight paragraph. Proper fix needs a stable `key` field on
-// TsbZoneLabeled threaded through the API — tracked in issue #104.
-const ZONE_INSIGHTS: Record<string, string> = {
-  Performance: 'Freshened up \u2014 good window for racing or testing.',
-  Optimal: 'Good balance of fitness and recovery. Ready for quality work.',
-  Productive: 'Building fitness with manageable fatigue.',
-  Overreaching: 'High fatigue accumulation. Prioritize recovery.',
-  Detraining: 'Extended rest period. Fitness declining.',
+// Zone insights are keyed by the stable English `key` from the science
+// label set, so the lookup survives label localization (the localized
+// `label` field is rendered separately). When `key` is missing — older
+// data, or a custom label set without keys — we fall back to looking up
+// the (English) `label` to keep the en path lossless.
+const ZONE_INSIGHTS: Record<string, MessageDescriptor> = {
+  Performance: msg`Freshened up — good window for racing or testing.`,
+  Optimal: msg`Good balance of fitness and recovery. Ready for quality work.`,
+  Productive: msg`Building fitness with manageable fatigue.`,
+  'Productive & Maintenance': msg`Absorbing training while maintaining fitness.`,
+  Cautionary: msg`Fatigue is climbing — watch recovery before adding load.`,
+  Overreaching: msg`High fatigue accumulation. Prioritize recovery.`,
+  Detraining: msg`Extended rest period. Fitness declining.`,
 };
-
-import type { ScienceNoteInfo } from '@/types/api';
 
 interface Props {
   data: TsbSparkline;
@@ -66,6 +69,7 @@ function SparkTooltip({ active, payload, label, tsbZones }: any) {
 export default function FormSparkline({ data, scienceNote }: Props) {
   const chartColors = useChartColors();
   const { tsbZones } = useScience();
+  const { i18n } = useLingui();
   const { chartData, yMin, yMax, hasProjection, latestTsb } = useMemo(() => {
     const hasProjData = !!(data.projected_dates?.length && data.projected_values?.length);
 
@@ -231,17 +235,24 @@ export default function FormSparkline({ data, scienceNote }: Props) {
           )}
         </div>
 
-        {/* Form insight */}
-        {ZONE_INSIGHTS[zone.label] && (
-          <p className="text-xs text-muted-foreground mt-3" style={{ color: `${zone.color}99` }}>
-            {ZONE_INSIGHTS[zone.label]}
-          </p>
-        )}
+        {/* Form insight — prefer the stable `key`, fall back to the
+            English `label` so en-locale data without `key` still renders. */}
+        {(() => {
+          const insight =
+            (zone.key && ZONE_INSIGHTS[zone.key]) ||
+            ZONE_INSIGHTS[zone.label];
+          if (!insight) return null;
+          return (
+            <p className="text-xs text-muted-foreground mt-3" style={{ color: `${zone.color}99` }}>
+              {i18n._(insight)}
+            </p>
+          );
+        })()}
 
         <ZoneLegend zones={tsbZones} />
 
         <ScienceNote
-          text={scienceNote?.description || "Form (TSB) = Fitness (CTL) \u2212 Fatigue (ATL). Positive TSB means you're fresh; negative means fatigued."}
+          text={scienceNote?.description || "Form (TSB) = Fitness (CTL) − Fatigue (ATL). Positive TSB means you're fresh; negative means fatigued."}
           sourceUrl={scienceNote?.citations?.[0]?.url}
           sourceLabel={scienceNote?.citations?.[0]?.label || scienceNote?.name}
         />

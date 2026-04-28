@@ -2,9 +2,12 @@ id: stryd
 name: "Stryd RSB"
 author: system
 
+# `key` is a stable English identifier used by clients (e.g. FormSparkline's
+# zone-insight dictionary). `label` is the localized display string. zh files
+# mirror `key` and translate `label`.
 tsb_zone_labels:
-  - {label: "Detraining", color: "#64748b"}
-  - {label: "Performance", color: "#22c55e"}
-  - {label: "Productive & Maintenance", color: "#3b82f6"}
-  - {label: "Cautionary", color: "#f59e0b"}
-  - {label: "Overreaching", color: "#ef4444"}
+  - {key: "Detraining", label: "Detraining", color: "#64748b"}
+  - {key: "Performance", label: "Performance", color: "#22c55e"}
+  - {key: "Productive & Maintenance", label: "Productive & Maintenance", color: "#3b82f6"}
+  - {key: "Cautionary", label: "Cautionary", color: "#f59e0b"}
+  - {key: "Overreaching", label: "Overreaching", color: "#ef4444"}
