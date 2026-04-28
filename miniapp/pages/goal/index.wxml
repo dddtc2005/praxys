@@ -255,16 +255,26 @@
   </scroll-view>
 
   <!-- Goal editor: full-height bottom sheet. Shown only when the user
-       taps "Change goal". Distance/time inputs use WeChat's native
-       picker so the touch interaction is on-platform. -->
+       taps "Edit" in the nav-bar. Distance/time inputs use WeChat's
+       native picker so the touch interaction is on-platform. The
+       header now hosts Cancel/Save (was a close ×); the bottom action
+       row was removed so the sheet doesn't have two competing CTAs. -->
   <view wx:if="{{editorOpen}}" class="goal-editor-mask" bindtap="onCloseEditor">
     <view class="goal-editor-sheet" catchtap="onSheetTap">
       <view class="goal-editor-header">
-        <view class="goal-editor-close" bindtap="onCloseEditor" aria-label="Close">
-          <text class="goal-editor-close-glyph">×</text>
+        <view
+          class="goal-editor-header-action goal-editor-header-action--cancel {{editorSaving ? 'goal-editor-header-action--disabled' : ''}}"
+          bindtap="onCloseEditor"
+        >
+          <text>{{tr.cancel}}</text>
         </view>
         <text class="goal-editor-title">{{tr.editorTitle}}</text>
-        <view class="goal-editor-header-spacer"></view>
+        <view
+          class="goal-editor-header-action goal-editor-header-action--save {{(!editorDirty || editorSaving) ? 'goal-editor-header-action--disabled' : ''}}"
+          bindtap="onSaveEditor"
+        >
+          <text>{{editorSaving ? tr.saving : tr.save}}</text>
+        </view>
       </view>
 
       <text class="goal-editor-label ts-muted">{{tr.goalType}}</text>
@@ -327,16 +337,13 @@
         confirm-type="done"
         bindinput="onEditorTargetTimeInput"
       />
+      <!-- Live preview "= H:MM:SS" — appears only when the input parses.
+           Sits above the help-copy hint so the parsed value reads as
+           direct feedback, while the hint stays as steady guidance. -->
+      <text wx:if="{{editorTargetPreview}}" class="goal-editor-preview ts-primary">{{editorTargetPreview}}</text>
       <text class="goal-editor-hint ts-muted">{{editorTargetHint}}</text>
 
       <text wx:if="{{editorError}}" class="goal-editor-error ts-destructive">{{editorError}}</text>
-
-      <view class="goal-editor-actions">
-        <button class="ts-button ts-button--secondary" bindtap="onCloseEditor">{{tr.cancel}}</button>
-        <button class="ts-button" bindtap="onSaveEditor" disabled="{{editorSaving}}">
-          {{editorSaving ? tr.saving : tr.save}}
-        </button>
-      </view>
     </view>
   </view>
 </view>

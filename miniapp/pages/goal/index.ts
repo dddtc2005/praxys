@@ -61,7 +61,33 @@ function buildGoalTr() {
     failedToSave: t('Failed to save goal'),
     timeBlankRace: t('Leave blank to track predicted time only'),
     timeBlankCont: t('What time are you working toward? Leave blank to track trend only'),
+    // Discard-edits modal (shown on Cancel / mask tap when dirty).
+    discardTitle: t('Discard changes?'),
+    discardMessage: t('Your goal edits will be lost.'),
+    discardConfirm: t('Discard'),
+    keepEditing: t('Keep editing'),
   };
+}
+
+interface EditorSnapshot {
+  type: 'race' | 'continuous';
+  distanceIndex: number;
+  raceDate: string;
+  targetTime: string;
+}
+
+/**
+ * Return a "= H:MM:SS" preview for the target-time input, or empty
+ * string if the value is blank or doesn't parse. The leading "= " is
+ * intentional — it makes the line read as feedback ("here's what your
+ * input parsed to") rather than yet another label.
+ */
+function editorTargetPreviewFor(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+  const sec = parseTimeToSeconds(trimmed);
+  if (sec === null || sec <= 0) return '';
+  return `= ${formatTime(sec)}`;
 }
 
 function buildDistanceChoices(): DistanceChoice[] {
@@ -176,8 +202,17 @@ interface GoalState {
   editorTargetTime: string;
   editorTargetPlaceholder: string;
   editorTargetHint: string;
+  // Live preview line under the target-time input. When the user types
+  // a parseable time we show "= H:MM:SS" so they can verify the parser
+  // matched their intent before tapping Save. Empty otherwise — the
+  // hint copy below explains the optional/blank semantics.
+  editorTargetPreview: string;
   editorError: string;
   editorSaving: boolean;
+  // Becomes true the moment the user diverges from the snapshot taken
+  // when the editor opened. Drives Save enable/disable, and the modal
+  // confirm on Cancel / mask-tap.
+  editorDirty: boolean;
   mode: GoalResponse['race_countdown']['mode'];
 
   // Common (CP trend chart shared by all modes that have data).
@@ -293,8 +328,10 @@ const initialData: GoalState = {
   editorTargetTime: '',
   editorTargetPlaceholder: DISTANCE_CHOICES[3].placeholder,
   editorTargetHint: '',
+  editorTargetPreview: '',
   editorError: '',
   editorSaving: false,
+  editorDirty: false,
 
   hasCpTrend: false,
   cpTrendDates: [],
@@ -722,6 +759,9 @@ Page({
    * Open the goal-edit overlay, prefilling fields from the most recent
    * GoalResponse cached on `_response`. Mirrors web/src/pages/Goal.tsx
    * → handleSaveGoal: the same payload shape goes to PUT /api/settings.
+   *
+   * Also takes a snapshot of the initial editor values on `_editorInitial`
+   * so we can compute `editorDirty` and warn before discarding edits.
    */
   onOpenEditor() {
     const cached = (this.data as { _response?: GoalResponse })._response;
@@ -735,24 +775,60 @@ Page({
       DISTANCE_CHOICES.findIndex((d) => d.key === distanceKey),
     );
     const editorType: 'race' | 'continuous' = goal?.race_date ? 'race' : 'continuous';
+    const editorTargetTime =
+      goal?.target_time_sec && goal.target_time_sec > 0 ? formatTime(goal.target_time_sec) : '';
+    const editorRaceDate = goal?.race_date ?? '';
+    // Snapshot initial values so we can compute dirty state without
+    // serializing the whole editor on every keystroke. Stored on `data`
+    // under a leading-underscore key so it isn't part of the rendered
+    // template state.
+    (this.data as { _editorInitial?: EditorSnapshot })._editorInitial = {
+      type: editorType,
+      distanceIndex: idx,
+      raceDate: editorRaceDate,
+      targetTime: editorTargetTime,
+    };
     this.setData({
       editorOpen: true,
       editorType,
       editorDistanceIndex: idx,
-      editorRaceDate: goal?.race_date ?? '',
+      editorRaceDate,
       editorTodayIso: todayIso(),
-      editorTargetTime:
-        goal?.target_time_sec && goal.target_time_sec > 0 ? formatTime(goal.target_time_sec) : '',
+      editorTargetTime,
       editorTargetPlaceholder: DISTANCE_CHOICES[idx].placeholder,
       editorTargetHint: editorType === 'race' ? tr.timeBlankRace : tr.timeBlankCont,
+      editorTargetPreview: editorTargetPreviewFor(editorTargetTime),
       editorError: '',
       editorSaving: false,
+      editorDirty: false,
     });
   },
 
+  /**
+   * Close the editor. If the user has unsaved changes (`editorDirty`),
+   * surface a native confirm modal first — mirrors web's beforeunload
+   * pattern but using wx.showModal because Skyline can't intercept the
+   * mask tap synchronously.
+   */
   onCloseEditor() {
     if (this.data.editorSaving) return; // ignore taps during save
-    this.setData({ editorOpen: false, editorError: '' });
+    if (!this.data.editorDirty) {
+      this.setData({ editorOpen: false, editorError: '' });
+      return;
+    }
+    const tr = this.data.tr as ReturnType<typeof buildGoalTr>;
+    wx.showModal({
+      title: tr.discardTitle,
+      content: tr.discardMessage,
+      confirmText: tr.discardConfirm,
+      cancelText: tr.keepEditing,
+      confirmColor: '#dc2626',
+      success: (res) => {
+        if (res.confirm) {
+          this.setData({ editorOpen: false, editorError: '' });
+        }
+      },
+    });
   },
 
   // Stop the mask's bindtap from closing the sheet when the user taps
@@ -767,6 +843,7 @@ Page({
       editorType: type,
       editorTargetHint: type === 'race' ? tr.timeBlankRace : tr.timeBlankCont,
     });
+    this.recomputeEditorDirty();
   },
 
   onPickEditorDistance(e: WechatMiniprogram.PickerChange) {
@@ -776,17 +853,54 @@ Page({
       editorDistanceIndex: idx,
       editorTargetPlaceholder: DISTANCE_CHOICES[idx]?.placeholder ?? '',
     });
+    this.recomputeEditorDirty();
   },
 
   onPickEditorRaceDate(e: WechatMiniprogram.PickerChange) {
     this.setData({ editorRaceDate: String(e.detail.value) });
+    this.recomputeEditorDirty();
   },
 
   onEditorTargetTimeInput(e: WechatMiniprogram.Input) {
-    this.setData({ editorTargetTime: e.detail.value });
+    const value = e.detail.value;
+    this.setData({
+      editorTargetTime: value,
+      editorTargetPreview: editorTargetPreviewFor(value),
+    });
+    this.recomputeEditorDirty();
+  },
+
+  /**
+   * Recompute `editorDirty` against the snapshot taken in onOpenEditor.
+   * Cheap enough to call after every editor mutation. Strings compare
+   * byte-for-byte; targetTime is normalized via parse+format so "1:30"
+   * vs "1:30:00" don't both register as edits when the parsed value is
+   * identical to the snapshot.
+   */
+  recomputeEditorDirty() {
+    const snap = (this.data as { _editorInitial?: EditorSnapshot })._editorInitial;
+    if (!snap) return;
+    const cur = {
+      type: this.data.editorType as 'race' | 'continuous',
+      distanceIndex: this.data.editorDistanceIndex as number,
+      raceDate: this.data.editorRaceDate as string,
+      targetTime: this.data.editorTargetTime as string,
+    };
+    const dirty =
+      cur.type !== snap.type ||
+      cur.distanceIndex !== snap.distanceIndex ||
+      cur.raceDate !== snap.raceDate ||
+      cur.targetTime.trim() !== snap.targetTime.trim();
+    if (dirty !== this.data.editorDirty) {
+      this.setData({ editorDirty: dirty });
+    }
   },
 
   async onSaveEditor() {
+    // Header Save is visually disabled when !editorDirty || editorSaving,
+    // but the tap still fires (Skyline doesn't gate disabled states on
+    // plain views), so guard explicitly here.
+    if (!this.data.editorDirty || this.data.editorSaving) return;
     const tr = this.data.tr as ReturnType<typeof buildGoalTr>;
     const editorType = this.data.editorType as 'race' | 'continuous';
     const editorDistanceIndex = this.data.editorDistanceIndex as number;

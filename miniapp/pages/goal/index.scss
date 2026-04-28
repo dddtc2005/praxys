@@ -430,21 +430,8 @@
   margin-top: 4rpx;
 }
 
-// "Change goal" row used at the bottom of the continuous-mode hero
-// card (no Target cell to anchor the edit to there).
-.goal-change-goal-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8rpx;
-  margin-top: 24rpx;
-  padding-top: 16rpx;
-  border-top: 1rpx solid var(--border-subtle);
-}
-
-.goal-change-goal-label {
-  font-size: 24rpx;
-}
+// "Change goal" row was removed — the nav-bar Edit affordance and
+// the inline-edit cells on the hero now cover both entry points.
 
 // --- Goal editor bottom sheet -------------------------------------------
 .goal-editor-mask {
@@ -475,33 +462,37 @@
   overflow-y: auto;
 }
 
-// Sheet header — close button (left), centered title, spacer (right)
-// for symmetry. Replaces the old draggable-looking handle, which was
-// misleading since Skyline doesn't support sheet drag-to-dismiss.
+// Sheet header — Cancel (left), centered title, Save (right). Replaces
+// the old close × + bottom-row Cancel/Save split: keeping both the
+// header close and bottom CTAs always made the sheet feel like it had
+// two competing exits. The header now hosts both actions; the bottom
+// row was deleted entirely.
 .goal-editor-header {
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16rpx;
+  margin-bottom: 24rpx;
+  padding-bottom: 16rpx;
+  border-bottom: 1rpx solid var(--border-subtle);
 }
-.goal-editor-close {
-  width: 56rpx;
-  height: 56rpx;
-  border-radius: 999rpx;
-  background-color: var(--surface-subtle);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.goal-editor-close-glyph {
-  font-size: 36rpx;
+.goal-editor-header-action {
+  font-size: 28rpx;
+  font-weight: 500;
+  padding: 8rpx 16rpx;
+  border-radius: 8rpx;
   line-height: 1;
+  flex: 0 0 auto;
+}
+.goal-editor-header-action--cancel {
   color: var(--text-muted);
 }
-.goal-editor-header-spacer {
-  width: 56rpx;
-  height: 56rpx;
+.goal-editor-header-action--save {
+  color: var(--primary);
+  font-weight: 600;
+}
+.goal-editor-header-action--disabled {
+  opacity: 0.4;
 }
 .goal-editor-title {
   font-size: 32rpx;
@@ -570,6 +561,16 @@
 .goal-editor-input-chev {
   font-size: 32rpx;
 }
+// Live preview line under the target-time input. Shows "= H:MM:SS"
+// only when the user's input parses; reads as direct parser feedback.
+// Sits above the steady help-copy hint.
+.goal-editor-preview {
+  font-size: 26rpx;
+  font-weight: 500;
+  margin-top: 4rpx;
+  margin-bottom: 4rpx;
+  font-variant-numeric: tabular-nums;
+}
 .goal-editor-hint {
   font-size: 22rpx;
   margin-top: 4rpx;
@@ -579,13 +580,6 @@
   font-size: 24rpx;
   margin-top: 16rpx;
 }
-.goal-editor-actions {
-  display: flex;
-  flex-direction: row;
-  gap: 16rpx;
-  margin-top: 32rpx;
-}
-.goal-editor-actions .ts-button {
-  flex: 1;
-}
+// Bottom .goal-editor-actions row removed — Cancel/Save now live in
+// the sheet header (.goal-editor-header-action).
 
