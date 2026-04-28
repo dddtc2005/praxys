@@ -1,42 +1,53 @@
+// Refined-minimal centered landing. The whole page is a flex column
+// rooted at full viewport height with `justify-content: space-between`
+// so the brand stack vertical-centers between the (ample) top padding
+// and the footer's hairline-separated "new here?" row.
 .login-root {
-  padding: 96rpx 48rpx 64rpx;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: calc(48rpx + env(safe-area-inset-top)) 56rpx
+           calc(48rpx + env(safe-area-inset-bottom));
+  text-align: center;
+  position: relative;
 }
 
-// --- Brand mark + wordmark above the welcome ---
-.login-brand {
+// Brand stack — mark, wordmark, hero tagline, description, CTA.
+// flex: 1 so it claims the middle band of the screen and the footer
+// settles at the bottom regardless of stack height.
+.login-stack {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 80rpx;
-  text-align: center;
+  justify-content: center;
+  gap: 24rpx;
+  width: 100%;
+  max-width: 560rpx;
 }
 
 // Race-flag mark — real PNG asset (cobalt pole + green flag with the
-// inward pinch). 200×200rpx, the WeChat <image> handles aspect-fit.
+// inward pinch). Slightly smaller than before so it doesn't dominate.
 .login-mark {
-  width: 200rpx;
-  height: 200rpx;
-  margin-bottom: 24rpx;
+  width: 144rpx;
+  height: 144rpx;
 }
 
 // Pra<x>ys wordmark — sentence case, Geist 500, x in --primary. Tight
-// letter-spacing per brand guide (-0.055em ≈ -5rpx at 96rpx).
+// letter-spacing per brand guide (-0.055em ≈ -3rpx at 84rpx).
 .login-wordmark {
   display: flex;
   align-items: baseline;
   justify-content: center;
 }
-// Single <text> with nested <text> for the accented x — keeps the
-// wordmark as one inline run (no flex gaps between letter clusters).
 .login-wordmark__text {
   font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont,
     'PingFang SC', 'Hiragino Sans GB', sans-serif;
-  font-size: 96rpx;
+  font-size: 84rpx;
   font-weight: 500;
-  letter-spacing: -5rpx;
+  letter-spacing: -3rpx;
   line-height: 0.86;
   color: var(--text);
 }
@@ -44,64 +55,59 @@
   color: var(--primary);
 }
 
-// Tagline from the brand guide cover.
-.login-tagline {
+// Hero — matches web's H1 ("Train like a pro. Whatever your level.")
+// in size and weight. Only line on the page that gets weight.
+.login-hero {
   display: block;
-  margin-top: 24rpx;
-  font-family: 'Geist', system-ui, sans-serif;
+  font-size: 44rpx;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text);
+  margin-top: 12rpx;
+  max-width: 520rpx;
+}
+
+// Long descriptive paragraph — capped width and 1.6 line-height so it
+// reads at a comfortable cadence on a phone.
+.login-description {
+  display: block;
   font-size: 26rpx;
   font-weight: 400;
-  line-height: 1.4;
+  line-height: 1.6;
   color: var(--text-muted);
-  max-width: 480rpx;
+  max-width: 520rpx;
 }
 
-.login-title {
-  font-size: 48rpx;
-  font-weight: 600;
-  color: var(--text);
-  margin-bottom: 16rpx;
-  display: block;
-}
-
-.login-detail {
-  font-size: 28rpx;
-  color: var(--text-muted);
-  margin-bottom: 48rpx;
-  display: block;
-  line-height: 1.5;
-}
-
+// CTA fills the stack width up to the max — primary green.
 .login-cta {
-  margin-top: 28rpx;
   width: 100%;
+  margin-top: 28rpx;
 }
 
-.login-input {
-  margin-top: 24rpx;
-}
-
-.login-input + .login-input {
-  margin-top: 20rpx;
-}
+// Inputs in the link stage retain the same column flow.
+.login-input { margin-top: 16rpx; width: 100%; }
+.login-input + .login-input { margin-top: 16rpx; }
 
 .login-error {
   display: block;
-  margin-top: 24rpx;
+  margin-top: 16rpx;
   font-size: 26rpx;
   line-height: 1.5;
+  text-align: center;
 }
 
-// "New here? Sign up at praxys.run" row. Sits below the primary CTA on
-// the idle screen and below the link form on choose/link. Tapping the
-// URL copies it to clipboard since mini programs can't open external
-// URLs in the system browser.
-.login-newhere {
-  margin-top: 48rpx;
+// Footer — hairline divider above, "new here? praxys.run" centered.
+// Sits at the bottom of the column thanks to the parent's
+// justify-content: space-between.
+.login-footer {
   display: flex;
   flex-direction: column;
-  gap: 8rpx;
   align-items: center;
+  gap: 4rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx solid var(--border-subtle);
+  width: 80%;
+  max-width: 480rpx;
 }
 .login-newhere-label {
   font-size: 24rpx;
@@ -110,14 +116,53 @@
   display: flex;
   flex-direction: row;
   align-items: baseline;
-  gap: 12rpx;
-  padding: 8rpx 0;
+  gap: 8rpx;
+  padding: 4rpx 0;
 }
 .login-signup-url {
-  font-size: 32rpx;
+  font-size: 30rpx;
   font-weight: 600;
   font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
 }
 .login-signup-hint {
   font-size: 22rpx;
+}
+
+// Top-right floating language toggle. Out-of-flow so it doesn't shift
+// the centered brand stack. EN · 中, with the active locale at full
+// text color and the inactive one muted. Tap to switch — the page
+// re-launches so all the catalog-bound strings flip on the next paint.
+.login-lang-toggle {
+  position: absolute;
+  top: calc(20rpx + env(safe-area-inset-top));
+  right: 32rpx;
+  display: flex;
+  flex-direction: row;
+  gap: 12rpx;
+  align-items: center;
+}
+.login-lang-toggle-opt {
+  font-size: 26rpx;
+  font-weight: 500;
+  color: var(--text-muted);
+  padding: 8rpx 6rpx;
+}
+.login-lang-toggle-opt--active {
+  color: var(--text);
+  font-weight: 600;
+}
+.login-lang-toggle-sep {
+  font-size: 22rpx;
+}
+
+// Single orchestrated entrance: mark fades first, each subsequent
+// element 80ms after. Translate-from-below 8rpx to add depth without
+// being showy. `both` keeps the start state visible so we never get
+// the unmounted-flicker that some Skyline animations can show.
+@keyframes login-fade-in {
+  from { opacity: 0; transform: translateY(8rpx); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in {
+  animation: login-fade-in 480ms ease-out both;
 }

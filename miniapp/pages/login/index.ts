@@ -6,8 +6,9 @@ import {
 } from '../../utils/auth';
 import type { ApiError } from '../../utils/api-client';
 import { applyThemeChrome, themeClassName } from '../../utils/theme';
-import { detectShareLocale, getShareMessage } from '../../utils/share';
-import { t } from '../../utils/i18n';
+import { detectShareLocale, getShareMessage, setLanguagePreference } from '../../utils/share';
+import { detectLocale, t } from '../../utils/i18n';
+import type { Locale } from '../../utils/i18n-catalog';
 
 const SIGNUP_URL = 'https://www.praxys.run';
 
@@ -30,24 +31,44 @@ function friendlyAuthError(detail: string): string {
   return detail;
 }
 
-function buildLoginTr() {
+/**
+ * Build the page's translation table once per mount. The long
+ * description and the link-stage copy aren't in web's lingui catalog
+ * yet (they're mini-program-specific framing), so we choose by locale
+ * instead of relying on the auto-synced catalog. Everything else routes
+ * through `t()` so future catalog updates pick up automatically.
+ *
+ * The CTA text changes between idle and link stages on purpose:
+ * - Idle: "Sign in with WeChat" (we don't yet know if the WeChat profile
+ *   is bound to a Praxys account, but the action *is* a WeChat sign-in)
+ * - Link: "Link to Praxys" (the user has a setup ticket; tapping the
+ *   button binds their existing Praxys account, which "Sign in" doesn't
+ *   convey clearly)
+ */
+function buildLoginTr(locale: Locale) {
+  const description =
+    locale === 'zh'
+      ? 'Praxys 把您的每次跑步变成有科学依据的洞察、个性化的训练区间，以及随您一起成长的训练计划。每一位跑者——从公路到越野，从首跑者到老将——都值得拥有。'
+      : 'Praxys turns your runs into science-grounded insights, personalized zones, and a training plan that evolves with you. For every runner — road to trail, first-timer to veteran.';
+  const linkDetail =
+    locale === 'zh'
+      ? '请输入您在 praxys.run 注册时使用的邮箱和密码。'
+      : 'Use the email and password you registered with on praxys.run.';
   return {
-    tagline: t('Sports science that meets you where you are.'),
-    welcomeBack: t('Welcome back'),
-    idleDetail: t(
-      'Power-based training, on your wrist or in your pocket. Sign in with WeChat to access your training data.',
-    ),
+    // Hero — already in the lingui catalog because it's the share copy.
+    hero: t('Train like a pro. Whatever your level.'),
+    description,
     signInWeChat: t('Sign in with WeChat'),
     signingIn: t('Signing you in…'),
     signInFailed: t('Sign-in failed'),
     retry: t('Retry'),
     linkTitle: t('Sign in to Praxys'),
-    linkDetail: t(
-      'Use the email and password you registered with on praxys.run.',
-    ),
+    linkDetail,
     emailPlaceholder: t('email'),
     passwordPlaceholder: t('password'),
-    linkAction: t('Sign in'),
+    // The link-form CTA differs from the idle CTA — see the function
+    // docstring for why.
+    linkAction: t('Link to Praxys'),
     newHere: t('New here? Sign up at'),
     tapToCopyUrl: t('tap to copy URL'),
     urlCopied: t('URL copied'),
@@ -63,15 +84,11 @@ function buildLoginTr() {
  *
  *   User taps Sign in → wx.login() → /api/auth/wechat/login
  *     - status 'ok' + access_token: save JWT, reLaunch to /pages/today.
- *     - status 'needs_setup' + ticket: show the sign-in (link) form.
- *       Account creation lives on praxys.run; the form has a "new here?"
- *       row that copies the signup URL to clipboard.
+ *     - status 'needs_setup' + ticket: show the link-to-existing-account
+ *       form (CTA "Link to Praxys"). Account creation lives on
+ *       praxys.run; the form has a "new here?" row that copies the
+ *       signup URL to clipboard.
  *     - failure: show error + retry button.
- *
- * The 'idle' stage is what makes sign-out actually log the user out:
- * with a token present, the auto-skip kicks in; clearing the token in
- * Settings → Switch / Sign out lands here in idle, and the user must
- * explicitly tap to re-auth.
  *
  * Why no register stage in the mini program: the full onboarding flow
  * (platform connections, training base, threshold setup) lives on web.
@@ -86,6 +103,9 @@ interface PageData {
   themeClass: string;
   ticket: string;
   errorMessage: string;
+  /** Resolved locale ('en' | 'zh'); drives the active state on the
+   *  top-right language toggle and selects the description copy. */
+  locale: Locale;
 
   linkEmail: string;
   linkPassword: string;
@@ -103,25 +123,33 @@ interface PageMethods extends WechatMiniprogram.IAnyObject {
   onLinkPasswordInput(e: WechatMiniprogram.Input): void;
   onLinkSubmit(): Promise<void>;
   onCopySignupUrl(): void;
+  onSwitchLang(e: WechatMiniprogram.TouchEvent): void;
 }
 
+const initialLocale: Locale = 'zh';
 const initialData: PageData = {
   stage: 'idle',
   themeClass: 'theme-light',
   ticket: '',
   errorMessage: '',
+  locale: initialLocale,
   linkEmail: '',
   linkPassword: '',
   linkSubmitting: false,
   linkError: '',
-  tr: buildLoginTr(),
+  tr: buildLoginTr(initialLocale),
 };
 
 Page<PageData, PageMethods>({
   data: { ...initialData },
 
   onLoad() {
-    this.setData({ themeClass: themeClassName(), tr: buildLoginTr() });
+    const locale = detectLocale();
+    this.setData({
+      themeClass: themeClassName(),
+      locale,
+      tr: buildLoginTr(locale),
+    });
     // Auto-skip if a JWT is already stored (returning user). Otherwise
     // sit in 'idle' until the user taps Sign in — this is what makes
     // sign-out work. Without this check we'd silently re-authenticate.
@@ -208,5 +236,19 @@ Page<PageData, PageMethods>({
         wx.showToast({ title: tr.urlCopied, icon: 'success', duration: 1500 });
       },
     });
+  },
+
+  /**
+   * Top-right language toggle. Mirror of web's LanguageToggle: writes
+   * the new preference to wx storage and reLaunches the page so every
+   * `t()` call resolves against the new catalog. We deliberately don't
+   * try to hot-swap the catalog in place — the per-page cached `tr`
+   * tables would still show the old locale until each page rebuilt.
+   */
+  onSwitchLang(e) {
+    const next = e.currentTarget.dataset.lang as Locale | undefined;
+    if (!next || next === this.data.locale) return;
+    setLanguagePreference(next);
+    wx.reLaunch({ url: '/pages/login/index' });
   },
 });

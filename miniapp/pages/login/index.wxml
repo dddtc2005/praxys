@@ -1,73 +1,101 @@
 <view class="login-root {{themeClass}}">
-  <!-- Brand mark — race flag PNG from docs/brand/assets, per § II
-       of the brand guide. Wordmark uses nested <text> so "Praxys"
-       reads as one run (no inter-letter flex gaps). -->
-  <view class="login-brand">
-    <image class="login-mark" src="/assets/brand/mark.png" mode="aspectFit" />
-    <view class="login-wordmark">
-      <text class="login-wordmark__text">Pra<text class="login-wordmark__accent">x</text>ys</text>
-    </view>
-    <text class="login-tagline">{{tr.tagline}}</text>
+  <!-- Top-right language toggle — switches between EN and 中 by writing
+       praxys-language to wx storage and reLaunching the page. Out of
+       flow so the centered brand stack below doesn't shift when the
+       toggle re-renders. -->
+  <view class="login-lang-toggle">
+    <text
+      class="login-lang-toggle-opt {{locale === 'en' ? 'login-lang-toggle-opt--active' : ''}}"
+      data-lang="en"
+      bindtap="onSwitchLang"
+    >EN</text>
+    <text class="login-lang-toggle-sep ts-muted">·</text>
+    <text
+      class="login-lang-toggle-opt {{locale === 'zh' ? 'login-lang-toggle-opt--active' : ''}}"
+      data-lang="zh"
+      bindtap="onSwitchLang"
+    >中</text>
   </view>
 
   <block wx:if="{{stage === 'idle'}}">
-    <text class="login-title">{{tr.welcomeBack}}</text>
-    <text class="login-detail">{{tr.idleDetail}}</text>
-    <button class="ts-button login-cta" bindtap="onSignInTap">{{tr.signInWeChat}}</button>
-    <view class="login-newhere">
+    <view class="login-stack">
+      <image class="login-mark fade-in" src="/assets/brand/mark.png" mode="aspectFit"
+             style="animation-delay: 0ms" />
+      <view class="login-wordmark fade-in" style="animation-delay: 80ms">
+        <text class="login-wordmark__text">Pra<text class="login-wordmark__accent">x</text>ys</text>
+      </view>
+      <text class="login-hero fade-in" style="animation-delay: 160ms">{{tr.hero}}</text>
+      <text class="login-description fade-in" style="animation-delay: 240ms">{{tr.description}}</text>
+      <button class="ts-button login-cta fade-in" style="animation-delay: 320ms"
+              bindtap="onSignInTap">{{tr.signInWeChat}}</button>
+    </view>
+    <view class="login-footer fade-in" style="animation-delay: 400ms">
       <text class="login-newhere-label ts-muted">{{tr.newHere}}</text>
       <view class="login-signup-row" bindtap="onCopySignupUrl">
         <text class="login-signup-url ts-primary">praxys.run</text>
-        <text class="login-signup-hint ts-muted">{{tr.tapToCopyUrl}}</text>
+        <text class="login-signup-hint ts-muted">·  {{tr.tapToCopyUrl}}</text>
       </view>
     </view>
   </block>
 
   <block wx:elif="{{stage === 'loading'}}">
-    <text class="login-title">{{tr.signingIn}}</text>
+    <view class="login-stack">
+      <image class="login-mark" src="/assets/brand/mark.png" mode="aspectFit" />
+      <text class="login-hero">{{tr.signingIn}}</text>
+    </view>
+    <view class="login-footer"></view>
   </block>
 
   <block wx:elif="{{stage === 'error'}}">
-    <text class="login-title ts-destructive">{{tr.signInFailed}}</text>
-    <text class="login-detail">{{errorMessage}}</text>
-    <button class="ts-button login-cta" bindtap="onRetry">{{tr.retry}}</button>
+    <view class="login-stack">
+      <image class="login-mark" src="/assets/brand/mark.png" mode="aspectFit" />
+      <text class="login-hero ts-destructive">{{tr.signInFailed}}</text>
+      <text class="login-description">{{errorMessage}}</text>
+      <button class="ts-button login-cta" bindtap="onRetry">{{tr.retry}}</button>
+    </view>
+    <view class="login-footer"></view>
   </block>
 
-  <!-- WeChat is unbound on the backend. The mini program is a "view +
-       manage" companion; account creation lives on praxys.run. We show
-       the link-to-existing-account form straight away, with a clear
-       "new here? go to web" path next to it. -->
+  <!-- Link form: WeChat is unbound on the backend. Same brand stack at
+       top, then email + password inputs, then "Link to Praxys" CTA.
+       The "new here?" footer stays so a brand-new WeChat user can pivot
+       to the praxys.run signup flow without backing out. -->
   <block wx:elif="{{stage === 'choose' || stage === 'link'}}">
-    <text class="login-title">{{tr.linkTitle}}</text>
-    <text class="login-detail">{{tr.linkDetail}}</text>
-    <input
-      class="ts-input login-input"
-      type="text"
-      placeholder="{{tr.emailPlaceholder}}"
-      placeholder-style="color: #8b93a7;"
-      value="{{linkEmail}}"
-      bindinput="onLinkEmailInput"
-    />
-    <input
-      class="ts-input login-input"
-      password="{{true}}"
-      placeholder="{{tr.passwordPlaceholder}}"
-      placeholder-style="color: #8b93a7;"
-      value="{{linkPassword}}"
-      bindinput="onLinkPasswordInput"
-    />
-    <text wx:if="{{linkError}}" class="login-error ts-destructive">{{linkError}}</text>
-    <button
-      class="ts-button login-cta"
-      loading="{{linkSubmitting}}"
-      bindtap="onLinkSubmit"
-    >{{tr.linkAction}}</button>
-
-    <view class="login-newhere">
+    <view class="login-stack">
+      <image class="login-mark" src="/assets/brand/mark.png" mode="aspectFit" />
+      <view class="login-wordmark">
+        <text class="login-wordmark__text">Pra<text class="login-wordmark__accent">x</text>ys</text>
+      </view>
+      <text class="login-hero">{{tr.linkTitle}}</text>
+      <text class="login-description">{{tr.linkDetail}}</text>
+      <input
+        class="ts-input login-input"
+        type="text"
+        placeholder="{{tr.emailPlaceholder}}"
+        placeholder-style="color: #8b93a7;"
+        value="{{linkEmail}}"
+        bindinput="onLinkEmailInput"
+      />
+      <input
+        class="ts-input login-input"
+        password="{{true}}"
+        placeholder="{{tr.passwordPlaceholder}}"
+        placeholder-style="color: #8b93a7;"
+        value="{{linkPassword}}"
+        bindinput="onLinkPasswordInput"
+      />
+      <text wx:if="{{linkError}}" class="login-error ts-destructive">{{linkError}}</text>
+      <button
+        class="ts-button login-cta"
+        loading="{{linkSubmitting}}"
+        bindtap="onLinkSubmit"
+      >{{tr.linkAction}}</button>
+    </view>
+    <view class="login-footer">
       <text class="login-newhere-label ts-muted">{{tr.newHere}}</text>
       <view class="login-signup-row" bindtap="onCopySignupUrl">
         <text class="login-signup-url ts-primary">praxys.run</text>
-        <text class="login-signup-hint ts-muted">{{tr.tapToCopyUrl}}</text>
+        <text class="login-signup-hint ts-muted">·  {{tr.tapToCopyUrl}}</text>
       </view>
     </view>
   </block>

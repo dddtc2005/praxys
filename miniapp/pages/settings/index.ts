@@ -334,14 +334,32 @@ Page({
     }
   },
 
-  onPickLanguage(e: WechatMiniprogram.TouchEvent) {
+  async onPickLanguage(e: WechatMiniprogram.TouchEvent) {
     const next = e.currentTarget.dataset.lang as LanguagePref;
     if (!next || next === this.data.language) return;
+    // Local storage drives mini-program rendering on every reLaunch — write
+    // it first so the next mount picks up the new value.
     setLanguagePreference(next);
+    // Confirm the write actually flushed (real-device quirk: an in-flight
+    // reLaunch can win the race with an un-flushed setStorageSync). The
+    // log surfaces the value via DevTools console; if a real-device user
+    // reports "switch didn't take", we can ask them what this prints.
+    // eslint-disable-next-line no-console
+    console.log('[settings] language pref written', wx.getStorageSync('praxys-language'));
+
+    // Best-effort backend sync so the web app sees the same language
+    // when the user opens it next. Failure here doesn't block the local
+    // switch — the next launch still reads from wx storage.
+    try {
+      await apiPut('/api/settings', { language: next });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('[settings] language backend sync failed:', err);
+    }
+
     // Pages cache pre-translated strings on their data — a setData on
-    // the tab bar isn't enough. reLaunch back to settings forces every
-    // page (and the tab bar) to remount and re-pull the new locale,
-    // mirroring the theme switch flow.
+    // the tab bar isn't enough. reLaunch forces every page (and the tab
+    // bar) to remount and re-pull the new locale.
     wx.reLaunch({ url: '/pages/settings/index' });
   },
 

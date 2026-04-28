@@ -95,16 +95,17 @@ export function buildTimelineMessage(title: string, query?: string): TimelineMes
 export function detectShareLocale(): ShareLocale {
   const pref = getLanguagePreference();
   if (pref === 'en' || pref === 'zh') return pref;
+  // Default to zh when locale is unknown — see utils/i18n.ts for rationale.
+  // English locales (en_US, en_GB, …) still match `^en` and stay in en.
   try {
-    if (typeof wx.getAppBaseInfo === 'function') {
-      const lang = wx.getAppBaseInfo().language ?? '';
-      return /zh/i.test(lang) ? 'zh' : 'en';
-    }
-    const lang = wx.getSystemInfoSync().language ?? '';
-    return /zh/i.test(lang) ? 'zh' : 'en';
+    const lang =
+      typeof wx.getAppBaseInfo === 'function'
+        ? wx.getAppBaseInfo().language ?? ''
+        : (wx.getSystemInfoSync().language ?? '');
+    return /^en/i.test(lang) ? 'en' : 'zh';
   } catch (e) {
     // eslint-disable-next-line no-console
-    console.warn('[share] locale detection failed, falling back to en:', e);
-    return 'en';
+    console.warn('[share] locale detection failed, defaulting to zh:', e);
+    return 'zh';
   }
 }

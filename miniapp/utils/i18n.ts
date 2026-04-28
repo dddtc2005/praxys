@@ -30,15 +30,19 @@ export function detectLocale(): Locale {
   if (pref === 'en' || pref === 'zh') return pref;
   // Auto: ask the WeChat client. wx.getAppBaseInfo (libVersion 2.20.1+)
   // gives us a fresh language code; fall back to getSystemInfoSync on
-  // older clients. Default 'en' if both fail.
+  // older clients. The mini program is CN-market by design, so anything
+  // that isn't an explicit English locale defaults to zh — that's a
+  // change from the previous 'en' default. Users on English devices
+  // still see English (en_US, en_GB match `^en`); blanks / unknown /
+  // WeChat-API failures land on zh.
   try {
     const lang =
       typeof wx.getAppBaseInfo === 'function'
         ? wx.getAppBaseInfo().language ?? ''
         : (wx.getSystemInfoSync().language ?? '');
-    return /zh/i.test(lang) ? 'zh' : 'en';
+    return /^en/i.test(lang) ? 'en' : 'zh';
   } catch {
-    return 'en';
+    return 'zh';
   }
 }
 
