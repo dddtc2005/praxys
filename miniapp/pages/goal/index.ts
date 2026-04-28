@@ -273,8 +273,10 @@ interface GoalState {
 
 const DISTANCE_CHOICES = buildDistanceChoices();
 
+import type { IAppOption } from '../../app';
+
 const initialData: GoalState = {
-  themeClass: 'theme-light',
+  themeClass: getApp<IAppOption>().globalData.themeClass,
   chartTheme: 'light',
   loading: true,
   errorMessage: '',

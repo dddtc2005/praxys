@@ -56,8 +56,10 @@ interface HistoryState {
   refreshing: boolean;
 }
 
+import type { IAppOption } from '../../app';
+
 const initialData: HistoryState = {
-  themeClass: 'theme-light',
+  themeClass: getApp<IAppOption>().globalData.themeClass,
   loading: true,
   loadingMore: false,
   errorMessage: '',

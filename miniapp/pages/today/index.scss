@@ -324,11 +324,15 @@
 
 .today-week-load-fill {
   height: 100%;
-  // No own border-radius — at low fill % a 6rpx radius on all four
-  // corners produced a visible right-side "bump" that didn't meet the
-  // track edge cleanly. The track's overflow: hidden + 6rpx radius
-  // clips the fill correctly at both 0% and 100%, so we let the track
-  // own all the corner shaping.
+  // Round only the right edge so at low fill % the fill reads as a
+  // small pill on the left rather than a square stub butting against
+  // the track's rounded interior. Left edges stay square — the track's
+  // overflow: hidden + 6rpx radius clips the fill's left side to the
+  // same curve as the track. Rounding all 4 corners on the fill itself
+  // produced a visible right-side "bump" inside the track at low %; the
+  // asymmetric treatment avoids that while fixing the square-stub case.
+  border-top-right-radius: 6rpx;
+  border-bottom-right-radius: 6rpx;
   background-color: var(--primary);
   // Accent classes on the fill recolor via the helper utilities;
   // default is --primary (green = on target).

@@ -160,8 +160,10 @@ interface TrainingBaseOption {
   className: string;
 }
 
+import type { IAppOption } from '../../app';
+
 const initialData: SettingsState = {
-  themeClass: 'theme-light',
+  themeClass: getApp<IAppOption>().globalData.themeClass,
   loading: true,
   errorMessage: '',
   hasResponse: false,

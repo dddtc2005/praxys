@@ -136,8 +136,10 @@ interface TrainingState {
   complianceActualColors: string[];
 }
 
+import type { IAppOption } from '../../app';
+
 const initialData: TrainingState = {
-  themeClass: 'theme-light',
+  themeClass: getApp<IAppOption>().globalData.themeClass,
   chartTheme: 'light',
   loading: true,
   errorMessage: '',

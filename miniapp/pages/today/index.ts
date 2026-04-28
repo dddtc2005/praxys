@@ -273,8 +273,10 @@ interface RefreshState {
   shareImagePath: string;
 }
 
+import type { IAppOption } from '../../app';
+
 const initialData: RenderState & RefreshState = {
-  themeClass: 'theme-light',
+  themeClass: getApp<IAppOption>().globalData.themeClass,
   chartTheme: 'light',
   today: '',
   loading: true,

@@ -7,8 +7,12 @@
  * hex equivalents.
  *
  * Mini programs don't share a DOM across pages, so each page applies
- * the theme class on its own root <view>. Theme switches reLaunch the
- * app to make the change uniform across every page in one shot.
+ * the theme class on its own root <view>. The resolved class is
+ * computed once in app.ts onLaunch and stashed on globalData, so each
+ * page reads the same value at module load — first paint matches the
+ * user's preference without flashing the light default. Theme switches
+ * reLaunch the app to make the change uniform across every page in
+ * one shot (which also re-runs onLaunch and refreshes globalData).
  */
 
 .theme-dark {
