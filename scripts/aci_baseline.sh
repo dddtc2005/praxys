@@ -210,9 +210,27 @@ SHARE_OUT_PATH="out-${RUN_ID}"
 # file. Keep this dead-simple — it runs inside the official sitespeed.io
 # image where /start.sh prepares Chrome and execs sitespeed.io.
 WRAPPER_TMP="$(mktemp -t aci-baseline-run.XXXXXX.sh)"
-# Single EXIT trap (set later, see `finalize`) handles BOTH cleaning up
-# this tempfile and tearing down the share namespace — bash overwrites
-# the trap on subsequent `trap … EXIT` calls, so we have to combine.
+
+# Containers we've asked Azure to create. Populated *before* the create
+# call so that even if creation 5xxs partway through, the trap still
+# attempts deletion (a delete against a nonexistent name is idempotent).
+# Drained on Ctrl-C / EXIT — see `finalize` below. Without this, a Ctrl-C
+# during the 25/45-min polling loop leaks an ACI in a foreign region
+# with the storage key still mounted, billing $0.05–0.30 silently until
+# the user remembers to `az container list --rg rg-trainsight`.
+CONTAINERS_TO_DELETE=()
+
+# Install the EXIT trap *immediately* after WRAPPER_TMP exists. Even
+# though `finalize` is defined further down, bash trap actions are
+# resolved at signal-fire time, not at `trap` time — so the forward
+# reference is fine. Setting the trap up here (rather than after the
+# function definitions ~250 lines below) closes the window where a
+# heredoc-cat failure or upload_inputs error would orphan the tempfile.
+# Bash overwrites EXIT traps on subsequent `trap … EXIT` calls, so we
+# only get one — `finalize` does both tempfile + share + container
+# cleanup combined.
+trap finalize EXIT
+
 cat >"$WRAPPER_TMP" <<'WRAPPER_EOF'
 #!/bin/sh
 # In-container wrapper. Reads everything from env vars; keeps ACI's
@@ -243,6 +261,14 @@ fi
 # surfaced in any docs/perf-baselines/*.md — every cited number is FCP /
 # LCP / TTI / TTFB / CLS or an API p50/p95, all of which come through
 # Chrome's PerformanceObserver, not visualmetrics.
+#
+# CAVEAT: every value in BASE_ARGS / DEVICE_ARGS must be space-free. We
+# rely on unquoted expansion below (`$BASE_ARGS $DEVICE_ARGS`) to split
+# them into argv tokens — same semantics as the ACI argv parser, which
+# is exactly the reason the orchestrator (host script) had to pass
+# values like the mobile UA via env vars. If you need a value with
+# spaces in it, branch into a per-device call with an explicit
+# argv array, don't try to embed it here.
 BASE_ARGS="-n $RUNS --browsertime.visualMetrics=false"
 
 run_one() {
@@ -319,6 +345,10 @@ run_one_device() {
   echo "================================================================"
 
   echo "Provisioning ACI in $PROBE..."
+  # Track the container before issuing the create so a Ctrl-C between
+  # this line and `az container delete` (success-path on line ~437) is
+  # still cleaned up by the EXIT trap.
+  CONTAINERS_TO_DELETE+=("$container_name")
   az container create \
     --subscription "$AZ_SUBSCRIPTION" \
     --resource-group "$AZ_RG" \
@@ -435,6 +465,15 @@ run_one_device() {
       --resource-group "$AZ_RG" \
       --name "$container_name" \
       --yes --output none || true
+    # Already deleted on the success path; remove from the trap's
+    # to-delete list so we don't issue a redundant delete (slow & adds
+    # noise to logs). Iterates because bash arrays don't have an
+    # element-remove primitive.
+    local i remaining=()
+    for i in "${CONTAINERS_TO_DELETE[@]}"; do
+      [ "$i" = "$container_name" ] || remaining+=("$i")
+    done
+    CONTAINERS_TO_DELETE=("${remaining[@]}")
   fi
 
   if [ "$exit_code" = "0" ]; then
@@ -446,17 +485,50 @@ run_one_device() {
   fi
 }
 
-# Final-cleanup trap: even on Ctrl-C or mid-run failure, blow away our
-# share-side namespaces and the local tempfile. We do NOT tear down the
-# container in the trap because a failed run is exactly when you want
-# logs to inspect — `--keep-aci` is the explicit opt-in for that, but in
-# practice run_one_device already deletes on success or failure.
+# Trap-installed at the top of the script (right after WRAPPER_TMP=…).
+# Runs on every exit path: clean termination, `set -e` failure, Ctrl-C.
+# Three jobs:
+#   1. Delete the local heredoc tempfile.
+#   2. Delete any ACIs still in CONTAINERS_TO_DELETE (run_one_device
+#      removes successfully-deleted entries from the list, so the only
+#      survivors are containers that were created but not yet
+#      explicitly torn down — typically a Ctrl-C mid-poll). Skipped if
+#      --keep-aci is set, so a debug session can `az container exec`
+#      into the kept container.
+#   3. Wipe our run-id-namespaced paths off the share. Skipped when
+#      --keep-aci so the still-running container can read its mount.
+# `set +e` because we're best-effort cleanup — a transient az failure
+# shouldn't bubble out and make the EXIT-trap exit code lie about the
+# real exit cause.
 finalize() {
   set +e
   rm -f "$WRAPPER_TMP" 2>/dev/null
+
+  if [ "$KEEP_ACI" = "1" ]; then
+    if [ ${#CONTAINERS_TO_DELETE[@]} -gt 0 ]; then
+      echo "[--keep-aci] Leaving ${#CONTAINERS_TO_DELETE[@]} container(s) running:" >&2
+      printf '  %s\n' "${CONTAINERS_TO_DELETE[@]}" >&2
+      echo "[--keep-aci] Manual cleanup: az container delete -g $AZ_RG -n <name> --yes" >&2
+      echo "[--keep-aci] Leaving share namespaces in place so the container can still see its mount." >&2
+    fi
+    return
+  fi
+
+  if [ ${#CONTAINERS_TO_DELETE[@]} -gt 0 ]; then
+    echo "[finalize] Tearing down ${#CONTAINERS_TO_DELETE[@]} ACI(s) (Ctrl-C / failure path)..." >&2
+    for c in "${CONTAINERS_TO_DELETE[@]}"; do
+      echo "  deleting $c" >&2
+      az container delete \
+        --subscription "$AZ_SUBSCRIPTION" \
+        --resource-group "$AZ_RG" \
+        --name "$c" \
+        --yes --output none 2>/dev/null || \
+          echo "  WARN: failed to delete $c — clean up manually with az container delete" >&2
+    done
+  fi
+
   cleanup_share_paths
 }
-trap finalize EXIT
 
 upload_inputs
 for device in "${DEVICE_LIST[@]}"; do
