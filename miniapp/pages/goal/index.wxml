@@ -22,6 +22,14 @@
       </view>
     </block>
 
+    <!-- Change-goal action lives at the top so it's always reachable
+         regardless of which mode is being rendered below. -->
+    <view wx:if="{{hasResponse}}" class="goal-actions">
+      <button class="ts-button ts-button--secondary goal-edit-btn" bindtap="onOpenEditor">
+        {{tr.changeGoal}}
+      </button>
+    </view>
+
     <!-- ============================================================
          RACE-DATE MODE
          ============================================================ -->
@@ -237,4 +245,81 @@
 
     </view>
   </scroll-view>
+
+  <!-- Goal editor: full-height bottom sheet. Shown only when the user
+       taps "Change goal". Distance/time inputs use WeChat's native
+       picker so the touch interaction is on-platform. -->
+  <view wx:if="{{editorOpen}}" class="goal-editor-mask" bindtap="onCloseEditor">
+    <view class="goal-editor-sheet" catchtap="onSheetTap">
+      <view class="goal-editor-handle"></view>
+      <text class="goal-editor-title">{{tr.editorTitle}}</text>
+
+      <text class="goal-editor-label ts-muted">{{tr.goalType}}</text>
+      <view class="goal-editor-toggle">
+        <view
+          class="goal-editor-toggle-item {{editorType === 'race' ? 'goal-editor-toggle-item--active' : ''}}"
+          data-type="race"
+          bindtap="onPickEditorType"
+        >
+          <text class="goal-editor-toggle-label">{{tr.raceGoal}}</text>
+          <text class="goal-editor-toggle-desc ts-muted">{{tr.raceGoalDesc}}</text>
+        </view>
+        <view
+          class="goal-editor-toggle-item {{editorType === 'continuous' ? 'goal-editor-toggle-item--active' : ''}}"
+          data-type="continuous"
+          bindtap="onPickEditorType"
+        >
+          <text class="goal-editor-toggle-label">{{tr.continuousGoal}}</text>
+          <text class="goal-editor-toggle-desc ts-muted">{{tr.continuousGoalDesc}}</text>
+        </view>
+      </view>
+
+      <text class="goal-editor-label ts-muted">{{tr.distance}}</text>
+      <picker
+        mode="selector"
+        range="{{editorDistanceLabels}}"
+        value="{{editorDistanceIndex}}"
+        bindchange="onPickEditorDistance"
+      >
+        <view class="goal-editor-input">
+          <text class="goal-editor-input-value">{{editorDistanceLabels[editorDistanceIndex]}}</text>
+          <text class="goal-editor-input-chev ts-muted">›</text>
+        </view>
+      </picker>
+
+      <block wx:if="{{editorType === 'race'}}">
+        <text class="goal-editor-label ts-muted">{{tr.raceDate}}</text>
+        <picker
+          mode="date"
+          value="{{editorRaceDate}}"
+          start="{{editorTodayIso}}"
+          bindchange="onPickEditorRaceDate"
+        >
+          <view class="goal-editor-input">
+            <text class="goal-editor-input-value">{{editorRaceDate || tr.pickDate}}</text>
+            <text class="goal-editor-input-chev ts-muted">›</text>
+          </view>
+        </picker>
+      </block>
+
+      <text class="goal-editor-label ts-muted">{{tr.targetTime}} <text class="ts-muted">({{tr.optional}})</text></text>
+      <input
+        class="goal-editor-input goal-editor-input--text"
+        type="text"
+        placeholder="{{editorTargetPlaceholder}}"
+        value="{{editorTargetTime}}"
+        bindinput="onEditorTargetTimeInput"
+      />
+      <text class="goal-editor-hint ts-muted">{{editorTargetHint}}</text>
+
+      <text wx:if="{{editorError}}" class="goal-editor-error ts-destructive">{{editorError}}</text>
+
+      <view class="goal-editor-actions">
+        <button class="ts-button ts-button--secondary" bindtap="onCloseEditor">{{tr.cancel}}</button>
+        <button class="ts-button" bindtap="onSaveEditor" disabled="{{editorSaving}}">
+          {{editorSaving ? tr.saving : tr.save}}
+        </button>
+      </view>
+    </view>
+  </view>
 </view>

@@ -39,9 +39,31 @@
             <text class="settings-label ts-muted">{{item.label}}</text>
             <text class="settings-value ts-value">{{tr.connected}}</text>
           </view>
+          <button
+            class="ts-button settings-sync-btn"
+            bindtap="onSyncAll"
+            disabled="{{syncing}}"
+          >
+            {{syncing ? tr.syncing : tr.syncNow}}
+          </button>
+          <text wx:if="{{syncMessage}}" class="settings-hint ts-muted">{{syncMessage}}</text>
           <text class="settings-hint ts-muted">{{tr.manageOnWeb}}</text>
         </block>
         <text wx:else class="settings-empty ts-muted">{{tr.noPlatformsHint}}</text>
+      </view>
+
+      <view class="ts-section">
+        <text class="ts-section-label">{{tr.trainingBase}}</text>
+        <view class="settings-theme-row">
+          <text
+            wx:for="{{trainingBaseOptions}}"
+            wx:key="key"
+            class="{{item.className}}"
+            data-base="{{item.key}}"
+            bindtap="onPickTrainingBase"
+          >{{item.label}}</text>
+        </view>
+        <text class="settings-hint ts-muted">{{tr.trainingBaseHint}}</text>
       </view>
 
       <view class="ts-section">

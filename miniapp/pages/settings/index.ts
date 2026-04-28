@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from '../../utils/api-client';
+import { apiGet, apiPost, apiPut } from '../../utils/api-client';
 import type { ApiError } from '../../utils/api-client';
 import { clearToken } from '../../utils/auth';
 import {
@@ -49,6 +49,16 @@ function buildSettingsTr() {
       'Unbind your WeChat profile from this Praxys account so you can sign in as someone else or test the first-time onboarding flow.',
     ),
     connected: t('Connected'),
+    syncNow: t('Sync now'),
+    syncing: t('Syncing…'),
+    syncStarted: t('Sync started in the background.'),
+    syncFailed: t('Sync request failed. Try again from the web app if it persists.'),
+    trainingBaseHint: t(
+      'What metric Praxys uses to measure intensity. Power needs Stryd; Pace works with anything that gives you GPS.',
+    ),
+    trainingBasePower: t('Power'),
+    trainingBaseHr: t('Heart rate'),
+    trainingBasePace: t('Pace'),
   };
 }
 
@@ -131,7 +141,20 @@ interface SettingsState {
   hasThresholds: boolean;
   thresholdRows: ThresholdRow[];
 
+  trainingBase: 'power' | 'hr' | 'pace';
+  trainingBaseOptions: TrainingBaseOption[];
+
   webUrl: string;
+
+  // Manual sync trigger UI state.
+  syncing: boolean;
+  syncMessage: string;
+}
+
+interface TrainingBaseOption {
+  key: 'power' | 'hr' | 'pace';
+  label: string;
+  className: string;
 }
 
 const initialData: SettingsState = {
@@ -148,8 +171,27 @@ const initialData: SettingsState = {
   connectionRows: [],
   hasThresholds: false,
   thresholdRows: [],
+  trainingBase: 'pace',
+  trainingBaseOptions: [],
   webUrl: WEB_URL,
+  syncing: false,
+  syncMessage: '',
 };
+
+function buildTrainingBaseOptions(active: string): TrainingBaseOption[] {
+  const tr = buildSettingsTr();
+  const map: { key: TrainingBaseOption['key']; label: string }[] = [
+    { key: 'power', label: tr.trainingBasePower },
+    { key: 'hr', label: tr.trainingBaseHr },
+    { key: 'pace', label: tr.trainingBasePace },
+  ];
+  return map.map((m) => ({
+    ...m,
+    className:
+      'settings-theme-option' +
+      (m.key === active ? ' settings-theme-option--active' : ''),
+  }));
+}
 
 function buildThemeOptions(active: ThemePref): ThemeOption[] {
   const themes: ThemePref[] = ['auto', 'dark', 'light'];
@@ -234,6 +276,7 @@ function buildSettingsState(response: SettingsResponse): Partial<SettingsState> 
 
   const hasThresholds = thresholdRows.some((r) => r.display !== '—');
 
+  const trainingBase = (config.training_base as 'power' | 'hr' | 'pace') ?? 'pace';
   return {
     loading: false,
     errorMessage: '',
@@ -243,6 +286,8 @@ function buildSettingsState(response: SettingsResponse): Partial<SettingsState> 
     connectionRows,
     hasThresholds,
     thresholdRows,
+    trainingBase,
+    trainingBaseOptions: buildTrainingBaseOptions(trainingBase),
   };
 }
 
@@ -321,6 +366,60 @@ Page({
   onSignOut() {
     clearToken();
     wx.reLaunch({ url: '/pages/login/index' });
+  },
+
+  /**
+   * Persist a new training base via `PUT /api/settings`. The backend
+   * recomputes thresholds + zones on the next page load, so we refetch
+   * to pick up the cascaded effects (zone label set, threshold display
+   * units, etc.). Race condition with another open client is fine —
+   * server is the source of truth.
+   */
+  async onPickTrainingBase(e: WechatMiniprogram.TouchEvent) {
+    const next = e.currentTarget.dataset.base as 'power' | 'hr' | 'pace' | undefined;
+    if (!next || next === this.data.trainingBase) return;
+    const tr = this.data.tr as ReturnType<typeof buildSettingsTr>;
+    // Optimistic UI update so the picker doesn't feel laggy.
+    this.setData({
+      trainingBase: next,
+      trainingBaseOptions: buildTrainingBaseOptions(next),
+    });
+    try {
+      await apiPut('/api/settings', { training_base: next });
+      void this.refetch();
+    } catch (e2) {
+      const err = e2 as Partial<ApiError>;
+      if (err?.code === 'UNAUTHENTICATED') return;
+      // Roll the picker back so it doesn't lie about state.
+      const previous = this.data.trainingBase as 'power' | 'hr' | 'pace';
+      this.setData({
+        trainingBase: previous,
+        trainingBaseOptions: buildTrainingBaseOptions(previous),
+        errorMessage: err?.detail ?? tr.failedToLoad,
+      });
+    }
+  },
+
+  /**
+   * Kick off a sync against every connected platform (`POST /api/sync`).
+   * The backend runs the actual sync in a BackgroundTasks job and the
+   * mini program just confirms the request was accepted — refreshing
+   * Today / Training afterwards picks up the new data once the job
+   * completes. This mirrors the web Sync All button.
+   */
+  async onSyncAll() {
+    if (this.data.syncing) return;
+    const tr = this.data.tr as ReturnType<typeof buildSettingsTr>;
+    this.setData({ syncing: true, syncMessage: '' });
+    try {
+      await apiPost('/api/sync');
+      this.setData({ syncing: false, syncMessage: tr.syncStarted });
+      wx.showToast({ title: tr.syncStarted, icon: 'none', duration: 1800 });
+    } catch (e) {
+      const err = e as Partial<ApiError>;
+      if (err?.code === 'UNAUTHENTICATED') return;
+      this.setData({ syncing: false, syncMessage: err?.detail ?? tr.syncFailed });
+    }
   },
 
   /**

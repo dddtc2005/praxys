@@ -1,4 +1,4 @@
-import { apiGet } from '../../utils/api-client';
+import { apiGet, apiPut } from '../../utils/api-client';
 import type { ApiError } from '../../utils/api-client';
 import type {
   ScienceResponse,
@@ -27,6 +27,8 @@ function buildScienceTr() {
     currentlyUsing: t('Currently using'),
     suggestion: t('Based on your training, we suggest'),
     noActiveTheory: t('No active theory configured.'),
+    useThis: t('Use this'),
+    saving: t('Saving…'),
   };
 }
 
@@ -91,6 +93,8 @@ interface SciState {
   activeLabels: string;
   hasMultipleLabelSets: boolean;
   labelSetCount: number;
+  /** Pillar currently mid-save, so the matching button can disable. */
+  selectingPillar: SciencePillar | '';
 }
 
 const initialData: SciState = {
@@ -102,6 +106,7 @@ const initialData: SciState = {
   activeLabels: '',
   hasMultipleLabelSets: false,
   labelSetCount: 0,
+  selectingPillar: '',
 };
 
 const ALL_PILLARS: SciencePillar[] = ['load', 'recovery', 'prediction', 'zones'];
@@ -239,6 +244,36 @@ Page({
   onCopyCitation(e: WechatMiniprogram.TouchEvent) {
     const url = e.currentTarget.dataset.url as string | undefined;
     if (url) copyUrlToClipboard(url);
+  },
+
+  /**
+   * Switch the active theory for one of the four pillars (load /
+   * recovery / prediction / zones). Mirrors web's
+   * `updateScience({ science: { [pillar]: id } })` — same `PUT
+   * /api/science` endpoint, same body shape. We refetch on success so
+   * the activeCard / alternatives split flips, and surface the failed-
+   * theory id in a toast on error.
+   */
+  async onSelectTheory(e: WechatMiniprogram.TouchEvent) {
+    const pillar = e.currentTarget.dataset.pillar as SciencePillar | undefined;
+    const id = e.currentTarget.dataset.id as string | undefined;
+    if (!pillar || !id) return;
+    if (this.data.selectingPillar) return; // already saving
+    this.setData({ selectingPillar: pillar });
+    try {
+      await apiPut('/api/science', { science: { [pillar]: id } });
+      await this.refetch();
+    } catch (err) {
+      const e2 = err as Partial<ApiError>;
+      if (e2?.code === 'UNAUTHENTICATED') return;
+      wx.showToast({
+        title: e2?.detail ?? t('Failed to switch theory'),
+        icon: 'none',
+        duration: 2000,
+      });
+    } finally {
+      this.setData({ selectingPillar: '' });
+    }
   },
 
   async refetch() {

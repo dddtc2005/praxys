@@ -1,7 +1,7 @@
-import { apiGet } from '../../utils/api-client';
+import { apiGet, apiPut } from '../../utils/api-client';
 import type { ApiError } from '../../utils/api-client';
 import type { GoalResponse, Milestone } from '../../types/api';
-import { formatTime, formatPace } from '../../utils/format';
+import { formatTime, formatPace, parseTimeToSeconds } from '../../utils/format';
 import { applyThemeChrome, themeClassName } from '../../utils/theme';
 import {
   buildShareMessage,
@@ -10,6 +10,62 @@ import {
   getShareMessage,
 } from '../../utils/share';
 import { copyUrlToClipboard } from '../../utils/markdown';
+import { t } from '../../utils/i18n';
+
+// Editor distance choices mirror web/src/components/GoalEditor.tsx so the
+// two clients save the same shape to /api/settings.
+type DistanceKey = '5k' | '10k' | 'half' | 'marathon' | '50k' | '50mi' | '100k' | '100mi';
+
+interface DistanceChoice {
+  key: DistanceKey;
+  label: string;
+  placeholder: string;
+}
+
+function buildEditorTr() {
+  return {
+    changeGoal: t('Change Goal'),
+    editorTitle: t('Set Your Goal'),
+    goalType: t('Goal type'),
+    raceGoal: t('Race Goal'),
+    raceGoalDesc: t('Train toward a specific race date'),
+    continuousGoal: t('Continuous'),
+    continuousGoalDesc: t('Build fitness over time'),
+    distance: t('Distance'),
+    raceDate: t('Race Date'),
+    pickDate: t('Pick a date'),
+    targetTime: t('Target Time'),
+    optional: t('optional'),
+    cancel: t('Cancel'),
+    save: t('Save Goal'),
+    saving: t('Saving…'),
+    raceDateRequired: t('Race date is required'),
+    invalidTime: t('Invalid time format. Use H:MM:SS or H:MM'),
+    failedToSave: t('Failed to save goal'),
+    timeBlankRace: t('Leave blank to track predicted time only'),
+    timeBlankCont: t('What time are you working toward? Leave blank to track trend only'),
+  };
+}
+
+function buildDistanceChoices(): DistanceChoice[] {
+  return [
+    { key: '5k', label: t('5K'), placeholder: 'e.g. 20:00' },
+    { key: '10k', label: t('10K'), placeholder: 'e.g. 42:00' },
+    { key: 'half', label: t('Half'), placeholder: 'e.g. 1:30:00' },
+    { key: 'marathon', label: t('Marathon'), placeholder: 'e.g. 3:00:00' },
+    { key: '50k', label: t('50K'), placeholder: 'e.g. 4:30:00' },
+    { key: '50mi', label: t('50 Mi'), placeholder: 'e.g. 8:00:00' },
+    { key: '100k', label: t('100K'), placeholder: 'e.g. 12:00:00' },
+    { key: '100mi', label: t('100 Mi'), placeholder: 'e.g. 24:00:00' },
+  ];
+}
+
+function todayIso(): string {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
 
 // Default science-note copy + sources, mirroring web/src/pages/Goal.tsx.
 // Used as fallback when the backend doesn't provide a science_notes.prediction
@@ -92,6 +148,19 @@ interface GoalState {
   loading: boolean;
   errorMessage: string;
   hasResponse: boolean;
+
+  // --- Goal editor (modal state) ---
+  editorOpen: boolean;
+  editorType: 'race' | 'continuous';
+  editorDistanceLabels: string[];
+  editorDistanceIndex: number;
+  editorRaceDate: string;
+  editorTodayIso: string;
+  editorTargetTime: string;
+  editorTargetPlaceholder: string;
+  editorTargetHint: string;
+  editorError: string;
+  editorSaving: boolean;
   mode: GoalResponse['race_countdown']['mode'];
 
   // Common (CP trend chart shared by all modes that have data).
@@ -186,6 +255,8 @@ interface GoalState {
   ctTrendNote: string;
 }
 
+const DISTANCE_CHOICES = buildDistanceChoices();
+
 const initialData: GoalState = {
   themeClass: 'theme-light',
   chartTheme: 'light',
@@ -193,6 +264,18 @@ const initialData: GoalState = {
   errorMessage: '',
   hasResponse: false,
   mode: 'none',
+
+  editorOpen: false,
+  editorType: 'race',
+  editorDistanceLabels: DISTANCE_CHOICES.map((d) => d.label),
+  editorDistanceIndex: 3, // marathon default
+  editorRaceDate: '',
+  editorTodayIso: todayIso(),
+  editorTargetTime: '',
+  editorTargetPlaceholder: DISTANCE_CHOICES[3].placeholder,
+  editorTargetHint: '',
+  editorError: '',
+  editorSaving: false,
 
   hasCpTrend: false,
   cpTrendDates: [],
@@ -521,7 +604,7 @@ function buildContinuousState(
 }
 
 Page({
-  data: { ...initialData },
+  data: { ...initialData, tr: buildEditorTr() },
 
   onLoad() {
     const tc = themeClassName();
@@ -616,11 +699,128 @@ Page({
     if (this.data.noteUltraUrl) copyUrlToClipboard(this.data.noteUltraUrl);
   },
 
+  /**
+   * Open the goal-edit overlay, prefilling fields from the most recent
+   * GoalResponse cached on `_response`. Mirrors web/src/pages/Goal.tsx
+   * → handleSaveGoal: the same payload shape goes to PUT /api/settings.
+   */
+  onOpenEditor() {
+    const cached = (this.data as { _response?: GoalResponse })._response;
+    const tr = this.data.tr as ReturnType<typeof buildEditorTr>;
+    const goal = (cached?.race_countdown ?? null) as
+      | { distance?: string | null; race_date?: string | null; target_time_sec?: number | null }
+      | null;
+    const distanceKey = (goal?.distance as DistanceKey | undefined) ?? 'marathon';
+    const idx = Math.max(
+      0,
+      DISTANCE_CHOICES.findIndex((d) => d.key === distanceKey),
+    );
+    const editorType: 'race' | 'continuous' = goal?.race_date ? 'race' : 'continuous';
+    this.setData({
+      editorOpen: true,
+      editorType,
+      editorDistanceIndex: idx,
+      editorRaceDate: goal?.race_date ?? '',
+      editorTodayIso: todayIso(),
+      editorTargetTime:
+        goal?.target_time_sec && goal.target_time_sec > 0 ? formatTime(goal.target_time_sec) : '',
+      editorTargetPlaceholder: DISTANCE_CHOICES[idx].placeholder,
+      editorTargetHint: editorType === 'race' ? tr.timeBlankRace : tr.timeBlankCont,
+      editorError: '',
+      editorSaving: false,
+    });
+  },
+
+  onCloseEditor() {
+    if (this.data.editorSaving) return; // ignore taps during save
+    this.setData({ editorOpen: false, editorError: '' });
+  },
+
+  // Stop the mask's bindtap from closing the sheet when the user taps
+  // inside the sheet itself (catchtap stops propagation in WeChat).
+  onSheetTap() {},
+
+  onPickEditorType(e: WechatMiniprogram.TouchEvent) {
+    const type = e.currentTarget.dataset.type as 'race' | 'continuous' | undefined;
+    if (!type) return;
+    const tr = this.data.tr as ReturnType<typeof buildEditorTr>;
+    this.setData({
+      editorType: type,
+      editorTargetHint: type === 'race' ? tr.timeBlankRace : tr.timeBlankCont,
+    });
+  },
+
+  onPickEditorDistance(e: WechatMiniprogram.PickerChange) {
+    const idx = Number(e.detail.value);
+    if (Number.isNaN(idx)) return;
+    this.setData({
+      editorDistanceIndex: idx,
+      editorTargetPlaceholder: DISTANCE_CHOICES[idx]?.placeholder ?? '',
+    });
+  },
+
+  onPickEditorRaceDate(e: WechatMiniprogram.PickerChange) {
+    this.setData({ editorRaceDate: String(e.detail.value) });
+  },
+
+  onEditorTargetTimeInput(e: WechatMiniprogram.Input) {
+    this.setData({ editorTargetTime: e.detail.value });
+  },
+
+  async onSaveEditor() {
+    const tr = this.data.tr as ReturnType<typeof buildEditorTr>;
+    const editorType = this.data.editorType as 'race' | 'continuous';
+    const editorDistanceIndex = this.data.editorDistanceIndex as number;
+    const editorRaceDate = this.data.editorRaceDate as string;
+    const editorTargetTime = (this.data.editorTargetTime as string).trim();
+
+    if (editorType === 'race' && !editorRaceDate) {
+      this.setData({ editorError: tr.raceDateRequired });
+      return;
+    }
+    let targetTimeSec = 0;
+    if (editorTargetTime) {
+      const parsed = parseTimeToSeconds(editorTargetTime);
+      if (parsed === null) {
+        this.setData({ editorError: tr.invalidTime });
+        return;
+      }
+      targetTimeSec = parsed;
+    }
+
+    this.setData({ editorSaving: true, editorError: '' });
+    const distance = DISTANCE_CHOICES[editorDistanceIndex]?.key ?? 'marathon';
+    try {
+      // PUT /api/settings is the same endpoint web hits via updateSettings({goal}).
+      // race_date='' on continuous mode tells the backend to clear it.
+      await apiPut('/api/settings', {
+        goal: {
+          race_date: editorType === 'race' ? editorRaceDate : '',
+          distance,
+          target_time_sec: targetTimeSec,
+        },
+      });
+      this.setData({ editorOpen: false, editorSaving: false });
+      void this.refetch();
+    } catch (e) {
+      const err = e as Partial<ApiError>;
+      if (err?.code === 'UNAUTHENTICATED') return;
+      this.setData({
+        editorSaving: false,
+        editorError: err?.detail ?? tr.failedToSave,
+      });
+    }
+  },
+
   async refetch() {
     this.setData({ loading: true, errorMessage: '' });
     try {
       const response = await apiGet<GoalResponse>('/api/goal');
-      this.setData(buildState(response, this.data.themeClass) as Record<string, unknown>);
+      this.setData({
+        ...(buildState(response, this.data.themeClass) as Record<string, unknown>),
+        // Cache so the editor can prefill from the latest response.
+        _response: response,
+      } as Record<string, unknown>);
     } catch (e) {
       const err = e as Partial<ApiError>;
       // The api-client throws UNAUTHENTICATED *and* schedules a reLaunch.

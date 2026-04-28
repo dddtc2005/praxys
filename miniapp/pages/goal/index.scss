@@ -381,3 +381,125 @@
   padding: 0 16rpx;
 }
 .goal-share-btn { width: 100%; }
+
+// Top action row — Change Goal button. Sits above all mode cards.
+.goal-actions {
+  padding: 8rpx 8rpx 24rpx;
+  display: flex;
+  justify-content: flex-end;
+}
+.goal-edit-btn {
+  font-size: 26rpx;
+}
+
+// --- Goal editor bottom sheet -------------------------------------------
+.goal-editor-mask {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(0, 0, 0, 0.45);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.goal-editor-sheet {
+  width: 100%;
+  max-height: 92vh;
+  background-color: var(--surface);
+  border-top-left-radius: 28rpx;
+  border-top-right-radius: 28rpx;
+  padding: 16rpx 32rpx 48rpx;
+  box-shadow: 0 -4rpx 24rpx rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.goal-editor-handle {
+  width: 80rpx;
+  height: 6rpx;
+  border-radius: 3rpx;
+  background-color: var(--border-subtle);
+  margin: 4rpx auto 16rpx;
+}
+.goal-editor-title {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 24rpx;
+}
+.goal-editor-label {
+  font-size: 24rpx;
+  margin-top: 16rpx;
+  margin-bottom: 8rpx;
+}
+
+.goal-editor-toggle {
+  display: flex;
+  flex-direction: row;
+  gap: 16rpx;
+  margin-bottom: 8rpx;
+}
+.goal-editor-toggle-item {
+  flex: 1;
+  padding: 24rpx;
+  border-radius: 16rpx;
+  border: 2rpx solid var(--border-subtle);
+  background-color: var(--surface-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+.goal-editor-toggle-item--active {
+  border-color: var(--primary);
+  background-color: var(--primary-soft, rgba(30, 142, 91, 0.08));
+}
+.goal-editor-toggle-label {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text);
+}
+.goal-editor-toggle-desc {
+  font-size: 22rpx;
+}
+
+.goal-editor-input {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx;
+  border-radius: 12rpx;
+  border: 2rpx solid var(--border-subtle);
+  background-color: var(--surface-subtle);
+  margin-bottom: 8rpx;
+}
+.goal-editor-input--text {
+  font-size: 28rpx;
+  color: var(--text);
+}
+.goal-editor-input-value {
+  font-size: 28rpx;
+  color: var(--text);
+}
+.goal-editor-input-chev {
+  font-size: 32rpx;
+}
+.goal-editor-hint {
+  font-size: 22rpx;
+  margin-top: 4rpx;
+  margin-bottom: 8rpx;
+}
+.goal-editor-error {
+  font-size: 24rpx;
+  margin-top: 16rpx;
+}
+.goal-editor-actions {
+  display: flex;
+  flex-direction: row;
+  gap: 16rpx;
+  margin-top: 32rpx;
+}
+.goal-editor-actions .ts-button {
+  flex: 1;
+}
+

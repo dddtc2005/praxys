@@ -141,3 +141,11 @@
   padding: 0 8rpx 32rpx;
 }
 .settings-action-btn { width: 100%; }
+
+// Manual sync button sits inside the Connections card body, not the
+// bottom action stack — sync is a property of the platforms, not a
+// generic account action.
+.settings-sync-btn {
+  margin-top: 16rpx;
+  width: 100%;
+}

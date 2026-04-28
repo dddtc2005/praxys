@@ -110,6 +110,14 @@
               </view>
             </view>
           </block>
+
+          <button
+            class="ts-button ts-button--secondary sci-use-btn"
+            data-pillar="{{row.pillar}}"
+            data-id="{{alt.id}}"
+            bindtap="onSelectTheory"
+            disabled="{{selectingPillar === row.pillar}}"
+          >{{tr.useThis}}</button>
         </view>
       </view>
 
