@@ -17,7 +17,7 @@
     "@fontsource-variable/geist": "^5.2.8",
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
     "@fontsource-variable/noto-sans-sc": "^5.2.10",
-    "@lingui/core": "^5.9.5",
+    "@lingui/core": "^6.0.0",
     "@lingui/detect-locale": "^5.9.5",
     "@lingui/react": "^5.9.5",
     "@microsoft/applicationinsights-web": "^3.4.1",
