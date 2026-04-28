@@ -1,5 +1,10 @@
 <view class="bar-chart">
-  <view class="bar-chart-wrap" bindtap="onChartTap">
+  <view
+    class="bar-chart-wrap"
+    bindtap="onChartTap"
+    bindtouchstart="onChartTouchStart"
+    bindtouchmove="onChartTouchMove"
+  >
     <canvas
       type="2d"
       id="{{canvasId}}"

@@ -47,6 +47,7 @@ Component({
     tooltipWeek: '',
     tooltipText: '',
     _tapToken: 0,
+    _rect: null as null | { left: number; width: number },
   },
 
   lifetimes: {
@@ -66,59 +67,73 @@ Component({
   },
 
   methods: {
-    onChartTap(e: WechatMiniprogram.TouchEvent) {
-      // Map tap x to a week-group index. Each group is groupWidth wide
-      // starting at plotLeft; clamp to valid range.
-      const canvasId = this.data.canvasId as string;
+    _updateTooltipAtX(pageX: number, rect: { left: number; width: number }) {
       const weeks = this.data.weeks as string[];
       const planned = this.data.planned as number[];
       const actual = this.data.actual as number[];
       if (weeks.length === 0) return;
 
-      const tapPageX = (e.detail as { x?: number; y?: number })?.x ?? 0;
-      const dataMut = this.data as unknown as { _tapToken: number };
+      const plotLeft = PADDING.left;
+      const plotWidth = rect.width - plotLeft - PADDING.right;
+      if (plotWidth <= 0) return;
+
+      const relX = pageX - rect.left - plotLeft;
+      const groupWidth = plotWidth / weeks.length;
+      const idx = Math.max(0, Math.min(weeks.length - 1, Math.floor(relX / groupWidth)));
+
+      const groupCenterX = plotLeft + (idx + 0.5) * groupWidth;
+      const week = weeks[idx] ?? '';
+      const p = planned[idx] ?? 0;
+      const a = actual[idx] ?? 0;
+      const pct = p > 0 ? Math.round((a / p) * 100) : null;
+      const text =
+        pct != null
+          ? `${Math.round(a)} / ${Math.round(p)} · ${pct}%`
+          : `${Math.round(a)}${p > 0 ? ` / ${Math.round(p)}` : ''}`;
+
+      this.setData({
+        tooltipVisible: true,
+        tooltipLeft: groupCenterX,
+        tooltipWeek: week,
+        tooltipText: text,
+      });
+    },
+
+    onChartTouchStart(e: WechatMiniprogram.TouchEvent) {
+      const canvasId = this.data.canvasId as string;
+      const dataMut = this.data as unknown as {
+        _tapToken: number;
+        _rect: { left: number; width: number } | null;
+      };
       const tapToken = ++dataMut._tapToken;
+      const startX = e.touches?.[0]?.clientX ?? 0;
       const query = wx.createSelectorQuery().in(this);
       const selector = query.select(`#${canvasId}`).boundingClientRect();
       (selector as unknown as Record<string, (cb: (res: unknown) => void) => void>)[
         RUN_QUERY
       ]((res: unknown) => {
-        // Drop callbacks invalidated by a refetch / tap-burst — without
-        // the guard a stale rect can drive setData on the wrong dataset.
         if (tapToken !== dataMut._tapToken) return;
         const rect = (Array.isArray(res) ? res[0] : res) as
           | { left: number; width: number }
           | null;
         if (!rect || !rect.width) return;
-
-        const plotLeft = PADDING.left;
-        const plotWidth = rect.width - plotLeft - PADDING.right;
-        if (plotWidth <= 0) return;
-
-        const relX = tapPageX - rect.left - plotLeft;
-        const groupWidth = plotWidth / weeks.length;
-        const idx = Math.max(
-          0,
-          Math.min(weeks.length - 1, Math.floor(relX / groupWidth)),
-        );
-
-        const groupCenterX = plotLeft + (idx + 0.5) * groupWidth;
-        const week = weeks[idx] ?? '';
-        const p = planned[idx] ?? 0;
-        const a = actual[idx] ?? 0;
-        const pct = p > 0 ? Math.round((a / p) * 100) : null;
-        const text =
-          pct != null
-            ? `${Math.round(a)} / ${Math.round(p)} · ${pct}%`
-            : `${Math.round(a)}${p > 0 ? ` / ${Math.round(p)}` : ''}`;
-
-        this.setData({
-          tooltipVisible: true,
-          tooltipLeft: groupCenterX,
-          tooltipWeek: week,
-          tooltipText: text,
-        });
+        dataMut._rect = rect;
+        this._updateTooltipAtX(startX, rect);
       });
+    },
+
+    onChartTouchMove(e: WechatMiniprogram.TouchEvent) {
+      const dataMut = this.data as unknown as {
+        _rect: { left: number; width: number } | null;
+      };
+      const rect = dataMut._rect;
+      if (!rect) return;
+      const x = e.touches?.[0]?.clientX ?? 0;
+      this._updateTooltipAtX(x, rect);
+    },
+
+    onChartTap() {
+      // Touchstart owns the gesture.
     },
 
     drawChart() {

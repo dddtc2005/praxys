@@ -23,19 +23,16 @@
     </block>
 
     <block wx:elif="{{hasResponse}}">
-    <!-- Change-goal action lives at the top so it's always reachable
-         regardless of which mode is being rendered below. -->
-    <view class="goal-actions">
-      <button class="ts-button ts-button--secondary goal-edit-btn" bindtap="onOpenEditor">
-        {{tr.changeGoal}}
-      </button>
-    </view>
 
     <!-- ============================================================
          RACE-DATE MODE
          ============================================================ -->
     <block wx:if="{{mode === 'race_date'}}">
       <view class="ts-card goal-hero">
+        <view class="goal-edit-affordance" bindtap="onOpenEditor">
+          <view class="goal-edit-affordance__icon"></view>
+          <text class="goal-edit-affordance__label">{{tr.changeGoal}}</text>
+        </view>
         <text class="ts-section-label">{{rdDistLabel}} Countdown</text>
         <view class="goal-countdown-block">
           <text class="goal-countdown-value ts-value" wx:if="{{rdHasDays}}">{{rdDaysLeft}}</text>
@@ -104,6 +101,10 @@
          ============================================================ -->
     <block wx:elif="{{mode === 'cp_milestone'}}">
       <view class="ts-card goal-hero">
+        <view class="goal-edit-affordance" bindtap="onOpenEditor">
+          <view class="goal-edit-affordance__icon"></view>
+          <text class="goal-edit-affordance__label">{{tr.changeGoal}}</text>
+        </view>
         <text class="ts-section-label">{{cmHero}}</text>
 
         <view
@@ -166,6 +167,10 @@
          ============================================================ -->
     <block wx:elif="{{mode === 'continuous' || mode === 'none'}}">
       <view class="ts-card goal-hero">
+        <view class="goal-edit-affordance" bindtap="onOpenEditor">
+          <view class="goal-edit-affordance__icon"></view>
+          <text class="goal-edit-affordance__label">{{tr.changeGoal}}</text>
+        </view>
         <text class="ts-section-label">{{tr.currentFitness}}</text>
         <view class="goal-cont-row">
           <text class="goal-cont-cp ts-value">{{ctCurrentCp}}</text>
@@ -253,8 +258,13 @@
        picker so the touch interaction is on-platform. -->
   <view wx:if="{{editorOpen}}" class="goal-editor-mask" bindtap="onCloseEditor">
     <view class="goal-editor-sheet" catchtap="onSheetTap">
-      <view class="goal-editor-handle"></view>
-      <text class="goal-editor-title">{{tr.editorTitle}}</text>
+      <view class="goal-editor-header">
+        <view class="goal-editor-close" bindtap="onCloseEditor" aria-label="Close">
+          <text class="goal-editor-close-glyph">×</text>
+        </view>
+        <text class="goal-editor-title">{{tr.editorTitle}}</text>
+        <view class="goal-editor-header-spacer"></view>
+      </view>
 
       <text class="goal-editor-label ts-muted">{{tr.goalType}}</text>
       <view class="goal-editor-toggle">

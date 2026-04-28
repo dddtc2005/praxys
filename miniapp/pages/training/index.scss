@@ -150,8 +150,14 @@
   border: 1rpx solid rgba(139, 147, 167, 0.6);
 }
 
-.train-bar-legend-dot--actual {
-  background-color: var(--primary);
+.train-bar-legend-dot--ok {
+  background-color: #00ff87; // matches COMPLIANCE_GREEN
+}
+.train-bar-legend-dot--off {
+  background-color: #f59e0b; // matches COMPLIANCE_AMBER (under or over)
+}
+.train-bar-legend-dot--noplan {
+  background-color: #8b93a7; // matches COMPLIANCE_GRAY (no plan / no actual)
 }
 
 .train-bar-legend-label {

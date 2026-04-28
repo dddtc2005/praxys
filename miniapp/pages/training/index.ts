@@ -20,6 +20,9 @@ function buildTrainingTr() {
     suggestions: t('Suggestions'),
     plannedLabel: t('Planned'),
     actualLabel: t('Actual'),
+    complianceOk: t('On target'),
+    complianceOff: t('Off target'),
+    complianceNoPlan: t('No plan'),
   };
 }
 import {
@@ -215,9 +218,14 @@ function findingClassName(type: string | undefined): string {
 const COMPLIANCE_GREEN = '#00ff87';
 const COMPLIANCE_AMBER = '#f59e0b';
 const COMPLIANCE_RED = '#ef4444';
+// Used when a week has no plan to compare against — actual is shown
+// neutrally rather than coloring it green (which implied "on plan"
+// when there was no plan to be on).
+const COMPLIANCE_GRAY = '#8b93a7';
 
 function complianceColor(planned: number | null, actual: number | null): string {
-  if (planned == null || planned <= 0 || actual == null) return COMPLIANCE_GREEN;
+  if (actual == null) return COMPLIANCE_GRAY;
+  if (planned == null || planned <= 0) return COMPLIANCE_GRAY;
   const pct = (actual / planned) * 100;
   if (pct < 80) return COMPLIANCE_AMBER;
   if (pct > 120) return COMPLIANCE_RED;

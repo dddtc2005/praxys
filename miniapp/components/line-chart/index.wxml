@@ -9,7 +9,13 @@
       <text class="line-chart-legend-label">{{item.label}}</text>
     </view>
   </view>
-  <view class="line-chart-wrap" bindtap="onChartTap">
+  <view
+    class="line-chart-wrap"
+    bindtap="onChartTap"
+    bindtouchstart="onChartTouchStart"
+    bindtouchmove="onChartTouchMove"
+    bindtouchend="onChartTouchEnd"
+  >
     <canvas
       type="2d"
       id="{{canvasId}}"

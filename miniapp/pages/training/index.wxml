@@ -115,8 +115,16 @@
               <text class="train-bar-legend-label">{{tr.plannedLabel}}</text>
             </view>
             <view class="train-bar-legend-item">
-              <view class="train-bar-legend-dot train-bar-legend-dot--actual"></view>
-              <text class="train-bar-legend-label">{{tr.actualLabel}}</text>
+              <view class="train-bar-legend-dot train-bar-legend-dot--ok"></view>
+              <text class="train-bar-legend-label">{{tr.complianceOk}}</text>
+            </view>
+            <view class="train-bar-legend-item">
+              <view class="train-bar-legend-dot train-bar-legend-dot--off"></view>
+              <text class="train-bar-legend-label">{{tr.complianceOff}}</text>
+            </view>
+            <view class="train-bar-legend-item">
+              <view class="train-bar-legend-dot train-bar-legend-dot--noplan"></view>
+              <text class="train-bar-legend-label">{{tr.complianceNoPlan}}</text>
             </view>
           </view>
           <bar-chart

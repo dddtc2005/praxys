@@ -75,6 +75,11 @@ Component({
     // instance-field declaration; setData is never called for it (we
     // mutate in place and rely on the closure-captured snapshot per tap).
     _tapToken: 0,
+    // Canvas rect cached at touchstart so touchmove can move the tooltip
+    // at 60fps without re-querying SelectorQuery for every move event.
+    // Refreshed on every gesture start so scroll / keyboard / theme
+    // change can never serve a stale rect.
+    _rect: null as null | { left: number; width: number },
   },
 
   lifetimes: {
@@ -99,65 +104,95 @@ Component({
   },
 
   methods: {
-    onChartTap(e: WechatMiniprogram.TouchEvent) {
-      // Snap the tooltip to the nearest data point's x — feels more
-      // deliberate than "value at the exact tap" since lines have
-      // implicit data points only at series indices.
-      const canvasId = this.data.canvasId as string;
+    /**
+     * Update the tooltip given an absolute pageX and a cached rect.
+     * Pure setData — no SelectorQuery — so it's cheap enough to call
+     * on every touchmove (60fps).
+     */
+    _updateTooltipAtX(pageX: number, rect: { left: number; width: number }) {
       const series = this.data.series as LineSeries[];
       if (!series || series.length === 0) return;
       const n = Math.max(0, ...series.map((s) => s.values.length));
       if (n < 2) return;
 
-      const tapPageX = (e.detail as { x?: number; y?: number })?.x ?? 0;
-      const dataMut = this.data as unknown as { _tapToken: number };
+      const showAxes = this.data.showAxes as boolean;
+      const plotLeft = showAxes ? PADDING.left : 0;
+      const plotWidth = rect.width - plotLeft - PADDING.right;
+      if (plotWidth <= 0) return;
+
+      const relX = pageX - rect.left;
+      const ratio = (relX - plotLeft) / plotWidth;
+      const idx = Math.max(0, Math.min(n - 1, Math.round(ratio * (n - 1))));
+      const snappedX = plotLeft + (idx / (n - 1)) * plotWidth;
+
+      const dates = this.data.dates as string[];
+      const date = dates && dates.length > idx ? dates[idx] : '';
+
+      const seriesValues = series
+        .map((s) => ({ label: s.label, value: s.values[idx] as number | null }))
+        .filter((sv): sv is { label: string; value: number } => sv.value != null);
+      if (seriesValues.length === 0) return;
+
+      const tooltipRows =
+        seriesValues.length === 1
+          ? [{ label: '', value: formatValue(seriesValues[0].value) }]
+          : seriesValues.map((sv) => ({ label: sv.label, value: formatValue(sv.value) }));
+
+      this.setData({
+        tooltipVisible: true,
+        tooltipLeft: snappedX,
+        tooltipDate: date,
+        tooltipRows,
+      });
+    },
+
+    /**
+     * Cache the canvas rect at the start of every gesture so touchmove
+     * can update the tooltip without round-tripping through
+     * SelectorQuery for each event. Also handles the immediate "tap
+     * here" feedback so the user sees the tooltip the moment their
+     * finger lands, before they start dragging.
+     */
+    onChartTouchStart(e: WechatMiniprogram.TouchEvent) {
+      const canvasId = this.data.canvasId as string;
+      const dataMut = this.data as unknown as {
+        _tapToken: number;
+        _rect: { left: number; width: number } | null;
+      };
       const tapToken = ++dataMut._tapToken;
+      const startX = e.touches?.[0]?.clientX ?? 0;
       const query = wx.createSelectorQuery().in(this);
       const selector = query.select(`#${canvasId}`).boundingClientRect();
       (selector as unknown as Record<string, (cb: (res: unknown) => void) => void>)[
         RUN_QUERY
       ]((res: unknown) => {
-        // Drop callbacks from earlier taps that the user has invalidated
-        // (rapid tap, refetch, observer redraw). Without the guard, an
-        // older callback can stomp the latest tooltip with stale data.
         if (tapToken !== dataMut._tapToken) return;
         const rect = (Array.isArray(res) ? res[0] : res) as
           | { left: number; width: number }
           | null;
         if (!rect || !rect.width) return;
-
-        const showAxes = this.data.showAxes as boolean;
-        const plotLeft = showAxes ? PADDING.left : 0;
-        const plotWidth = rect.width - plotLeft - PADDING.right;
-        if (plotWidth <= 0) return;
-
-        const relX = tapPageX - rect.left;
-        const ratio = (relX - plotLeft) / plotWidth;
-        const idx = Math.max(0, Math.min(n - 1, Math.round(ratio * (n - 1))));
-        const snappedX = plotLeft + (idx / (n - 1)) * plotWidth;
-
-        const dates = this.data.dates as string[];
-        const date = dates && dates.length > idx ? dates[idx] : '';
-
-        const seriesValues = series
-          .map((s) => ({ label: s.label, value: s.values[idx] as number | null }))
-          .filter((sv): sv is { label: string; value: number } => sv.value != null);
-        if (seriesValues.length === 0) return;
-
-        // Single-series charts don't need a label column — show just the
-        // value. Multi-series shows label + value per row.
-        const tooltipRows =
-          seriesValues.length === 1
-            ? [{ label: '', value: formatValue(seriesValues[0].value) }]
-            : seriesValues.map((sv) => ({ label: sv.label, value: formatValue(sv.value) }));
-
-        this.setData({
-          tooltipVisible: true,
-          tooltipLeft: snappedX,
-          tooltipDate: date,
-          tooltipRows,
-        });
+        dataMut._rect = rect;
+        this._updateTooltipAtX(startX, rect);
       });
+    },
+
+    onChartTouchMove(e: WechatMiniprogram.TouchEvent) {
+      const dataMut = this.data as unknown as {
+        _rect: { left: number; width: number } | null;
+      };
+      const rect = dataMut._rect;
+      if (!rect) return; // touchstart hasn't resolved yet; will catch up on next move
+      const x = e.touches?.[0]?.clientX ?? 0;
+      this._updateTooltipAtX(x, rect);
+    },
+
+    /** Tap = touchstart + touchend without significant move. The
+     *  touchstart handler already showed the tooltip; nothing more to
+     *  do here, but the binding is kept on the wrapper so taps without
+     *  finger movement still register as deliberate (the cached rect
+     *  was set in touchstart). Implemented as a no-op for now. */
+    onChartTap() {
+      // No-op — touchstart owns the gesture.
     },
 
     drawChart() {

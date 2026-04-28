@@ -47,6 +47,7 @@ Component({
     tooltipTop: 0,
     tooltipText: '',
     _tapToken: 0,
+    _rect: null as null | { left: number; top: number; width: number; height: number },
   },
 
   lifetimes: {
@@ -66,92 +67,113 @@ Component({
   },
 
   methods: {
-    onChartTap(e: WechatMiniprogram.TouchEvent) {
-      // Find the closest point in (x, y) by Euclidean distance in canvas
-      // pixels — this is what users expect when tapping a scatter.
-      const canvasId = this.data.canvasId as string;
+    /** Pure update — no SelectorQuery — given the cached rect. */
+    _updateTooltipAtPoint(
+      pageX: number,
+      pageY: number,
+      rect: { left: number; top: number; width: number; height: number },
+    ) {
       const pairs = this.data.pairs as [number, number][];
       if (!pairs || pairs.length === 0) return;
 
-      const tapPageX = (e.detail as { x?: number; y?: number })?.x ?? 0;
-      const tapPageY = (e.detail as { x?: number; y?: number })?.y ?? 0;
-      const dataMut = this.data as unknown as { _tapToken: number };
+      const xs = pairs.map((p) => p[0]);
+      const ys = pairs.map((p) => p[1]);
+      const xMinRaw = Math.min(...xs);
+      const xMaxRaw = Math.max(...xs);
+      const yMinRaw = Math.min(...ys);
+      const yMaxRaw = Math.max(...ys);
+      const xPad = (xMaxRaw - xMinRaw) * 0.08 || 1;
+      const yPad = (yMaxRaw - yMinRaw) * 0.08 || 1;
+      const xMin = xMinRaw - xPad;
+      const xMax = xMaxRaw + xPad;
+      const yMin = yMinRaw - yPad;
+      const yMax = yMaxRaw + yPad;
+
+      const plotLeft = PADDING.left;
+      const plotRight = rect.width - PADDING.right;
+      const plotTop = PADDING.top;
+      const plotBottom = rect.height - PADDING.bottom;
+      const plotWidth = plotRight - plotLeft;
+      const plotHeight = plotBottom - plotTop;
+
+      const xScale = (v: number) => plotLeft + ((v - xMin) / (xMax - xMin)) * plotWidth;
+      const yScale = (v: number) => plotBottom - ((v - yMin) / (yMax - yMin)) * plotHeight;
+
+      const tapRelX = pageX - rect.left;
+      const tapRelY = pageY - rect.top;
+      let bestIdx = 0;
+      let bestDist = Infinity;
+      for (let i = 0; i < pairs.length; i++) {
+        const px = xScale(pairs[i][0]);
+        const py = yScale(pairs[i][1]);
+        const d = (px - tapRelX) * (px - tapRelX) + (py - tapRelY) * (py - tapRelY);
+        if (d < bestDist) {
+          bestDist = d;
+          bestIdx = i;
+        }
+      }
+      // Reject taps/drags that are way off (>100px from any point) so the
+      // tooltip doesn't latch onto a wildly distant point during a drag.
+      if (Math.sqrt(bestDist) > 100) {
+        this.setData({ tooltipVisible: false });
+        return;
+      }
+
+      const [px, py] = pairs[bestIdx];
+      const yIsPace = this.data.yIsPace as boolean;
+      const yText = yIsPace
+        ? `${Math.floor(py / 60)}:${String(Math.round(py % 60)).padStart(2, '0')}`
+        : py >= 100
+          ? py.toFixed(0)
+          : py.toFixed(1);
+      const xText = px >= 1 ? Math.round(px).toString() : px.toFixed(2);
+      const text = `Sleep ${xText} · ${yText}`;
+
+      this.setData({
+        tooltipVisible: true,
+        tooltipLeft: xScale(px),
+        tooltipTop: yScale(py),
+        tooltipText: text,
+      });
+    },
+
+    onChartTouchStart(e: WechatMiniprogram.TouchEvent) {
+      const canvasId = this.data.canvasId as string;
+      const dataMut = this.data as unknown as {
+        _tapToken: number;
+        _rect: { left: number; top: number; width: number; height: number } | null;
+      };
       const tapToken = ++dataMut._tapToken;
+      const startX = e.touches?.[0]?.clientX ?? 0;
+      const startY = e.touches?.[0]?.clientY ?? 0;
       const query = wx.createSelectorQuery().in(this);
       const selector = query.select(`#${canvasId}`).boundingClientRect();
       (selector as unknown as Record<string, (cb: (res: unknown) => void) => void>)[
         RUN_QUERY
       ]((res: unknown) => {
-        // Drop callbacks from earlier taps invalidated by a refetch / tap-
-        // burst — without the guard a stale rect can drive setData on the
-        // wrong dataset.
         if (tapToken !== dataMut._tapToken) return;
         const rect = (Array.isArray(res) ? res[0] : res) as
           | { left: number; top: number; width: number; height: number }
           | null;
         if (!rect || !rect.width || !rect.height) return;
-
-        const xs = pairs.map((p) => p[0]);
-        const ys = pairs.map((p) => p[1]);
-        const xMinRaw = Math.min(...xs);
-        const xMaxRaw = Math.max(...xs);
-        const yMinRaw = Math.min(...ys);
-        const yMaxRaw = Math.max(...ys);
-        const xPad = (xMaxRaw - xMinRaw) * 0.08 || 1;
-        const yPad = (yMaxRaw - yMinRaw) * 0.08 || 1;
-        const xMin = xMinRaw - xPad;
-        const xMax = xMaxRaw + xPad;
-        const yMin = yMinRaw - yPad;
-        const yMax = yMaxRaw + yPad;
-
-        const plotLeft = PADDING.left;
-        const plotRight = rect.width - PADDING.right;
-        const plotTop = PADDING.top;
-        const plotBottom = rect.height - PADDING.bottom;
-        const plotWidth = plotRight - plotLeft;
-        const plotHeight = plotBottom - plotTop;
-
-        const xScale = (v: number) => plotLeft + ((v - xMin) / (xMax - xMin)) * plotWidth;
-        const yScale = (v: number) => plotBottom - ((v - yMin) / (yMax - yMin)) * plotHeight;
-
-        const tapRelX = tapPageX - rect.left;
-        const tapRelY = tapPageY - rect.top;
-        let bestIdx = 0;
-        let bestDist = Infinity;
-        for (let i = 0; i < pairs.length; i++) {
-          const px = xScale(pairs[i][0]);
-          const py = yScale(pairs[i][1]);
-          const d = (px - tapRelX) * (px - tapRelX) + (py - tapRelY) * (py - tapRelY);
-          if (d < bestDist) {
-            bestDist = d;
-            bestIdx = i;
-          }
-        }
-        // Reject taps that are way off (>100px from any point)
-        if (Math.sqrt(bestDist) > 100) {
-          this.setData({ tooltipVisible: false });
-          return;
-        }
-
-        const [px, py] = pairs[bestIdx];
-        const yIsPace = this.data.yIsPace as boolean;
-        // y is power/HR — the value being formatted. Use its own magnitude
-        // to decide decimal places, not the x-axis sleep-score.
-        const yText = yIsPace
-          ? `${Math.floor(py / 60)}:${String(Math.round(py % 60)).padStart(2, '0')}`
-          : py >= 100
-            ? py.toFixed(0)
-            : py.toFixed(1);
-        const xText = px >= 1 ? Math.round(px).toString() : px.toFixed(2);
-        const text = `Sleep ${xText} · ${yText}`;
-
-        this.setData({
-          tooltipVisible: true,
-          tooltipLeft: xScale(px),
-          tooltipTop: yScale(py),
-          tooltipText: text,
-        });
+        dataMut._rect = rect;
+        this._updateTooltipAtPoint(startX, startY, rect);
       });
+    },
+
+    onChartTouchMove(e: WechatMiniprogram.TouchEvent) {
+      const dataMut = this.data as unknown as {
+        _rect: { left: number; top: number; width: number; height: number } | null;
+      };
+      const rect = dataMut._rect;
+      if (!rect) return;
+      const x = e.touches?.[0]?.clientX ?? 0;
+      const y = e.touches?.[0]?.clientY ?? 0;
+      this._updateTooltipAtPoint(x, y, rect);
+    },
+
+    onChartTap() {
+      // Touchstart owns the gesture.
     },
 
     drawChart() {

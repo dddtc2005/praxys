@@ -165,10 +165,18 @@ page {
   color: var(--text);
   border: 2rpx solid var(--border);
   border-radius: 12rpx;
-  padding: 28rpx 24rpx;
+  // 22rpx vertical (was 28rpx) — drops the input from ~84rpx tall to
+  // ~76rpx so it feels less chunky in a stacked form. Horizontal stays
+  // at 24rpx for thumb-friendly tap padding.
+  padding: 22rpx 24rpx;
   font-size: 30rpx;
   width: 100%;
   box-sizing: border-box;
+  // Inline cursor color so the WeChat <input> renders the caret in
+  // brand green even when CSS vars don't propagate.
+  &:focus {
+    border-color: var(--primary);
+  }
 }
 
 .theme-light .ts-input {

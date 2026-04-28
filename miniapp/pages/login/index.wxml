@@ -70,6 +70,9 @@
         type="text"
         placeholder="{{tr.emailPlaceholder}}"
         placeholder-style="color: #8b93a7;"
+        style="color: {{themeClass === 'theme-light' ? '#15192a' : '#e8ebf0'}};"
+        cursor-spacing="{{40}}"
+        adjust-position="{{true}}"
         value="{{linkEmail}}"
         bindinput="onLinkEmailInput"
       />
@@ -78,6 +81,9 @@
         password="{{true}}"
         placeholder="{{tr.passwordPlaceholder}}"
         placeholder-style="color: #8b93a7;"
+        style="color: {{themeClass === 'theme-light' ? '#15192a' : '#e8ebf0'}};"
+        cursor-spacing="{{40}}"
+        adjust-position="{{true}}"
         value="{{linkPassword}}"
         bindinput="onLinkPasswordInput"
       />

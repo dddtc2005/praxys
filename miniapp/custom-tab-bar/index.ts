@@ -35,6 +35,22 @@ function buildTabs(): TabConfig[] {
 
 const TABS: TabConfig[] = buildTabs();
 
+function resolveCurrentTheme(): 'dark' | 'light' {
+  const stored = wx.getStorageSync<string>('praxys-theme') || 'auto';
+  if (stored === 'dark') return 'dark';
+  if (stored === 'light') return 'light';
+  try {
+    const info =
+      typeof wx.getAppBaseInfo === 'function'
+        ? wx.getAppBaseInfo()
+        : (wx.getSystemInfoSync() as unknown as { theme?: string });
+    if (info.theme === 'dark') return 'dark';
+  } catch {
+    /* fall back to light */
+  }
+  return 'light';
+}
+
 Component({
   options: { addGlobalClass: true },
 
@@ -44,16 +60,30 @@ Component({
     themeClass: 'theme-light',
   },
 
+  lifetimes: {
+    // First paint when the Component instance is created (per-page).
+    // Read theme + locale here so the bar renders correctly without
+    // waiting for the first pageLifetimes.show.
+    attached() {
+      this.setData({
+        tabs: buildTabs(),
+        themeClass: `theme-${resolveCurrentTheme()}`,
+      });
+    },
+  },
+
   pageLifetimes: {
     show() {
-      // Refresh tab labels in case the user just changed Language. This
-      // is the cheapest safe place — every tab page's onShow runs the
-      // component's pageLifetimes.show.
-      this.setData({ tabs: buildTabs() });
+      // Refresh on every tab-page show — covers Language switch
+      // (reLaunch) and Theme switch (reLaunch). We always setData on
+      // both fields, even when the value matches, so a real-device
+      // glitch where the previous setData didn't paint gets a second
+      // chance. The cost is one extra render per page-show, which is
+      // imperceptible on a 5-item tab bar.
+      const themeClass = `theme-${resolveCurrentTheme()}`;
+      this.setData({ tabs: buildTabs(), themeClass });
 
       // Snap selected index to whichever tab page is currently active.
-      // Runs every time a tab page comes to foreground — covers initial
-      // launch, tab switches, and pop-from-sub-page.
       const pages = getCurrentPages();
       const top = pages[pages.length - 1];
       if (!top) return;
@@ -61,24 +91,6 @@ Component({
       if (idx >= 0 && idx !== this.data.selected) {
         this.setData({ selected: idx });
       }
-      // Also pull the current theme so the bar repaints when the user
-      // switches Light/Dark from Settings.
-      const stored = wx.getStorageSync<string>('praxys-theme') || 'auto';
-      let resolved: 'dark' | 'light' = 'light';
-      if (stored === 'dark') resolved = 'dark';
-      else if (stored === 'auto') {
-        try {
-          const info =
-            typeof wx.getAppBaseInfo === 'function'
-              ? wx.getAppBaseInfo()
-              : (wx.getSystemInfoSync() as unknown as { theme?: string });
-          if (info.theme === 'dark') resolved = 'dark';
-        } catch {
-          /* fall back to light */
-        }
-      }
-      const themeClass = `theme-${resolved}`;
-      if (themeClass !== this.data.themeClass) this.setData({ themeClass });
     },
   },
 

@@ -17,13 +17,14 @@
 // reading band, and the explicit `margin-top` on the footer sets the
 // gap between stack and footer to a fixed, comfortable distance.
 .login-root {
-  // Lock to viewport height + disableScroll (set in index.json) so the
-  // page cannot scroll. Math: on the smallest mainstream device
-  // (iPhone SE, 1230rpx tall) the composition needs ~1080rpx including
-  // padding; the centered layout tolerates the slack everywhere else.
-  // height (not min-height) clamps a too-tall content block to the
-  // viewport so a future addition can't accidentally re-introduce scroll.
-  height: 100vh;
+  // min-height (not height) so the page can scroll when needed — the
+  // link stage opens the keyboard, and WeChat's adjust-position needs
+  // a scrollable page to push the focused input into view. Idle stage
+  // composition fits in 100vh with no scroll happening naturally.
+  // Disabling scroll altogether (which we tried before) broke
+  // keyboard handling on the link stage; the user couldn't see the
+  // input they were typing into.
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -32,7 +33,6 @@
            calc(56rpx + env(safe-area-inset-bottom));
   text-align: center;
   position: relative;
-  overflow: hidden;
 }
 
 // Brand stack — mark, wordmark, hero, description, CTA. Natural height,
