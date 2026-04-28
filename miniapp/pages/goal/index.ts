@@ -27,6 +27,7 @@ function buildGoalTr() {
     // Page-level chrome
     failedToLoad: t('Failed to load'),
     retry: t('Retry'),
+    edit: t('Edit'),
     realityCheck: t('Reality Check'),
     fitnessTrend: t('Fitness Trend'),
     currentFitness: t('Current Fitness'),

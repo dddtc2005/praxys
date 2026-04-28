@@ -1,5 +1,10 @@
 <view class="goal-root {{themeClass}}">
-  <nav-bar title="Goal" theme-class="{{themeClass}}" />
+  <nav-bar
+    title="Goal"
+    theme-class="{{themeClass}}"
+    right-text="{{tr.edit}}"
+    bindrightaction="onOpenEditor"
+  />
 
   <scroll-view
     scroll-y="{{true}}"
@@ -179,10 +184,6 @@
         <view wx:if="{{ctHasPredicted}}" class="goal-cont-predicted">
           <text class="goal-time-label ts-muted">Predicted {{ctDistLabel}}</text>
           <text class="goal-time-value ts-value">{{ctPredictedTime}}</text>
-        </view>
-        <view class="goal-change-goal-row" bindtap="onOpenEditor">
-          <view class="goal-inline-edit"></view>
-          <text class="goal-change-goal-label ts-muted">Change goal</text>
         </view>
       </view>
 
