@@ -49,15 +49,12 @@
       </view>
 
       <view class="ts-section">
-        <text class="ts-section-label">{{tr.trainingBase}}</text>
-        <view class="settings-theme-row">
-          <text
-            wx:for="{{trainingBaseOptions}}"
-            wx:key="key"
-            class="{{item.className}}"
-            data-base="{{item.key}}"
-            bindtap="onPickTrainingBase"
-          >{{item.label}}</text>
+        <view class="settings-pick-row" bindtap="onPickTrainingBase">
+          <text class="settings-pick-label ts-muted">{{tr.trainingBase}}</text>
+          <view class="settings-pick-right">
+            <text class="settings-pick-value ts-value">{{trainingBaseLabel}}</text>
+            <text class="settings-pick-chev ts-muted">›</text>
+          </view>
         </view>
         <text class="settings-hint ts-muted">{{tr.trainingBaseHint}}</text>
       </view>
@@ -94,29 +91,23 @@
       </view>
 
       <view class="ts-section">
-        <text class="ts-section-label">{{tr.theme}}</text>
-        <view class="settings-theme-row">
-          <text
-            wx:for="{{themeOptions}}"
-            wx:key="key"
-            class="{{item.className}}"
-            data-theme="{{item.key}}"
-            bindtap="onPickTheme"
-          >{{item.label}}</text>
+        <view class="settings-pick-row" bindtap="onPickTheme">
+          <text class="settings-pick-label ts-muted">{{tr.theme}}</text>
+          <view class="settings-pick-right">
+            <text class="settings-pick-value ts-value">{{themeLabel}}</text>
+            <text class="settings-pick-chev ts-muted">›</text>
+          </view>
         </view>
         <text class="settings-hint ts-muted">{{tr.themeHint}}</text>
       </view>
 
       <view class="ts-section">
-        <text class="ts-section-label">{{tr.language}}</text>
-        <view class="settings-theme-row">
-          <text
-            wx:for="{{languageOptions}}"
-            wx:key="key"
-            class="{{item.className}}"
-            data-lang="{{item.key}}"
-            bindtap="onPickLanguage"
-          >{{item.label}}</text>
+        <view class="settings-pick-row" bindtap="onPickLanguage">
+          <text class="settings-pick-label ts-muted">{{tr.language}}</text>
+          <view class="settings-pick-right">
+            <text class="settings-pick-value ts-value">{{languageLabel}}</text>
+            <text class="settings-pick-chev ts-muted">›</text>
+          </view>
         </view>
         <text class="settings-hint ts-muted">{{tr.languageHint}}</text>
       </view>

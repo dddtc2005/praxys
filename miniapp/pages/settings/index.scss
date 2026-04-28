@@ -150,3 +150,33 @@
   margin-top: 16rpx;
   width: 100%;
 }
+
+// Nav-row for Training base / Theme / Language — replaces the three
+// pill-button rows. Tap opens wx.showActionSheet (native iOS action
+// sheet). Row shows current value on the right, chevron as the tap cue.
+.settings-pick-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18rpx 0;
+  border-bottom: 1rpx solid var(--border-subtle);
+}
+.settings-pick-label {
+  font-size: 28rpx;
+  color: var(--text);
+}
+.settings-pick-right {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8rpx;
+}
+.settings-pick-value {
+  font-size: 26rpx;
+  color: var(--text-muted);
+}
+.settings-pick-chev {
+  font-size: 30rpx;
+  color: var(--text-muted);
+}
