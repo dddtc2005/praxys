@@ -8,6 +8,14 @@
  * luminance/alpha of the SVG's strokes; the element's background-color
  * is what shows through, so we get a proper monochrome icon that
  * theme-syncs.
+ *
+ * Why not a component icon library? We evaluated TDesign Mini Program
+ * (`<t-icon>`) and Vant Weapp (`<van-icon>`) — both ship hundreds of
+ * icons with a sane API, but each adds ~30-50 KB and a `npm run build`
+ * step in DevTools. For five glyphs that never change, an inline SVG
+ * mask costs 0 KB at runtime, is theme-aware via plain CSS, and skips
+ * the npm-build dance entirely. If the icon set grows past ~12 we'll
+ * reconsider; until then, hand-rolled wins.
  */
 
 .tabbar {

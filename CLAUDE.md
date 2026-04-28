@@ -72,6 +72,13 @@ Domain-specific gotchas (Garmin sync quirks, CIQ field conventions, CN endpoint 
 - **Semantic palette, not just accents**: `primary` (green) = action / positive signal; `accent-cobalt` is reserved for **reasoning** surfaces (`ScienceNote`, "why this", citations). Don't use cobalt for informational chrome and don't use green for reasoning.
 - Authoritative brand guide: `docs/brand/index.html`. Implementation rules: `docs/dev/design-system.md`.
 
+### Web ↔ miniapp parity
+- **Frontend changes should reach both surfaces.** When you add or change a feature in `web/src/`, update the matching `miniapp/pages/` (or component / util) in the same PR — or open a follow-up issue with explicit "miniapp parity gap" labelling. Don't quietly let one client drift.
+- The mini program is **not a desktop port** — it can adapt the layout / chrome / interactions to native mobile conventions, but the *feature set, data model, and write operations should match*. (Sync triggers, settings updates, goal config, language/theme switches, account management — all available on both.)
+- Web is the canonical type source: `web/src/types/api.ts` → synced to `miniapp/types/api.ts` by `miniapp/scripts/sync-types.cjs` (runs on `npm run typecheck`).
+- i18n catalogs are also web-canonical: lingui `.po` files in `web/src/locales/` → consumed by `miniapp/scripts/sync-i18n.cjs`. Add new translatable strings on the web side (or directly to a page's `t(...)` calls) — they propagate to the mini program at typecheck.
+- Visual design **may diverge** between web and miniapp: web is a desktop-first React + shadcn surface; miniapp is a mobile-first Skyline surface with native-feeling chrome (custom nav bar, custom tab bar, FAB share buttons). Keep brand tokens (colors, typography intent, semantic palette) consistent; layout and interaction patterns can be platform-appropriate.
+
 ### Git
 - **Commit / PR subjects state what the change does**, e.g. `Fix Garmin first-time sync…`. This repo is standalone (pushes to `dddtc2005/praxys`) — don't prefix with the folder name. The outer pensieve repo's `trail-running:` convention exists because that repo hosts multiple top-level projects; it doesn't apply here.
 - Commit body explains the *why* (motivation, root cause, trade-off). The diff shows the *what*.
