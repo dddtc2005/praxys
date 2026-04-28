@@ -622,6 +622,10 @@ archive_to_blob() {
     echo "WARN: blob upload failed — local copy is in $OUTDIR" >&2
   fi
   rm -f "$archive_local"
+  # Explicit success: rm -f returns 0 even on missing file, but be
+  # defensive — set -e at the call site shouldn't be tripped by this
+  # function's tail.
+  return 0
 }
 
 upload_inputs
@@ -629,7 +633,17 @@ for device in "${DEVICE_LIST[@]}"; do
   run_one_device "$device"
 done
 
-archive_to_blob
+# A failure inside archive_to_blob (transient az glitch, upload conflict,
+# locale weirdness on Git Bash, etc.) must not blow away a 30-min sweep
+# of just-downloaded HARs. set -e at this scope would treat a non-zero
+# return from the function — or any unexpected stderr line bash mistakes
+# for a command — as fatal. Demote to a warning; OUTDIR is still on disk
+# and the user can re-archive manually:
+#   tar -czf /tmp/manual.tar.gz -C $OUTDIR s*-${PROBE}-* &&
+#   az storage blob upload --account-name stperftrainsight \
+#       --container-name perfbaselines-archive --name <name>.tar.gz \
+#       --file /tmp/manual.tar.gz --overwrite false
+archive_to_blob || echo "WARN: archive_to_blob exited non-zero (rc=$?) — local copy in $OUTDIR is intact" >&2
 
 echo
 echo "Outputs landed in: $OUTDIR"
