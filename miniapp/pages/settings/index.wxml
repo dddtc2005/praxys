@@ -102,9 +102,6 @@
             <text class="settings-pick-chev ts-muted">›</text>
           </view>
         </view>
-      </view>
-
-      <view class="ts-section">
         <view class="settings-pick-row" bindtap="onPickLanguage">
           <text class="settings-pick-label ts-muted">{{tr.language}}</text>
           <view class="settings-pick-right">
