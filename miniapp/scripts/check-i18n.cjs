@@ -170,37 +170,52 @@ function unescapeStr(s) {
 
 function loadCatalogKeys() {
   const collected = new Set();
-  for (const fname of ['i18n-extra.ts', 'i18n-catalog.ts']) {
-    const filePath = path.join(ROOT, 'utils', fname);
-    if (!fs.existsSync(filePath)) continue;
-    const txt = fs.readFileSync(filePath, 'utf8');
-    // Catalog format: `zh: {…}` (i18n-extra.ts) or `"zh": {…}` (i18n-catalog.ts).
+  // i18n-catalog.ts: scoped to the `zh: {…}` block (catalog has both en
+  //   and zh under a single I18N_CATALOG export, and we only care about zh).
+  // i18n-extra.ts:  scan every `const ZH_…` per-section literal. The
+  //   per-locale objects are split across multiple consts so each is
+  //   small enough to spot duplicates in by hand; there's no single
+  //   `zh: {…}` block to anchor on. Picking up every ZH_* literal is
+  //   more robust.
+  const catalogPath = path.join(ROOT, 'utils', 'i18n-catalog.ts');
+  if (fs.existsSync(catalogPath)) {
+    const txt = fs.readFileSync(catalogPath, 'utf8');
     const zhStart = txt.search(/(?:^|[^A-Za-z0-9_])(?:"zh"|zh)\s*:\s*\{/m);
-    if (zhStart < 0) continue;
-    const blockStart = txt.indexOf('{', zhStart);
-    if (blockStart < 0) continue;
-    let depth = 0;
-    let blockEnd = -1;
-    for (let i = blockStart; i < txt.length; i++) {
-      const c = txt[i];
-      if (c === '{') depth++;
-      else if (c === '}') {
-        depth--;
-        if (depth === 0) { blockEnd = i; break; }
-      }
-    }
-    if (blockEnd < 0) continue;
-    const block = txt.slice(blockStart, blockEnd + 1);
-    // Quoted keys: 'foo': '…' / "foo": "…"
-    // Bare-identifier keys: Foo: '…' (legal JS shorthand for safe names).
-    const keyRe = /(?:^|\n|,|\{)\s*(?:'([^'\\]*(?:\\.[^'\\]*)*)'|"([^"\\]*(?:\\.[^"\\]*)*)"|([A-Za-z_$][A-Za-z0-9_$]*))\s*:/g;
+    if (zhStart >= 0) extractKeysFromBlock(txt, zhStart, collected);
+  }
+  const extraPath = path.join(ROOT, 'utils', 'i18n-extra.ts');
+  if (fs.existsSync(extraPath)) {
+    const txt = fs.readFileSync(extraPath, 'utf8');
+    const declRe = /\bconst\s+ZH_[A-Z0-9_]+\s*=\s*\{/g;
     let m;
-    while ((m = keyRe.exec(block))) {
-      const key = unescapeStr(m[1] ?? m[2] ?? m[3] ?? '');
-      if (key) collected.add(key);
+    while ((m = declRe.exec(txt))) {
+      extractKeysFromBlock(txt, m.index, collected);
     }
   }
   return collected;
+}
+
+function extractKeysFromBlock(txt, anchor, out) {
+  const blockStart = txt.indexOf('{', anchor);
+  if (blockStart < 0) return;
+  let depth = 0;
+  let blockEnd = -1;
+  for (let i = blockStart; i < txt.length; i++) {
+    const c = txt[i];
+    if (c === '{') depth++;
+    else if (c === '}') {
+      depth--;
+      if (depth === 0) { blockEnd = i; break; }
+    }
+  }
+  if (blockEnd < 0) return;
+  const block = txt.slice(blockStart, blockEnd + 1);
+  const keyRe = /(?:^|\n|,|\{)\s*(?:'([^'\\]*(?:\\.[^'\\]*)*)'|"([^"\\]*(?:\\.[^"\\]*)*)"|([A-Za-z_$][A-Za-z0-9_$]*))\s*:/g;
+  let m;
+  while ((m = keyRe.exec(block))) {
+    const key = unescapeStr(m[1] ?? m[2] ?? m[3] ?? '');
+    if (key) out.add(key);
+  }
 }
 
 function scanWxml(file, findings) {
