@@ -308,6 +308,7 @@ export default function Landing() {
         <section className="landing-platforms-band">
           <span className="label">{t.platformsLabel}</span>
           <img src="/logos/garmin.png" alt="Garmin" className="plogo plogo-garmin" onError={handleLogoError} />
+          <img src="/logos/coros.png" alt="COROS" className="plogo plogo-coros" onError={handleLogoError} />
           <img src="/logos/stryd.svg" alt="Stryd" className="plogo plogo-stryd" onError={handleLogoError} />
           <img src="/logos/oura.svg" alt="Oura" className="plogo plogo-oura" onError={handleLogoError} />
           <img src="/logos/strava.svg" alt="Strava" className="plogo plogo-strava" onError={handleLogoError} />

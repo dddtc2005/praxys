@@ -1136,7 +1136,10 @@ def _compute_recovery_analysis(recovery: pd.DataFrame) -> tuple[dict, float | No
         rhr_series=rhr_series if rhr_series else None,
     )
 
-    is_stale = latest_date is not None and latest_date < date.today()
+    # Recovery data (sleep, HRV) is recorded under the night it was measured,
+    # which is typically yesterday's date. Allow a 1-day grace period so that
+    # last night's reading is not flagged as stale.
+    is_stale = latest_date is not None and latest_date < (date.today() - timedelta(days=1))
     augmented = {
         **analysis,
         "latest_date": latest_date.isoformat() if latest_date else None,

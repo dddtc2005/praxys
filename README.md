@@ -70,13 +70,14 @@ Praxys is released under the [MIT License](LICENSE).
 
 ### Trademarks
 
-Garmin, Stryd, Oura, and WeChat are trademarks of their respective owners. Praxys is not affiliated with, endorsed by, or sponsored by any of these companies. Logos and names are used solely to identify the data sources the app can sync from.
+Garmin, Stryd, Oura, COROS, and WeChat are trademarks of their respective owners. Praxys is not affiliated with, endorsed by, or sponsored by any of these companies. Logos and names are used solely to identify the data sources the app can sync from.
 
 ### Third-party data sources
 
 - **Garmin Connect** — synced via the unofficial [`garminconnect`](https://github.com/cyberjunky/python-garminconnect) Python library. There is no official Garmin partnership; the integration depends on Garmin's consumer web endpoints continuing to work. Garmin's [Terms of Use](https://www.garmin.com/en-US/legal/general-terms-of-use/) restrict automated access — use at your own risk.
 - **Stryd** — synced via the same email/password endpoints the Stryd web app uses. There is no official partner API for individual users. Same risk class as Garmin.
 - **Oura Ring** — synced via the [official Oura API v2](https://cloud.ouraring.com/v2/docs) using a Personal Access Token. This is a supported integration path.
+- **COROS** — synced via the unofficial Training Hub web API (activities, HRV, resting HR, VO2max) and the reverse-engineered mobile API (sleep data). There is no official COROS partnership. Same risk class as Garmin.
 
 ### Where your data lives
 
