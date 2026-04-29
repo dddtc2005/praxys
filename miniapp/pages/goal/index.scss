@@ -390,6 +390,20 @@
 }
 .goal-share-btn { width: 100%; }
 
+// "Change goal" row — continuous mode hero, opens editor on tap.
+.goal-change-goal-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  margin-top: 24rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid var(--border-subtle);
+}
+.goal-change-goal-label {
+  font-size: 26rpx;
+}
+
 // --- Inline edit affordances -------------------------------------------
 // Shared pencil icon used inline next to the Target value and in the
 // "Change goal" row on continuous mode. Background-color shows through

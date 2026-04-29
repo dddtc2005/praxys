@@ -1,10 +1,5 @@
 <view class="goal-root {{themeClass}}">
-  <nav-bar
-    title="Goal"
-    theme-class="{{themeClass}}"
-    right-text="{{tr.edit}}"
-    bindrightaction="onOpenEditor"
-  />
+  <nav-bar title="Goal" theme-class="{{themeClass}}" />
 
   <scroll-view
     scroll-y="{{true}}"
@@ -261,7 +256,7 @@
        header now hosts Cancel/Save (was a close ×); the bottom action
        row was removed so the sheet doesn't have two competing CTAs. -->
   <view wx:if="{{editorOpen}}" class="goal-editor-mask" bindtap="onCloseEditor">
-    <view class="goal-editor-sheet" catchtap="onSheetTap">
+    <view class="goal-editor-sheet" catch:tap="onSheetTap">
       <view class="goal-editor-header">
         <view
           class="goal-editor-header-action goal-editor-header-action--cancel {{editorSaving ? 'goal-editor-header-action--disabled' : ''}}"
@@ -327,22 +322,18 @@
       </block>
 
       <text class="goal-editor-label ts-muted">{{tr.targetTime}} <text class="ts-muted">({{tr.optional}})</text></text>
-      <input
-        class="goal-editor-input goal-editor-input--text"
-        type="text"
-        placeholder="{{editorTargetPlaceholder}}"
-        placeholder-class="goal-editor-input-placeholder"
-        value="{{editorTargetTime}}"
-        cursor-spacing="{{40}}"
-        adjust-position="{{true}}"
-        confirm-type="done"
-        bindinput="onEditorTargetTimeInput"
-      />
-      <!-- Live preview "= H:MM:SS" — appears only when the input parses.
-           Sits above the help-copy hint so the parsed value reads as
-           direct feedback, while the hint stays as steady guidance. -->
-      <text wx:if="{{editorTargetPreview}}" class="goal-editor-preview ts-primary">{{editorTargetPreview}}</text>
-      <text class="goal-editor-hint ts-muted">{{editorTargetHint}}</text>
+      <picker
+        mode="multiSelector"
+        range="{{editorTimeRange}}"
+        value="{{editorTimeParts}}"
+        bindchange="onPickEditorTargetTime"
+      >
+        <view class="goal-editor-input">
+          <text class="goal-editor-input-value {{editorTargetDisplay === '—' ? 'ts-muted' : ''}}">{{editorTargetDisplay}}</text>
+          <text class="goal-editor-input-chev ts-muted">›</text>
+        </view>
+      </picker>
+      <text class="goal-editor-hint ts-muted">{{tr.targetTimeHint}}</text>
 
       <text wx:if="{{editorError}}" class="goal-editor-error ts-destructive">{{editorError}}</text>
     </view>

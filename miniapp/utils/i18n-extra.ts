@@ -79,6 +79,7 @@ export const I18N_EXTRA: Record<Locale, Record<string, string>> = {
     'Race date is required': 'Race date is required',
     'Invalid time format. Use H:MM:SS or H:MM': 'Invalid time format. Use H:MM:SS or H:MM',
     'Failed to save goal': 'Failed to save goal',
+    '0:00:00 = no target time': '0:00:00 = no target time',
     'Leave blank to track predicted time only': 'Leave blank to track predicted time only',
     'What time are you working toward? Leave blank to track trend only':
       'What time are you working toward? Leave blank to track trend only',
@@ -190,6 +191,7 @@ export const I18N_EXTRA: Record<Locale, Record<string, string>> = {
     'Race date is required': '请填写比赛日期',
     'Invalid time format. Use H:MM:SS or H:MM': '时间格式无效，请使用 H:MM:SS 或 H:MM',
     'Failed to save goal': '保存目标失败',
+    '0:00:00 = no target time': '0:00:00 = 不设目标时间',
     'Leave blank to track predicted time only': '留空仅显示预测完赛时间',
     'What time are you working toward? Leave blank to track trend only':
       '您的目标时间是？留空仅追踪趋势',

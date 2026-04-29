@@ -151,7 +151,11 @@
   text-align: center;
   line-height: 1.5;
   color: var(--text-muted);
-  max-width: 540rpx;
+  // align-self: stretch overrides the parent's align-items: center so the
+  // text element expands to the full card width. Without it the flex child
+  // sizes to its intrinsic (unwrapped) width and overflows horizontally.
+  align-self: stretch;
+  word-break: break-word;
 }
 
 // Share card overlay — fixed above everything, backdrop + centered card.

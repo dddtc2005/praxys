@@ -3,7 +3,7 @@ import type { IAppOption } from '../../app';
 import { apiGet, apiPut } from '../../utils/api-client';
 import type { ApiError } from '../../utils/api-client';
 import type { GoalResponse, Milestone } from '../../types/api';
-import { formatTime, formatPace, parseTimeToSeconds } from '../../utils/format';
+import { formatTime, formatPace } from '../../utils/format';
 import { applyThemeChrome, themeClassName } from '../../utils/theme';
 import {
   buildShareMessage,
@@ -29,7 +29,6 @@ function buildGoalTr() {
     // Page-level chrome
     failedToLoad: t('Failed to load'),
     retry: t('Retry'),
-    edit: t('Edit'),
     realityCheck: t('Reality Check'),
     fitnessTrend: t('Fitness Trend'),
     currentFitness: t('Current Fitness'),
@@ -59,10 +58,8 @@ function buildGoalTr() {
     save: t('Save Goal'),
     saving: t('Saving…'),
     raceDateRequired: t('Race date is required'),
-    invalidTime: t('Invalid time format. Use H:MM:SS or H:MM'),
     failedToSave: t('Failed to save goal'),
-    timeBlankRace: t('Leave blank to track predicted time only'),
-    timeBlankCont: t('What time are you working toward? Leave blank to track trend only'),
+    targetTimeHint: t('0:00:00 = no target time'),
     predicted: t('Predicted'),
     target: t('Target'),
     setTarget: t('+ Set target'),
@@ -89,21 +86,33 @@ interface EditorSnapshot {
   type: 'race' | 'continuous';
   distanceIndex: number;
   raceDate: string;
-  targetTime: string;
+  targetTimeSec: number;
 }
 
-/**
- * Return a "= H:MM:SS" preview for the target-time input, or empty
- * string if the value is blank or doesn't parse. The leading "= " is
- * intentional — it makes the line read as feedback ("here's what your
- * input parsed to") rather than yet another label.
- */
-function editorTargetPreviewFor(raw: string): string {
-  const trimmed = raw.trim();
-  if (!trimmed) return '';
-  const sec = parseTimeToSeconds(trimmed);
-  if (sec === null || sec <= 0) return '';
-  return `= ${formatTime(sec)}`;
+function buildTimeRange(): string[][] {
+  const hours = Array.from({ length: 48 }, (_, i) => `${i}h`);
+  const minutes = Array.from({ length: 60 }, (_, i) => `${String(i).padStart(2, '0')}m`);
+  const seconds = Array.from({ length: 60 }, (_, i) => `${String(i).padStart(2, '0')}s`);
+  return [hours, minutes, seconds];
+}
+
+function secondsToTimeParts(sec: number | null | undefined): [number, number, number] {
+  if (!sec || sec <= 0) return [0, 0, 0];
+  const h = Math.min(47, Math.floor(sec / 3600));
+  const m = Math.floor((sec % 3600) / 60);
+  const s = Math.floor(sec % 60);
+  return [h, m, s];
+}
+
+function timePartsToSeconds(parts: number[]): number {
+  const [h = 0, m = 0, s = 0] = parts;
+  return h * 3600 + m * 60 + s;
+}
+
+function timePartsToDisplay(parts: number[]): string {
+  const [h = 0, m = 0, s = 0] = parts;
+  if (h === 0 && m === 0 && s === 0) return '—';
+  return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
 function buildDistanceChoices(): DistanceChoice[] {
@@ -215,19 +224,11 @@ interface GoalState {
   editorDistanceIndex: number;
   editorRaceDate: string;
   editorTodayIso: string;
-  editorTargetTime: string;
-  editorTargetPlaceholder: string;
-  editorTargetHint: string;
-  // Live preview line under the target-time input. When the user types
-  // a parseable time we show "= H:MM:SS" so they can verify the parser
-  // matched their intent before tapping Save. Empty otherwise — the
-  // hint copy below explains the optional/blank semantics.
-  editorTargetPreview: string;
+  editorTimeRange: string[][];
+  editorTimeParts: number[];
+  editorTargetDisplay: string;
   editorError: string;
   editorSaving: boolean;
-  // Becomes true the moment the user diverges from the snapshot taken
-  // when the editor opened. Drives Save enable/disable, and the modal
-  // confirm on Cancel / mask-tap.
   editorDirty: boolean;
   mode: GoalResponse['race_countdown']['mode'];
 
@@ -340,10 +341,9 @@ const initialData: GoalState = {
   editorDistanceIndex: 3, // marathon default
   editorRaceDate: '',
   editorTodayIso: todayIso(),
-  editorTargetTime: '',
-  editorTargetPlaceholder: DISTANCE_CHOICES[3].placeholder,
-  editorTargetHint: '',
-  editorTargetPreview: '',
+  editorTimeRange: buildTimeRange(),
+  editorTimeParts: [0, 0, 0],
+  editorTargetDisplay: '—',
   editorError: '',
   editorSaving: false,
   editorDirty: false,
@@ -815,18 +815,15 @@ Page({
       DISTANCE_CHOICES.findIndex((d) => d.key === distanceKey),
     );
     const editorType: 'race' | 'continuous' = goal?.race_date ? 'race' : 'continuous';
-    const editorTargetTime =
-      goal?.target_time_sec && goal.target_time_sec > 0 ? formatTime(goal.target_time_sec) : '';
+    const targetTimeSec =
+      goal?.target_time_sec && goal.target_time_sec > 0 ? goal.target_time_sec : 0;
+    const timeParts = secondsToTimeParts(targetTimeSec);
     const editorRaceDate = goal?.race_date ?? '';
-    // Snapshot initial values so we can compute dirty state without
-    // serializing the whole editor on every keystroke. Stored on `data`
-    // under a leading-underscore key so it isn't part of the rendered
-    // template state.
     (this.data as { _editorInitial?: EditorSnapshot })._editorInitial = {
       type: editorType,
       distanceIndex: idx,
       raceDate: editorRaceDate,
-      targetTime: editorTargetTime,
+      targetTimeSec,
     };
     this.setData({
       editorOpen: true,
@@ -834,10 +831,8 @@ Page({
       editorDistanceIndex: idx,
       editorRaceDate,
       editorTodayIso: todayIso(),
-      editorTargetTime,
-      editorTargetPlaceholder: DISTANCE_CHOICES[idx].placeholder,
-      editorTargetHint: editorType === 'race' ? tr.timeBlankRace : tr.timeBlankCont,
-      editorTargetPreview: editorTargetPreviewFor(editorTargetTime),
+      editorTimeParts: timeParts,
+      editorTargetDisplay: timePartsToDisplay(timeParts),
       editorError: '',
       editorSaving: false,
       editorDirty: false,
@@ -878,11 +873,7 @@ Page({
   onPickEditorType(e: WechatMiniprogram.TouchEvent) {
     const type = e.currentTarget.dataset.type as 'race' | 'continuous' | undefined;
     if (!type) return;
-    const tr = this.data.tr as ReturnType<typeof buildGoalTr>;
-    this.setData({
-      editorType: type,
-      editorTargetHint: type === 'race' ? tr.timeBlankRace : tr.timeBlankCont,
-    });
+    this.setData({ editorType: type });
     this.recomputeEditorDirty();
   },
 
@@ -901,36 +892,23 @@ Page({
     this.recomputeEditorDirty();
   },
 
-  onEditorTargetTimeInput(e: WechatMiniprogram.Input) {
-    const value = e.detail.value;
+  onPickEditorTargetTime(e: WechatMiniprogram.PickerChange) {
+    const parts = (e.detail.value as number[]) || [0, 0, 0];
     this.setData({
-      editorTargetTime: value,
-      editorTargetPreview: editorTargetPreviewFor(value),
+      editorTimeParts: parts,
+      editorTargetDisplay: timePartsToDisplay(parts),
     });
     this.recomputeEditorDirty();
   },
 
-  /**
-   * Recompute `editorDirty` against the snapshot taken in onOpenEditor.
-   * Cheap enough to call after every editor mutation. Strings compare
-   * byte-for-byte; targetTime is normalized via parse+format so "1:30"
-   * vs "1:30:00" don't both register as edits when the parsed value is
-   * identical to the snapshot.
-   */
   recomputeEditorDirty() {
     const snap = (this.data as { _editorInitial?: EditorSnapshot })._editorInitial;
     if (!snap) return;
-    const cur = {
-      type: this.data.editorType as 'race' | 'continuous',
-      distanceIndex: this.data.editorDistanceIndex as number,
-      raceDate: this.data.editorRaceDate as string,
-      targetTime: this.data.editorTargetTime as string,
-    };
     const dirty =
-      cur.type !== snap.type ||
-      cur.distanceIndex !== snap.distanceIndex ||
-      cur.raceDate !== snap.raceDate ||
-      cur.targetTime.trim() !== snap.targetTime.trim();
+      (this.data.editorType as string) !== snap.type ||
+      (this.data.editorDistanceIndex as number) !== snap.distanceIndex ||
+      (this.data.editorRaceDate as string) !== snap.raceDate ||
+      timePartsToSeconds(this.data.editorTimeParts as number[]) !== snap.targetTimeSec;
     if (dirty !== this.data.editorDirty) {
       this.setData({ editorDirty: dirty });
     }
@@ -945,21 +923,12 @@ Page({
     const editorType = this.data.editorType as 'race' | 'continuous';
     const editorDistanceIndex = this.data.editorDistanceIndex as number;
     const editorRaceDate = this.data.editorRaceDate as string;
-    const editorTargetTime = (this.data.editorTargetTime as string).trim();
 
     if (editorType === 'race' && !editorRaceDate) {
       this.setData({ editorError: tr.raceDateRequired });
       return;
     }
-    let targetTimeSec = 0;
-    if (editorTargetTime) {
-      const parsed = parseTimeToSeconds(editorTargetTime);
-      if (parsed === null) {
-        this.setData({ editorError: tr.invalidTime });
-        return;
-      }
-      targetTimeSec = parsed;
-    }
+    const targetTimeSec = timePartsToSeconds(this.data.editorTimeParts as number[]);
 
     this.setData({ editorSaving: true, editorError: '' });
     const distance = DISTANCE_CHOICES[editorDistanceIndex]?.key ?? 'marathon';
