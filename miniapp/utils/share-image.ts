@@ -199,25 +199,35 @@ export async function generateShareCard(input: ShareCardInput): Promise<string> 
   ctx.fillText('ys', WMX + praW + xW, WMY);
 
   // QR code — upper-right corner, aligned with the wordmark row.
-  // Dark mode: render via 'screen' blend so black modules become
-  // transparent and white modules stay white → white QR on dark bg,
-  // no awkward white rectangle. Light mode: draw directly (black on cream).
+  // The asset has a transparent background with dark (black) modules.
+  // Light theme: draw directly — dark modules on cream bg are readable.
+  // Dark theme: draw then pixel-recolor dark modules to white so they
+  // read against the dark card background. getImageData works in physical
+  // pixels, so multiply logical coords by DPR.
   const QR_SIZE = 68;
   const QR_X = W - 40 - QR_SIZE;
-  const QR_Y = MARK_Y + (MARK_SIZE - QR_SIZE) / 2; // vertically centre with mark
+  const QR_Y = MARK_Y + (MARK_SIZE - QR_SIZE) / 2;
   try {
     const qr = (await loadImage(canvas, '/assets/qr-praxys-prod.png')) as unknown as object;
+    drawImage.drawImage(qr, QR_X, QR_Y, QR_SIZE, QR_SIZE);
     if (cardTheme === 'dark') {
-      // 'screen' blend: black (0) → transparent, white (1) → white.
-      // This inverts the QR without touching background pixels outside the image.
-      (ctx as unknown as Record<string, string>).globalCompositeOperation = 'screen';
-      drawImage.drawImage(qr, QR_X, QR_Y, QR_SIZE, QR_SIZE);
-      (ctx as unknown as Record<string, string>).globalCompositeOperation = 'source-over';
-    } else {
-      // Light mode: white background pad keeps the QR readable on cream.
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(QR_X - 3, QR_Y - 3, QR_SIZE + 6, QR_SIZE + 6);
-      drawImage.drawImage(qr, QR_X, QR_Y, QR_SIZE, QR_SIZE);
+      const ix = Math.round(QR_X * DPR);
+      const iy = Math.round(QR_Y * DPR);
+      const iw = Math.round(QR_SIZE * DPR);
+      const ih = Math.round(QR_SIZE * DPR);
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pctx = ctx as unknown as any;
+        const pd = pctx.getImageData(ix, iy, iw, ih) as { data: Uint8ClampedArray };
+        for (let i = 0; i < pd.data.length; i += 4) {
+          if (pd.data[i + 3] > 128) { // opaque pixel = QR module → recolor white
+            pd.data[i] = 255;
+            pd.data[i + 1] = 255;
+            pd.data[i + 2] = 255;
+          }
+        }
+        pctx.putImageData(pd, ix, iy);
+      } catch { /* pixel access unavailable — modules stay dark; acceptable */ }
     }
   } catch { /* no QR asset — skip silently */ }
 
