@@ -24,7 +24,7 @@
     "backgroundColor": "@bgColor",
     "backgroundColorTop": "@bgColorTop",
     "backgroundColorBottom": "@bgColorBottom",
-    "backgroundTextStyle": "@textStyle"
+    "backgroundTextStyle": "dark"
   },
   "tabBar": {
     "custom": true,

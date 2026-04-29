@@ -2,13 +2,11 @@
   "light": {
     "bgColor": "#faf9f5",
     "bgColorTop": "#faf9f5",
-    "bgColorBottom": "#faf9f5",
-    "textStyle": "black"
+    "bgColorBottom": "#faf9f5"
   },
   "dark": {
     "bgColor": "#0d1220",
     "bgColorTop": "#0d1220",
-    "bgColorBottom": "#0d1220",
-    "textStyle": "white"
+    "bgColorBottom": "#0d1220"
   }
 }
