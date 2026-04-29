@@ -74,11 +74,11 @@ function buildGoalTr() {
     sourceTapCopy: t('Source — tap to copy URL'),
     discussionTapCopy: t('Discussion — tap to copy URL'),
     ultraCaveat: t('Ultra distance caveat'),
-    // Discard-edits modal (shown on Cancel / mask tap when dirty).
-    discardTitle: t('Discard changes?'),
-    discardMessage: t('Your goal edits will be lost.'),
+    // Inline discard-confirmation row (replaces wx.showModal which renders
+    // behind position:fixed z-index overlays in Skyline/glass-easel).
     discardConfirm: t('Discard'),
     keepEditing: t('Keep editing'),
+    discardPrompt: t('Discard changes?'),
   };
 }
 
@@ -230,6 +230,7 @@ interface GoalState {
   editorError: string;
   editorSaving: boolean;
   editorDirty: boolean;
+  editorConfirmDiscard: boolean;
   mode: GoalResponse['race_countdown']['mode'];
 
   // Common (CP trend chart shared by all modes that have data).
@@ -347,6 +348,7 @@ const initialData: GoalState = {
   editorError: '',
   editorSaving: false,
   editorDirty: false,
+  editorConfirmDiscard: false,
 
   hasCpTrend: false,
   cpTrendDates: [],
@@ -836,35 +838,31 @@ Page({
       editorError: '',
       editorSaving: false,
       editorDirty: false,
+      editorConfirmDiscard: false,
     });
   },
 
   /**
-   * Close the editor. If the user has unsaved changes (`editorDirty`),
-   * surface a native confirm modal first. The mask has no bindtap, the
-   * sheet has no catch:tap, and Cancel uses plain bindtap — Skyline
-   * breaks child-tap routing after native component interactions (pickers,
-   * wx.showModal) whenever catch:tap is present anywhere in the chain.
+   * Cancel tapped. If dirty, show the inline discard-confirmation row
+   * instead of wx.showModal — Skyline renders wx.showModal behind the
+   * position:fixed overlay (z-index 200), making it invisible and causing
+   * the dialog to intercept all subsequent taps silently.
    */
   onCloseEditor() {
     if (this.data.editorSaving) return;
     if (!this.data.editorDirty) {
-      this.setData({ editorOpen: false, editorError: '' });
+      this.setData({ editorOpen: false, editorError: '', editorConfirmDiscard: false });
       return;
     }
-    const tr = this.data.tr as ReturnType<typeof buildGoalTr>;
-    wx.showModal({
-      title: tr.discardTitle,
-      content: tr.discardMessage,
-      confirmText: tr.discardConfirm,
-      cancelText: tr.keepEditing,
-      confirmColor: '#dc2626',
-      success: (res) => {
-        if (res.confirm) {
-          this.setData({ editorOpen: false, editorError: '' });
-        }
-      },
-    });
+    this.setData({ editorConfirmDiscard: true });
+  },
+
+  onDiscardConfirm() {
+    this.setData({ editorOpen: false, editorError: '', editorConfirmDiscard: false });
+  },
+
+  onDiscardKeep() {
+    this.setData({ editorConfirmDiscard: false });
   },
 
   onPickEditorType(e: WechatMiniprogram.TouchEvent) {

@@ -257,7 +257,8 @@
        only dismiss paths; the mask just provides the dark backdrop. -->
   <view wx:if="{{editorOpen}}" class="goal-editor-mask">
     <view class="goal-editor-sheet">
-      <view class="goal-editor-header">
+      <!-- Normal header: Cancel | Title | Save -->
+      <view wx:if="{{!editorConfirmDiscard}}" class="goal-editor-header">
         <view
           class="goal-editor-header-action goal-editor-header-action--cancel {{editorSaving ? 'goal-editor-header-action--disabled' : ''}}"
           bindtap="onCloseEditor"
@@ -270,6 +271,17 @@
           bindtap="onSaveEditor"
         >
           <text>{{editorSaving ? tr.saving : tr.save}}</text>
+        </view>
+      </view>
+      <!-- Inline discard confirmation — replaces wx.showModal which is
+           invisible behind position:fixed z-index overlays in Skyline. -->
+      <view wx:else class="goal-editor-header goal-editor-header--confirm">
+        <text class="goal-editor-confirm-prompt ts-muted">{{tr.discardPrompt}}</text>
+        <view class="goal-editor-header-action goal-editor-header-action--cancel" bindtap="onDiscardKeep">
+          <text>{{tr.keepEditing}}</text>
+        </view>
+        <view class="goal-editor-header-action goal-editor-header-action--discard" bindtap="onDiscardConfirm">
+          <text>{{tr.discardConfirm}}</text>
         </view>
       </view>
 

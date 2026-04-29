@@ -510,8 +510,20 @@
   color: var(--primary);
   font-weight: 600;
 }
+.goal-editor-header-action--discard {
+  color: var(--destructive);
+  font-weight: 600;
+}
 .goal-editor-header-action--disabled {
   opacity: 0.4;
+}
+// Confirmation variant: prompt text + Keep + Discard side by side.
+.goal-editor-header--confirm {
+  gap: 12rpx;
+}
+.goal-editor-confirm-prompt {
+  font-size: 26rpx;
+  flex: 1;
 }
 .goal-editor-title {
   font-size: 32rpx;
