@@ -199,36 +199,17 @@ export async function generateShareCard(input: ShareCardInput): Promise<string> 
   ctx.fillText('ys', WMX + praW + xW, WMY);
 
   // QR code — upper-right corner, aligned with the wordmark row.
-  // The asset has a transparent background with dark (black) modules.
-  // Light theme: draw directly — dark modules on cream bg are readable.
-  // Dark theme: draw then pixel-recolor dark modules to white so they
-  // read against the dark card background. getImageData works in physical
-  // pixels, so multiply logical coords by DPR.
+  // Two pre-built assets: black modules on transparent (light theme),
+  // white modules on transparent (dark theme). No runtime pixel manipulation.
   const QR_SIZE = 68;
   const QR_X = W - 40 - QR_SIZE;
   const QR_Y = MARK_Y + (MARK_SIZE - QR_SIZE) / 2;
+  const qrAsset = cardTheme === 'dark'
+    ? '/assets/qr-praxys-prod-dark.png'
+    : '/assets/qr-praxys-prod.png';
   try {
-    const qr = (await loadImage(canvas, '/assets/qr-praxys-prod.png')) as unknown as object;
+    const qr = (await loadImage(canvas, qrAsset)) as unknown as object;
     drawImage.drawImage(qr, QR_X, QR_Y, QR_SIZE, QR_SIZE);
-    if (cardTheme === 'dark') {
-      const ix = Math.round(QR_X * DPR);
-      const iy = Math.round(QR_Y * DPR);
-      const iw = Math.round(QR_SIZE * DPR);
-      const ih = Math.round(QR_SIZE * DPR);
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const pctx = ctx as unknown as any;
-        const pd = pctx.getImageData(ix, iy, iw, ih) as { data: Uint8ClampedArray };
-        for (let i = 0; i < pd.data.length; i += 4) {
-          if (pd.data[i + 3] > 128) { // opaque pixel = QR module → recolor white
-            pd.data[i] = 255;
-            pd.data[i + 1] = 255;
-            pd.data[i + 2] = 255;
-          }
-        }
-        pctx.putImageData(pd, ix, iy);
-      } catch { /* pixel access unavailable — modules stay dark; acceptable */ }
-    }
   } catch { /* no QR asset — skip silently */ }
 
   // ── Signal circle ───────────────────────────────────────────────────────
