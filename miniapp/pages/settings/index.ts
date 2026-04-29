@@ -13,6 +13,7 @@ import type { IAppOption } from '../../app';
 import { getLanguagePreference, setLanguagePreference } from '../../utils/share';
 import { t, detectLocale } from '../../utils/i18n';
 import type { SettingsResponse } from '../../types/api';
+import { MINIAPP_BUILD_VERSION } from '../../utils/version';
 
 function buildSettingsTr() {
   return {
@@ -164,13 +165,18 @@ interface TrainingBaseOption {
 }
 
 function readAppVersion(): string {
+  // wx.getAccountInfoSync().miniProgram.version is only populated for
+  // release builds. For develop/trial it always returns ''. CI stamps
+  // the real CalVer into MINIAPP_BUILD_VERSION before each upload so
+  // all three environments can show the full version string.
   try {
     const info = wx.getAccountInfoSync();
     const env = info.miniProgram.envVersion;
-    const ver = info.miniProgram.version;
-    if (env === 'develop') return 'develop';
-    if (env === 'trial') return `trial${ver ? ` · ${ver}` : ''}`;
-    return ver || '';
+    const ver = MINIAPP_BUILD_VERSION || info.miniProgram.version;
+    if (env === 'release') return ver ? `Praxys mp ${ver}` : '';
+    if (env === 'develop') return ver ? `Praxys mp ${ver} (dev)` : '';
+    // trial
+    return ver ? `Praxys mp ${ver} (trial)` : '';
   } catch {
     return '';
   }

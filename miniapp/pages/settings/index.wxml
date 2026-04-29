@@ -124,7 +124,7 @@
         </button>
       </view>
 
-      <text wx:if="{{appVersion}}" class="settings-version ts-muted">Praxys {{appVersion}}</text>
+      <text wx:if="{{appVersion}}" class="settings-version ts-muted">{{appVersion}}</text>
     </block>
     </view>
   </scroll-view>
