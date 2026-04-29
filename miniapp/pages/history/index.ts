@@ -1,3 +1,4 @@
+import { setTabBarSelected } from '../../utils/tabbar';
 import type { IAppOption } from '../../app';
 import { apiGet } from '../../utils/api-client';
 import type { ApiError } from '../../utils/api-client';
@@ -122,9 +123,7 @@ Page({
 
   onShow() {
     applyThemeChrome();
-    const tabBar = (this as { getTabBar?: () => { setData: (d: unknown) => void } | null })
-      .getTabBar?.();
-    tabBar?.setData({ selected: 2 });
+    setTabBarSelected(this, 2);
   },
 
   onScrollToBottom() {

@@ -2,11 +2,15 @@
   "light": {
     "bgColor": "#faf9f5",
     "bgColorTop": "#faf9f5",
-    "bgColorBottom": "#faf9f5"
+    "bgColorBottom": "#faf9f5",
+    "tabBarMuted": "#6b6b66",
+    "tabBarSelected": "#1e8e5b"
   },
   "dark": {
     "bgColor": "#0d1220",
     "bgColorTop": "#0d1220",
-    "bgColorBottom": "#0d1220"
+    "bgColorBottom": "#0d1220",
+    "tabBarMuted": "#8b93a7",
+    "tabBarSelected": "#00ff87"
   }
 }

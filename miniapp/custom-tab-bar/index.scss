@@ -19,8 +19,10 @@
  */
 
 .tabbar {
-  // Skyline doesn't position custom tab bars to bottom (WebView mode
-  // does — Skyline doesn't). Explicit fixed positioning required.
+  // WeChat custom tab bar Skyline requirements (docs: custom-tabbar.html):
+  //   pointer-events: auto  — ensures tap events reach the bar in Skyline
+  //   position: fixed        — pins to viewport bottom (Skyline supported)
+  pointer-events: auto;
   position: fixed;
   left: 0;
   right: 0;

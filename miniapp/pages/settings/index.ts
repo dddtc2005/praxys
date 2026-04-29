@@ -1,3 +1,4 @@
+import { setTabBarSelected } from '../../utils/tabbar';
 import { apiGet, apiPost, apiPut } from '../../utils/api-client';
 import type { ApiError } from '../../utils/api-client';
 import { clearToken } from '../../utils/auth';
@@ -400,9 +401,7 @@ Page({
 
   onShow() {
     applyThemeChrome();
-    const tabBar = (this as { getTabBar?: () => { setData: (d: unknown) => void } | null })
-      .getTabBar?.();
-    tabBar?.setData({ selected: 4 });
+    setTabBarSelected(this, 4);
   },
 
   onRetry() {

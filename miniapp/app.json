@@ -28,9 +28,9 @@
   },
   "tabBar": {
     "custom": true,
-    "color": "#6b6b66",
-    "selectedColor": "#1e8e5b",
-    "backgroundColor": "#faf9f5",
+    "color": "@tabBarMuted",
+    "selectedColor": "@tabBarSelected",
+    "backgroundColor": "@bgColor",
     "borderStyle": "white",
     "list": [
       { "pagePath": "pages/today/index", "text": "Today" },

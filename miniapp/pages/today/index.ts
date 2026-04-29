@@ -1,3 +1,4 @@
+import { setTabBarSelected } from '../../utils/tabbar';
 import type { IAppOption } from '../../app';
 import { apiGet } from '../../utils/api-client';
 import { generateShareCard } from '../../utils/share-image';
@@ -358,9 +359,7 @@ Page({
 
   onShow() {
     applyThemeChrome();
-    const tabBar = (this as { getTabBar?: () => { setData: (d: unknown) => void } | null })
-      .getTabBar?.();
-    tabBar?.setData({ selected: 0 });
+    setTabBarSelected(this, 0);
   },
 
   onShareAppMessage(options: WechatMiniprogram.Page.IShareAppMessageOption) {
