@@ -126,6 +126,19 @@ jobs:
           fi
 
       - if: steps.gate.outputs.publish == 'true'
+        name: Stamp build version
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        shell: bash
+        run: |
+          # Write the CalVer into utils/version.ts so the mini program can
+          # display it in Settings. wx.getAccountInfoSync().miniProgram.version
+          # only returns a value for release builds; this stamps it for
+          # develop and trial builds too. The file is committed as '' and
+          # overwritten here — the change is never pushed back to git.
+          printf 'export const MINIAPP_BUILD_VERSION = "%s";\n' "$VERSION" > utils/version.ts
+
+      - if: steps.gate.outputs.publish == 'true'
         name: Write upload key
         env:
           WECHAT_MINIAPP_UPLOAD_KEY: ${{ secrets.WECHAT_MINIAPP_UPLOAD_KEY }}
