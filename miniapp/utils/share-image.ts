@@ -243,13 +243,11 @@ export async function generateShareCard(input: ShareCardInput): Promise<string> 
   reasonLines.forEach((line, i) => ctx.fillText(line, CX, reasonY0 + i * REASON_LINE_H));
 
   // ── Divider — positioned dynamically so reason text never overlaps it ───
-  const BAR_H = 46;
   // Bottom of last reason line (font size 30, textBaseline 'top' → +32px)
   const reasonEndY = reasonLines.length > 0
     ? reasonY0 + (reasonLines.length - 1) * REASON_LINE_H + 32
     : reasonY0 - 20;
-  // Always at least 20px below reason, but keep footer legible above accent bar
-  const divY = Math.max(reasonEndY + 20, H - BAR_H - 110);
+  const divY = Math.max(reasonEndY + 20, H - 110);
   ctx.strokeStyle = C.border;
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -271,15 +269,6 @@ export async function generateShareCard(input: ShareCardInput): Promise<string> 
   ctx.fillStyle = C.primary;
   ctx.font = '500 21px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
   ctx.fillText('praxys.run', W - 40, footerY);
-
-  // ── Accent bar with CTA ──────────────────────────────────────────────────
-  ctx.fillStyle = C.primary;
-  ctx.fillRect(0, H - BAR_H, W, BAR_H);
-  ctx.font = '500 20px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
-  ctx.fillStyle = C.cta;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(locale === 'zh' ? '长按图片转发' : 'Long press to share', W / 2, H - BAR_H / 2);
 
   return new Promise<string>((resolve, reject) => {
     wx.canvasToTempFilePath({

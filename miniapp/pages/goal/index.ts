@@ -861,6 +861,11 @@ Page({
       success: (res) => {
         if (res.confirm) {
           this.setData({ editorOpen: false, editorError: '' });
+        } else {
+          // Skyline requires a setData call after wx.showModal closes to
+          // re-register touch events on the overlay. Without it, subsequent
+          // taps on Cancel (or anywhere in the sheet) go undelivered.
+          this.setData({ editorDirty: this.data.editorDirty as boolean });
         }
       },
     });
