@@ -219,3 +219,153 @@ def test_write_activities_nothing_to_fill_returns_zero(db_with_user):
     db.commit()
 
     assert count == 0
+
+
+# ---------------------------------------------------------------------------
+# Oura recovery upserts
+# ---------------------------------------------------------------------------
+
+
+def _readiness_row(d: date, score: int = 80) -> dict:
+    return {"date": d.isoformat(), "readiness_score": str(score),
+            "hrv_avg": "", "resting_hr": "",
+            "body_temperature_delta": "0.1"}
+
+
+def _sleep_row(d: date, sleep_score: int = 75) -> dict:
+    return {"date": d.isoformat(), "sleep_score": str(sleep_score),
+            "total_sleep_sec": "28800", "deep_sleep_sec": "7200",
+            "rem_sleep_sec": "5400", "light_sleep_sec": "16200",
+            "efficiency": "92"}
+
+
+def test_write_recovery_oura_backfills_null_hrv_on_existing_row(db_with_user):
+    """Re-syncing fills HRV/RHR on rows previously inserted with nulls.
+
+    This is the production bug: rows landed without HRV (e.g., before the
+    extraction logic was correct, or due to a multi-record day overwriting
+    the long_sleep entry), and the dedup on existing date prevented any
+    later sync from filling them. The recovery analysis stayed stuck on
+    "insufficient HRV data" forever.
+    """
+    from db import sync_writer
+    from db.models import RecoveryData
+
+    db, user_id = db_with_user
+    today = date.today()
+
+    # First sync: HRV missing (mirrors a buggy / partial sleep response)
+    sync_writer.write_recovery(
+        user_id,
+        readiness_rows=[_readiness_row(today)],
+        sleep_rows=[_sleep_row(today)],
+        hrv_by_date={},
+        db=db,
+    )
+    db.commit()
+
+    row = db.query(RecoveryData).filter(
+        RecoveryData.user_id == user_id, RecoveryData.source == "oura",
+    ).one()
+    assert row.hrv_avg is None
+    assert row.resting_hr is None
+
+    # Second sync: same date, but now HRV/RHR are present
+    count = sync_writer.write_recovery(
+        user_id,
+        readiness_rows=[_readiness_row(today)],
+        sleep_rows=[_sleep_row(today)],
+        hrv_by_date={today.isoformat(): {"hrv_avg": "45.5", "resting_hr": "52"}},
+        db=db,
+    )
+    db.commit()
+
+    assert count == 1, "Backfill should count as one touched row"
+    row = db.query(RecoveryData).filter(
+        RecoveryData.user_id == user_id, RecoveryData.source == "oura",
+    ).one()
+    assert row.hrv_avg == 45.5
+    assert row.resting_hr == 52.0
+
+
+def test_write_recovery_oura_does_not_overwrite_existing_hrv(db_with_user):
+    """A re-sync must not clobber an HRV value already in the DB.
+
+    Existing valid bio fields are authoritative; Oura is the source of
+    truth and we only fill gaps, never overwrite.
+    """
+    from db import sync_writer
+    from db.models import RecoveryData
+
+    db, user_id = db_with_user
+    today = date.today()
+
+    sync_writer.write_recovery(
+        user_id,
+        readiness_rows=[_readiness_row(today)],
+        sleep_rows=[_sleep_row(today)],
+        hrv_by_date={today.isoformat(): {"hrv_avg": "50.0", "resting_hr": "55"}},
+        db=db,
+    )
+    db.commit()
+
+    sync_writer.write_recovery(
+        user_id,
+        readiness_rows=[_readiness_row(today)],
+        sleep_rows=[_sleep_row(today)],
+        hrv_by_date={today.isoformat(): {"hrv_avg": "30.0", "resting_hr": "70"}},
+        db=db,
+    )
+    db.commit()
+
+    row = db.query(RecoveryData).filter(
+        RecoveryData.user_id == user_id, RecoveryData.source == "oura",
+    ).one()
+    assert row.hrv_avg == 50.0, "Existing HRV must survive re-sync"
+    assert row.resting_hr == 55.0
+
+
+def test_write_recovery_oura_new_date_still_inserts(db_with_user):
+    """Baseline: a never-before-seen Oura date still gets inserted."""
+    from db import sync_writer
+    from db.models import RecoveryData
+
+    db, user_id = db_with_user
+    today = date.today()
+
+    count = sync_writer.write_recovery(
+        user_id,
+        readiness_rows=[_readiness_row(today)],
+        sleep_rows=[_sleep_row(today)],
+        hrv_by_date={today.isoformat(): {"hrv_avg": "40.0", "resting_hr": "58"}},
+        db=db,
+    )
+    db.commit()
+
+    assert count == 1
+    row = db.query(RecoveryData).filter(
+        RecoveryData.user_id == user_id, RecoveryData.source == "oura",
+    ).one()
+    assert row.hrv_avg == 40.0
+    assert row.resting_hr == 58.0
+    assert row.sleep_score == 75.0
+
+
+def test_write_recovery_oura_skips_when_existing_complete(db_with_user):
+    """No-op re-sync (same data) returns zero touches."""
+    from db import sync_writer
+
+    db, user_id = db_with_user
+    today = date.today()
+    payload = dict(
+        readiness_rows=[_readiness_row(today)],
+        sleep_rows=[_sleep_row(today)],
+        hrv_by_date={today.isoformat(): {"hrv_avg": "45.0", "resting_hr": "55"}},
+    )
+
+    sync_writer.write_recovery(user_id, db=db, **payload)
+    db.commit()
+
+    count = sync_writer.write_recovery(user_id, db=db, **payload)
+    db.commit()
+    assert count == 0

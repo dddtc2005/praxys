@@ -32,12 +32,12 @@ def test_fresh_data_is_not_stale():
     assert analysis["latest_date"] == today.isoformat()
 
 
-def test_yesterday_only_is_stale():
-    """When latest row is yesterday, is_stale is True and latest_date is yesterday.
+def test_yesterday_only_is_not_stale():
+    """Yesterday's reading is within the 1-day grace window — not stale.
 
-    This is the bug from #130: the Today page used to render yesterday's
-    reading as if it were today's. Now the analysis exposes the actual date
-    so the UI can label it.
+    Recovery data (sleep, HRV) is recorded under the night it was measured,
+    which Oura/Garmin expose under the wake-day. Until ≥2 days have passed,
+    yesterday's reading is the "today" signal, so we don't badge it stale.
     """
     today = date.today()
     yesterday = today - timedelta(days=1)
@@ -47,8 +47,22 @@ def test_yesterday_only_is_stale():
 
     analysis, _, _, _ = _compute_recovery_analysis(df)
 
-    assert analysis["is_stale"] is True
+    assert analysis["is_stale"] is False
     assert analysis["latest_date"] == yesterday.isoformat()
+
+
+def test_two_days_old_is_stale():
+    """Once the latest reading is two days old, recovery becomes stale."""
+    today = date.today()
+    two_days_ago = today - timedelta(days=2)
+    rows = [(today - timedelta(days=i), 45.0) for i in range(10, 2, -1)]
+    rows.append((two_days_ago, 50.0))
+    df = _build_recovery_df(rows)
+
+    analysis, _, _, _ = _compute_recovery_analysis(df)
+
+    assert analysis["is_stale"] is True
+    assert analysis["latest_date"] == two_days_ago.isoformat()
 
 
 def test_no_recovery_data_returns_none_latest_date():
@@ -64,18 +78,18 @@ def test_stale_data_still_classifies_status():
     """Stale data still drives the status field — the UI just labels it.
 
     Behavior change scope: this PR surfaces staleness; it doesn't suppress
-    the signal. Yesterday's "fatigued" reading still classifies as fatigued
-    until today's data syncs (#130 acceptance criteria).
+    the signal. The latest reading still classifies fatigued/normal/fresh
+    based on the HRV value, even when stale (#130 acceptance criteria).
     """
     today = date.today()
-    yesterday = today - timedelta(days=1)
-    # 30 days of high HRV → low yesterday → fatigued classification
-    rows = [(today - timedelta(days=i), 60.0) for i in range(30, 1, -1)]
-    rows.append((yesterday, 30.0))  # well below baseline
+    two_days_ago = today - timedelta(days=2)
+    # 30 days of high HRV → low two-days-ago → fatigued classification
+    rows = [(today - timedelta(days=i), 60.0) for i in range(30, 2, -1)]
+    rows.append((two_days_ago, 30.0))  # well below baseline
     df = _build_recovery_df(rows)
 
     analysis, _, _, _ = _compute_recovery_analysis(df)
 
     assert analysis["is_stale"] is True
-    assert analysis["latest_date"] == yesterday.isoformat()
+    assert analysis["latest_date"] == two_days_ago.isoformat()
     assert analysis["status"] == "fatigued"

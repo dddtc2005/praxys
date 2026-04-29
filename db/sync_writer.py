@@ -213,22 +213,76 @@ def write_recovery(user_id: str, readiness_rows: list[dict],
 
     for row in readiness_rows:
         d = _parse_date(row.get("date"))
-        if not d or d in existing_oura:
+        if not d:
             continue
         sleep = sleep_by_date.get(row.get("date", ""), {})
         hrv = hrv_by_date.get(row.get("date", ""), {})
+
+        readiness_score = _float(row.get("readiness_score"))
+        hrv_avg = _float(hrv.get("hrv_avg") or row.get("hrv_avg"))
+        resting_hr = _float(hrv.get("resting_hr") or row.get("resting_hr"))
+        sleep_score = _float(sleep.get("sleep_score"))
+        total_sleep_sec = _float(sleep.get("total_sleep_sec"))
+        deep_sleep_sec = _float(sleep.get("deep_sleep_sec"))
+        rem_sleep_sec = _float(sleep.get("rem_sleep_sec"))
+        body_temp_delta = _float(
+            row.get("body_temperature_delta") or row.get("body_temp_delta")
+        )
+
+        if d in existing_oura:
+            # Backfill empty fields on existing rows. The original write may
+            # have happened before HRV extraction landed in the row builder,
+            # or before multi-record-per-day overwrites were handled — without
+            # this, those rows would stay null forever because the loop used
+            # to skip existing dates, leaving recovery analysis stuck on
+            # "insufficient HRV data" even though Oura returns the value on
+            # every subsequent sync.
+            existing = db.query(RecoveryData).filter(
+                RecoveryData.user_id == user_id,
+                RecoveryData.date == d,
+                RecoveryData.source == "oura",
+            ).first()
+            if existing is None:
+                continue
+            updated = False
+            if (existing.hrv_avg is None or existing.hrv_avg <= 0) and hrv_avg and hrv_avg > 0:
+                existing.hrv_avg = hrv_avg
+                updated = True
+            if (existing.resting_hr is None or existing.resting_hr <= 0) and resting_hr and resting_hr > 0:
+                existing.resting_hr = resting_hr
+                updated = True
+            if existing.sleep_score is None and sleep_score is not None:
+                existing.sleep_score = sleep_score
+                updated = True
+            if existing.readiness_score is None and readiness_score is not None:
+                existing.readiness_score = readiness_score
+                updated = True
+            if existing.total_sleep_sec is None and total_sleep_sec is not None:
+                existing.total_sleep_sec = total_sleep_sec
+                updated = True
+            if existing.deep_sleep_sec is None and deep_sleep_sec is not None:
+                existing.deep_sleep_sec = deep_sleep_sec
+                updated = True
+            if existing.rem_sleep_sec is None and rem_sleep_sec is not None:
+                existing.rem_sleep_sec = rem_sleep_sec
+                updated = True
+            if existing.body_temp_delta is None and body_temp_delta is not None:
+                existing.body_temp_delta = body_temp_delta
+                updated = True
+            if updated:
+                count += 1
+            continue
+
         db.add(RecoveryData(
             user_id=user_id, date=d, source="oura",
-            readiness_score=_float(row.get("readiness_score")),
-            hrv_avg=_float(hrv.get("hrv_avg") or row.get("hrv_avg")),
-            resting_hr=_float(hrv.get("resting_hr") or row.get("resting_hr")),
-            sleep_score=_float(sleep.get("sleep_score")),
-            total_sleep_sec=_float(sleep.get("total_sleep_sec")),
-            deep_sleep_sec=_float(sleep.get("deep_sleep_sec")),
-            rem_sleep_sec=_float(sleep.get("rem_sleep_sec")),
-            body_temp_delta=_float(
-                row.get("body_temperature_delta") or row.get("body_temp_delta")
-            ),
+            readiness_score=readiness_score,
+            hrv_avg=hrv_avg,
+            resting_hr=resting_hr,
+            sleep_score=sleep_score,
+            total_sleep_sec=total_sleep_sec,
+            deep_sleep_sec=deep_sleep_sec,
+            rem_sleep_sec=rem_sleep_sec,
+            body_temp_delta=body_temp_delta,
         ))
         existing_oura.add(d)
         count += 1
