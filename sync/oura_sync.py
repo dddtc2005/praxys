@@ -69,3 +69,56 @@ def parse_readiness_records(raw_records: list[dict]) -> list[dict]:
             "body_temperature_delta": str(r.get("temperature_deviation", "")),
         })
     return rows
+
+
+def select_oura_hrv_per_day(sleep_raw: list[dict]) -> dict[str, dict]:
+    """Pick one HRV/RHR pair per Oura day from possibly-multiple sleep records.
+
+    A single Oura `day` can have several sleep records (`long_sleep`,
+    `late_nap`, `rest`), and naps frequently come back with
+    ``average_hrv: null``. Naive last-write-wins on the dict lets a nap
+    clobber the long_sleep's valid HRV — that's the production data-loss
+    path that strands recovery analysis on "Insufficient HRV data".
+
+    Selection rule:
+      1. Records with a positive ``average_hrv`` always win over records
+         without (regardless of ``type``).
+      2. Among records that all have positive HRV, ``long_sleep`` wins
+         over naps / rests / unset types.
+      3. Within the same priority, first-seen wins (stable for callers
+         iterating Oura's response order).
+
+    Returns a ``{day: {"hrv_avg": str, "resting_hr": str, "_type": str}}``
+    dict matching the contract the writer expects.
+    """
+    def _pos_or_none(v) -> float | None:
+        try:
+            if v in (None, "", "None"):
+                return None
+            f = float(v)
+            return f if f > 0 else None
+        except (TypeError, ValueError):
+            return None
+
+    selected: dict[str, dict] = {}
+    for r in sleep_raw:
+        day = r.get("day") or ""
+        if not day:
+            continue
+        candidate = {
+            "hrv_avg": str(r.get("average_hrv", "") or ""),
+            "resting_hr": str(r.get("average_heart_rate", "") or ""),
+            "_type": r.get("type") or "",
+        }
+        existing = selected.get(day)
+        if existing is None:
+            selected[day] = candidate
+            continue
+        existing_hrv = _pos_or_none(existing.get("hrv_avg"))
+        candidate_hrv = _pos_or_none(candidate.get("hrv_avg"))
+        if candidate_hrv is not None and existing_hrv is None:
+            selected[day] = candidate
+        elif candidate_hrv is not None and existing_hrv is not None:
+            if existing.get("_type") != "long_sleep" and candidate.get("_type") == "long_sleep":
+                selected[day] = candidate
+    return selected

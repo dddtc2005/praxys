@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
 """Praxys MCP Server — dual-mode (local/remote) training data tools.
 
-Mode detection:
-  - PRAXYS_URL (or legacy TRAINSIGHT_URL) env var set → remote mode (HTTP API with JWT auth)
-  - neither set → local mode (direct Python imports, dev user, DB)
+Mode detection (in priority order):
+  - PRAXYS_LOCAL=1 (or legacy TRAINSIGHT_LOCAL=1) → local mode (direct Python
+    imports, dev user, DB). Use this when iterating against your local DB
+    instead of production.
+  - Otherwise → remote mode (HTTP API with JWT auth). PRAXYS_URL overrides
+    the default of https://api.praxys.run; PRAXYS_FRONTEND_URL likewise
+    for the browser-login flow.
+
+Production is the default so the plugin works out-of-the-box for end users.
+Set PRAXYS_LOCAL=1 in your shell to develop against the local FastAPI/DB.
 """
 import json
 import os
@@ -22,8 +29,8 @@ mcp = FastMCP("praxys", instructions="Training data tools for Praxys dashboard")
 
 # Mode detection — prefer PRAXYS_*, fall back to legacy TRAINSIGHT_* for one
 # release (deprecation: 2026-05-19). Defaults to praxys.run production so the
-# plugin works out-of-the-box; local devs override via PRAXYS_URL in their env
-# (see CLAUDE.md "Running" section).
+# plugin works out-of-the-box; local devs opt in via PRAXYS_LOCAL=1 (see the
+# module docstring and CLAUDE.md "Running" section).
 _DEFAULT_BACKEND = "https://api.praxys.run"
 _DEFAULT_FRONTEND = "https://www.praxys.run"
 
@@ -36,16 +43,28 @@ def _clean(value: str | None) -> str:
     return "" if v.startswith("${") and v.endswith("}") else v
 
 
+def _is_truthy(value: str | None) -> bool:
+    return bool(value) and value.strip().lower() not in ("", "0", "false", "no")
+
+
+# Local mode is opt-in. Without this flag we hit production by default, so
+# end users get a working plugin without any env wiring. The previous
+# heuristic ("no PRAXYS_URL means local") silently broke as soon as we
+# baked in production defaults — it would have routed unconfigured users'
+# tool calls to localhost and surfaced obscure connection errors.
+IS_REMOTE = not (
+    _is_truthy(os.environ.get("PRAXYS_LOCAL"))
+    or _is_truthy(os.environ.get("TRAINSIGHT_LOCAL"))
+)
 REMOTE_URL = (
     _clean(os.environ.get("PRAXYS_URL"))
     or _clean(os.environ.get("TRAINSIGHT_URL"))
-    or _DEFAULT_BACKEND
+    or (_DEFAULT_BACKEND if IS_REMOTE else "")
 )
-IS_REMOTE = bool(REMOTE_URL)
 FRONTEND_URL = (
     _clean(os.environ.get("PRAXYS_FRONTEND_URL"))
     or _clean(os.environ.get("TRAINSIGHT_FRONTEND_URL"))
-    or _DEFAULT_FRONTEND
+    or (_DEFAULT_FRONTEND if IS_REMOTE else "")
 )
 
 

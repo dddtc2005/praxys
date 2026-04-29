@@ -883,6 +883,7 @@ def _sync_oura(user_id: str, creds: dict, from_date: str | None,
     from sync.oura_sync import (
         fetch_sleep_data, fetch_readiness_data,
         parse_sleep_records, parse_readiness_records,
+        select_oura_hrv_per_day,
     )
 
     token = creds["token"]
@@ -893,40 +894,7 @@ def _sync_oura(user_id: str, creds: dict, from_date: str | None,
     sleep_raw = fetch_sleep_data(token, start, end)
     sleep_rows = parse_sleep_records(sleep_raw)
 
-    # Extract HRV + resting HR from sleep data (Oura readiness endpoint lacks these).
-    # A single Oura `day` can have multiple sleep records (long_sleep + late_nap +
-    # rest), and naps frequently come back with average_hrv=null. A naive
-    # last-write-wins dict would let a nap clobber the long_sleep's HRV, so we
-    # prefer "long_sleep" (or whichever record actually has positive HRV) per day.
-    def _pos_or_none(v) -> float | None:
-        try:
-            return float(v) if v not in (None, "", "None") and float(v) > 0 else None
-        except (TypeError, ValueError):
-            return None
-
-    hrv_by_date: dict[str, dict] = {}
-    for r in sleep_raw:
-        d = r.get("day") or ""
-        if not d:
-            continue
-        candidate = {
-            "hrv_avg": str(r.get("average_hrv", "") or ""),
-            "resting_hr": str(r.get("average_heart_rate", "") or ""),
-            "_type": r.get("type", ""),
-        }
-        existing = hrv_by_date.get(d)
-        if existing is None:
-            hrv_by_date[d] = candidate
-            continue
-        # Prefer the candidate with a positive average_hrv. If both have HRV,
-        # prefer "long_sleep" over naps/rests.
-        existing_hrv = _pos_or_none(existing.get("hrv_avg"))
-        candidate_hrv = _pos_or_none(candidate.get("hrv_avg"))
-        if candidate_hrv is not None and existing_hrv is None:
-            hrv_by_date[d] = candidate
-        elif candidate_hrv is not None and existing_hrv is not None:
-            if existing.get("_type") != "long_sleep" and candidate.get("_type") == "long_sleep":
-                hrv_by_date[d] = candidate
+    hrv_by_date = select_oura_hrv_per_day(sleep_raw)
 
     readiness_raw = fetch_readiness_data(token, start, end)
     readiness_rows = parse_readiness_records(readiness_raw)
