@@ -123,6 +123,8 @@
           {{tr.signOut}}
         </button>
       </view>
+
+      <text wx:if="{{appVersion}}" class="settings-version ts-muted">Praxys {{appVersion}}</text>
     </block>
     </view>
   </scroll-view>

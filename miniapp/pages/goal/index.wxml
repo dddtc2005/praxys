@@ -250,17 +250,17 @@
     </view>
   </scroll-view>
 
-  <!-- Goal editor: full-height bottom sheet. Shown only when the user
-       taps "Edit" in the nav-bar. Distance/time inputs use WeChat's
-       native picker so the touch interaction is on-platform. The
-       header now hosts Cancel/Save (was a close ×); the bottom action
-       row was removed so the sheet doesn't have two competing CTAs. -->
-  <view wx:if="{{editorOpen}}" class="goal-editor-mask" bindtap="onCloseEditor">
-    <view class="goal-editor-sheet" catch:tap="onSheetTap">
+  <!-- Goal editor: full-height bottom sheet.
+       No bindtap on the mask and no catch:tap on the sheet — both cause
+       Skyline to absorb child taps after wx.showModal closes, making
+       Cancel permanently unresponsive. Cancel/Save in the header are the
+       only dismiss paths; the mask just provides the dark backdrop. -->
+  <view wx:if="{{editorOpen}}" class="goal-editor-mask">
+    <view class="goal-editor-sheet">
       <view class="goal-editor-header">
         <view
           class="goal-editor-header-action goal-editor-header-action--cancel {{editorSaving ? 'goal-editor-header-action--disabled' : ''}}"
-          bindtap="onCloseEditor"
+          catch:tap="onCloseEditor"
         >
           <text>{{tr.cancel}}</text>
         </view>

@@ -154,12 +154,26 @@ interface SettingsState {
   syncing: boolean;
   syncMessage: string;
 
+  appVersion: string;
 }
 
 interface TrainingBaseOption {
   key: 'power' | 'hr' | 'pace';
   label: string;
   className: string;
+}
+
+function readAppVersion(): string {
+  try {
+    const info = wx.getAccountInfoSync();
+    const env = info.miniProgram.envVersion;
+    const ver = info.miniProgram.version;
+    if (env === 'develop') return 'develop';
+    if (env === 'trial') return `trial${ver ? ` · ${ver}` : ''}`;
+    return ver || '';
+  } catch {
+    return '';
+  }
 }
 
 function themeLabelFor(pref: ThemePref): string {
@@ -199,6 +213,7 @@ const initialData: SettingsState = {
   webUrl: WEB_URL,
   syncing: false,
   syncMessage: '',
+  appVersion: readAppVersion(),
 };
 
 function buildTrainingBaseOptions(active: string): TrainingBaseOption[] {

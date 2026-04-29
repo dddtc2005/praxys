@@ -841,12 +841,12 @@ Page({
 
   /**
    * Close the editor. If the user has unsaved changes (`editorDirty`),
-   * surface a native confirm modal first — mirrors web's beforeunload
-   * pattern but using wx.showModal because Skyline can't intercept the
-   * mask tap synchronously.
+   * surface a native confirm modal first. The mask has no bindtap and
+   * the sheet has no catch:tap — both break Skyline's child-tap routing
+   * after wx.showModal closes. Cancel is the only dismiss path.
    */
   onCloseEditor() {
-    if (this.data.editorSaving) return; // ignore taps during save
+    if (this.data.editorSaving) return;
     if (!this.data.editorDirty) {
       this.setData({ editorOpen: false, editorError: '' });
       return;
@@ -861,19 +861,10 @@ Page({
       success: (res) => {
         if (res.confirm) {
           this.setData({ editorOpen: false, editorError: '' });
-        } else {
-          // Skyline requires a setData call after wx.showModal closes to
-          // re-register touch events on the overlay. Without it, subsequent
-          // taps on Cancel (or anywhere in the sheet) go undelivered.
-          this.setData({ editorDirty: this.data.editorDirty as boolean });
         }
       },
     });
   },
-
-  // Stop the mask's bindtap from closing the sheet when the user taps
-  // inside the sheet itself (catchtap stops propagation in WeChat).
-  onSheetTap() {},
 
   onPickEditorType(e: WechatMiniprogram.TouchEvent) {
     const type = e.currentTarget.dataset.type as 'race' | 'continuous' | undefined;
