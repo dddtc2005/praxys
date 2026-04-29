@@ -77,35 +77,13 @@ Component({
 
   pageLifetimes: {
     show() {
-      // Guard every field with an equality check so we only call setData
-      // when something actually changed. Unconditional setData on every
-      // tab switch was the root cause of the intermittent white flash:
-      // multiple overlapping re-renders from rapidly-switched tabs
-      // created a race condition in glass-easel's paint queue.
-      //
-      // Language and theme both use wx.reLaunch, so after any change
-      // all pages reload fresh. Rebuilding tabs[] here is unnecessary
-      // (it's done once in attached()). We only update themeClass (for
-      // the system-theme-change edge case) and selected.
-      const updates: Record<string, unknown> = {};
-
+      // Each tab-bar page's onShow directly calls tabBar.setData({ selected })
+      // so we don't need to derive it here from getCurrentPages() (which can
+      // be stale during rapid tab switching). We only update themeClass here,
+      // guarded so we don't re-render unless it actually changed.
       const themeClass = `theme-${resolveCurrentTheme()}`;
       if (themeClass !== this.data.themeClass) {
-        updates.themeClass = themeClass;
-      }
-
-      const pages = getCurrentPages();
-      const top = pages[pages.length - 1];
-      if (top) {
-        const idx = TABS.findIndex((tab) => tab.pagePath === top.route);
-        if (idx >= 0 && idx !== this.data.selected) {
-          updates.selected = idx;
-        }
-      }
-
-      // One setData call (or none) per tab switch — not two.
-      if (Object.keys(updates).length > 0) {
-        this.setData(updates);
+        this.setData({ themeClass });
       }
     },
   },

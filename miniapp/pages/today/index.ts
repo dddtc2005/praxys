@@ -358,8 +358,9 @@ Page({
 
   onShow() {
     applyThemeChrome();
-    // Skyline pageLifetimes.show on the custom tab bar isn't reliable;
-    // tell the bar explicitly which tab is active.
+    const tabBar = (this as { getTabBar?: () => { setData: (d: unknown) => void } | null })
+      .getTabBar?.();
+    tabBar?.setData({ selected: 0 });
   },
 
   onShareAppMessage(options: WechatMiniprogram.Page.IShareAppMessageOption) {

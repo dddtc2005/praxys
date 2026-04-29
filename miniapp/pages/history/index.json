@@ -4,5 +4,6 @@
     "state-card": "../../components/state-card/index"
   },
   "backgroundColor": "@bgColor",
-  "backgroundColorBottom": "@bgColor"
+  "backgroundColorBottom": "@bgColor",
+  "backgroundColorContent": "@bgColor"
 }
