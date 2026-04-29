@@ -583,7 +583,7 @@ def translate_batch(
     missing = [e for e in entries if not e["msgstr"]]
     if not missing:
         print("No missing translations.", file=sys.stderr)
-        return {"filled": 0, "rejected_placeholder_mismatch": 0, "capped": 0}
+        return {"filled": 0, "rejected_placeholder_mismatch": 0, "glossary_warnings": 0, "capped": 0}
 
     capped = 0
     if max_translations is not None and len(missing) > max_translations:

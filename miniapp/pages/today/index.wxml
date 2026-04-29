@@ -26,11 +26,9 @@
 
     <block wx:else>
       <view class="ts-card signal-hero">
-        <!-- Share FAB — first tap renders and reveals the share card;
-             second tap hides it. open-type=share is removed here since
-             the nav-bar rightShare prop handles the menu share. -->
+        <!-- Share FAB — tap opens the share card overlay. -->
         <view
-          class="signal-share-fab {{shareCardVisible ? 'signal-share-fab--active' : ''}}"
+          class="signal-share-fab"
           bindtap="onShareCardToggle"
           hover-class="signal-share-fab--press"
         >
@@ -43,24 +41,6 @@
         </view>
         <text class="signal-subtitle signal-subtitle--{{signalColor}}">{{signalSubtitle}}</text>
         <text class="signal-reason">{{signalReason}}</text>
-
-        <!-- Canvas-rendered share card — only visible after the user taps
-             the share FAB. Long-press → "Save image" from camera roll is
-             WeChat's native share path, bypassing the unverified-app
-             advisory that fires with open-type=share + wxfile:// imageUrl. -->
-        <block wx:if="{{shareCardVisible}}">
-          <view wx:if="{{!shareImagePath}}" class="signal-share-loading">
-            <view class="ts-skeleton signal-share-skeleton"></view>
-          </view>
-          <image
-            wx:if="{{shareImagePath}}"
-            class="signal-share-image"
-            src="{{shareImagePath}}"
-            mode="widthFix"
-            show-menu-by-longpress="{{true}}"
-          />
-          <text class="signal-share-hint ts-muted">{{tr.longPressToShare}}</text>
-        </block>
       </view>
 
       <view wx:if="{{hasSparkline}}" class="ts-card">
@@ -159,4 +139,25 @@
     </block>
     </view>
   </scroll-view>
+
+  <!-- Share card overlay — appears above everything when FAB is tapped.
+       User long-presses the image to get WeChat's native "Save image"
+       context menu, then shares from camera roll. Tap the backdrop to
+       dismiss. -->
+  <view wx:if="{{shareCardVisible}}" class="share-overlay" bindtap="onShareCardToggle">
+    <view class="share-overlay-sheet" catchtap="noop">
+      <text class="share-overlay-title ts-muted">{{tr.longPressToShare}}</text>
+      <view wx:if="{{!shareImagePath}}" class="share-overlay-loading">
+        <view class="ts-skeleton share-overlay-skeleton"></view>
+      </view>
+      <image
+        wx:if="{{shareImagePath}}"
+        class="share-overlay-image"
+        src="{{shareImagePath}}"
+        mode="widthFix"
+        show-menu-by-longpress="{{true}}"
+      />
+      <text class="share-overlay-close ts-muted" bindtap="onShareCardToggle">{{tr.close}}</text>
+    </view>
+  </view>
 </view>

@@ -268,6 +268,7 @@ function buildTranslations() {
     avgPower: t('Avg power'),
     warnings: t('Warnings'),
     longPressToShare: t('Long press to save & share'),
+    close: t('Close'),
   };
 }
 
@@ -422,22 +423,19 @@ Page({
     void this.refetch();
   },
 
-  /** Toggle the share card visible. If no canvas image has been rendered
-   *  yet, trigger a render first so the first tap is never empty. */
+  noop() { /* backdrop catchtap — prevents overlay close when tapping the card */ },
+
   onShareCardToggle() {
     const nextVisible = !this.data.shareCardVisible;
     this.setData({ shareCardVisible: nextVisible });
-    // Pre-render share card on first reveal if not already done.
     if (nextVisible && !this.data.shareImagePath) {
       void this.renderShareCard();
     }
   },
 
   async renderShareCard() {
-    const resp = (this.data as { _apiResponse?: ReturnType<typeof buildRenderState> })._apiResponse;
-    if (!resp) return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response = (this.data as unknown as { _todayResponse?: Record<string, any> })._todayResponse;
+    const response = (this as unknown as Record<string, any>)._todayResponse;
     if (!response) return;
     const meta = SIGNAL_META[response.signal?.recommendation] ?? SIGNAL_META.follow_plan;
     try {
@@ -459,9 +457,9 @@ Page({
     this.setData({ loading: true, errorMessage: '' });
     try {
       const response = await apiGet<TodayResponse>('/api/today');
-      // Cache raw response so onShareCardToggle can render the card on
-      // first tap without re-fetching.
-      (this.data as unknown as { _todayResponse: TodayResponse })._todayResponse = response;
+      // Cache raw response so renderShareCard can access it on first FAB tap.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (this as unknown as Record<string, any>)._todayResponse = response;
       this.setData(
         buildRenderState(response, this.data.themeClass, this.data.today) as Record<string, unknown>,
       );

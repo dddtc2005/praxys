@@ -98,7 +98,6 @@
             <text class="settings-pick-chev ts-muted">›</text>
           </view>
         </view>
-        <text class="settings-hint ts-muted">{{tr.themeHint}}</text>
       </view>
 
       <view class="ts-section">
@@ -109,7 +108,6 @@
             <text class="settings-pick-chev ts-muted">›</text>
           </view>
         </view>
-        <text class="settings-hint ts-muted">{{tr.languageHint}}</text>
       </view>
 
       <view class="settings-actions">

@@ -6,7 +6,6 @@ import {
   getThemePreference,
   setThemePreference,
   themeClassName,
-  resolveTheme,
 } from '../../utils/theme';
 import type { ThemePref } from '../../utils/theme';
 import type { IAppOption } from '../../app';
@@ -38,12 +37,8 @@ function buildSettingsTr() {
     themeAuto: t('Auto'),
     themeDark: t('Dark'),
     themeLight: t('Light'),
-    themeHint: t('Auto follows your WeChat system theme.'),
     language: t('Language'),
     languageAuto: t('Auto'),
-    languageHint: t(
-      'Affects share copy now; full UI translation is web-only for the moment.',
-    ),
     openOnWeb: t('Open Praxys on web'),
     signOut: t('Log out'),
     switchAccount: t('Switch Praxys account'),
@@ -391,38 +386,13 @@ Page({
         const next = themeKeys[res.tapIndex];
         if (!next || next === this.data.theme) return;
         setThemePreference(next);
-
-        const newThemeClass = themeClassName();
-        const newChartTheme: 'light' | 'dark' =
-          resolveTheme(next) === 'light' ? 'light' : 'dark';
-
-        // Update global cache for newly mounted pages.
-        getApp<IAppOption>().globalData.themeClass = newThemeClass;
-
-        // Push new theme to every mounted page — instant CSS-var swap.
-        const pages = getCurrentPages();
-        for (const page of pages) {
-          const p = page as WechatMiniprogram.Page.Instance<
-            Record<string, unknown>,
-            Record<string, unknown>
-          >;
-          p.setData({ themeClass: newThemeClass, chartTheme: newChartTheme });
-        }
-
-        // Update the custom tab bar (not in page stack).
-        const tabBar = (
-          this as unknown as { getTabBar?: () => { setData: (d: unknown) => void } | null }
-        ).getTabBar?.();
-        tabBar?.setData({ themeClass: newThemeClass });
-
-        applyThemeChrome();
-
-        this.setData({
-          theme: next,
-          themeLabel: themeLabelFor(next),
-          themeClass: newThemeClass,
-          tr: { ...tr, themeHint: t('Auto follows your WeChat system theme.') },
-        });
+        // Update globalData so first-paint on the reloaded pages is correct.
+        getApp<IAppOption>().globalData.themeClass = themeClassName();
+        // reLaunch — every page reloads fresh with the new theme. This is
+        // the same approach as language switching. The one-time reload means
+        // NO per-tab flash on subsequent tab switches (which is the worse UX
+        // compared to a single explicit reload the user just initiated).
+        wx.reLaunch({ url: '/pages/settings/index' });
       },
     });
   },
