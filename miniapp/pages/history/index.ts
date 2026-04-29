@@ -5,10 +5,11 @@ import type { ApiError } from '../../utils/api-client';
 import type { Activity, HistoryResponse } from '../../types/api';
 import { formatDistance, formatTime } from '../../utils/format';
 import { applyThemeChrome, themeClassName } from '../../utils/theme';
-import { t } from '../../utils/i18n';
+import { t, tFmt } from '../../utils/i18n';
 
 function buildHistoryTr() {
   return {
+    navTitle: t('Activities'),
     activities: t('Activities'),
     failedToLoad: t('Failed to load'),
     retry: t('Retry'),
@@ -194,7 +195,7 @@ Page({
         shownCount: merged.length,
         hasActivities: merged.length > 0,
         hasReachedEnd: merged.length >= resp.total && resp.total > 0,
-        totalLine: `${resp.total} total · showing ${merged.length}`,
+        totalLine: tFmt('{0} total · showing {1}', resp.total, merged.length),
         offset,
       });
     } catch (e) {

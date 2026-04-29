@@ -9,6 +9,7 @@
  */
 
 import { chartColors, type ResolvedTheme } from '../../utils/theme';
+import { t, tFmt } from '../../utils/i18n';
 
 type Ctx = WechatMiniprogram.CanvasRenderingContext.CanvasRenderingContext2D;
 
@@ -127,7 +128,9 @@ Component({
           ? py.toFixed(0)
           : py.toFixed(1);
       const xText = px >= 1 ? Math.round(px).toString() : px.toFixed(2);
-      const text = `Sleep ${xText} · ${yText}`;
+      // Tooltip is shared by any (x, y) chart but currently only used for
+      // sleep×performance — the "Sleep" prefix is intentional copy here.
+      const text = tFmt('Sleep {0} · {1}', xText, yText);
 
       this.setData({
         tooltipVisible: true,
@@ -245,7 +248,7 @@ function renderScatter(
     ctx.font = '11px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('No data', width / 2, height / 2);
+    ctx.fillText(t('No data'), width / 2, height / 2);
     return;
   }
 

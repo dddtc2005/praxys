@@ -11,12 +11,13 @@ import {
 import type { ThemePref } from '../../utils/theme';
 import type { IAppOption } from '../../app';
 import { getLanguagePreference, setLanguagePreference } from '../../utils/share';
-import { t, detectLocale } from '../../utils/i18n';
+import { t, tFmt, detectLocale } from '../../utils/i18n';
 import type { SettingsResponse } from '../../types/api';
 import { MINIAPP_BUILD_VERSION } from '../../utils/version';
 
 function buildSettingsTr() {
   return {
+    navTitle: t('Settings'),
     failedToLoad: t('Failed to load'),
     retry: t('Retry'),
     profile: t('Profile'),
@@ -80,13 +81,15 @@ const KNOWN_THRESHOLDS = [
   'rest_hr_bpm',
 ] as const;
 
-const THRESHOLD_LABEL: Record<string, string> = {
-  cp_watts: 'CP',
-  lthr_bpm: 'LTHR',
-  threshold_pace_sec_km: 'Threshold pace',
-  max_hr_bpm: 'Max HR',
-  rest_hr_bpm: 'Resting HR',
-};
+function thresholdLabels(): Record<string, string> {
+  return {
+    cp_watts: t('CP'),
+    lthr_bpm: t('LTHR'),
+    threshold_pace_sec_km: t('Threshold pace'),
+    max_hr_bpm: t('Max HR'),
+    rest_hr_bpm: t('Resting HR'),
+  };
+}
 
 const THRESHOLD_UNIT: Record<string, string> = {
   cp_watts: 'W',
@@ -311,10 +314,10 @@ function buildSettingsState(response: SettingsResponse): Partial<SettingsState> 
     const unit = THRESHOLD_UNIT[k] ?? '';
     return {
       key: k,
-      label: THRESHOLD_LABEL[k] ?? k,
+      label: thresholdLabels()[k] ?? k,
       display: formatThresholdDisplay(k, value, unit),
       hasOrigin: origin !== 'user' && origin !== 'none',
-      origin: `from ${origin}`,
+      origin: tFmt('from {0}', origin),
     };
   });
 
@@ -451,7 +454,7 @@ Page({
 
   onCopyUrl() {
     wx.setClipboardData({ data: WEB_URL });
-    wx.showToast({ title: 'URL copied', icon: 'success', duration: 1500 });
+    wx.showToast({ title: t('URL copied'), icon: 'success', duration: 1500 });
   },
 
   onSignOut() {

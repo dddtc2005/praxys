@@ -12,7 +12,7 @@ import {
   getShareMessage,
 } from '../../utils/share';
 import { copyUrlToClipboard } from '../../utils/markdown';
-import { t } from '../../utils/i18n';
+import { t, tFmt } from '../../utils/i18n';
 
 // Editor distance choices mirror web/src/components/GoalEditor.tsx so the
 // two clients save the same shape to /api/settings.
@@ -27,6 +27,7 @@ interface DistanceChoice {
 function buildGoalTr() {
   return {
     // Page-level chrome
+    navTitle: t('Goal'),
     failedToLoad: t('Failed to load'),
     retry: t('Retry'),
     realityCheck: t('Reality Check'),
@@ -145,15 +146,19 @@ const SCIENCE_ULTRA_URL =
   'https://runningwritings.com/2024/01/critical-speed-guide-for-runners.html';
 const ULTRA_DISTANCES = new Set(['50k', '50mi', '100k', '100mi']);
 
-const DEFAULT_POWER_NOTE =
-  'Predicted using Stryd race power model (5K at 103.8% CP, marathon at 89.9% CP).';
-const DEFAULT_PACE_NOTE =
-  "Predicted using Riegel's formula (T₂ = T₁ × (D₂/D₁)^1.06), treating threshold pace as ~10K effort.";
-const ULTRA_NOTE =
-  "Ultra distance power fractions (50K+) are estimates with limited research backing. " +
-  "Riegel's exponent is validated only up to marathon distance. Predictions beyond marathon " +
-  'carry significantly higher uncertainty due to factors like fueling, terrain, heat, and pacing ' +
-  'strategy that dominate ultra performance but are not captured by power/pace models.';
+// Defaults are functions so the active locale resolves at call time, not
+// module load (locale changes don't reload the JS, only rebuild tr tables).
+const defaultPowerNote = () =>
+  t('Predicted using Stryd race power model (5K at 103.8% CP, marathon at 89.9% CP).');
+const defaultPaceNote = () =>
+  t("Predicted using Riegel's formula (T₂ = T₁ × (D₂/D₁)^1.06), treating threshold pace as ~10K effort.");
+const ultraNote = () =>
+  t(
+    "Ultra distance power fractions (50K+) are estimates with limited research backing. " +
+      "Riegel's exponent is validated only up to marathon distance. Predictions beyond marathon " +
+      'carry significantly higher uncertainty due to factors like fueling, terrain, heat, and pacing ' +
+      'strategy that dominate ultra performance but are not captured by power/pace models.',
+  );
 
 interface PredictionNote {
   text: string;
@@ -170,9 +175,9 @@ function predictionNote(response: GoalResponse): PredictionNote {
     };
   }
   if (response.training_base === 'power') {
-    return { text: DEFAULT_POWER_NOTE, url: SCIENCE_POWER_URL };
+    return { text: defaultPowerNote(), url: SCIENCE_POWER_URL };
   }
-  return { text: DEFAULT_PACE_NOTE, url: SCIENCE_PACE_URL };
+  return { text: defaultPaceNote(), url: SCIENCE_PACE_URL };
 }
 
 function isUltraDistance(distance?: string): boolean {
@@ -362,7 +367,11 @@ const initialData: GoalState = {
   notePredictionUrl: '',
   notePredictionExpanded: false,
   hasUltraNote: false,
-  noteUltraText: ULTRA_NOTE,
+  // Resolved per-refetch in buildState so locale switches don't leave a
+  // stale English copy behind. Initial value is empty string — the WXML
+  // gates the note card behind hasUltraNote, which only flips true after
+  // the first refetch has run.
+  noteUltraText: '',
   noteUltraUrl: SCIENCE_ULTRA_URL,
   noteUltraExpanded: false,
 
@@ -503,6 +512,9 @@ function buildState(response: GoalResponse, themeClass: string): Partial<GoalSta
     // doesn't collapse a note the user opened. This is initialized to
     // false in initialData and toggled by the user only.
     hasUltraNote: ultra,
+    // Resolved at refetch time (not module load) so switching language
+    // and revisiting the page picks up the new locale.
+    noteUltraText: ultra ? ultraNote() : '',
   };
 
   if (rc.mode === 'race_date') {
@@ -614,8 +626,8 @@ function buildCpMilestoneState(
   return {
     cmDistLabel: distLabel,
     cmHero: hasTimeTarget
-      ? `Building toward ${formatTime(rc.target_time_sec as number)} ${distLabel}`
-      : `${distLabel} Progress`,
+      ? tFmt('Building toward {0} {1}', formatTime(rc.target_time_sec as number), distLabel)
+      : tFmt('{0} Progress', distLabel),
     cmHasPredicted: rc.predicted_time_sec != null,
     cmPredictedTime: rc.predicted_time_sec != null ? formatTime(rc.predicted_time_sec) : '—',
     cmHasTarget: hasTimeTarget,
@@ -635,7 +647,9 @@ function buildCpMilestoneState(
     cmAssessmentAccent: severityClass,
     cmHasEstimatedMonths: rc.estimated_months != null,
     cmEstimatedMonths:
-      rc.estimated_months != null ? `${rc.estimated_months.toFixed(1)} months` : '',
+      rc.estimated_months != null
+        ? tFmt('{0} months', rc.estimated_months.toFixed(1))
+        : '',
     cmHasTrendNote: !!rCheck.trend_note,
     cmTrendNote: rCheck.trend_note ?? '',
   };

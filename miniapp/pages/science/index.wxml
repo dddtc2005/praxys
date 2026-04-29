@@ -1,5 +1,5 @@
 <view class="sci-root {{themeClass}}">
-  <nav-bar title="Training science" theme-class="{{themeClass}}" show-back="{{true}}" />
+  <nav-bar title="{{tr.navTitle}}" theme-class="{{themeClass}}" show-back="{{true}}" />
 
   <scroll-view scroll-y="{{true}}" class="sci-scroll">
     <view class="sci-content">
@@ -73,7 +73,7 @@
         <!-- Recommendation hint -->
         <view wx:if="{{row.hasRecommendation}}" class="sci-recommendation">
           <text class="sci-recommendation-text ts-warning">
-            Based on your training, we suggest <text class="sci-recommendation-name">{{row.recommendationName}}</text> — {{row.recommendationReason}}
+            {{tr.suggestion}} <text class="sci-recommendation-name">{{row.recommendationName}}</text> — {{row.recommendationReason}}
           </text>
         </view>
 
@@ -121,7 +121,7 @@
         <text class="ts-section-label">{{tr.zoneLabels}}</text>
         <text class="sci-line">{{tr.currentlyUsing}}: <text class="ts-value">{{activeLabels}}</text></text>
         <text wx:if="{{hasMultipleLabelSets}}" class="sci-muted-line ts-muted">
-          {{labelSetCount}} label sets available — switch on the web.
+          {{labelSetsAvailableText}}
         </text>
       </view>
     </block>

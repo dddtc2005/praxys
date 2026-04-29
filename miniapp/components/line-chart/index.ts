@@ -24,6 +24,7 @@ export interface LineSeries {
 }
 
 import { chartColors, type ResolvedTheme } from '../../utils/theme';
+import { t } from '../../utils/i18n';
 
 type Ctx = WechatMiniprogram.CanvasRenderingContext.CanvasRenderingContext2D;
 
@@ -320,7 +321,7 @@ function renderChart(
     ctx.fillStyle = colors.tick;
     ctx.font = '11px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('Not enough data', width / 2, height / 2);
+    ctx.fillText(t('Not enough data'), width / 2, height / 2);
     return;
   }
 

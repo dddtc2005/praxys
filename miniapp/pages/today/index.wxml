@@ -1,5 +1,5 @@
 <view class="today-root {{themeClass}}">
-  <nav-bar title="Today" theme-class="{{themeClass}}" show-wordmark="{{true}}" />
+  <nav-bar title="{{tr.navTitle}}" theme-class="{{themeClass}}" show-wordmark="{{true}}" />
 
   <scroll-view
     scroll-y="{{true}}"

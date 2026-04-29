@@ -6,7 +6,8 @@
   "scripts": {
     "sync-types": "node scripts/sync-types.cjs",
     "sync-i18n": "node scripts/sync-i18n.cjs",
-    "pretypecheck": "npm run sync-types && npm run sync-i18n",
+    "check-i18n": "node scripts/check-i18n.cjs",
+    "pretypecheck": "npm run sync-types && npm run sync-i18n && npm run check-i18n",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "devDependencies": {
