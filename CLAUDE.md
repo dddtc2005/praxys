@@ -150,6 +150,12 @@ Required env vars (set only if you're running a mini program):
 - `WECHAT_MINIAPP_SECRET` — same page; rotate like any secret
 - If unset, the endpoints return 503 `WECHAT_NOT_CONFIGURED` (the rest of the app is unaffected)
 
+### Publishing the mini program
+
+Don't tell the user to "open WeChat DevTools and click 上传." Uploads are CI-driven via `.github/workflows/miniapp-publish.yml` (uses `miniprogram-ci`). Versioning is **CalVer, per-component tags** — `miniapp-YYYY.MM.MICRO` (e.g. `miniapp-2026.04.1`) for releases; `main` pushes auto-publish to robot 5 with a synthetic `YYYY.MM.DD.<run>+<sha>` version. The release line is robot 1; robots are independent slots in 版本管理. Promoting 开发版 → 体验版 and 提交审核 / 发布 stay manual in mp.weixin.qq.com (no first-party openapi for them). Full design rationale: `docs/dev/miniapp-cicd-research.md`.
+
+Secrets (already configured): `WECHAT_MINIAPP_APPID`, `WECHAT_MINIAPP_UPLOAD_KEY`. IP whitelist is intentionally off — the upload key is the security boundary.
+
 ## Documentation
 
 See `docs/dev/contributing.md` for which files to update with code changes. Key dev docs:

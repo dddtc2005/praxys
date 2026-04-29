@@ -1,12 +1,11 @@
 name: Miniapp build
 
-# Native WeChat Mini Program: WeChat DevTools (or `miniprogram-ci` in CI/CD)
-# compiles the project in-place — there's no separate `npm run build` step.
-# What we CAN catch in CI is build regressions: a TypeScript error, a stale
-# i18n catalog, or a missing page entry. So this workflow runs the
-# `pretypecheck` chain (sync-types + sync-i18n) followed by `tsc --noEmit`
-# and then sanity-checks the on-disk miniapp/ tree against the page list
-# declared in app.json.
+# Native WeChat Mini Program build-validation gate, runs on PR + main push.
+# Does NOT upload to WeChat — uploading is `miniapp-publish.yml`'s job. This
+# workflow exists so PRs get a typecheck signal: it runs the `pretypecheck`
+# chain (sync-types + sync-i18n) followed by `tsc --noEmit`, then
+# sanity-checks the on-disk miniapp/ tree against the page list declared in
+# app.json.
 #
 # i18n note: the miniapp consumes `web/src/locales/{en,zh}/messages.po` via
 # `scripts/sync-i18n.cjs` (run by `pretypecheck`). The translation pipeline
@@ -66,10 +65,11 @@ jobs:
           done
           echo "All 4 components present."
       - name: Report source size
-        # Native compiles in DevTools; we can't run `miniprogram-ci` without
-        # the platform secret. Report raw source size as a rough proxy —
-        # WeChat's main-package limit is 2 MB after compile, and the source
-        # is typically near 1:1 (no transpiled bundle to expand into).
+        # Cheap proxy for the post-compile bundle size. The actual compile
+        # happens in `miniapp-publish.yml` (or DevTools); we don't run
+        # `miniprogram-ci` here to keep PR runs fast and free of the upload
+        # secret. WeChat's main-package limit is 2 MB after compile and the
+        # source is typically near 1:1 (no transpiled bundle to expand into).
         run: |
           # Exclude node_modules and the auto-generated catalogs, which
           # would skew the comparison vs what DevTools actually packages.

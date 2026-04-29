@@ -1,0 +1,211 @@
+name: Miniapp publish
+
+# Uploads miniapp/ to WeChat using miniprogram-ci, replacing the manual
+# "上传" button in 微信开发者工具.
+#
+# Versioning: CalVer, per-component tags. `miniapp-YYYY.MM.MICRO` (e.g.
+# `miniapp-2026.04.1`) goes to robot 1 (release line). Plain `main` pushes
+# go to robot 5 (dev line) with a synthetic version `YYYY.MM.DD.<run>-<sha>`
+# so they never overwrite the release candidate. The dash (not `+`) keeps
+# the version string safely within the conservative subset of characters
+# that miniprogram-ci is known to accept.
+#
+# Robots 1..30 are independent slots in 版本管理 — each robot keeps its own
+# latest 开发版. Promoting to 体验版 / 提交审核 / 发布 stays manual in
+# mp.weixin.qq.com (审核 is human-reviewed; no first-party openapi for it).
+#
+# See docs/dev/miniapp-cicd-research.md for the full design rationale.
+
+on:
+  push:
+    branches: [main]
+    tags: ['miniapp-*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: miniapp
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # 0 → fetch full history. We diff `github.event.before..sha` to
+          # cover *all* commits in a multi-commit push, not just the tip
+          # (HEAD^..HEAD would silently miss a miniapp change buried under
+          # a later unrelated commit in the same push).
+          fetch-depth: 0
+
+      - name: Decide whether to publish
+        id: gate
+        working-directory: ${{ github.workspace }}
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" == refs/tags/miniapp-* ]]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "reason=tag" >> "$GITHUB_OUTPUT"
+          elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "reason=manual" >> "$GITHUB_OUTPUT"
+          else
+            # main push: only publish when miniapp-relevant paths changed
+            # across the entire push range (web/src/locales/ and
+            # web/src/types/api.ts feed into miniapp via sync-types/
+            # sync-i18n at typecheck time, so they count).
+            #
+            # github.event.before is the SHA at the prior tip of main; for
+            # a brand-new branch (impossible on main but defensive) it's
+            # 40 zeros, in which case we can't compute a diff and default
+            # to publishing rather than silently skipping.
+            null_sha="0000000000000000000000000000000000000000"
+            if [[ -z "$BEFORE_SHA" || "$BEFORE_SHA" == "$null_sha" ]]; then
+              echo "publish=true" >> "$GITHUB_OUTPUT"
+              echo "reason=main-push-new-branch" >> "$GITHUB_OUTPUT"
+              echo "::notice::No prior SHA available; publishing unconditionally."
+            else
+              changed=$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" || true)
+              if echo "$changed" | grep -qE '^(miniapp/|web/src/locales/|web/src/types/api\.ts$|\.github/workflows/miniapp-publish\.yml$)'; then
+                echo "publish=true" >> "$GITHUB_OUTPUT"
+                echo "reason=main-push" >> "$GITHUB_OUTPUT"
+              else
+                echo "publish=false" >> "$GITHUB_OUTPUT"
+                echo "::notice::No miniapp-relevant paths changed in $BEFORE_SHA..$GITHUB_SHA; skipping upload."
+              fi
+            fi
+          fi
+
+      - if: steps.gate.outputs.publish == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: miniapp/package-lock.json
+
+      - if: steps.gate.outputs.publish == 'true'
+        name: Install miniapp deps
+        run: npm ci --no-audit --no-fund
+
+      - if: steps.gate.outputs.publish == 'true'
+        name: Typecheck (sync-types + sync-i18n + tsc --noEmit)
+        run: npm run typecheck
+
+      - if: steps.gate.outputs.publish == 'true'
+        name: Install miniprogram-ci
+        run: npm install --no-save miniprogram-ci
+
+      - if: steps.gate.outputs.publish == 'true'
+        name: Decide robot + version
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          short_sha="${GITHUB_SHA::7}"
+          if [[ "$GITHUB_REF" == refs/tags/miniapp-* ]]; then
+            tag_version="${GITHUB_REF#refs/tags/miniapp-}"
+            echo "robot=1" >> "$GITHUB_OUTPUT"
+            echo "version=$tag_version" >> "$GITHUB_OUTPUT"
+            # Include short_sha so 版本管理 stays self-describing even when
+            # the same tag is force-pushed to a different commit.
+            echo "desc=release $tag_version ($short_sha)" >> "$GITHUB_OUTPUT"
+          else
+            ymd=$(date -u +%Y.%m.%d)
+            echo "robot=5" >> "$GITHUB_OUTPUT"
+            # Use `-` (not `+`) as the run/sha separator. miniprogram-ci
+            # is documented with semver-like strings; `-` is unambiguously
+            # accepted whereas `+` (semver build-metadata) is not
+            # confirmed to round-trip cleanly.
+            echo "version=${ymd}.${GITHUB_RUN_NUMBER}-${short_sha}" >> "$GITHUB_OUTPUT"
+            echo "desc=main ${short_sha}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.gate.outputs.publish == 'true'
+        name: Write upload key
+        env:
+          WECHAT_MINIAPP_UPLOAD_KEY: ${{ secrets.WECHAT_MINIAPP_UPLOAD_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${WECHAT_MINIAPP_UPLOAD_KEY:-}" ]; then
+            echo "::error::WECHAT_MINIAPP_UPLOAD_KEY secret is not set"
+            exit 1
+          fi
+          umask 077
+          printf '%s' "$WECHAT_MINIAPP_UPLOAD_KEY" > "$RUNNER_TEMP/wechat.key"
+
+      - if: steps.gate.outputs.publish == 'true'
+        name: Upload to WeChat
+        env:
+          APPID: ${{ secrets.WECHAT_MINIAPP_APPID }}
+          KEY_PATH: ${{ runner.temp }}/wechat.key
+          VERSION: ${{ steps.meta.outputs.version }}
+          DESC: ${{ steps.meta.outputs.desc }}
+          ROBOT: ${{ steps.meta.outputs.robot }}
+        run: |
+          node -e "
+            const ci = require('miniprogram-ci');
+            const project = new ci.Project({
+              appid: process.env.APPID,
+              type: 'miniProgram',
+              projectPath: '.',
+              privateKeyPath: process.env.KEY_PATH,
+              ignores: [
+                'node_modules/**/*',
+                'scripts/**/*',
+                'tsconfig.json',
+                'package*.json',
+                '.gitignore',
+                '*.md',
+                // Defensive: outside projectPath today (we're in miniapp/),
+                // but explicit listing prevents accidental bundling if
+                // anyone ever runs from the repo root.
+                '.github/**/*',
+                '.git/**/*',
+              ],
+            });
+            ci.upload({
+              project,
+              version: process.env.VERSION,
+              desc: process.env.DESC,
+              setting: {
+                es6: true,
+                minify: true,
+                codeProtect: false,
+                autoPrefixWXSS: true,
+                uploadWithSourceMap: true,
+              },
+              robot: Number(process.env.ROBOT),
+              threads: 4,
+            }).then((r) => {
+              console.log('upload result:');
+              console.log(JSON.stringify(r, null, 2));
+            }).catch((e) => {
+              console.error('upload failed:', e && e.stack || e);
+              process.exit(1);
+            });
+          "
+
+      - if: always() && steps.gate.outputs.publish == 'true'
+        name: Job summary
+        shell: bash
+        run: |
+          {
+            echo '## Miniapp publish'
+            echo ''
+            echo '| field | value |'
+            echo '|---|---|'
+            echo '| trigger | `${{ steps.gate.outputs.reason }}` |'
+            echo '| robot | `${{ steps.meta.outputs.robot }}` |'
+            echo '| version | `${{ steps.meta.outputs.version }}` |'
+            echo '| desc | `${{ steps.meta.outputs.desc }}` |'
+            echo '| ref | `${{ github.ref }}` |'
+            echo '| sha | `${{ github.sha }}` |'
+            echo ''
+            echo 'To ship: open mp.weixin.qq.com → 版本管理 → robot ${{ steps.meta.outputs.robot }} → 选为体验版 → 提交审核 → 发布.'
+          } >> "$GITHUB_STEP_SUMMARY"
