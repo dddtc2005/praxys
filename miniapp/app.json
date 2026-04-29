@@ -17,10 +17,14 @@
     }
   },
   "componentFramework": "glass-easel",
+  "darkmode": true,
+  "themeLocation": "theme.json",
   "window": {
-    "backgroundTextStyle": "dark",
     "navigationStyle": "custom",
-    "backgroundColor": "#0d1220"
+    "backgroundColor": "@bgColor",
+    "backgroundColorTop": "@bgColorTop",
+    "backgroundColorBottom": "@bgColorBottom",
+    "backgroundTextStyle": "@textStyle"
   },
   "tabBar": {
     "custom": true,

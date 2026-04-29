@@ -58,14 +58,23 @@ page {
     'Helvetica Neue', Arial, sans-serif;
   font-size: 28rpx;
   line-height: 1.5;
-  // Default to dark theme background. This is what WeChat renders briefly
-  // BEFORE the root <view> paints — using the dark color eliminates the
-  // white flash dark-mode users see on every tab switch. Light-mode users
-  // get a 1-frame dark→light transition that is imperceptible at 60fps.
-  // app.json window.backgroundColor is also set to match; and
-  // applyThemeChrome() keeps wx.setBackgroundColor in sync at runtime.
-  background-color: #0d1220;
-  color: #e8ebf0;
+  // Light mode defaults.
+  background-color: #faf9f5;
+  color: #15192a;
+}
+
+// @media prefers-color-scheme is the CORRECT WeChat-native way to set the
+// page background before any JS or <view> renders. It fires immediately
+// from CSS — no JS round-trip — so the page background matches the system
+// theme with zero flash for "Auto" users.
+// For users who manually override (e.g. force Dark on a Light system),
+// wx.setBackgroundColor() in applyThemeChrome() keeps the window chrome
+// correct at runtime.
+@media (prefers-color-scheme: dark) {
+  page {
+    background-color: #0d1220;
+    color: #e8ebf0;
+  }
 }
 
 .ts-container {
