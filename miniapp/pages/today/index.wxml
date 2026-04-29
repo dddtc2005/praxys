@@ -26,6 +26,13 @@
 
     <block wx:else>
       <view class="ts-card signal-hero">
+        <view
+          class="signal-share-fab"
+          bindtap="onShareCardToggle"
+          hover-class="signal-share-fab--press"
+        >
+          <view class="signal-share-fab__icon"></view>
+        </view>
         <view class="signal-circle signal-circle--{{signalColor}}">
           <view class="signal-glow signal-glow--{{signalColor}}"></view>
           <text class="signal-label signal-label--{{signalColor}}">{{signalLabel}}</text>
