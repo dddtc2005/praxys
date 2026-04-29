@@ -13,6 +13,60 @@ import { getLanguagePreference, setLanguagePreference } from '../../utils/share'
 import { t } from '../../utils/i18n';
 import type { SettingsResponse } from '../../types/api';
 
+/**
+ * Return the URL to reLaunch to after a theme or language change.
+ * We reLaunch to whatever tab page the user is currently on — not
+ * always to Settings — so the switch feels transparent rather than
+ * ejecting the user to a different page.
+ *
+ * Tab bar pages have stable routes; sub-pages (Science) aren't tab
+ * entries so we fall back to Settings.
+ */
+const TAB_ROUTES = new Set([
+  'pages/today/index',
+  'pages/training/index',
+  'pages/goal/index',
+  'pages/history/index',
+  'pages/settings/index',
+]);
+
+// Storage key for scroll position persistence across reLaunch.
+const SCROLL_RESTORE_KEY = 'praxys-scroll-restore';
+
+function relaunchUrl(): string {
+  try {
+    const pages = getCurrentPages();
+    const top = pages[pages.length - 1];
+    if (top?.route && TAB_ROUTES.has(top.route)) {
+      return `/${top.route}`;
+    }
+  } catch { /* fall through */ }
+  return '/pages/settings/index';
+}
+
+/**
+ * Save the current page's scroll position to storage so that the
+ * next reLaunch can restore it. Call this immediately before wx.reLaunch.
+ * Only persists for the Settings page — other tab pages start fresh.
+ */
+function saveScrollBefore(scrollY: number, targetUrl: string) {
+  if (!targetUrl.includes('settings')) return; // only restore on settings
+  try {
+    wx.setStorageSync(SCROLL_RESTORE_KEY, JSON.stringify({ top: scrollY }));
+  } catch { /* ignore */ }
+}
+
+function popSavedScroll(): number {
+  try {
+    const raw = wx.getStorageSync<string>(SCROLL_RESTORE_KEY) || '';
+    wx.removeStorageSync(SCROLL_RESTORE_KEY); // one-shot: consume after reading
+    const parsed = JSON.parse(raw) as { top?: number };
+    return typeof parsed.top === 'number' ? parsed.top : 0;
+  } catch {
+    return 0;
+  }
+}
+
 function buildSettingsTr() {
   return {
     failedToLoad: t('Failed to load'),
@@ -152,6 +206,10 @@ interface SettingsState {
   // Manual sync trigger UI state.
   syncing: boolean;
   syncMessage: string;
+
+  // Scroll position restore — set once in onLoad, then zeroed so
+  // subsequent programmatic setData calls don't re-trigger scroll.
+  restoreScrollTop: number;
 }
 
 interface TrainingBaseOption {
@@ -197,6 +255,7 @@ const initialData: SettingsState = {
   webUrl: WEB_URL,
   syncing: false,
   syncMessage: '',
+  restoreScrollTop: 0,
 };
 
 function buildTrainingBaseOptions(active: string): TrainingBaseOption[] {
@@ -318,6 +377,9 @@ Page({
   onLoad() {
     const themePref = getThemePreference();
     const langPref = getLanguagePreference();
+    // Restore scroll position if this load is the result of a reLaunch
+    // triggered by a theme/language change from this page.
+    const savedScroll = popSavedScroll();
     this.setData({
       themeClass: themeClassName(),
       theme: themePref,
@@ -325,8 +387,15 @@ Page({
       language: langPref,
       languageLabel: languageLabelFor(langPref),
       tr: buildSettingsTr(),
+      restoreScrollTop: savedScroll,
     });
     void this.refetch();
+  },
+
+  onContentScroll(e: WechatMiniprogram.ScrollViewScroll) {
+    // Track scroll position so we can save it before a reLaunch.
+    // Written directly to the instance (not setData) to avoid re-render.
+    (this as unknown as Record<string, number>)._scrollY = e.detail.scrollTop;
   },
 
   onShow() {
@@ -368,31 +437,31 @@ Page({
           // eslint-disable-next-line no-console
           console.warn('[settings] language backend sync failed:', err);
         }
-        // Pages cache pre-translated strings — reLaunch is still required
-        // for the locale change to take effect across all mounted pages.
-        wx.reLaunch({ url: '/pages/settings/index' });
+        // Pages cache pre-translated tr objects — a reLaunch is required to
+        // remount all pages so they re-evaluate their `buildXxxTr()` calls.
+        // Navigate back to whichever tab/page the user was previously on so
+        // the switch feels transparent rather than ejecting them to Settings.
+        const url = relaunchUrl();
+        saveScrollBefore((this as unknown as Record<string, number>)._scrollY ?? 0, url);
+        wx.reLaunch({ url });
       },
     });
   },
 
   onPickTheme() {
-    // wx.showActionSheet is an iOS-native bottom sheet — no custom
-    // component needed. itemList order matches themeKeys order.
     const themeKeys: ThemePref[] = ['auto', 'light', 'dark'];
-    const tr = this.data.tr as ReturnType<typeof buildSettingsTr>;
     wx.showActionSheet({
       itemList: [t('Auto'), t('Light'), t('Dark')],
       success: (res) => {
         const next = themeKeys[res.tapIndex];
         if (!next || next === this.data.theme) return;
         setThemePreference(next);
-        // Update globalData so first-paint on the reloaded pages is correct.
+        // Update globalData before reLaunch so every page's initialData
+        // reads the correct theme on first paint — no flash.
         getApp<IAppOption>().globalData.themeClass = themeClassName();
-        // reLaunch — every page reloads fresh with the new theme. This is
-        // the same approach as language switching. The one-time reload means
-        // NO per-tab flash on subsequent tab switches (which is the worse UX
-        // compared to a single explicit reload the user just initiated).
-        wx.reLaunch({ url: '/pages/settings/index' });
+        const url = relaunchUrl();
+        saveScrollBefore((this as unknown as Record<string, number>)._scrollY ?? 0, url);
+        wx.reLaunch({ url });
       },
     });
   },

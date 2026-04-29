@@ -1,7 +1,7 @@
 <view class="settings-root {{themeClass}}">
   <nav-bar title="Settings" theme-class="{{themeClass}}" />
 
-  <scroll-view scroll-y="{{true}}" class="settings-scroll">
+  <scroll-view scroll-y="{{true}}" scroll-top="{{restoreScrollTop}}" bindscroll="onContentScroll" class="settings-scroll">
     <view class="settings-content">
     <block wx:if="{{loading && !hasResponse}}">
       <state-card type="loading" />
