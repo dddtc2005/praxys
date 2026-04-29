@@ -455,12 +455,29 @@ Page({
         const next = themeKeys[res.tapIndex];
         if (!next || next === this.data.theme) return;
         setThemePreference(next);
-        // Update globalData before reLaunch so every page's initialData
-        // reads the correct theme on first paint — no flash.
-        getApp<IAppOption>().globalData.themeClass = themeClassName();
-        const url = relaunchUrl();
-        saveScrollBefore((this as unknown as Record<string, number>)._scrollY ?? 0, url);
-        wx.reLaunch({ url });
+
+        const newThemeClass = themeClassName();
+        const newChartTheme: 'light' | 'dark' = newThemeClass === 'theme-light' ? 'light' : 'dark';
+
+        // Update globalData — newly mounted pages read from here.
+        getApp<IAppOption>().globalData.themeClass = newThemeClass;
+
+        // Skyline: live-update all mounted pages without reLaunch.
+        // No flash in Skyline (glass-easel renders the new theme
+        // immediately without the WebView intermediate-frame artifact).
+        const pages = getCurrentPages();
+        for (const page of pages) {
+          (page as WechatMiniprogram.Page.Instance<Record<string, unknown>, Record<string, unknown>>)
+            .setData({ themeClass: newThemeClass, chartTheme: newChartTheme });
+        }
+
+        applyThemeChrome();
+
+        this.setData({
+          theme: next,
+          themeLabel: themeLabelFor(next),
+          themeClass: newThemeClass,
+        });
       },
     });
   },

@@ -53,14 +53,14 @@ Component({
   lifetimes: {
     ready() {
       this.setData({ ready: true });
-      setTimeout(() => this.drawChart(), 0);
+      wx.nextTick(() => this.drawChart());
     },
   },
 
   observers: {
     'pairs, height, color, yIsPace, theme': function () {
       if (!this.data.ready) return;
-      setTimeout(() => this.drawChart(), 0);
+      wx.nextTick(() => this.drawChart());
       if (this.data.tooltipVisible) this.setData({ tooltipVisible: false });
       (this.data as unknown as { _tapToken: number })._tapToken++;
     },

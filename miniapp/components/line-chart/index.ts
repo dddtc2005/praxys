@@ -87,14 +87,14 @@ Component({
       this.setData({ ready: true });
       // Defer one tick so Skyline has placed the canvas node in the
       // layout tree before SelectorQuery looks for it.
-      setTimeout(() => this.drawChart(), 0);
+      wx.nextTick(() => this.drawChart());
     },
   },
 
   observers: {
     'series, dates, yMin, yMax, showZeroLine, showAxes, referenceY, theme': function () {
       if (!this.data.ready) return;
-      setTimeout(() => this.drawChart(), 0);
+      wx.nextTick(() => this.drawChart());
       // Hide stale tooltip — its index may no longer be valid.
       if (this.data.tooltipVisible) this.setData({ tooltipVisible: false });
       // Invalidate any in-flight tap callbacks — they reference an old
