@@ -161,7 +161,7 @@ msgstr "高于"
 
 #: src/components/charts/FormSparkline.tsx:29
 msgid "Absorbing training while maintaining fitness."
-msgstr "在维持体能的同时吸收训练刺激。"
+msgstr ""
 
 #: src/pages/Admin.tsx:201
 msgid "Actions"
@@ -241,7 +241,7 @@ msgstr "发生了意外错误。"
 
 #: src/pages/Settings.tsx:936
 msgid "Asia/CN"
-msgstr "亚洲/中国"
+msgstr ""
 
 #: src/pages/Goal.tsx:328
 msgid "Assessment"
@@ -316,7 +316,7 @@ msgstr "随时间持续提升体能"
 
 #: src/components/charts/FormSparkline.tsx:28
 msgid "Building fitness with manageable fatigue."
-msgstr "在可控疲劳下积累体能。"
+msgstr ""
 
 #. placeholder {0}: formatTime(rc.target_time_sec!)
 #: src/pages/Goal.tsx:265
@@ -719,7 +719,7 @@ msgstr "达到目标预计时间"
 
 #: src/pages/Settings.tsx:936
 msgid "EU"
-msgstr "欧盟"
+msgstr ""
 
 #. placeholder {0}: option.hours
 #: src/pages/Settings.tsx:722
@@ -728,7 +728,7 @@ msgstr "每 <0>{0}</0> 小时"
 
 #: src/components/charts/FormSparkline.tsx:32
 msgid "Extended rest period. Fitness declining."
-msgstr "持续休息，体能正在下降。"
+msgstr ""
 
 #. placeholder {0}: res.status
 #: src/pages/Admin.tsx:144
@@ -777,7 +777,7 @@ msgstr "疲劳"
 
 #: src/components/charts/FormSparkline.tsx:30
 msgid "Fatigue is climbing — watch recovery before adding load."
-msgstr "疲劳上升 — 增加负荷前请注意恢复。"
+msgstr ""
 
 #: src/components/RecoveryPanel.tsx:20
 msgid "Fatigued"
@@ -828,7 +828,7 @@ msgstr "充分恢复"
 
 #: src/components/charts/FormSparkline.tsx:26
 msgid "Freshened up — good window for racing or testing."
-msgstr "状态新鲜 — 适合比赛或测试。"
+msgstr ""
 
 #: src/pages/Settings.tsx:111
 msgid "From activities"
@@ -905,7 +905,7 @@ msgstr "目标追踪"
 
 #: src/components/charts/FormSparkline.tsx:27
 msgid "Good balance of fitness and recovery. Ready for quality work."
-msgstr "体能与恢复均衡，适合高质量训练。"
+msgstr ""
 
 #: src/components/GoalEditor.tsx:53
 msgid "Half"
@@ -932,7 +932,7 @@ msgstr "隐藏详情"
 
 #: src/components/charts/FormSparkline.tsx:31
 msgid "High fatigue accumulation. Prioritize recovery."
-msgstr "疲劳大量积累，优先安排恢复。"
+msgstr ""
 
 #: src/components/RecoveryPanel.tsx:158
 msgid "High variability"
@@ -1603,7 +1603,7 @@ msgstr "科学"
 
 #: src/pages/Settings.tsx:953
 msgid "Select the region matching your COROS account."
-msgstr "选择与您的 COROS 账户匹配的地区。"
+msgstr ""
 
 #: src/components/SetupChecklist.tsx:71
 #: src/pages/Setup.tsx:743
@@ -1859,7 +1859,7 @@ msgstr "今日"
 
 #: src/components/RecoveryPanel.tsx:79
 msgid "Today's recovery hasn't synced yet. Showing the latest reading from {latestDateLabel}."
-msgstr "今日的恢复尚未同步。显示来自 {latestDateLabel} 的最新读数。"
+msgstr ""
 
 #: src/components/GoalEditor.tsx:112
 msgid "Train toward a specific race date"
@@ -1919,7 +1919,7 @@ msgstr "更新中..."
 
 #: src/pages/Settings.tsx:936
 msgid "US"
-msgstr "美国"
+msgstr ""
 
 #: src/pages/Science.tsx:175
 msgid "Use this"
