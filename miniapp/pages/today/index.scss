@@ -16,6 +16,7 @@
   // Without it, flex: 1 with a tall scroll-view-content above-fold gets
   // pushed beyond 100vh and scroll-view never gets a finite height.
   min-height: 0;
+  background-color: var(--bg);
 }
 
 .today-content {
