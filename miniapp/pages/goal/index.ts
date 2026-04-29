@@ -367,7 +367,11 @@ const initialData: GoalState = {
   notePredictionUrl: '',
   notePredictionExpanded: false,
   hasUltraNote: false,
-  noteUltraText: ultraNote(),
+  // Resolved per-refetch in buildState so locale switches don't leave a
+  // stale English copy behind. Initial value is empty string — the WXML
+  // gates the note card behind hasUltraNote, which only flips true after
+  // the first refetch has run.
+  noteUltraText: '',
   noteUltraUrl: SCIENCE_ULTRA_URL,
   noteUltraExpanded: false,
 
@@ -508,6 +512,9 @@ function buildState(response: GoalResponse, themeClass: string): Partial<GoalSta
     // doesn't collapse a note the user opened. This is initialized to
     // false in initialData and toggled by the user only.
     hasUltraNote: ultra,
+    // Resolved at refetch time (not module load) so switching language
+    // and revisiting the page picks up the new locale.
+    noteUltraText: ultra ? ultraNote() : '',
   };
 
   if (rc.mode === 'race_date') {
