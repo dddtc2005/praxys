@@ -32,12 +32,15 @@
           bindtap="toggleExpand"
         >
           <view class="history-row-head">
-            <text class="history-row-date ts-muted">{{item.date}}</text>
-            <text class="history-row-type">{{item.type}}</text>
+            <!-- Left-side disclosure chevron only when splits are present.
+                 Placed before date so it reads as "this row expands", not
+                 "this type expands". Rotation indicates expanded state. -->
             <text
               wx:if="{{item.hasSplits}}"
               class="history-row-chev ts-muted {{item.expanded ? 'history-row-chev--open' : ''}}"
             >›</text>
+            <text class="history-row-date ts-muted {{item.hasSplits ? 'history-row-date--indent' : ''}}">{{item.date}}</text>
+            <text class="history-row-type">{{item.type}}</text>
           </view>
           <view class="history-row-metrics">
             <view

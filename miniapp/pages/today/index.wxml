@@ -42,6 +42,21 @@
         </view>
         <text class="signal-subtitle signal-subtitle--{{signalColor}}">{{signalSubtitle}}</text>
         <text class="signal-reason">{{signalReason}}</text>
+
+        <!-- Long-pressable signal image card. Canvas-rendered, held in
+             shareImagePath as a wxfile:// temp path. show-menu-by-longpress
+             surfaces the native "Save image" / "Share" sheet when the user
+             presses and holds. The canvas approach bypasses the
+             open-type=share verification requirement since we're letting
+             the user share from their camera roll, not from the app. -->
+        <image
+          wx:if="{{shareImagePath}}"
+          class="signal-share-image"
+          src="{{shareImagePath}}"
+          mode="widthFix"
+          show-menu-by-longpress="{{true}}"
+        />
+        <text wx:if="{{shareImagePath}}" class="signal-share-hint ts-muted">{{tr.longPressToShare}}</text>
       </view>
 
       <view wx:if="{{hasSparkline}}" class="ts-card">

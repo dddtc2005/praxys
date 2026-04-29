@@ -153,6 +153,14 @@ Component({
      * here" feedback so the user sees the tooltip the moment their
      * finger lands, before they start dragging.
      */
+    /**
+     * Touch start: cache the canvas rect for touchmove use, but do NOT
+     * show the tooltip yet. Tooltip is shown by:
+     *   - touchmove (drag path)
+     *   - tap (tap path, handled in onChartTap)
+     * Separating caching from display prevents the "double-flash" where
+     * touchstart shows the tooltip and then tap immediately hides it.
+     */
     onChartTouchStart(e: WechatMiniprogram.TouchEvent) {
       const canvasId = this.data.canvasId as string;
       const dataMut = this.data as unknown as {
@@ -160,7 +168,6 @@ Component({
         _rect: { left: number; width: number } | null;
       };
       const tapToken = ++dataMut._tapToken;
-      const startX = e.touches?.[0]?.clientX ?? 0;
       const query = wx.createSelectorQuery().in(this);
       const selector = query.select(`#${canvasId}`).boundingClientRect();
       (selector as unknown as Record<string, (cb: (res: unknown) => void) => void>)[
@@ -172,7 +179,7 @@ Component({
           | null;
         if (!rect || !rect.width) return;
         dataMut._rect = rect;
-        this._updateTooltipAtX(startX, rect);
+        // No tooltip shown here; drag (touchmove) or tap shows it.
       });
     },
 
@@ -181,18 +188,30 @@ Component({
         _rect: { left: number; width: number } | null;
       };
       const rect = dataMut._rect;
-      if (!rect) return; // touchstart hasn't resolved yet; will catch up on next move
+      if (!rect) return;
       const x = e.touches?.[0]?.clientX ?? 0;
       this._updateTooltipAtX(x, rect);
     },
 
-    /** Tap = touchstart + touchend without significant move. The
-     *  touchstart handler already showed the tooltip; nothing more to
-     *  do here, but the binding is kept on the wrapper so taps without
-     *  finger movement still register as deliberate (the cached rect
-     *  was set in touchstart). Implemented as a no-op for now. */
-    onChartTap() {
-      // No-op — touchstart owns the gesture.
+    /**
+     * Tap toggles the tooltip:
+     *   - If hidden → show at tapped position.
+     *   - If visible → hide (second tap dismisses).
+     * This is distinct from drag (touchmove) which always shows/follows.
+     */
+    onChartTap(e: WechatMiniprogram.TouchEvent) {
+      if (this.data.tooltipVisible) {
+        this.setData({ tooltipVisible: false });
+        return;
+      }
+      // Show at the tapped position using the cached rect from touchstart.
+      const dataMut = this.data as unknown as {
+        _rect: { left: number; width: number } | null;
+      };
+      const rect = dataMut._rect;
+      if (!rect) return;
+      const x = (e.detail as { x?: number })?.x ?? 0;
+      this._updateTooltipAtX(x, rect);
     },
 
     drawChart() {

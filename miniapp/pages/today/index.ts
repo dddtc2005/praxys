@@ -1,5 +1,6 @@
 import type { IAppOption } from '../../app';
 import { apiGet } from '../../utils/api-client';
+import { generateShareCard } from '../../utils/share-image';
 import type { ApiError } from '../../utils/api-client';
 import type { TodayResponse } from '../../types/api';
 import { formatDistance, formatTime } from '../../utils/format';
@@ -266,6 +267,7 @@ function buildTranslations() {
     duration: t('Duration'),
     avgPower: t('Avg power'),
     warnings: t('Warnings'),
+    longPressToShare: t('Long press to save & share'),
   };
 }
 
@@ -339,11 +341,20 @@ Page({
       today: todayFormatted(),
       tr: buildTranslations(),
     });
+    // Allow sharing via the WeChat ⋯ menu. Without this call, Skyline
+    // pages show "当前页面未设置分享" in the system share sheet.
+    wx.showShareMenu({
+      withShareTicket: false,
+      menus: ['shareAppMessage', 'shareTimeline'],
+      fail: () => { /* some older clients don't support menus param */ },
+    });
     void this.refetch();
   },
 
   onShow() {
     applyThemeChrome();
+    const tc = themeClassName();
+    this.setData({ themeClass: tc });
     // Skyline pageLifetimes.show on the custom tab bar isn't reliable;
     // tell the bar explicitly which tab is active.
     const tabBar = (this as { getTabBar?: () => { setData: (d: unknown) => void } | null })
@@ -414,12 +425,27 @@ Page({
       this.setData(
         buildRenderState(response, this.data.themeClass, this.data.today) as Record<string, unknown>,
       );
-      // Note: we used to render a canvas-based branded share card here
-      // and pass the tempFilePath as `imageUrl` in onShareAppMessage.
-      // Unverified personal mini programs see a "微信认证 required"
-      // advisory when sharing with `wxfile://` paths, so we fall back to
-      // the bundled og-card. Once the mini program is verified the call
-      // (utils/share-image.ts is still in the tree) can be re-enabled.
+      // Render the branded signal card off-screen. The resulting temp
+      // file is displayed as an <image show-menu-by-longpress="true"> so
+      // the user can long-press → "Save image" → share from camera roll.
+      // This avoids the `open-type=share` verification requirement since
+      // we're not passing the wxfile:// path to onShareAppMessage — the
+      // user shares it themselves from outside the app.
+      try {
+        const meta = SIGNAL_META[response.signal.recommendation] ?? SIGNAL_META.follow_plan;
+        const path = await generateShareCard({
+          label: meta.label,
+          subtitle: meta.subtitle,
+          reason: response.signal.reason,
+          color: meta.color,
+          locale: detectShareLocale(),
+        });
+        this.setData({ shareImagePath: path });
+      } catch (cardErr) {
+        // eslint-disable-next-line no-console
+        console.warn('[today] share card generation failed:', cardErr);
+        this.setData({ shareImagePath: '' });
+      }
     } catch (e) {
       const err = e as Partial<ApiError>;
       if (err?.code === 'UNAUTHENTICATED') return;

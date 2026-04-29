@@ -116,12 +116,14 @@ Page({
   data: { ...initialData, tr: buildHistoryTr() },
 
   onLoad() {
-    this.setData({ themeClass: themeClassName() });
+    this.setData({ themeClass: themeClassName(), tr: buildHistoryTr() });
     void this.fetchPage(0, true);
   },
 
   onShow() {
     applyThemeChrome();
+    const tc = themeClassName();
+    this.setData({ themeClass: tc });
     const tabBar = (this as { getTabBar?: () => { setData: (d: unknown) => void } | null })
       .getTabBar?.();
     tabBar?.setData({ selected: 2 });

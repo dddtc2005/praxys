@@ -163,6 +163,20 @@
   max-width: 540rpx;
 }
 
+// Canvas-rendered signal share card — long-pressable for save/share.
+.signal-share-image {
+  width: 100%;
+  max-width: 600rpx;
+  border-radius: 16rpx;
+  margin-top: 8rpx;
+}
+.signal-share-hint {
+  font-size: 22rpx;
+  display: block;
+  text-align: center;
+  margin-top: 8rpx;
+}
+
 .today-recovery-row {
   display: flex;
   justify-content: space-between;

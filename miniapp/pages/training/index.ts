@@ -462,12 +462,14 @@ Page({
 
   onLoad() {
     const tc = themeClassName();
-    this.setData({ themeClass: tc, chartTheme: tc === 'theme-light' ? 'light' : 'dark' });
+    this.setData({ themeClass: tc, chartTheme: tc === 'theme-light' ? 'light' : 'dark', tr: buildTrainingTr() });
     void this.refetch();
   },
 
   onShow() {
     applyThemeChrome();
+    const tc = themeClassName();
+    this.setData({ themeClass: tc, chartTheme: tc === 'theme-light' ? 'light' : 'dark' });
     const tabBar = (this as { getTabBar?: () => { setData: (d: unknown) => void } | null })
       .getTabBar?.();
     tabBar?.setData({ selected: 1 });

@@ -625,12 +625,14 @@ Page({
 
   onLoad() {
     const tc = themeClassName();
-    this.setData({ themeClass: tc, chartTheme: tc === 'theme-light' ? 'light' : 'dark' });
+    this.setData({ themeClass: tc, chartTheme: tc === 'theme-light' ? 'light' : 'dark', tr: buildGoalTr() });
     void this.refetch();
   },
 
   onShow() {
     applyThemeChrome();
+    const tc = themeClassName();
+    this.setData({ themeClass: tc });
     const tabBar = (this as { getTabBar?: () => { setData: (d: unknown) => void } | null })
       .getTabBar?.();
     tabBar?.setData({ selected: 3 });
@@ -722,8 +724,12 @@ Page({
    * → handleSaveGoal: the same payload shape goes to PUT /api/settings.
    */
   onOpenEditor() {
+    // Rebuild tr so the editor labels always reflect the current locale,
+    // even if the module was loaded with a different locale set.
+    const freshTr = buildGoalTr();
+    this.setData({ tr: freshTr });
     const cached = (this.data as { _response?: GoalResponse })._response;
-    const tr = this.data.tr as ReturnType<typeof buildGoalTr>;
+    const tr = freshTr;
     const goal = (cached?.race_countdown ?? null) as
       | { distance?: string | null; race_date?: string | null; target_time_sec?: number | null }
       | null;

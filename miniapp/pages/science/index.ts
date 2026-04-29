@@ -212,12 +212,14 @@ Page({
   data: { ...initialData, pillarModes: { ...DEFAULT_MODES }, tr: buildScienceTr() },
 
   onLoad() {
-    this.setData({ themeClass: themeClassName() });
+    this.setData({ themeClass: themeClassName(), tr: buildScienceTr() });
     void this.refetch();
   },
 
   onShow() {
     applyThemeChrome();
+    const tc = themeClassName();
+    this.setData({ themeClass: tc });
   },
 
   onRetry() {

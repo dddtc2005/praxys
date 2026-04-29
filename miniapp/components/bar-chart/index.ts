@@ -106,7 +106,6 @@ Component({
         _rect: { left: number; width: number } | null;
       };
       const tapToken = ++dataMut._tapToken;
-      const startX = e.touches?.[0]?.clientX ?? 0;
       const query = wx.createSelectorQuery().in(this);
       const selector = query.select(`#${canvasId}`).boundingClientRect();
       (selector as unknown as Record<string, (cb: (res: unknown) => void) => void>)[
@@ -118,7 +117,6 @@ Component({
           | null;
         if (!rect || !rect.width) return;
         dataMut._rect = rect;
-        this._updateTooltipAtX(startX, rect);
       });
     },
 
@@ -132,8 +130,18 @@ Component({
       this._updateTooltipAtX(x, rect);
     },
 
-    onChartTap() {
-      // Touchstart owns the gesture.
+    onChartTap(e: WechatMiniprogram.TouchEvent) {
+      if (this.data.tooltipVisible) {
+        this.setData({ tooltipVisible: false });
+        return;
+      }
+      const dataMut = this.data as unknown as {
+        _rect: { left: number; width: number } | null;
+      };
+      const rect = dataMut._rect;
+      if (!rect) return;
+      const x = (e.detail as { x?: number })?.x ?? 0;
+      this._updateTooltipAtX(x, rect);
     },
 
     drawChart() {

@@ -82,17 +82,26 @@
   display: block;
 }
 
-// Disclosure chevron — rotates from pointing-right (collapsed) to
-// pointing-down (expanded) on tap. Matches the pattern users know
-// from iOS Health activity rows. Sits after the type (which already
-// has margin-left: auto), so we just need a small gap.
+// Disclosure chevron — now on the LEFT of the row before the date,
+// so it reads as "this card expands" not "this type expands". Pointing
+// right when collapsed, down when expanded (switch character instead
+// of rotate, because left-side rotation would look odd). Gap before
+// the date is handled via history-row-date--indent on the date text.
 .history-row-chev {
-  font-size: 36rpx;
+  font-size: 28rpx;
   line-height: 1;
-  transition: transform 160ms ease;
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
 .history-row-chev--open {
+  // Use ▾ instead of rotation for left-side placement — rotating ›
+  // rightward looks physically wrong on the left side.
   transform: rotate(90deg);
+}
+// Small left-padding so the date text doesn't jam against the chevron
+// on rows that have splits (and thus have the chevron showing).
+.history-row-date--indent {
+  // no extra padding needed with gap: 12rpx on the row
 }
 
 .history-splits {
