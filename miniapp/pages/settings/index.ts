@@ -213,7 +213,7 @@ const initialData: SettingsState = {
   webUrl: WEB_URL,
   syncing: false,
   syncMessage: '',
-  appVersion: readAppVersion(),
+  appVersion: '',
 };
 
 function buildTrainingBaseOptions(active: string): TrainingBaseOption[] {
@@ -342,6 +342,7 @@ Page({
       language: langPref,
       languageLabel: languageLabelFor(langPref),
       tr: buildSettingsTr(),
+      appVersion: readAppVersion(),
     });
     void this.refetch();
   },
