@@ -11,6 +11,17 @@
  * app to make the change uniform across every page in one shot.
  */
 
+// CSS-variable theme transitions. When onShow() updates themeClass,
+// all color changes crossfade over 200ms instead of jumping. 200ms is
+// fast enough that it reads as responsive but slow enough to not
+// look like a flicker. The transition only applies to properties that
+// actually change between themes; text-content and layout don't
+// transition.
+.theme-dark,
+.theme-light {
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
+}
+
 .theme-dark {
   --bg: #0d1220;
   --surface: #161b2e;

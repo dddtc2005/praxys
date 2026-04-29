@@ -1,40 +1,46 @@
 /**
- * Generate a branded share card via off-screen Canvas 2D, save to a
- * temp file, return the path. The caller passes that path as `imageUrl`
- * in onShareAppMessage so friends see a Praxys-branded card with the
- * user's actual training signal — not the static og-card.
+ * Branded signal share card — rendered to an off-screen Canvas 2D and
+ * saved to a temp file so the user can long-press → "Save image".
  *
- * Canvas dimensions are 750×600 (WeChat share thumbnails crop to 5:4).
- * Custom fonts (Geist) don't load in WeChat canvas, so the wordmark
- * falls back to system sans-serif. OKLCH from app.scss is collapsed to
- * the hex equivalents below since canvas color parsing is conservative.
+ * Design: dark background, centered signal circle identical to the
+ * mini program's pulsing circle (static glow drawn with canvas), the
+ * signal label and subtitle, reason text, and Praxys wordmark.
+ *
+ * 750×750 — square crops better across WeChat's chat bubble, Moments
+ * cover, and iOS/Android native share previews.
  */
 
 export type SignalColor = 'green' | 'amber' | 'red';
 
 export interface ShareCardInput {
-  label: string;       // e.g. "EASY"
-  subtitle: string;    // e.g. "Go Easy"
-  reason: string;      // e.g. "HRV below threshold. Keep today easy…"
+  label: string;
+  subtitle: string;
+  reason: string;
   color: SignalColor;
-  // Locale switches the wordmark/footer copy. Pass 'en' for ASCII or
-  // 'zh' for the Chinese label set. Defaults to 'en'.
   locale?: 'en' | 'zh';
 }
 
 const W = 750;
-const H = 600;
+const H = 750;
 
-const COLORS = {
-  bg: '#faf9f5',
-  text: '#15192a',
-  textMuted: '#6b6b66',
-  primary: '#1e8e5b',
-  cobalt: '#2e71c6',
-  green: '#1e8e5b',
+// Matches mini program app.scss dark theme tokens + signal colors.
+const C = {
+  bg: '#0d1220',
+  surface: '#161b2e',
+  border: '#1f2536',
+  text: '#e8ebf0',
+  muted: '#8b93a7',
+  primary: '#00ff87',
   amber: '#f59e0b',
-  red: '#d93a2c',
+  red: '#ef4444',
+  wordmarkX: '#00ff87', // green 'x' in Praxys
 };
+
+function signalHex(color: SignalColor): string {
+  if (color === 'amber') return C.amber;
+  if (color === 'red') return C.red;
+  return C.primary; // green
+}
 
 type Ctx = WechatMiniprogram.CanvasRenderingContext.CanvasRenderingContext2D;
 
@@ -55,27 +61,13 @@ function loadImage(canvas: WechatMiniprogram.OffscreenCanvas, src: string): Prom
   });
 }
 
-/**
- * Word-wrap a string into lines that each fit within `maxWidth`. Uses
- * ctx.measureText, so call after fillStyle/font are set. CJK falls back
- * to per-character wrapping since spaces aren't break opportunities.
- */
-function wrapLines(
-  ctx: Ctx,
-  text: string,
-  maxWidth: number,
-  maxLines: number,
-): string[] {
+function wrapLines(ctx: Ctx, text: string, maxWidth: number, maxLines: number): string[] {
   if (!text) return [];
-  // U+4E00..U+9FFF — the Unicode CJK Unified Ideographs block. Covers the
-  // common Chinese characters used in Praxys signal copy; a hit means the
-  // text has no space-delimited words, so we wrap per character instead.
   const isCjk = /[一-鿿]/.test(text);
   const tokens = isCjk ? Array.from(text) : text.split(/\s+/);
   const sep = isCjk ? '' : ' ';
   const lines: string[] = [];
   let current = '';
-
   for (const token of tokens) {
     const candidate = current ? current + sep + token : token;
     if (ctx.measureText(candidate).width <= maxWidth) {
@@ -84,7 +76,6 @@ function wrapLines(
       if (current) lines.push(current);
       current = token;
       if (lines.length >= maxLines - 1) {
-        // Last line — truncate to fit + ellipsis
         let truncated = current;
         while (ctx.measureText(truncated + '…').width > maxWidth && truncated.length > 1) {
           truncated = truncated.slice(0, -1);
@@ -98,106 +89,165 @@ function wrapLines(
   return lines.slice(0, maxLines);
 }
 
+interface WxGradient { addColorStop(offset: number, color: string): void; }
+type WxCtxExt = {
+  createRadialGradient(x0: number, y0: number, r0: number, x1: number, y1: number, r1: number): WxGradient;
+  arc(x: number, y: number, r: number, s: number, e: number): void;
+  moveTo(x: number, y: number): void;
+  lineTo(x: number, y: number): void;
+};
+
+/** Draw the signal circle + glow, mirroring the mini program's signal-circle design. */
+function drawSignalCircle(ctx: Ctx, cx: number, cy: number, r: number, color: string) {
+  const ext = ctx as unknown as WxCtxExt & Ctx;
+  const hex = color;
+
+  // Outer diffuse glow.
+  const glowGrad = ext.createRadialGradient(cx, cy, 0, cx, cy, r * 2);
+  glowGrad.addColorStop(0, hex + '30');
+  glowGrad.addColorStop(1, hex + '00');
+  ctx.fillStyle = glowGrad as unknown as string;
+  ctx.beginPath();
+  ext.arc(cx, cy, r * 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Inner filled circle.
+  const innerGrad = ext.createRadialGradient(cx, cy, 0, cx, cy, r);
+  innerGrad.addColorStop(0, hex + '20');
+  innerGrad.addColorStop(1, hex + '08');
+  ctx.fillStyle = innerGrad as unknown as string;
+  ctx.beginPath();
+  ext.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Stroke ring.
+  ctx.strokeStyle = hex + '55';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ext.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
 export async function generateShareCard(input: ShareCardInput): Promise<string> {
   const locale = input.locale ?? 'en';
+  const signalColor = signalHex(input.color);
+
   const canvas = wx.createOffscreenCanvas({ type: '2d', width: W, height: H });
-  // Cast: WeChat's OffscreenCanvas getContext returns the wx 2D context;
-  // we treat it as a Ctx for the standard methods.
   const ctx = canvas.getContext('2d') as unknown as Ctx;
   if (!ctx) throw new Error('Failed to acquire canvas 2D context');
 
-  // Background
-  ctx.fillStyle = COLORS.bg;
+  const ext = ctx as unknown as WxCtxExt & Ctx;
+
+  // ── Background ──────────────────────────────────────────────────────────
+  ctx.fillStyle = C.bg;
   ctx.fillRect(0, 0, W, H);
 
-  // Top accent bar — primary green strip
-  ctx.fillStyle = COLORS.primary;
-  ctx.fillRect(0, 0, W, 8);
-
-  // Try to load and draw the brand mark; if it fails, skip and continue
-  // (the card still works without the logo).
-  const LOGO_X = 60;
-  const LOGO_Y = 50;
-  const LOGO_SIZE = 80;
-  try {
-    const logo = (await loadImage(canvas, '/assets/brand/mark.png')) as unknown as {
-      width: number;
-      height: number;
-    };
-    (ctx as unknown as { drawImage: (...args: unknown[]) => void }).drawImage(
-      logo,
-      LOGO_X,
-      LOGO_Y,
-      LOGO_SIZE,
-      LOGO_SIZE,
-    );
-  } catch {
-    // Continue without logo
+  // Subtle noise/texture — thin horizontal lines give a data-terminal feel.
+  ctx.strokeStyle = '#ffffff06';
+  ctx.lineWidth = 1;
+  for (let y = 0; y < H; y += 18) {
+    ctx.beginPath();
+    ext.moveTo(0, y);
+    ext.lineTo(W, y);
+    ctx.stroke();
   }
 
-  // Pra<x>ys wordmark — text since canvas doesn't reliably load Geist
-  // from a font file. System sans-serif still reads as "the brand".
+  // ── Top bar: brand mark + wordmark ───────────────────────────────────────
+  const MARK_X = 40;
+  const MARK_Y = 40;
+  const MARK_SIZE = 56;
+  try {
+    const logo = (await loadImage(canvas, '/assets/brand/mark.png')) as unknown as {
+      width: number; height: number;
+    };
+    (ctx as unknown as { drawImage: (...a: unknown[]) => void }).drawImage(
+      logo, MARK_X, MARK_Y, MARK_SIZE, MARK_SIZE,
+    );
+  } catch { /* continue without mark */ }
+
+  // Wordmark "Pra x ys"
   ctx.textBaseline = 'middle';
-  const wordmarkX = LOGO_X + LOGO_SIZE + 20;
-  const wordmarkY = LOGO_Y + LOGO_SIZE / 2;
-  ctx.font = '500 64px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
-  ctx.fillStyle = COLORS.text;
+  ctx.font = '500 52px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+  const WMX = MARK_X + MARK_SIZE + 16;
+  const WMY = MARK_Y + MARK_SIZE / 2;
+  ctx.fillStyle = C.text;
   ctx.textAlign = 'left';
-  ctx.fillText('Pra', wordmarkX, wordmarkY);
-  const praWidth = ctx.measureText('Pra').width;
-  ctx.fillStyle = COLORS.primary;
-  ctx.fillText('x', wordmarkX + praWidth, wordmarkY);
-  const xWidth = ctx.measureText('x').width;
-  ctx.fillStyle = COLORS.text;
-  ctx.fillText('ys', wordmarkX + praWidth + xWidth, wordmarkY);
+  ctx.fillText('Pra', WMX, WMY);
+  const praW = ctx.measureText('Pra').width;
+  ctx.fillStyle = C.wordmarkX;
+  ctx.fillText('x', WMX + praW, WMY);
+  const xW = ctx.measureText('x').width;
+  ctx.fillStyle = C.text;
+  ctx.fillText('ys', WMX + praW + xW, WMY);
 
-  // "Today's signal" small label
+  // ── Signal circle — centered in the upper half ──────────────────────────
+  const CX = W / 2;
+  const CY = 330; // slightly above vertical center
+  const R = 155;  // radius, matches ~240rpx at 2× density
+
+  drawSignalCircle(ctx, CX, CY, R, signalColor);
+
+  // Signal label inside the circle (EASY / GO / REST / etc.)
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = signalColor;
+  // Adjust font size to fit — longer labels use smaller font.
+  const label = input.label || '—';
+  const labelSize = label.length <= 3 ? 96 : label.length <= 5 ? 76 : 60;
+  ctx.font = `700 ${labelSize}px -apple-system, BlinkMacSystemFont, system-ui, sans-serif`;
+  ctx.fillText(label, CX, CY);
+
+  // ── Subtitle below circle ────────────────────────────────────────────────
   ctx.textBaseline = 'top';
-  ctx.font = '500 24px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillStyle = COLORS.textMuted;
-  ctx.fillText(locale === 'zh' ? '今日训练信号' : "TODAY'S SIGNAL", LOGO_X, 200);
-
-  // Big signal label in signal color
-  const signalColor =
-    input.color === 'green' ? COLORS.green : input.color === 'amber' ? COLORS.amber : COLORS.red;
+  ctx.textAlign = 'center';
+  ctx.font = '600 38px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
   ctx.fillStyle = signalColor;
-  ctx.font = 'bold 132px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText(input.label || '—', LOGO_X, 230);
+  ctx.fillText(input.subtitle || '', CX, CY + R + 32);
 
-  // Subtitle in same signal color
-  ctx.fillStyle = signalColor;
-  ctx.font = '600 36px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText(input.subtitle || '', LOGO_X, 380);
-
-  // Reason text — wrapped
-  ctx.fillStyle = COLORS.text;
-  ctx.font = '400 26px -apple-system, BlinkMacSystemFont, sans-serif';
-  const reasonY = 430;
-  const reasonMaxWidth = W - LOGO_X * 2;
+  // ── Reason text — wrapped, centered ────────────────────────────────────
+  ctx.font = '400 26px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+  ctx.fillStyle = C.muted;
+  const reasonMaxWidth = W - 120;
   const reasonLines = wrapLines(ctx, input.reason || '', reasonMaxWidth, 2);
+  const reasonStartY = CY + R + 86;
   reasonLines.forEach((line, i) => {
-    ctx.fillText(line, LOGO_X, reasonY + i * 36);
+    ctx.fillText(line, CX, reasonStartY + i * 38);
   });
 
-  // Footer
-  ctx.fillStyle = COLORS.textMuted;
-  ctx.font = '500 22px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText(
-    locale === 'zh' ? 'praxys.run · 数据驱动的训练' : 'praxys.run · power-based training',
-    LOGO_X,
-    H - 60,
-  );
+  // ── Divider ──────────────────────────────────────────────────────────────
+  const divY = H - 100;
+  ctx.strokeStyle = C.border;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ext.moveTo(40, divY);
+  ext.lineTo(W - 40, divY);
+  ctx.stroke();
 
-  // Convert to temp file
+  // ── Footer: tagline (left) + URL (right) ─────────────────────────────────
+  ctx.textBaseline = 'middle';
+  ctx.font = '400 22px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+  ctx.fillStyle = C.muted;
+  const footerY = divY + 38;
+  ctx.textAlign = 'left';
+  ctx.fillText(
+    locale === 'zh' ? '像专业选手一样训练，无论水平高低。' : 'Train like a pro. Whatever your level.',
+    40,
+    footerY,
+  );
+  ctx.textAlign = 'right';
+  ctx.fillStyle = C.primary;
+  ctx.font = '500 22px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+  ctx.fillText('praxys.run', W - 40, footerY);
+
+  // ── Bottom accent bar ─────────────────────────────────────────────────────
+  ctx.fillStyle = C.primary;
+  ctx.fillRect(0, H - 6, W, 6);
+
   return new Promise<string>((resolve, reject) => {
     wx.canvasToTempFilePath({
       canvas: canvas as unknown as WechatMiniprogram.Canvas,
-      width: W,
-      height: H,
-      destWidth: W,
-      destHeight: H,
-      fileType: 'jpg',
-      quality: 0.92,
+      width: W, height: H, destWidth: W, destHeight: H,
+      fileType: 'jpg', quality: 0.92,
       success: (res) => resolve(res.tempFilePath),
       fail: (err) => reject(err),
     });

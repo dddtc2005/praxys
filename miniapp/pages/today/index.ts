@@ -273,6 +273,9 @@ function buildTranslations() {
 
 interface RefreshState {
   refreshing: boolean;
+  /** Whether the share card image is currently shown. Toggled by the
+   *  FAB — the card only appears on demand, not on every page load. */
+  shareCardVisible: boolean;
   shareImagePath: string;
 }
 
@@ -325,6 +328,7 @@ const initialData: RenderState & RefreshState = {
   warnings: [],
 
   shareImagePath: '',
+  shareCardVisible: false,
 };
 
 // Translation table — built per page-load (Locale changes reLaunch).
@@ -418,34 +422,52 @@ Page({
     void this.refetch();
   },
 
+  /** Toggle the share card visible. If no canvas image has been rendered
+   *  yet, trigger a render first so the first tap is never empty. */
+  onShareCardToggle() {
+    const nextVisible = !this.data.shareCardVisible;
+    this.setData({ shareCardVisible: nextVisible });
+    // Pre-render share card on first reveal if not already done.
+    if (nextVisible && !this.data.shareImagePath) {
+      void this.renderShareCard();
+    }
+  },
+
+  async renderShareCard() {
+    const resp = (this.data as { _apiResponse?: ReturnType<typeof buildRenderState> })._apiResponse;
+    if (!resp) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const response = (this.data as unknown as { _todayResponse?: Record<string, any> })._todayResponse;
+    if (!response) return;
+    const meta = SIGNAL_META[response.signal?.recommendation] ?? SIGNAL_META.follow_plan;
+    try {
+      const path = await generateShareCard({
+        label: meta.label,
+        subtitle: meta.subtitle,
+        reason: response.signal?.reason ?? '',
+        color: meta.color,
+        locale: detectShareLocale(),
+      });
+      this.setData({ shareImagePath: path });
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('[today] share card render failed:', e);
+    }
+  },
+
   async refetch() {
     this.setData({ loading: true, errorMessage: '' });
     try {
       const response = await apiGet<TodayResponse>('/api/today');
+      // Cache raw response so onShareCardToggle can render the card on
+      // first tap without re-fetching.
+      (this.data as unknown as { _todayResponse: TodayResponse })._todayResponse = response;
       this.setData(
         buildRenderState(response, this.data.themeClass, this.data.today) as Record<string, unknown>,
       );
-      // Render the branded signal card off-screen. The resulting temp
-      // file is displayed as an <image show-menu-by-longpress="true"> so
-      // the user can long-press → "Save image" → share from camera roll.
-      // This avoids the `open-type=share` verification requirement since
-      // we're not passing the wxfile:// path to onShareAppMessage — the
-      // user shares it themselves from outside the app.
-      try {
-        const meta = SIGNAL_META[response.signal.recommendation] ?? SIGNAL_META.follow_plan;
-        const path = await generateShareCard({
-          label: meta.label,
-          subtitle: meta.subtitle,
-          reason: response.signal.reason,
-          color: meta.color,
-          locale: detectShareLocale(),
-        });
-        this.setData({ shareImagePath: path });
-      } catch (cardErr) {
-        // eslint-disable-next-line no-console
-        console.warn('[today] share card generation failed:', cardErr);
-        this.setData({ shareImagePath: '' });
-      }
+      // Share card is rendered lazily on first FAB tap. Clear any stale
+      // path so the old signal's card doesn't show for the new signal.
+      this.setData({ shareImagePath: '', shareCardVisible: false });
     } catch (e) {
       const err = e as Partial<ApiError>;
       if (err?.code === 'UNAUTHENTICATED') return;

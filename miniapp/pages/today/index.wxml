@@ -26,16 +26,17 @@
 
     <block wx:else>
       <view class="ts-card signal-hero">
-        <!-- Small share FAB in top-right of the signal card. open-type
-             share triggers onShareAppMessage; the icon button is sized
-             tight so it reads as a glyph, not a button. -->
-        <button
-          class="signal-share-fab"
-          open-type="share"
+        <!-- Share FAB — first tap renders and reveals the share card;
+             second tap hides it. open-type=share is removed here since
+             the nav-bar rightShare prop handles the menu share. -->
+        <view
+          class="signal-share-fab {{shareCardVisible ? 'signal-share-fab--active' : ''}}"
+          bindtap="onShareCardToggle"
           hover-class="signal-share-fab--press"
         >
           <view class="signal-share-fab__icon"></view>
-        </button>
+        </view>
+
         <view class="signal-circle signal-circle--{{signalColor}}">
           <view class="signal-glow signal-glow--{{signalColor}}"></view>
           <text class="signal-label signal-label--{{signalColor}}">{{signalLabel}}</text>
@@ -43,20 +44,23 @@
         <text class="signal-subtitle signal-subtitle--{{signalColor}}">{{signalSubtitle}}</text>
         <text class="signal-reason">{{signalReason}}</text>
 
-        <!-- Long-pressable signal image card. Canvas-rendered, held in
-             shareImagePath as a wxfile:// temp path. show-menu-by-longpress
-             surfaces the native "Save image" / "Share" sheet when the user
-             presses and holds. The canvas approach bypasses the
-             open-type=share verification requirement since we're letting
-             the user share from their camera roll, not from the app. -->
-        <image
-          wx:if="{{shareImagePath}}"
-          class="signal-share-image"
-          src="{{shareImagePath}}"
-          mode="widthFix"
-          show-menu-by-longpress="{{true}}"
-        />
-        <text wx:if="{{shareImagePath}}" class="signal-share-hint ts-muted">{{tr.longPressToShare}}</text>
+        <!-- Canvas-rendered share card — only visible after the user taps
+             the share FAB. Long-press → "Save image" from camera roll is
+             WeChat's native share path, bypassing the unverified-app
+             advisory that fires with open-type=share + wxfile:// imageUrl. -->
+        <block wx:if="{{shareCardVisible}}">
+          <view wx:if="{{!shareImagePath}}" class="signal-share-loading">
+            <view class="ts-skeleton signal-share-skeleton"></view>
+          </view>
+          <image
+            wx:if="{{shareImagePath}}"
+            class="signal-share-image"
+            src="{{shareImagePath}}"
+            mode="widthFix"
+            show-menu-by-longpress="{{true}}"
+          />
+          <text class="signal-share-hint ts-muted">{{tr.longPressToShare}}</text>
+        </block>
       </view>
 
       <view wx:if="{{hasSparkline}}" class="ts-card">

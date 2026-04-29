@@ -72,6 +72,14 @@
 .signal-share-fab--press {
   background-color: var(--border-subtle);
 }
+// When share card is open, highlight the FAB to signal the toggle-active state.
+.signal-share-fab--active {
+  background-color: var(--primary);
+  border-color: var(--primary);
+}
+.signal-share-fab--active .signal-share-fab__icon {
+  background-color: var(--primary-on);
+}
 
 // Lucide share icon (square-arrow-up-right) carved out via mask-image.
 .signal-share-fab__icon {
@@ -163,12 +171,22 @@
   max-width: 540rpx;
 }
 
-// Canvas-rendered signal share card — long-pressable for save/share.
+// Canvas-rendered share card — shown only when shareCardVisible = true.
 .signal-share-image {
   width: 100%;
   max-width: 600rpx;
   border-radius: 16rpx;
-  margin-top: 8rpx;
+  margin-top: 16rpx;
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.35);
+}
+.signal-share-skeleton {
+  width: 100%;
+  height: 480rpx;
+  border-radius: 16rpx;
+  margin-top: 16rpx;
+}
+.signal-share-loading {
+  width: 100%;
 }
 .signal-share-hint {
   font-size: 22rpx;
