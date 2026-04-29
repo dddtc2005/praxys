@@ -841,9 +841,10 @@ Page({
 
   /**
    * Close the editor. If the user has unsaved changes (`editorDirty`),
-   * surface a native confirm modal first. The mask has no bindtap and
-   * the sheet has no catch:tap — both break Skyline's child-tap routing
-   * after wx.showModal closes. Cancel is the only dismiss path.
+   * surface a native confirm modal first. The mask has no bindtap, the
+   * sheet has no catch:tap, and Cancel uses plain bindtap — Skyline
+   * breaks child-tap routing after native component interactions (pickers,
+   * wx.showModal) whenever catch:tap is present anywhere in the chain.
    */
   onCloseEditor() {
     if (this.data.editorSaving) return;

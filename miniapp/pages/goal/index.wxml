@@ -260,7 +260,7 @@
       <view class="goal-editor-header">
         <view
           class="goal-editor-header-action goal-editor-header-action--cancel {{editorSaving ? 'goal-editor-header-action--disabled' : ''}}"
-          catch:tap="onCloseEditor"
+          bindtap="onCloseEditor"
         >
           <text>{{tr.cancel}}</text>
         </view>
