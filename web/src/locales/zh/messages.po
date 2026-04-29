@@ -161,7 +161,7 @@ msgstr "高于"
 
 #: src/components/charts/FormSparkline.tsx:29
 msgid "Absorbing training while maintaining fitness."
-msgstr ""
+msgstr "在保持体能的同时吸收训练负荷。"
 
 #: src/pages/Admin.tsx:201
 msgid "Actions"
@@ -241,7 +241,7 @@ msgstr "发生了意外错误。"
 
 #: src/pages/Settings.tsx:936
 msgid "Asia/CN"
-msgstr ""
+msgstr "亚洲/中国"
 
 #: src/pages/Goal.tsx:328
 msgid "Assessment"
@@ -279,10 +279,6 @@ msgstr "平均心率"
 msgid "Avg Power"
 msgstr "平均功率"
 
-#: src/components/charts/SleepPerfChart.tsx:46
-#: src/components/charts/SleepPerfChart.tsx:49
-#~ msgid "Avg Power (W)"
-#~ msgstr "平均功率 (W)"
 
 #: src/components/DiagnosisCard.tsx:53
 msgid "Avg Work {intensityLabel}"
@@ -316,7 +312,7 @@ msgstr "随时间持续提升体能"
 
 #: src/components/charts/FormSparkline.tsx:28
 msgid "Building fitness with manageable fatigue."
-msgstr ""
+msgstr "以可控的疲劳提升体能。"
 
 #. placeholder {0}: formatTime(rc.target_time_sec!)
 #: src/pages/Goal.tsx:265
@@ -432,9 +428,6 @@ msgstr "连接平台"
 msgid "Connect a platform first"
 msgstr "请先连接一个平台"
 
-#: src/pages/Training.tsx:128
-#~ msgid "Connect a recovery source (like Oura Ring) and sync activities with power data."
-#~ msgstr "连接恢复数据源（如 Oura Ring）并同步带功率数据的活动。"
 
 #: src/pages/Settings.tsx:760
 msgid "Connected"
@@ -627,9 +620,6 @@ msgstr "距离"
 msgid "Distribution deviates from target"
 msgstr "分布偏离目标"
 
-#: src/pages/Settings.tsx:1073
-#~ msgid "Drive your zone calculations and training load. Click to override."
-#~ msgstr "驱动您的区间计算与训练负荷。点击设置自定义数值。"
 
 #: src/pages/Settings.tsx:1182
 msgid "Drive your zone calculations and training load. Values come from connected sources; pick which source to use when you have more than one."
@@ -719,7 +709,7 @@ msgstr "达到目标预计时间"
 
 #: src/pages/Settings.tsx:936
 msgid "EU"
-msgstr ""
+msgstr "欧盟"
 
 #. placeholder {0}: option.hours
 #: src/pages/Settings.tsx:722
@@ -728,7 +718,7 @@ msgstr "每 <0>{0}</0> 小时"
 
 #: src/components/charts/FormSparkline.tsx:32
 msgid "Extended rest period. Fitness declining."
-msgstr ""
+msgstr "长时间休息期。体能在下降。"
 
 #. placeholder {0}: res.status
 #: src/pages/Admin.tsx:144
@@ -777,7 +767,7 @@ msgstr "疲劳"
 
 #: src/components/charts/FormSparkline.tsx:30
 msgid "Fatigue is climbing — watch recovery before adding load."
-msgstr ""
+msgstr "疲劳正在上升——在增加负荷前先关注恢复。"
 
 #: src/components/RecoveryPanel.tsx:20
 msgid "Fatigued"
@@ -828,7 +818,7 @@ msgstr "充分恢复"
 
 #: src/components/charts/FormSparkline.tsx:26
 msgid "Freshened up — good window for racing or testing."
-msgstr ""
+msgstr "充分恢复——适合比赛或测试的好时机。"
 
 #: src/pages/Settings.tsx:111
 msgid "From activities"
@@ -905,7 +895,7 @@ msgstr "目标追踪"
 
 #: src/components/charts/FormSparkline.tsx:27
 msgid "Good balance of fitness and recovery. Ready for quality work."
-msgstr ""
+msgstr "体能与恢复平衡良好。已准备好进行高质量训练。"
 
 #: src/components/GoalEditor.tsx:53
 msgid "Half"
@@ -932,7 +922,7 @@ msgstr "隐藏详情"
 
 #: src/components/charts/FormSparkline.tsx:31
 msgid "High fatigue accumulation. Prioritize recovery."
-msgstr ""
+msgstr "疲劳累积较高。优先恢复。"
 
 #: src/components/RecoveryPanel.tsx:158
 msgid "High variability"
@@ -1115,9 +1105,6 @@ msgstr "主训练"
 msgid "Manage users and invitation codes"
 msgstr "管理用户和邀请码"
 
-#: src/pages/Settings.tsx:1096
-#~ msgid "Manual"
-#~ msgstr "手动"
 
 #: src/components/GoalEditor.tsx:54
 #: src/lib/display-labels.ts:60
@@ -1585,9 +1572,6 @@ msgstr "跑步"
 msgid "Running"
 msgstr "跑步"
 
-#: src/pages/Settings.tsx:1118
-#~ msgid "Save"
-#~ msgstr "保存"
 
 #: src/components/GoalEditor.tsx:177
 msgid "Save Goal"
@@ -1603,7 +1587,7 @@ msgstr "科学"
 
 #: src/pages/Settings.tsx:953
 msgid "Select the region matching your COROS account."
-msgstr ""
+msgstr "选择与您的 COROS 账户匹配的地区。"
 
 #: src/components/SetupChecklist.tsx:71
 #: src/pages/Setup.tsx:743
@@ -1680,9 +1664,6 @@ msgstr "睡眠评分"
 msgid "Sleep Score vs {metricLabel}"
 msgstr "睡眠得分 vs {metricLabel}"
 
-#: src/components/charts/SleepPerfChart.tsx:30
-#~ msgid "Sleep Score vs Power"
-#~ msgstr "睡眠评分 vs 功率"
 
 #: src/pages/Setup.tsx:191
 msgid "Sleep score, HRV, readiness"
@@ -1859,7 +1840,7 @@ msgstr "今日"
 
 #: src/components/RecoveryPanel.tsx:79
 msgid "Today's recovery hasn't synced yet. Showing the latest reading from {latestDateLabel}."
-msgstr ""
+msgstr "今日的恢复尚未同步。显示 {latestDateLabel} 的最新读数。"
 
 #: src/components/GoalEditor.tsx:112
 msgid "Train toward a specific race date"
@@ -1919,7 +1900,7 @@ msgstr "更新中..."
 
 #: src/pages/Settings.tsx:936
 msgid "US"
-msgstr ""
+msgstr "美国"
 
 #: src/pages/Science.tsx:175
 msgid "Use this"
@@ -2047,3 +2028,27 @@ msgstr "基于乳酸阈值心率的区间与负荷"
 #: src/pages/Setup.tsx:174
 msgid "Zones & load from Threshold Pace"
 msgstr "基于阈值配速的区间与负荷"
+#: src/components/charts/SleepPerfChart.tsx:46
+#: src/components/charts/SleepPerfChart.tsx:49
+#~ msgid "Avg Power (W)"
+#~ msgstr "平均功率 (W)"
+
+#: src/pages/Training.tsx:128
+#~ msgid "Connect a recovery source (like Oura Ring) and sync activities with power data."
+#~ msgstr "连接恢复数据源（如 Oura Ring）并同步带功率数据的活动。"
+
+#: src/pages/Settings.tsx:1073
+#~ msgid "Drive your zone calculations and training load. Click to override."
+#~ msgstr "驱动您的区间计算与训练负荷。点击设置自定义数值。"
+
+#: src/pages/Settings.tsx:1096
+#~ msgid "Manual"
+#~ msgstr "手动"
+
+#: src/pages/Settings.tsx:1118
+#~ msgid "Save"
+#~ msgstr "保存"
+
+#: src/components/charts/SleepPerfChart.tsx:30
+#~ msgid "Sleep Score vs Power"
+#~ msgstr "睡眠评分 vs 功率"
