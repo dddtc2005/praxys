@@ -142,9 +142,12 @@ export function useSetupStatus(): SetupStatus {
   const completed = steps.filter((s) => s.done).length;
   const isActuallyDone = completed === steps.length;
 
-  // Persist completion so the next cold load skips the blocking cascade.
+  // Keep the cache in sync with live state: set on completion, clear when
+  // a platform is disconnected or setup regresses (e.g. after logout on a
+  // shared browser or account switch).
   useEffect(() => {
     if (isActuallyDone) setCachedSetupDone();
+    else clearCachedSetupDone();
   }, [isActuallyDone]);
 
   return {
