@@ -34,7 +34,7 @@
         <text class="ts-section-label">{{tr.criticalPower}}</text>
         <view class="train-hero">
           <text class="train-hero-value ts-value">{{latestCpDisplay}}</text>
-          <text class="train-hero-meta ts-muted">latest estimate · {{cpDataPointCount}} data points</text>
+          <text class="train-hero-meta ts-muted">{{tr.latestEstimate}} · {{cpDataPointCount}} {{tr.dataPoints}}</text>
         </view>
         <text wx:if="{{cpTakeaway}}" class="train-takeaway {{cpTakeawayAccent}}">{{cpTakeaway}}</text>
         <line-chart

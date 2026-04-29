@@ -62,6 +62,20 @@ function buildGoalTr() {
     failedToSave: t('Failed to save goal'),
     timeBlankRace: t('Leave blank to track predicted time only'),
     timeBlankCont: t('What time are you working toward? Leave blank to track trend only'),
+    predicted: t('Predicted'),
+    target: t('Target'),
+    setTarget: t('+ Set target'),
+    countdown: t('Countdown'),
+    daysUntil: t('days until'),
+    cpTrend: t('CP trend'),
+    trendRising: t('Rising'),
+    trendFalling: t('Falling'),
+    trendFlat: t('Flat'),
+    needed: t('Needed'),
+    gap: t('Gap'),
+    sourceTapCopy: t('Source — tap to copy URL'),
+    discussionTapCopy: t('Discussion — tap to copy URL'),
+    ultraCaveat: t('Ultra distance caveat'),
   };
 }
 

@@ -14,6 +14,8 @@ function buildHistoryTr() {
     retry: t('Retry'),
     loadingMore: t('Loading more…'),
     endOfActivities: t('End of activities'),
+    splits: t('Splits'),
+    more: t('more'),
   };
 }
 
@@ -76,16 +78,16 @@ const initialData: HistoryState = {
 function buildActivityRow(activity: Activity): ActivityRow {
   const metrics: MetricRow[] = [];
   if (activity.distance_km != null) {
-    metrics.push({ label: 'km', value: formatDistance(activity.distance_km) });
+    metrics.push({ label: t('km'), value: formatDistance(activity.distance_km) });
   }
   if (activity.duration_sec != null) {
-    metrics.push({ label: 'time', value: formatTime(activity.duration_sec) });
+    metrics.push({ label: t('time'), value: formatTime(activity.duration_sec) });
   }
   if (activity.avg_power != null) {
-    metrics.push({ label: 'avg W', value: `${activity.avg_power.toFixed(0)}` });
+    metrics.push({ label: t('avg W'), value: `${activity.avg_power.toFixed(0)}` });
   }
   if (activity.avg_hr != null) {
-    metrics.push({ label: 'avg HR', value: `${activity.avg_hr.toFixed(0)}` });
+    metrics.push({ label: t('avg HR'), value: `${activity.avg_hr.toFixed(0)}` });
   }
 
   const splits = activity.splits ?? [];

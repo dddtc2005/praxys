@@ -54,7 +54,7 @@
           <block wx:if="{{row.modeIsAdvanced}}">
             <rich-text class="sci-rich-text" nodes="{{row.activeCard.advancedHtml}}"></rich-text>
             <view wx:if="{{row.activeCard.hasCitations}}" class="sci-citations">
-              <text class="sci-citations-label ts-muted">References</text>
+              <text class="sci-citations-label ts-muted">{{tr.references}}</text>
               <view
                 wx:for="{{row.activeCard.citations}}"
                 wx:key="display"
@@ -64,7 +64,7 @@
                 bindtap="onCopyCitation"
               >
                 <text class="sci-citation-text">{{cite.display}}</text>
-                <text wx:if="{{cite.hasUrl}}" class="sci-citation-url ts-primary">tap to copy URL</text>
+                <text wx:if="{{cite.hasUrl}}" class="sci-citation-url ts-primary">{{tr.tapToCopy}}</text>
               </view>
             </view>
           </block>
@@ -92,7 +92,7 @@
           <block wx:if="{{row.modeIsAdvanced}}">
             <rich-text class="sci-rich-text" nodes="{{alt.advancedHtml}}"></rich-text>
             <view wx:if="{{alt.hasCitations}}" class="sci-citations">
-              <text class="sci-citations-label ts-muted">References</text>
+              <text class="sci-citations-label ts-muted">{{tr.references}}</text>
               <view
                 wx:for="{{alt.citations}}"
                 wx:key="display"
@@ -102,7 +102,7 @@
                 bindtap="onCopyCitation"
               >
                 <text class="sci-citation-text">{{cite.display}}</text>
-                <text wx:if="{{cite.hasUrl}}" class="sci-citation-url ts-primary">tap to copy URL</text>
+                <text wx:if="{{cite.hasUrl}}" class="sci-citation-url ts-primary">{{tr.tapToCopy}}</text>
               </view>
             </view>
           </block>
@@ -118,8 +118,8 @@
       </view>
 
       <view class="ts-card">
-        <text class="ts-section-label">Zone labels</text>
-        <text class="sci-line">Currently using: <text class="ts-value">{{activeLabels}}</text></text>
+        <text class="ts-section-label">{{tr.zoneLabels}}</text>
+        <text class="sci-line">{{tr.currentlyUsing}}: <text class="ts-value">{{activeLabels}}</text></text>
         <text wx:if="{{hasMultipleLabelSets}}" class="sci-muted-line ts-muted">
           {{labelSetCount}} label sets available — switch on the web.
         </text>

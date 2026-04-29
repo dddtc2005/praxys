@@ -38,11 +38,11 @@ const SIGNAL_META: Record<string, SignalMeta> = {
  * same buckets so this stays in sync.
  */
 function tsbZone(tsb: number): { label: string; accent: string } {
-  if (tsb > 25) return { label: 'Peaked', accent: 'ts-warning' };
-  if (tsb >= 5) return { label: 'Fresh', accent: 'ts-primary' };
-  if (tsb >= -10) return { label: 'Neutral', accent: '' };
-  if (tsb >= -30) return { label: 'Fatigued', accent: 'ts-warning' };
-  return { label: 'Over-fatigued', accent: 'ts-destructive' };
+  if (tsb > 25) return { label: t('Peaked'), accent: 'ts-warning' };
+  if (tsb >= 5) return { label: t('Fresh'), accent: 'ts-primary' };
+  if (tsb >= -10) return { label: t('Neutral'), accent: '' };
+  if (tsb >= -30) return { label: t('Fatigued'), accent: 'ts-warning' };
+  return { label: t('Over-fatigued'), accent: 'ts-destructive' };
 }
 
 interface UpcomingRow {

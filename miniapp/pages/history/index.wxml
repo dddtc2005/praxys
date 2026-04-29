@@ -55,7 +55,7 @@
           </view>
 
           <view wx:if="{{item.hasSplits && item.expanded}}" class="history-splits">
-            <text class="ts-section-label">Splits ({{item.splitCount}})</text>
+            <text class="ts-section-label">{{tr.splits}} ({{item.splitCount}})</text>
             <view
               wx:for="{{item.splitsDisplay}}"
               wx:key="num"
@@ -71,7 +71,7 @@
               >{{cell}}</text>
             </view>
             <text wx:if="{{item.hasMoreSplits}}" class="ts-muted history-split-more">
-              + {{item.moreSplitsCount}} more
+              + {{item.moreSplitsCount}} {{tr.more}}
             </text>
           </view>
 

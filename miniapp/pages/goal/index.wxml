@@ -25,25 +25,25 @@
          ============================================================ -->
     <block wx:if="{{mode === 'race_date'}}">
       <view class="ts-card goal-hero">
-        <text class="ts-section-label">{{rdDistLabel}} Countdown</text>
+        <text class="ts-section-label">{{rdDistLabel}} {{tr.countdown}}</text>
         <view class="goal-countdown-block">
           <text class="goal-countdown-value ts-value" wx:if="{{rdHasDays}}">{{rdDaysLeft}}</text>
           <text class="goal-countdown-value ts-value" wx:else>—</text>
-          <text class="goal-countdown-label ts-muted">days until {{rdRaceDate}}</text>
+          <text class="goal-countdown-label ts-muted">{{tr.daysUntil}} {{rdRaceDate}}</text>
           <text class="goal-status-badge {{rdStatusAccent}}">{{rdStatusText}}</text>
         </view>
         <view class="goal-time-grid goal-time-grid--two">
           <view>
-            <text class="goal-time-label ts-muted">Predicted {{rdDistLabel}}</text>
+            <text class="goal-time-label ts-muted">{{tr.predicted}} {{rdDistLabel}}</text>
             <text class="goal-time-value ts-value">{{rdPredictedTime}}</text>
           </view>
           <view class="goal-target-cell" bindtap="onOpenEditor">
-            <text class="goal-time-label ts-muted">Target</text>
+            <text class="goal-time-label ts-muted">{{tr.target}}</text>
             <view wx:if="{{rdHasTarget}}" class="goal-target-row">
               <text class="goal-time-value ts-value">{{rdTargetTime}}</text>
               <view class="goal-inline-edit"></view>
             </view>
-            <text wx:else class="goal-set-target ts-primary">+ Set target</text>
+            <text wx:else class="goal-set-target ts-primary">{{tr.setTarget}}</text>
           </view>
         </view>
       </view>
@@ -54,16 +54,16 @@
 
         <view wx:if="{{rdHasGapRow}}" class="goal-gap-row">
           <view class="goal-gap-cell">
-            <text class="goal-gap-label ts-muted">Current {{rdAbbrev}}</text>
+            <text class="goal-gap-label ts-muted">{{tr.current}} {{rdAbbrev}}</text>
             <text class="goal-gap-value ts-value">{{rdCurrentCp}}</text>
           </view>
           <text class="goal-gap-arrow ts-muted">→</text>
           <view class="goal-gap-cell">
-            <text class="goal-gap-label ts-muted">Needed {{rdAbbrev}}</text>
+            <text class="goal-gap-label ts-muted">{{tr.needed}} {{rdAbbrev}}</text>
             <text class="goal-gap-value ts-value">{{rdNeededCp}}</text>
           </view>
           <view wx:if="{{rdHasGapValue}}" class="goal-gap-cell goal-gap-cell--last">
-            <text class="goal-gap-label ts-muted">Gap</text>
+            <text class="goal-gap-label ts-muted">{{tr.gap}}</text>
             <text class="goal-gap-value ts-value {{rdAssessmentAccent}}">{{rdGapValue}}</text>
           </view>
         </view>
@@ -104,16 +104,16 @@
           class="goal-time-grid goal-time-grid--two"
         >
           <view>
-            <text class="goal-time-label ts-muted">Predicted {{cmDistLabel}}</text>
+            <text class="goal-time-label ts-muted">{{tr.predicted}} {{cmDistLabel}}</text>
             <text class="goal-time-value ts-value">{{cmPredictedTime}}</text>
           </view>
           <view class="goal-target-cell" bindtap="onOpenEditor">
-            <text class="goal-time-label ts-muted">Target</text>
+            <text class="goal-time-label ts-muted">{{tr.target}}</text>
             <view wx:if="{{cmHasTarget}}" class="goal-target-row">
               <text class="goal-time-value ts-value">{{cmTargetTime}}</text>
               <view class="goal-inline-edit"></view>
             </view>
-            <text wx:else class="goal-set-target ts-primary">+ Set target</text>
+            <text wx:else class="goal-set-target ts-primary">{{tr.setTarget}}</text>
           </view>
         </view>
 
@@ -173,12 +173,12 @@
           <text wx:if="{{ctHasSlope}}" class="goal-cont-slope ts-muted">{{ctSlopeText}}</text>
         </view>
         <view wx:if="{{ctHasPredicted}}" class="goal-cont-predicted">
-          <text class="goal-time-label ts-muted">Predicted {{ctDistLabel}}</text>
+          <text class="goal-time-label ts-muted">{{tr.predicted}} {{ctDistLabel}}</text>
           <text class="goal-time-value ts-value">{{ctPredictedTime}}</text>
         </view>
         <view class="goal-change-goal-row" bindtap="onOpenEditor">
           <view class="goal-inline-edit"></view>
-          <text class="goal-change-goal-label ts-muted">Change goal</text>
+          <text class="goal-change-goal-label ts-muted">{{tr.changeGoal}}</text>
         </view>
       </view>
 
@@ -208,7 +208,7 @@
           class="goal-note-source-row"
           bindtap="onTapPredictionSource"
         >
-          <text class="goal-note-source ts-primary">Source — tap to copy URL</text>
+          <text class="goal-note-source ts-primary">{{tr.sourceTapCopy}}</text>
         </view>
       </view>
     </view>
@@ -219,12 +219,12 @@
     >
       <view class="goal-note-toggle" bindtap="toggleNoteUltra">
         <text class="goal-note-arrow">{{noteUltraExpanded ? '▾' : '▸'}}</text>
-        <text class="goal-note-label">Ultra distance caveat</text>
+        <text class="goal-note-label">{{tr.ultraCaveat}}</text>
       </view>
       <view wx:if="{{noteUltraExpanded}}" class="goal-note-body">
         <text class="goal-note-text">{{noteUltraText}}</text>
         <view class="goal-note-source-row" bindtap="onTapUltraSource">
-          <text class="goal-note-source ts-primary">Discussion — tap to copy URL</text>
+          <text class="goal-note-source ts-primary">{{tr.discussionTapCopy}}</text>
         </view>
       </view>
     </view>
@@ -233,7 +233,7 @@
          reference line shows target_cp on race_date / cp_milestone
          modes; null on continuous mode (no target). -->
     <view wx:if="{{hasResponse && hasCpTrend}}" class="ts-card">
-      <text class="ts-section-label">CP trend</text>
+      <text class="ts-section-label">{{tr.cpTrend}}</text>
       <line-chart
         canvas-id="goal-cp-trend"
         height="{{240}}"

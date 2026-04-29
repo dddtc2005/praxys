@@ -25,6 +25,8 @@ function buildTrainingTr() {
     complianceOk: t('On target'),
     complianceOff: t('Off target'),
     complianceNoPlan: t('No plan'),
+    latestEstimate: t('latest estimate'),
+    dataPoints: t('data points'),
   };
 }
 import {
@@ -405,8 +407,8 @@ function buildState(response: TrainingResponse, themeClass: string): Partial<Tra
 
     hasDistribution: zoneRows.length > 0,
     zoneSectionLabel: diagnosis?.theory_name
-      ? `Zone distribution · ${diagnosis.theory_name}`
-      : 'Zone distribution',
+      ? `${t('Zone distribution')} · ${diagnosis.theory_name}`
+      : t('Zone distribution'),
     zoneRows,
 
     hasConsistency: consistency != null,

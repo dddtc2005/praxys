@@ -24,7 +24,7 @@ function buildScienceTr() {
     active: t('Active'),
     references: t('References'),
     tapToCopy: t('tap to copy URL'),
-    zoneLabels: t('Zone Labels'),
+    zoneLabels: t('Zone labels'),
     currentlyUsing: t('Currently using'),
     suggestion: t('Based on your training, we suggest'),
     noActiveTheory: t('No active theory configured.'),
