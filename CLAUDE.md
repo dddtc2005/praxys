@@ -152,9 +152,46 @@ Required env vars (set only if you're running a mini program):
 
 ### Publishing the mini program
 
-Don't tell the user to "open WeChat DevTools and click 上传." Uploads are CI-driven via `.github/workflows/miniapp-publish.yml` (uses `miniprogram-ci`). Versioning is **CalVer, per-component tags** — `miniapp-YYYY.MM.MICRO` (e.g. `miniapp-2026.04.1`) for releases; `main` pushes auto-publish to robot 5 with a synthetic `YYYY.MM.DD.<run>+<sha>` version. The release line is robot 1; robots are independent slots in 版本管理. Promoting 开发版 → 体验版 and 提交审核 / 发布 stay manual in mp.weixin.qq.com (no first-party openapi for them). Full design rationale: `docs/dev/miniapp-cicd-research.md`.
+Don't tell the user to "open WeChat DevTools and click 上传." Uploads are CI-driven via `.github/workflows/miniapp-publish.yml` (uses `miniprogram-ci`). Versioning is **CalVer, per-component tags** — `miniapp-YYYY.MM.MICRO` (e.g. `miniapp-2026.04.1`) for releases; `main` pushes auto-publish to robot 5 with a synthetic `YYYY.MM.DD.<run>-<sha>` version. The release line is robot 1; robots are independent slots in 版本管理. Promoting 开发版 → 体验版 and 提交审核 / 发布 stay manual in mp.weixin.qq.com (no first-party openapi for them). Full design rationale: `docs/dev/miniapp-cicd-research.md`.
 
 Secrets (already configured): `WECHAT_MINIAPP_APPID`, `WECHAT_MINIAPP_UPLOAD_KEY`. IP whitelist is intentionally off — the upload key is the security boundary.
+
+#### How to release the mini program
+
+When the user says "release the miniapp" / "ship miniapp 2026.05.1" / "cut a new mini program release":
+
+1. **Pick the next CalVer tag.** Find the latest existing release:
+   ```bash
+   gh release list --limit 20 | grep miniapp- | head -3
+   ```
+   Choose `miniapp-YYYY.MM.MICRO` for the current month (UTC). Reset `MICRO` to `1` at the start of each new month; otherwise increment from the most recent tag in the same month.
+
+2. **Draft release notes from git log.** The first miniapp release uses everything since the project began; subsequent ones diff from the previous tag:
+   ```bash
+   prev=$(gh release list --limit 20 --json tagName --jq '.[].tagName | select(startswith("miniapp-"))' | head -1)
+   git log "${prev:-HEAD~20}..HEAD" --oneline -- miniapp/ web/src/locales/ web/src/types/api.ts
+   ```
+   Group commits into 3–5 bullet themes (features, fixes, polish). Keep it user-readable, not a raw shortlog.
+
+3. **Create the release.** This atomically creates the tag, pushes it, and triggers `miniapp-publish.yml`:
+   ```bash
+   gh release create miniapp-2026.05.1 --target main --title "Miniapp 2026.05.1" --notes "$(cat <<'EOF'
+   <bullet list of themes>
+   EOF
+   )"
+   ```
+
+4. **Watch the publish workflow.** `gh run watch <id>` until green. The job summary shows the version + robot 1 + `desc=release <tag> (<sha7>)`.
+
+5. **Hand off to the user for the manual WeChat steps.** Tell them exactly what to click, in order:
+   - mp.weixin.qq.com → 版本管理 → robot 1 row → **选为体验版**
+   - Scan the QR with WeChat to smoke-test against the previous 体验版
+   - **提交审核** (1–7 day human review)
+   - Once approved: **发布**
+
+   These last three steps have no first-party API for self-hosted operators — they must be clicked.
+
+Don't try to bump `miniapp/package.json` `version` as part of the release — tags are the source of truth, the package.json field is unused by the publish workflow. Don't open a PR for a release; releases are tag-driven, not commit-driven.
 
 ## Documentation
 
