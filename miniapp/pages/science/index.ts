@@ -223,7 +223,7 @@ Page({
     // re-renders on normal tab switches where nothing changed.
     const tc = themeClassName();
     if (tc !== this.data.themeClass) {
-      this.setData({ themeClass: tc, chartTheme: tc === 'theme-light' ? 'light' : 'dark' });
+      this.setData({ themeClass: tc });
     }
     // Locale guard: rebuilds tr when language changed while this tab
     // was not active (same pattern as theme — globalData stores the

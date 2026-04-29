@@ -268,7 +268,6 @@ function buildTranslations() {
     duration: t('Duration'),
     avgPower: t('Avg power'),
     warnings: t('Warnings'),
-    longPressToShare: t('Long press to save & share'),
     close: t('Close'),
   };
 }
@@ -463,6 +462,7 @@ Page({
     } catch (e) {
       // eslint-disable-next-line no-console
       console.warn('[today] share card render failed:', e);
+      this.setData({ shareCardVisible: false });
     }
   },
 
