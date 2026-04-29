@@ -26,9 +26,16 @@ App<IAppOption>({
   },
 
   onLaunch() {
-    // Resolve the user's theme preference once at app start and cache it
-    // on globalData. Pages read globalData.themeClass in initialData so
-    // their first render is already in the right theme.
-    this.globalData.themeClass = themeClassName();
+    // Resolve theme once at startup and cache on globalData so every page's
+    // initialData reads the correct class without a storage round-trip.
+    const tc = themeClassName();
+    this.globalData.themeClass = tc;
+
+    // Set the window chrome background IMMEDIATELY at launch — before any
+    // page renders — so the static #0d1220 default in app.json / page CSS
+    // is updated to the actual user preference on first paint. Without this
+    // call, light-mode users would briefly see the dark default.
+    const bg = tc === 'theme-light' ? '#faf9f5' : '#0d1220';
+    wx.setBackgroundColor({ backgroundColor: bg, fail: () => {} });
   },
 });

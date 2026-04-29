@@ -18,9 +18,9 @@
   },
   "componentFramework": "glass-easel",
   "window": {
-    "backgroundTextStyle": "light",
+    "backgroundTextStyle": "dark",
     "navigationStyle": "custom",
-    "backgroundColor": "#faf9f5"
+    "backgroundColor": "#0d1220"
   },
   "tabBar": {
     "custom": true,

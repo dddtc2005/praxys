@@ -175,7 +175,7 @@ export async function generateShareCard(input: ShareCardInput): Promise<string> 
   ctx.fillRect(0, 0, W, H);
   // No scan-line texture — it creates visible horizontal artifacts on JPEG.
 
-  // ── Top bar: brand mark + wordmark ─────────────────────────────────────
+  // ── Top bar: brand mark + wordmark (left), QR code (right) ────────────
   const MARK_X = 40;
   const MARK_Y = 40;
   const MARK_SIZE = 56;
@@ -197,6 +197,29 @@ export async function generateShareCard(input: ShareCardInput): Promise<string> 
   const xW = ctx.measureText('x').width;
   ctx.fillStyle = C.text;
   ctx.fillText('ys', WMX + praW + xW, WMY);
+
+  // QR code — upper-right corner, aligned with the wordmark row.
+  // Dark mode: render via 'screen' blend so black modules become
+  // transparent and white modules stay white → white QR on dark bg,
+  // no awkward white rectangle. Light mode: draw directly (black on cream).
+  const QR_SIZE = 68;
+  const QR_X = W - 40 - QR_SIZE;
+  const QR_Y = MARK_Y + (MARK_SIZE - QR_SIZE) / 2; // vertically centre with mark
+  try {
+    const qr = (await loadImage(canvas, '/assets/qr-praxys-prod.png')) as unknown as object;
+    if (cardTheme === 'dark') {
+      // 'screen' blend: black (0) → transparent, white (1) → white.
+      // This inverts the QR without touching background pixels outside the image.
+      (ctx as unknown as Record<string, string>).globalCompositeOperation = 'screen';
+      drawImage.drawImage(qr, QR_X, QR_Y, QR_SIZE, QR_SIZE);
+      (ctx as unknown as Record<string, string>).globalCompositeOperation = 'source-over';
+    } else {
+      // Light mode: white background pad keeps the QR readable on cream.
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(QR_X - 3, QR_Y - 3, QR_SIZE + 6, QR_SIZE + 6);
+      drawImage.drawImage(qr, QR_X, QR_Y, QR_SIZE, QR_SIZE);
+    }
+  } catch { /* no QR asset — skip silently */ }
 
   // ── Signal circle ───────────────────────────────────────────────────────
   const CX = W / 2;
@@ -228,7 +251,7 @@ export async function generateShareCard(input: ShareCardInput): Promise<string> 
 
   // ── Divider ─────────────────────────────────────────────────────────────
   const BAR_H = 46;
-  const divY = H - BAR_H - 110; // leave room for footer + accent bar
+  const divY = H - BAR_H - 96;
   ctx.strokeStyle = C.border;
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -236,13 +259,8 @@ export async function generateShareCard(input: ShareCardInput): Promise<string> 
   ext.lineTo(W - 40, divY);
   ctx.stroke();
 
-  // ── Footer: tagline (left), praxys.run (right), same line ──────────────
-  const footerY = divY + 38;
-  const QR_SIZE = 76;
-  const QR_X = W - 40 - QR_SIZE;
-  const QR_Y = divY + 18;
-  const textRightEdge = QR_X - 20; // text stops before QR code
-
+  // ── Footer: tagline left, praxys.run right, same line ──────────────────
+  const footerY = divY + 42;
   ctx.textBaseline = 'middle';
   ctx.font = '400 21px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
   ctx.fillStyle = C.muted;
@@ -251,20 +269,10 @@ export async function generateShareCard(input: ShareCardInput): Promise<string> 
     locale === 'zh' ? '像专业选手一样训练，无论水平高低。' : 'Train like a pro. Whatever your level.',
     40, footerY,
   );
-
-  // praxys.run right-aligned on the same line
   ctx.textAlign = 'right';
   ctx.fillStyle = C.primary;
   ctx.font = '500 21px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
-  ctx.fillText('praxys.run', textRightEdge, footerY);
-
-  // ── QR code ─────────────────────────────────────────────────────────────
-  try {
-    const qr = (await loadImage(canvas, '/assets/qr-praxys-prod.png')) as unknown as object;
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(QR_X - 4, QR_Y - 4, QR_SIZE + 8, QR_SIZE + 8);
-    drawImage.drawImage(qr, QR_X, QR_Y, QR_SIZE, QR_SIZE);
-  } catch { /* no QR asset — silently skip */ }
+  ctx.fillText('praxys.run', W - 40, footerY);
 
   // ── Accent bar with CTA ──────────────────────────────────────────────────
   ctx.fillStyle = C.primary;
