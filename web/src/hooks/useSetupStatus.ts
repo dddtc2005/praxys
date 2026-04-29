@@ -3,6 +3,20 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { API_BASE, getAuthHeaders } from '@/hooks/useApi';
 import type { SyncStatusResponse } from '@/types/api';
 
+const SETUP_DONE_KEY = 'praxys-setup-done';
+
+function getCachedSetupDone(): boolean {
+  try { return localStorage.getItem(SETUP_DONE_KEY) === 'true'; } catch { return false; }
+}
+
+function setCachedSetupDone(): void {
+  try { localStorage.setItem(SETUP_DONE_KEY, 'true'); } catch { /* localStorage unavailable */ }
+}
+
+function clearCachedSetupDone(): void {
+  try { localStorage.removeItem(SETUP_DONE_KEY); } catch { /* localStorage unavailable */ }
+}
+
 export interface SetupStep {
   key: string;
   label: string;
@@ -34,6 +48,10 @@ export interface SetupStatus {
  */
 export function useSetupStatus(): SetupStatus {
   const { config, loading: settingsLoading } = useSettings();
+  // Cached flag: if setup was fully complete on a prior load, skip the
+  // blocking API calls so TodayOrSetup renders Today immediately.
+  // fetchKey > 0 (manual refetch) always re-runs the blocking path.
+  const [cachedDone] = useState(() => getCachedSetupDone());
   const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
   const [syncStatus, setSyncStatus] = useState<SyncStatusResponse>({});
   const [connectionsLoading, setConnectionsLoading] = useState(true);
@@ -41,7 +59,9 @@ export function useSetupStatus(): SetupStatus {
 
   useEffect(() => {
     let cancelled = false;
-    setConnectionsLoading(true);
+    const isBackgroundRefresh = cachedDone && fetchKey === 0;
+
+    if (!isBackgroundRefresh) setConnectionsLoading(true);
 
     Promise.all([
       fetch(`${API_BASE}/api/settings/connections`, { headers: getAuthHeaders() })
@@ -55,16 +75,20 @@ export function useSetupStatus(): SetupStatus {
         const platforms = Object.keys(connData.connections || {});
         setConnectedPlatforms(platforms);
         setSyncStatus(syncData);
-        setConnectionsLoading(false);
+        if (!isBackgroundRefresh) setConnectionsLoading(false);
       })
       .catch(() => {
-        if (!cancelled) setConnectionsLoading(false);
+        if (!cancelled && !isBackgroundRefresh) setConnectionsLoading(false);
       });
 
     return () => { cancelled = true; };
-  }, [fetchKey]);
+  // cachedDone is stable (useState with no setter), so this never
+  // causes extra runs — it's listed to satisfy the exhaustive-deps rule.
+  }, [fetchKey, cachedDone]);
 
-  const loading = settingsLoading || connectionsLoading;
+  // When the cache says setup was complete and this is the initial load,
+  // skip the blocking wait so TodayOrSetup renders Today immediately.
+  const loading = (cachedDone && fetchKey === 0) ? false : (settingsLoading || connectionsLoading);
 
   // Derive step completion
   const hasConnection = connectedPlatforms.length > 0;
@@ -116,17 +140,28 @@ export function useSetupStatus(): SetupStatus {
   ];
 
   const completed = steps.filter((s) => s.done).length;
+  const isActuallyDone = completed === steps.length;
+
+  // Keep the cache in sync with live state: set on completion, clear when
+  // a platform is disconnected or setup regresses (e.g. after logout on a
+  // shared browser or account switch).
+  useEffect(() => {
+    if (isActuallyDone) setCachedSetupDone();
+    else clearCachedSetupDone();
+  }, [isActuallyDone]);
 
   return {
     loading,
     steps,
     completed,
     total: steps.length,
-    allDone: completed === steps.length,
+    allDone: (cachedDone && fetchKey === 0) || isActuallyDone,
     hasConnection,
     hasSyncedData,
     connectedPlatforms,
     syncStatus,
-    refetch: () => setFetchKey((k) => k + 1),
+    // Clear cache on manual refetch (e.g. after disconnecting a platform)
+    // so the next render re-checks live state instead of using stale cache.
+    refetch: () => { clearCachedSetupDone(); setFetchKey((k) => k + 1); },
   };
 }
