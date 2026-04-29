@@ -77,22 +77,35 @@ Component({
 
   pageLifetimes: {
     show() {
-      // Refresh on every tab-page show — covers Language switch
-      // (reLaunch) and Theme switch (reLaunch). We always setData on
-      // both fields, even when the value matches, so a real-device
-      // glitch where the previous setData didn't paint gets a second
-      // chance. The cost is one extra render per page-show, which is
-      // imperceptible on a 5-item tab bar.
-      const themeClass = `theme-${resolveCurrentTheme()}`;
-      this.setData({ tabs: buildTabs(), themeClass });
+      // Guard every field with an equality check so we only call setData
+      // when something actually changed. Unconditional setData on every
+      // tab switch was the root cause of the intermittent white flash:
+      // multiple overlapping re-renders from rapidly-switched tabs
+      // created a race condition in glass-easel's paint queue.
+      //
+      // Language and theme both use wx.reLaunch, so after any change
+      // all pages reload fresh. Rebuilding tabs[] here is unnecessary
+      // (it's done once in attached()). We only update themeClass (for
+      // the system-theme-change edge case) and selected.
+      const updates: Record<string, unknown> = {};
 
-      // Snap selected index to whichever tab page is currently active.
+      const themeClass = `theme-${resolveCurrentTheme()}`;
+      if (themeClass !== this.data.themeClass) {
+        updates.themeClass = themeClass;
+      }
+
       const pages = getCurrentPages();
       const top = pages[pages.length - 1];
-      if (!top) return;
-      const idx = TABS.findIndex((tab) => tab.pagePath === top.route);
-      if (idx >= 0 && idx !== this.data.selected) {
-        this.setData({ selected: idx });
+      if (top) {
+        const idx = TABS.findIndex((tab) => tab.pagePath === top.route);
+        if (idx >= 0 && idx !== this.data.selected) {
+          updates.selected = idx;
+        }
+      }
+
+      // One setData call (or none) per tab switch — not two.
+      if (Object.keys(updates).length > 0) {
+        this.setData(updates);
       }
     },
   },

@@ -122,11 +122,6 @@ Page({
 
   onShow() {
     applyThemeChrome();
-    const tc = themeClassName();
-    this.setData({ themeClass: tc });
-    const tabBar = (this as { getTabBar?: () => { setData: (d: unknown) => void } | null })
-      .getTabBar?.();
-    tabBar?.setData({ selected: 2 });
   },
 
   onScrollToBottom() {

@@ -218,8 +218,6 @@ Page({
 
   onShow() {
     applyThemeChrome();
-    const tc = themeClassName();
-    this.setData({ themeClass: tc });
   },
 
   onRetry() {
