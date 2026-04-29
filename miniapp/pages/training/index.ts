@@ -4,10 +4,12 @@ import { apiGet } from '../../utils/api-client';
 import type { ApiError } from '../../utils/api-client';
 import type { TrainingResponse } from '../../types/api';
 import { applyThemeChrome, themeClassName } from '../../utils/theme';
-import { t } from '../../utils/i18n';
+import { t, tFmt } from '../../utils/i18n';
 
 function buildTrainingTr() {
   return {
+    navTitle: t('Training'),
+    sleepScoreLabel: t('Sleep Score'),
     failedToLoad: t('Failed to load'),
     retry: t('Retry'),
     noData: t(
@@ -185,7 +187,7 @@ const initialData: TrainingState = {
   ffTakeawayAccent: '',
 
   hasDistribution: false,
-  zoneSectionLabel: 'Zone distribution',
+  zoneSectionLabel: t('Zone distribution'),
   zoneRows: [],
 
   hasConsistency: false,
@@ -472,10 +474,15 @@ function buildState(response: TrainingResponse, themeClass: string): Partial<Tra
     };
   });
 
+  // Three-part one-liner. Translating inline keeps the data/glyph
+  // separators (· and the unit `d`) consistent across locales.
   const consistencyLine = consistency
-    ? `${consistency.total_sessions ?? 0} sessions · gaps ≥7d: ${
-        consistency.weeks_with_gaps ?? 0
-      } · longest: ${consistency.longest_gap_days ?? 0}d`
+    ? tFmt(
+        '{0} sessions · gaps ≥7d: {1} · longest: {2}d',
+        consistency.total_sessions ?? 0,
+        consistency.weeks_with_gaps ?? 0,
+        consistency.longest_gap_days ?? 0,
+      )
     : '';
 
   return {
@@ -486,17 +493,19 @@ function buildState(response: TrainingResponse, themeClass: string): Partial<Tra
     hasAnyData,
 
     hasVolume,
-    weeklyKm: hasVolume ? `${(weeklyKm as number).toFixed(1)} km/week` : '',
+    weeklyKm: hasVolume ? tFmt('{0} km/week', (weeklyKm as number).toFixed(1)) : '',
     hasVolumeTrend: !!diagnosis?.volume?.trend,
-    volumeTrend: diagnosis?.volume?.trend ? `trend: ${diagnosis.volume.trend}` : '',
+    volumeTrend: diagnosis?.volume?.trend
+      ? tFmt('trend: {0}', diagnosis.volume.trend)
+      : '',
 
     hasLatestCp: latestCp != null,
     latestCpDisplay: latestCp != null ? `${latestCp.toFixed(0)} W` : '',
     cpDataPointCount: cp_trend?.values?.length ?? 0,
 
     cpSufficient,
-    cpHintMessage: 'Not enough data to show CP trend',
-    cpHintDetail: 'Need at least 3 activities with power data to plot a meaningful trend.',
+    cpHintMessage: t('Not enough data to show CP trend'),
+    cpHintDetail: t('Need at least 3 activities with power data to plot a meaningful trend.'),
     cpTrendDates: cp_trend?.dates ?? [],
     cpTrendSeries: cp_trend
       ? [{ label: 'CP', color: '#00ff87', values: cp_trend.values, fill: true }]
@@ -509,15 +518,16 @@ function buildState(response: TrainingResponse, themeClass: string): Partial<Tra
       : { cpTakeaway: '', cpTakeawayAccent: '' }),
 
     ffSufficient,
-    ffHintMessage: 'Not enough data for accurate fitness tracking',
-    ffHintDetail:
+    ffHintMessage: t('Not enough data for accurate fitness tracking'),
+    ffHintDetail: t(
       'Sync at least 6 weeks of activity data to see meaningful fitness, fatigue, and form curves.',
+    ),
     ffDates: fitness_fatigue?.dates ?? [],
     ffSeries: fitness_fatigue
       ? [
-          { label: 'Fitness (CTL)', color: '#00ff87', values: fitness_fatigue.ctl },
-          { label: 'Fatigue (ATL)', color: '#ef4444', values: fitness_fatigue.atl },
-          { label: 'Form (TSB)', color: '#3b82f6', values: fitness_fatigue.tsb },
+          { label: t('Fitness (CTL)'), color: '#00ff87', values: fitness_fatigue.ctl },
+          { label: t('Fatigue (ATL)'), color: '#ef4444', values: fitness_fatigue.atl },
+          { label: t('Form (TSB)'), color: '#3b82f6', values: fitness_fatigue.tsb },
         ]
       : [],
     ...(fitness_fatigue
@@ -529,7 +539,7 @@ function buildState(response: TrainingResponse, themeClass: string): Partial<Tra
 
     hasDistribution: zoneRows.length > 0,
     zoneSectionLabel: diagnosis?.theory_name
-      ? `${t('Zone distribution')} · ${diagnosis.theory_name}`
+      ? tFmt('{0} · {1}', t('Zone distribution'), diagnosis.theory_name)
       : t('Zone distribution'),
     zoneRows,
 
@@ -548,14 +558,19 @@ function buildState(response: TrainingResponse, themeClass: string): Partial<Tra
     // Sleep score vs metric scatter. Sufficiency mirrors web's check:
     // requires recovery data + at least 2 pairs to be meaningful.
     sleepSufficient,
-    sleepHintMessage: 'Not enough data to show sleep vs performance',
-    sleepHintDetail:
+    sleepHintMessage: t('Not enough data to show sleep vs performance'),
+    sleepHintDetail: t(
       'Sync activities together with sleep data (Garmin, Oura, or similar) so we can pair them by date.',
-    sleepPerfTitle: sleep_perf?.metric_label
-      ? `Sleep Score vs ${sleep_perf.metric_label}`
-      : 'Sleep Score vs Avg Power',
+    ),
+    // Compose the title from translated parts so 'Sleep Score' and the
+    // metric label stay in the active locale. Backend metric_label may
+    // already be localized; if not we substitute the translated default.
+    sleepPerfTitle: tFmt(
+      'Sleep Score vs {0}',
+      sleep_perf?.metric_label || t('Avg Power'),
+    ),
     sleepPerfYLabel: sleep_perf
-      ? `${sleep_perf.metric_label || 'Avg Power'} (${sleep_perf.metric_unit || 'W'})`
+      ? `${sleep_perf.metric_label || t('Avg Power')} (${sleep_perf.metric_unit || 'W'})`
       : '',
     sleepPerfPairs: sleep_perf?.pairs ?? [],
     sleepPerfYIsPace: sleep_perf?.metric_unit === 'sec/km',
@@ -568,12 +583,14 @@ function buildState(response: TrainingResponse, themeClass: string): Partial<Tra
 
     // Weekly compliance bars. Web threshold: 14 days of data.
     complianceSufficient,
-    complianceHintMessage: 'Not enough data for weekly load comparison',
-    complianceHintDetail:
+    complianceHintMessage: t('Not enough data for weekly load comparison'),
+    complianceHintDetail: t(
       'Sync at least 2 weeks of data to compare planned vs actual training load.',
+    ),
     hasComplianceEstimateNote: !!weekly_review?.planned_estimated,
-    complianceEstimateNote:
+    complianceEstimateNote: t(
       'Planned bars are estimated — your plan has no RSS targets for this base.',
+    ),
     complianceWeeks: weekly_review?.weeks ?? [],
     compliancePlanned: weekly_review?.planned_load ?? [],
     complianceActual: weekly_review?.actual_load ?? [],

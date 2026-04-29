@@ -34,8 +34,6 @@ function buildTabs(): TabConfig[] {
   ];
 }
 
-const TABS: TabConfig[] = buildTabs();
-
 function resolveCurrentTheme(): 'dark' | 'light' {
   const stored = wx.getStorageSync<string>('praxys-theme') || 'auto';
   if (stored === 'dark') return 'dark';
@@ -56,7 +54,7 @@ Component({
   options: { addGlobalClass: true },
 
   data: {
-    tabs: TABS,
+    tabs: buildTabs(),
     selected: 0,
     themeClass: getApp<IAppOption>().globalData.themeClass,
   },

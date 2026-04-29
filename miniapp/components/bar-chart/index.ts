@@ -9,6 +9,7 @@
  */
 
 import { chartColors, type ResolvedTheme } from '../../utils/theme';
+import { t } from '../../utils/i18n';
 
 type Ctx = WechatMiniprogram.CanvasRenderingContext.CanvasRenderingContext2D;
 
@@ -212,7 +213,7 @@ function renderBars(
     ctx.font = '11px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('No data', width / 2, height / 2);
+    ctx.fillText(t('No data'), width / 2, height / 2);
     return;
   }
 

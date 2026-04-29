@@ -1,5 +1,5 @@
 <view class="history-root {{themeClass}}">
-  <nav-bar title="Activities" theme-class="{{themeClass}}" />
+  <nav-bar title="{{tr.navTitle}}" theme-class="{{themeClass}}" />
 
   <scroll-view
     scroll-y="{{true}}"

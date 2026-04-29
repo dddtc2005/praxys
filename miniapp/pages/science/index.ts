@@ -9,10 +9,11 @@ import type {
 } from '../../types/api';
 import { applyThemeChrome, themeClassName } from '../../utils/theme';
 import { parseMarkdown, copyUrlToClipboard } from '../../utils/markdown';
-import { t } from '../../utils/i18n';
+import { t, tFmt } from '../../utils/i18n';
 
 function buildScienceTr() {
   return {
+    navTitle: t('Training science'),
     trainingScience: t('Training Science'),
     failedToLoad: t('Failed to load'),
     retry: t('Retry'),
@@ -94,6 +95,10 @@ interface SciState {
   activeLabels: string;
   hasMultipleLabelSets: boolean;
   labelSetCount: number;
+  /** Pre-formatted "{count} label sets available — switch on the web."
+   *  string. Computed at refetch time so the count interpolates and the
+   *  whole sentence stays translatable as a single message. */
+  labelSetsAvailableText: string;
   /** Pillar currently mid-save, so the matching button can disable. */
   selectingPillar: SciencePillar | '';
 }
@@ -107,6 +112,7 @@ const initialData: SciState = {
   activeLabels: '',
   hasMultipleLabelSets: false,
   labelSetCount: 0,
+  labelSetsAvailableText: '',
   selectingPillar: '',
 };
 
@@ -309,6 +315,10 @@ Page({
         activeLabels: response.active_labels,
         hasMultipleLabelSets: response.label_sets.length > 1,
         labelSetCount: response.label_sets.length,
+        labelSetsAvailableText: tFmt(
+          '{0} label sets available — switch on the web.',
+          response.label_sets.length,
+        ),
         // Cache raw response on the instance so mode-toggles can rebuild
         // pillar rows without refetching. Underscored to mark as internal.
         _response: response,

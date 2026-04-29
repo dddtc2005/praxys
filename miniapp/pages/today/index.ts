@@ -22,14 +22,18 @@ interface SignalMeta {
 
 // Mirrors web/src/components/SignalHero.tsx — same labels, subtitles,
 // and color buckets so the visual status reads identically across web
-// and mini.
-const SIGNAL_META: Record<string, SignalMeta> = {
-  follow_plan: { label: 'GO', subtitle: 'Follow Plan', color: 'green' },
-  easy: { label: 'EASY', subtitle: 'Go Easy', color: 'amber' },
-  modify: { label: 'MODIFY', subtitle: 'Adjust Workout', color: 'amber' },
-  reduce_intensity: { label: 'CAUTION', subtitle: 'Reduce Intensity', color: 'amber' },
-  rest: { label: 'REST', subtitle: 'Recovery Day', color: 'red' },
-};
+// and mini. Subtitles route through t() so they read in the active
+// locale; the labels themselves stay in English (GO/EASY/REST/…) as
+// short status glyphs that read identically across locales.
+function signalMeta(): Record<string, SignalMeta> {
+  return {
+    follow_plan: { label: 'GO', subtitle: t('Follow Plan'), color: 'green' },
+    easy: { label: 'EASY', subtitle: t('Go Easy'), color: 'amber' },
+    modify: { label: 'MODIFY', subtitle: t('Adjust Workout'), color: 'amber' },
+    reduce_intensity: { label: 'CAUTION', subtitle: t('Reduce Intensity'), color: 'amber' },
+    rest: { label: 'REST', subtitle: t('Recovery Day'), color: 'red' },
+  };
+}
 
 /**
  * Map a TSB value to a textual zone name + accent class. Banister-style
@@ -120,7 +124,7 @@ function buildRenderState(response: TodayResponse | null, themeClass: string, to
     return {};
   }
 
-  const meta = SIGNAL_META[response.signal.recommendation] ?? SIGNAL_META.follow_plan;
+  const meta = signalMeta()[response.signal.recommendation] ?? signalMeta().follow_plan;
 
   const sparkline = response.tsb_sparkline;
   const hasSparkline = sparkline != null && sparkline.values.length >= 2;
@@ -221,7 +225,7 @@ function buildRenderState(response: TodayResponse | null, themeClass: string, to
     weekLoadActual: `${wlActual}`,
     weekLoadHasPlanned: wlPlanned != null,
     weekLoadPlannedSuffix:
-      wlPlanned != null ? `/ ${Math.round(wlPlanned)} RSS` : 'No planned load this week',
+      wlPlanned != null ? `/ ${Math.round(wlPlanned)} RSS` : t('No planned load this week'),
     weekLoadHasPct: wlPct != null,
     weekLoadPct: wlPct != null ? `${wlPct}%` : '',
     weekLoadPctAccent: wlAccent,
@@ -250,6 +254,7 @@ function todayFormatted(): string {
 // need to react to live locale changes.
 function buildTranslations() {
   return {
+    navTitle: t('Today'),
     failedToLoad: t('Failed to load'),
     retry: t('Retry'),
     noDataYet: t('No data available yet.'),
@@ -458,7 +463,7 @@ Page({
     const response = (this as unknown as Record<string, any>)._todayResponse;
     if (!response) return;
     const theme = this.data.chartTheme;
-    const meta = SIGNAL_META[response.signal?.recommendation] ?? SIGNAL_META.follow_plan;
+    const meta = signalMeta()[response.signal?.recommendation] ?? signalMeta().follow_plan;
     try {
       const path = await generateShareCard({
         label: meta.label,
