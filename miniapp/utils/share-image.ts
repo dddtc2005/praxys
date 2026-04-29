@@ -199,26 +199,17 @@ export async function generateShareCard(input: ShareCardInput): Promise<string> 
   ctx.fillText('ys', WMX + praW + xW, WMY);
 
   // QR code — upper-right corner, aligned with the wordmark row.
-  // Dark mode: render via 'screen' blend so black modules become
-  // transparent and white modules stay white → white QR on dark bg,
-  // no awkward white rectangle. Light mode: draw directly (black on cream).
+  // Two pre-built assets: black modules on transparent (light theme),
+  // white modules on transparent (dark theme). No runtime pixel manipulation.
   const QR_SIZE = 68;
   const QR_X = W - 40 - QR_SIZE;
-  const QR_Y = MARK_Y + (MARK_SIZE - QR_SIZE) / 2; // vertically centre with mark
+  const QR_Y = MARK_Y + (MARK_SIZE - QR_SIZE) / 2;
+  const qrAsset = cardTheme === 'dark'
+    ? '/assets/qr-praxys-prod-dark.png'
+    : '/assets/qr-praxys-prod.png';
   try {
-    const qr = (await loadImage(canvas, '/assets/qr-praxys-prod.png')) as unknown as object;
-    if (cardTheme === 'dark') {
-      // 'screen' blend: black (0) → transparent, white (1) → white.
-      // This inverts the QR without touching background pixels outside the image.
-      (ctx as unknown as Record<string, string>).globalCompositeOperation = 'screen';
-      drawImage.drawImage(qr, QR_X, QR_Y, QR_SIZE, QR_SIZE);
-      (ctx as unknown as Record<string, string>).globalCompositeOperation = 'source-over';
-    } else {
-      // Light mode: white background pad keeps the QR readable on cream.
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(QR_X - 3, QR_Y - 3, QR_SIZE + 6, QR_SIZE + 6);
-      drawImage.drawImage(qr, QR_X, QR_Y, QR_SIZE, QR_SIZE);
-    }
+    const qr = (await loadImage(canvas, qrAsset)) as unknown as object;
+    drawImage.drawImage(qr, QR_X, QR_Y, QR_SIZE, QR_SIZE);
   } catch { /* no QR asset — skip silently */ }
 
   // ── Signal circle ───────────────────────────────────────────────────────
@@ -247,12 +238,18 @@ export async function generateShareCard(input: ShareCardInput): Promise<string> 
   ctx.font = '400 30px -apple-system, BlinkMacSystemFont, system-ui, sans-serif'; // was 25
   ctx.fillStyle = C.muted;
   const reasonLines = wrapLines(ctx, input.reason || '', W - 120, 2);
-  const reasonY0 = CY + R + 86; // shifted down slightly for larger subtitle
-  reasonLines.forEach((line, i) => ctx.fillText(line, CX, reasonY0 + i * 42));
+  const REASON_LINE_H = 42;
+  const reasonY0 = CY + R + 86;
+  reasonLines.forEach((line, i) => ctx.fillText(line, CX, reasonY0 + i * REASON_LINE_H));
 
-  // ── Divider ─────────────────────────────────────────────────────────────
+  // ── Divider — positioned dynamically so reason text never overlaps it ───
   const BAR_H = 46;
-  const divY = H - BAR_H - 96;
+  // Bottom of last reason line (font size 30, textBaseline 'top' → +32px)
+  const reasonEndY = reasonLines.length > 0
+    ? reasonY0 + (reasonLines.length - 1) * REASON_LINE_H + 32
+    : reasonY0 - 20;
+  // Always at least 20px below reason, but keep footer legible above accent bar
+  const divY = Math.max(reasonEndY + 20, H - BAR_H - 110);
   ctx.strokeStyle = C.border;
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -261,7 +258,7 @@ export async function generateShareCard(input: ShareCardInput): Promise<string> 
   ctx.stroke();
 
   // ── Footer: tagline left, praxys.run right, same line ──────────────────
-  const footerY = divY + 42;
+  const footerY = divY + 36;
   ctx.textBaseline = 'middle';
   ctx.font = '400 21px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
   ctx.fillStyle = C.muted;

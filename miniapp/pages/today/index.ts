@@ -278,6 +278,9 @@ interface RefreshState {
    *  FAB — the card only appears on demand, not on every page load. */
   shareCardVisible: boolean;
   shareImagePath: string;
+  /** Theme the cached share card was rendered at. Used to detect when a
+   *  theme change means the cached image needs to be re-generated. */
+  shareCardTheme: 'light' | 'dark' | '';
 }
 
 const initialData: RenderState & RefreshState = {
@@ -330,6 +333,7 @@ const initialData: RenderState & RefreshState = {
 
   shareImagePath: '',
   shareCardVisible: false,
+  shareCardTheme: '',
 };
 
 // Translation table — built per page-load (Locale changes reLaunch).
@@ -438,6 +442,11 @@ Page({
 
   onShareCardToggle() {
     const nextVisible = !this.data.shareCardVisible;
+    // Invalidate the cached image if the theme changed since last render.
+    const themeChanged = this.data.shareCardTheme !== '' && this.data.shareCardTheme !== this.data.chartTheme;
+    if (themeChanged) {
+      this.setData({ shareImagePath: '', shareCardTheme: '' });
+    }
     this.setData({ shareCardVisible: nextVisible });
     if (nextVisible && !this.data.shareImagePath) {
       void this.renderShareCard();
@@ -448,6 +457,7 @@ Page({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const response = (this as unknown as Record<string, any>)._todayResponse;
     if (!response) return;
+    const theme = this.data.chartTheme;
     const meta = SIGNAL_META[response.signal?.recommendation] ?? SIGNAL_META.follow_plan;
     try {
       const path = await generateShareCard({
@@ -456,9 +466,9 @@ Page({
         reason: response.signal?.reason ?? '',
         color: meta.color,
         locale: detectShareLocale(),
-        theme: this.data.chartTheme, // 'light' | 'dark' — follows user's theme
+        theme,
       });
-      this.setData({ shareImagePath: path });
+      this.setData({ shareImagePath: path, shareCardTheme: theme });
     } catch (e) {
       // eslint-disable-next-line no-console
       console.warn('[today] share card render failed:', e);
