@@ -49,3 +49,19 @@ export function setTabBarTheme(
 ): void {
   callTabBar(page, { themeClass });
 }
+
+/** Rebuild tab bar labels after a live language change. */
+export function refreshTabBarLocale(page: { getTabBar?: unknown }): void {
+  // Mirrors custom-tab-bar/index.ts buildTabs(). Inline the i18n import
+  // to avoid pulling the whole catalog into this tiny shim module.
+  import('./i18n').then(({ t }) => {
+    const tabs = [
+      { pagePath: 'pages/today/index', text: t('Today'), kind: 'today' },
+      { pagePath: 'pages/training/index', text: t('Training'), kind: 'training' },
+      { pagePath: 'pages/history/index', text: t('Activities'), kind: 'activities' },
+      { pagePath: 'pages/goal/index', text: t('Goal'), kind: 'goal' },
+      { pagePath: 'pages/settings/index', text: t('Settings'), kind: 'settings' },
+    ];
+    callTabBar(page, { tabs });
+  }).catch(() => { /* tab labels will refresh on next pageLifetimes.show */ });
+}

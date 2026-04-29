@@ -73,10 +73,8 @@
   margin-top: 16rpx;
   padding-top: 16rpx;
   border-top: 1rpx solid var(--border-subtle);
-  // Override hero's text-align: center so both columns are consistently
-  // left-aligned (data-table convention) rather than one centred and
-  // one left-aligned (from goal-target-cell).
-  text-align: left;
+  // Inherit hero's text-align: center — centred columns are consistent
+  // with the rest of the hero card (section label, progress, badge).
 }
 
 .goal-time-grid--two {
@@ -412,14 +410,16 @@
 }
 
 // Target cell: the whole grid cell is tappable in race/cp-milestone mode.
+// Centers content to match hero card's centred aesthetic.
 .goal-target-cell {
-  text-align: left;
+  text-align: center;
 }
 
 // Row inside the target cell — value + inline pencil side by side.
 .goal-target-row {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8rpx;
 }
 

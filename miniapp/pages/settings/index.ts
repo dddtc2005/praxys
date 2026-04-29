@@ -1,4 +1,4 @@
-import { setTabBarSelected, setTabBarTheme } from '../../utils/tabbar';
+import { setTabBarSelected, setTabBarTheme, refreshTabBarLocale } from '../../utils/tabbar';
 import { apiGet, apiPost, apiPut } from '../../utils/api-client';
 import type { ApiError } from '../../utils/api-client';
 import { clearToken } from '../../utils/auth';
@@ -437,12 +437,12 @@ Page({
           console.warn('[settings] language backend sync failed:', err);
         }
         // Live update — same approach as theme switching. The settings page
-        // rebuilds tr immediately; other pages rebuild in their guarded onShow
-        // (locale check prevents re-renders on normal tab switches).
-        // We store the active locale on globalData so onShow guards work.
+        // rebuilds tr immediately; other pages rebuild in their guarded onShow.
+        // Tab bar labels are also refreshed immediately via the async shim.
         getApp<IAppOption>().globalData.locale = next === 'auto'
           ? detectLocale()
           : next;
+        refreshTabBarLocale(this);
         this.setData({
           language: next,
           languageLabel: languageLabelFor(next),
