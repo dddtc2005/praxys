@@ -631,6 +631,14 @@ Page({
   },
 
   onShow() {
+    // Guarded theme update: other tabs can't be reached by getCurrentPages()
+    // from Settings, so if the user changed theme while on another tab,
+    // this is the first chance to apply it. Equality check prevents
+    // re-renders on normal tab switches where nothing changed.
+    const tc = themeClassName();
+    if (tc !== this.data.themeClass) {
+      this.setData({ themeClass: tc, chartTheme: tc === 'theme-light' ? 'light' : 'dark' });
+    }
     applyThemeChrome();
     setTabBarSelected(this, 3);
   },
