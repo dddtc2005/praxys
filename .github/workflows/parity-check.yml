@@ -1,0 +1,88 @@
+name: Web ↔ miniapp parity check
+
+# Best-effort heuristic: if a PR changes a page in web/src/pages/ but
+# leaves the matching miniapp/pages/ untouched, post a warning so the
+# author at least *considers* the parity gap. The check is advisory —
+# we never fail the build, since plenty of legitimate web-only or
+# miniapp-only changes exist (admin page, login WebView quirks,
+# Tailwind-specific tweaks, etc.).
+#
+# Triggers only on pull_request because parity is a review-time concern.
+# Status appears as a check named "parity" with a neutral / passing
+# conclusion plus a sticky comment listing the unmatched files.
+
+on:
+  pull_request:
+    paths:
+      - 'web/src/pages/**'
+      - 'miniapp/pages/**'
+      - '.github/workflows/parity-check.yml'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Identify unmatched web/miniapp page changes
+        id: parity
+        run: |
+          set -e
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+          # `||` so the script doesn't bail when grep finds zero matches.
+          changed=$(git diff --name-only "$base" "$head")
+
+          web_pages=$(echo "$changed" | grep -E '^web/src/pages/[A-Z][A-Za-z0-9]+\.tsx$' || true)
+          mini_pages=$(echo "$changed" | grep -E '^miniapp/pages/[a-z]+/' || true)
+
+          # Map web page name to lowercase folder slug so we can compare
+          # vs miniapp/pages/<slug>/. The two clients use different naming
+          # conventions: Today.tsx ↔ today/, Goal.tsx ↔ goal/, History.tsx
+          # ↔ history/.
+          unmatched=""
+          for f in $web_pages; do
+            base_name=$(basename "$f" .tsx)
+            slug=$(echo "$base_name" | tr '[:upper:]' '[:lower:]')
+            # Skip pages with no miniapp counterpart (admin, setup, login).
+            case "$slug" in
+              admin|setup) continue ;;
+            esac
+            if ! echo "$mini_pages" | grep -q "^miniapp/pages/$slug/"; then
+              unmatched="$unmatched\n- \`$f\` changed without \`miniapp/pages/$slug/\`"
+            fi
+          done
+
+          if [ -n "$unmatched" ]; then
+            echo "has_gap=true" >> "$GITHUB_OUTPUT"
+            {
+              echo 'message<<EOF'
+              echo "Heads up — these web pages changed without a matching miniapp update:"
+              echo -e "$unmatched"
+              echo ""
+              echo "If this is intentional (web-only feature, miniapp follows in a later PR, etc.) ignore this. Otherwise, see CLAUDE.md → \"Web ↔ miniapp parity\" for the rule."
+              echo 'EOF'
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "has_gap=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Comment on PR about parity gap
+        if: steps.parity.outputs.has_gap == 'true'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: parity-check
+          message: ${{ steps.parity.outputs.message }}
+
+      - name: Clear parity comment when no gap
+        if: steps.parity.outputs.has_gap == 'false'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: parity-check
+          delete: true

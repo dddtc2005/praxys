@@ -2,9 +2,12 @@ id: standard
 name: "Standard"
 author: system
 
+# `key` is a stable English identifier used by clients (e.g. FormSparkline's
+# zone-insight dictionary). `label` is the localized display string. zh files
+# mirror `key` and translate `label`.
 tsb_zone_labels:
-  - {label: "Detraining", color: "#64748b"}
-  - {label: "Performance", color: "#00ff87"}
-  - {label: "Optimal", color: "#3b82f6"}
-  - {label: "Productive", color: "#22c55e"}
-  - {label: "Overreaching", color: "#ef4444"}
+  - {key: "Detraining", label: "Detraining", color: "#64748b"}
+  - {key: "Performance", label: "Performance", color: "#00ff87"}
+  - {key: "Optimal", label: "Optimal", color: "#3b82f6"}
+  - {key: "Productive", label: "Productive", color: "#22c55e"}
+  - {key: "Overreaching", label: "Overreaching", color: "#ef4444"}

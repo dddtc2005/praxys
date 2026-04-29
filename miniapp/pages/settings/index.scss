@@ -1,0 +1,195 @@
+.settings-root {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.settings-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.settings-content {
+  padding: 32rpx 32rpx 200rpx;
+}
+
+.settings-header {
+  font-size: 52rpx;
+  font-weight: 700;
+  color: var(--text);
+  display: block;
+  margin-bottom: 24rpx;
+}
+
+.settings-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid var(--border-subtle);
+}
+
+.settings-row:last-child {
+  border-bottom: none;
+}
+
+.settings-label,
+.settings-value {
+  font-size: 28rpx;
+}
+// Source strings are already canonical-cased (e.g. "Training base"
+// not "training base"); a capitalize transform turned that into
+// "Training Base" which is wrong. Trust the source.
+
+.settings-hint {
+  font-size: 24rpx;
+  display: block;
+  margin-top: 12rpx;
+  line-height: 1.5;
+}
+
+.settings-empty {
+  display: block;
+  font-size: 26rpx;
+  line-height: 1.6;
+}
+
+.settings-webhint {
+  display: block;
+  font-size: 26rpx;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 16rpx;
+}
+
+.settings-weburl {
+  display: block;
+  font-size: 24rpx;
+  color: var(--text);
+  word-break: break-all;
+  padding: 12rpx 16rpx;
+  background-color: var(--surface-subtle);
+  border-radius: 8rpx;
+  margin-bottom: 16rpx;
+}
+
+.settings-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-nav-title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4rpx;
+}
+
+.settings-nav-sub {
+  display: block;
+  font-size: 22rpx;
+  line-height: 1.4;
+}
+
+.settings-nav-chevron {
+  font-size: 36rpx;
+  padding-left: 24rpx;
+}
+
+.settings-origin {
+  display: block;
+  font-size: 18rpx;
+  line-height: 1.2;
+  margin-top: 2rpx;
+  text-transform: lowercase;
+  letter-spacing: 0.5rpx;
+}
+
+.settings-theme-row {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 8rpx;
+}
+
+.settings-theme-opt {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 0;
+  border-radius: 12rpx;
+  font-size: 26rpx;
+  color: var(--text-muted);
+  background-color: var(--surface-subtle);
+  border: 2rpx solid var(--border);
+}
+
+.settings-theme-opt--active {
+  color: var(--primary-on);
+  background-color: var(--primary);
+  border-color: var(--primary);
+  font-weight: 600;
+}
+
+// Bottom action stack — Open on web + Sign out, no surrounding card.
+.settings-actions {
+  margin-top: 48rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  // Safe-area inset so the action stack doesn't tuck under the iPhone
+  // home indicator on notch-era devices.
+  padding: 0 8rpx calc(32rpx + env(safe-area-inset-bottom));
+}
+.settings-action-btn { width: 100%; }
+
+// Connections section moved its "Sync now" affordance into the section
+// header — a refresh icon button sitting to the right of the label.
+// Reduces the card's vertical footprint and matches iOS/native list
+// patterns where actions live in the header, not stacked below the
+// content. The button shows a subtle spin while syncing instead of a
+// disabled-grey label.
+.settings-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12rpx;
+}
+.settings-section-header-label {
+  margin-bottom: 0;
+}
+.settings-section-action {
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--surface-subtle);
+  border-radius: 28rpx;
+  border: 1rpx solid var(--border);
+}
+.settings-section-action--press {
+  background-color: var(--border-subtle);
+}
+.settings-section-action-icon {
+  width: 28rpx;
+  height: 28rpx;
+  background-color: var(--text-muted);
+  -webkit-mask-size: contain;
+          mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+          mask-position: center;
+}
+.settings-section-action-icon--refresh {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8'/%3E%3Cpath d='M21 3v5h-5'/%3E%3Cpath d='M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16'/%3E%3Cpath d='M3 21v-5h5'/%3E%3C/svg%3E");
+          mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8'/%3E%3Cpath d='M21 3v5h-5'/%3E%3Cpath d='M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16'/%3E%3Cpath d='M3 21v-5h5'/%3E%3C/svg%3E");
+}
+.settings-section-action--spinning .settings-section-action-icon {
+  animation: settings-spin 1s linear infinite;
+}
+@keyframes settings-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}

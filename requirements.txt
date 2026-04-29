@@ -10,22 +10,22 @@
 # exact exception text "JWT_WEB cookie not set after ticket consumption".
 # A minor-version bump can rename any of these. Re-validate with
 # scripts/garmin_diagnose.py before loosening this bound.
-garminconnect>=0.3.0,<0.4.0
+garminconnect>=0.3.3,<0.4.0
 requests>=2.33.1
 python-dotenv>=1.0.0
 pandas>=2.1.0
 pytest>=7.0.0
 fastapi>=0.136.0
-uvicorn[standard]>=0.24.0
+uvicorn[standard]>=0.46.0
 pyyaml>=6.0.3
 portalocker>=2.8.0
-pydantic>=2.0.0
+pydantic>=2.13.3
 sqlalchemy>=2.0.0
 aiosqlite>=0.22.1
 alembic>=1.13.0
 fastapi-users[sqlalchemy]>=13.0.0
 cryptography>=46.0.7
-azure-identity>=1.15.0
+azure-identity>=1.25.3
 azure-keyvault-keys>=4.9.0
 gunicorn>=22.0.0
 PyJWT>=2.8.0
@@ -41,4 +41,4 @@ azure-monitor-opentelemetry>=1.6.0
 # Headless Chromium via Playwright is used by scripts/generate_og_card.py
 # to rasterize web/public/og-card*.html into PNGs for OpenGraph / WeChat
 # share previews. See that script's docstring for setup/run notes.
-playwright==1.48.0
+playwright==1.58.0

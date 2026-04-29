@@ -3,8 +3,7 @@
     "target": "es2019",
     "module": "esnext",
     "moduleResolution": "node",
-    "lib": ["dom", "es2019", "es2020.promise", "es2020.string", "es2020.symbol.wellknown"],
-    "jsx": "preserve",
+    "lib": ["es2019", "es2020.promise", "es2020.string", "es2020.symbol.wellknown"],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -12,12 +11,9 @@
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"]
-    },
-    "types": ["webpack-env"]
+    "noEmit": true,
+    "types": ["miniprogram-api-typings"]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules", "miniprogram_npm", "scripts"]
 }

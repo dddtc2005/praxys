@@ -1,0 +1,132 @@
+.history-root {
+  // Skyline pages need flex-column root + scroll-view for content overflow.
+  // See pages/today/index.scss for the full reasoning.
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.history-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.history-content {
+  padding: 32rpx 32rpx 200rpx;
+}
+
+.history-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 24rpx;
+}
+
+.history-header {
+  font-size: 52rpx;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.history-total {
+  font-size: 24rpx;
+}
+
+.history-row-head {
+  // Skyline's flex-row with justify-content + auto-margins on children
+  // collapses gaps unpredictably. Stick to a single layout strategy:
+  // date on left, type on right (margin-left: auto), chevron after type
+  // with a small gap.
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 12rpx;
+  margin-bottom: 12rpx;
+}
+
+.history-row-date {
+  font-size: 24rpx;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.history-row-type {
+  margin-left: auto;
+  font-size: 26rpx;
+  color: var(--text);
+  text-transform: capitalize;
+}
+
+.history-row-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32rpx;
+  margin-top: 8rpx;
+}
+
+.history-metric {
+  min-width: 100rpx;
+}
+
+.history-metric-label {
+  font-size: 20rpx;
+  text-transform: uppercase;
+  letter-spacing: 1rpx;
+  display: block;
+}
+
+.history-metric-value {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text);
+  display: block;
+}
+
+// Disclosure chevron — rotates from pointing-right (collapsed) to
+// pointing-down (expanded) on tap. Matches the pattern users know
+// from iOS Health activity rows. Sits after the type (which already
+// has margin-left: auto), so we just need a small gap.
+.history-row-chev {
+  font-size: 36rpx;
+  line-height: 1;
+  transition: transform 160ms ease;
+}
+.history-row-chev--open {
+  transform: rotate(90deg);
+}
+
+.history-splits {
+  margin-top: 16rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid var(--border-subtle);
+}
+
+.history-split-row {
+  display: flex;
+  gap: 24rpx;
+  padding: 6rpx 0;
+  align-items: baseline;
+}
+
+.history-split-num {
+  width: 48rpx;
+  font-size: 22rpx;
+}
+
+.history-split-cell {
+  font-size: 24rpx;
+  min-width: 100rpx;
+}
+
+.history-split-more {
+  font-size: 22rpx;
+  display: block;
+  padding-top: 8rpx;
+}
+
+.history-footer {
+  text-align: center;
+  padding: 32rpx 0;
+  font-size: 24rpx;
+  display: block;
+}

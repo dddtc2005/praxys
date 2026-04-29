@@ -1,0 +1,202 @@
+<view class="train-root {{themeClass}}">
+  <nav-bar title="Training" theme-class="{{themeClass}}" />
+
+  <scroll-view
+    scroll-y="{{true}}"
+    refresher-enabled="{{true}}"
+    refresher-triggered="{{refreshing}}"
+    bindrefresherrefresh="onScrollRefresh"
+    class="train-scroll"
+  >
+    <view class="train-content">
+
+    <block wx:if="{{loading && !hasResponse}}">
+      <view class="ts-card"><view class="ts-skeleton"></view></view>
+      <view class="ts-card"><view class="ts-skeleton"></view></view>
+    </block>
+
+    <block wx:elif="{{errorMessage}}">
+      <view class="ts-card">
+        <text class="train-header ts-destructive">{{tr.failedToLoad}}</text>
+        <text class="ts-muted">{{errorMessage}}</text>
+        <button class="ts-button" bindtap="onRetry">{{tr.retry}}</button>
+      </view>
+    </block>
+
+    <block wx:elif="{{hasResponse}}">
+      <view wx:if="{{!hasAnyData}}" class="ts-card">
+        <text class="train-empty">{{tr.noData}}</text>
+      </view>
+
+      <view wx:if="{{hasVolume}}" class="ts-section">
+        <text class="ts-section-label">{{tr.volume}}</text>
+        <view class="train-hero">
+          <text class="train-hero-value ts-value">{{weeklyKm}}</text>
+          <text wx:if="{{hasVolumeTrend}}" class="train-hero-meta ts-muted">{{volumeTrend}}</text>
+        </view>
+      </view>
+
+      <view wx:if="{{hasLatestCp}}" class="ts-card">
+        <text class="ts-section-label">{{tr.criticalPower}}</text>
+        <view class="train-hero">
+          <text class="train-hero-value ts-value">{{latestCpDisplay}}</text>
+          <text class="train-hero-meta ts-muted">latest estimate · {{cpDataPointCount}} data points</text>
+        </view>
+        <text wx:if="{{cpTakeaway}}" class="train-takeaway {{cpTakeawayAccent}}">{{cpTakeaway}}</text>
+        <line-chart
+          wx:if="{{cpSufficient}}"
+          canvas-id="train-cp-trend"
+          height="{{220}}"
+          show-legend="{{false}}"
+          dates="{{cpTrendDates}}"
+          series="{{cpTrendSeries}}"
+          y-unit="W"
+          theme="{{chartTheme}}"
+        />
+        <view wx:else class="train-data-hint">
+          <text class="train-data-hint-message ts-muted">{{cpHintMessage}}</text>
+          <text class="train-data-hint-detail ts-muted">{{cpHintDetail}}</text>
+        </view>
+      </view>
+
+      <view class="ts-card">
+        <text class="ts-section-label">{{tr.fitnessFatigue}}</text>
+        <text wx:if="{{ffTakeaway}}" class="train-takeaway {{ffTakeawayAccent}}">{{ffTakeaway}}</text>
+        <line-chart
+          wx:if="{{ffSufficient}}"
+          canvas-id="train-ctl-atl-tsb"
+          height="{{280}}"
+          show-zero-line="{{true}}"
+          dates="{{ffDates}}"
+          series="{{ffSeries}}"
+          theme="{{chartTheme}}"
+        />
+        <view wx:else class="train-data-hint">
+          <text class="train-data-hint-message ts-muted">{{ffHintMessage}}</text>
+          <text class="train-data-hint-detail ts-muted">{{ffHintDetail}}</text>
+        </view>
+      </view>
+
+      <view wx:if="{{hasDistribution}}" class="ts-card">
+        <text class="ts-section-label">{{zoneSectionLabel}}</text>
+        <view
+          wx:for="{{zoneRows}}"
+          wx:key="name"
+          class="train-zonebar"
+        >
+          <view class="train-zonebar-head">
+            <text class="train-zonebar-name">{{item.name}}</text>
+            <text class="train-zonebar-value ts-value">{{item.label}}</text>
+          </view>
+          <view class="train-zonebar-track">
+            <view class="train-zonebar-fill {{item.fillClass}}" style="width: {{item.actualClamped}}%;"></view>
+            <view
+              wx:if="{{item.hasTarget}}"
+              class="train-zonebar-target"
+              style="left: {{item.targetClamped}}%;"
+            ></view>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{hasConsistency}}" class="ts-section">
+        <text class="ts-section-label">{{tr.consistency}}</text>
+        <text class="train-line">{{consistencyLine}}</text>
+      </view>
+
+      <view class="ts-card">
+        <text class="ts-section-label">{{tr.weeklyCompliance}}</text>
+        <text wx:if="{{complianceTakeaway}}" class="train-takeaway {{complianceTakeawayAccent}}">{{complianceTakeaway}}</text>
+        <block wx:if="{{complianceSufficient}}">
+          <text wx:if="{{hasComplianceEstimateNote}}" class="train-compliance-note ts-muted">
+            {{complianceEstimateNote}}
+          </text>
+          <view class="train-bar-legend">
+            <view class="train-bar-legend-item">
+              <view class="train-bar-legend-dot train-bar-legend-dot--planned"></view>
+              <text class="train-bar-legend-label">{{tr.plannedLabel}}</text>
+            </view>
+            <view class="train-bar-legend-item">
+              <view class="train-bar-legend-dot train-bar-legend-dot--ok"></view>
+              <text class="train-bar-legend-label">{{tr.complianceOk}}</text>
+            </view>
+            <view class="train-bar-legend-item">
+              <view class="train-bar-legend-dot train-bar-legend-dot--off"></view>
+              <text class="train-bar-legend-label">{{tr.complianceOff}}</text>
+            </view>
+            <view class="train-bar-legend-item">
+              <view class="train-bar-legend-dot train-bar-legend-dot--noplan"></view>
+              <text class="train-bar-legend-label">{{tr.complianceNoPlan}}</text>
+            </view>
+          </view>
+          <bar-chart
+            canvas-id="train-compliance"
+            height="{{280}}"
+            weeks="{{complianceWeeks}}"
+            planned="{{compliancePlanned}}"
+            actual="{{complianceActual}}"
+            actual-colors="{{complianceActualColors}}"
+            theme="{{chartTheme}}"
+          />
+        </block>
+        <view wx:else class="train-data-hint">
+          <text class="train-data-hint-message ts-muted">{{complianceHintMessage}}</text>
+          <text class="train-data-hint-detail ts-muted">{{complianceHintDetail}}</text>
+        </view>
+      </view>
+
+      <view class="ts-card">
+        <text class="ts-section-label">{{sleepPerfTitle}}</text>
+        <text wx:if="{{sleepTakeaway}}" class="train-takeaway {{sleepTakeawayAccent}}">{{sleepTakeaway}}</text>
+        <!-- Scatter is collapsed by default — the takeaway above
+             answers the headline question, the chart is the deeper
+             dive. Toggle row exposes it on demand. -->
+        <view
+          wx:if="{{sleepSufficient}}"
+          class="train-collapse-toggle"
+          bindtap="toggleSleepCorrelation"
+          hover-class="train-collapse-toggle--press"
+        >
+          <text class="train-collapse-toggle-label ts-muted">
+            {{showSleepCorrelation ? tr.hideCorrelation : tr.showCorrelation}}
+          </text>
+          <text class="train-collapse-toggle-chev ts-muted">{{showSleepCorrelation ? '▾' : '▸'}}</text>
+        </view>
+        <scatter-chart
+          wx:if="{{sleepSufficient && showSleepCorrelation}}"
+          canvas-id="train-sleep-perf"
+          height="{{280}}"
+          x-label="Sleep Score"
+          y-label="{{sleepPerfYLabel}}"
+          color="#3b82f6"
+          y-is-pace="{{sleepPerfYIsPace}}"
+          pairs="{{sleepPerfPairs}}"
+          theme="{{chartTheme}}"
+        />
+        <view wx:if="{{!sleepSufficient}}" class="train-data-hint">
+          <text class="train-data-hint-message ts-muted">{{sleepHintMessage}}</text>
+          <text class="train-data-hint-detail ts-muted">{{sleepHintDetail}}</text>
+        </view>
+      </view>
+
+      <view wx:if="{{hasFindings}}" class="ts-section">
+        <text class="ts-section-label">{{tr.findings}}</text>
+        <text
+          wx:for="{{findings}}"
+          wx:key="*this"
+          class="{{item.className}}"
+        >{{item.message}}</text>
+      </view>
+
+      <view wx:if="{{hasSuggestions}}" class="ts-section">
+        <text class="ts-section-label">{{tr.suggestions}}</text>
+        <text
+          wx:for="{{suggestions}}"
+          wx:key="*this"
+          class="train-finding"
+        >{{item.message}}</text>
+      </view>
+    </block>
+    </view>
+  </scroll-view>
+</view>

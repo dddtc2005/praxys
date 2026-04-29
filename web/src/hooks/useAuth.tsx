@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
 import { KEYS, getCompatItem, setCompatItem, removeCompatItem } from '../lib/storage-compat';
+import { prefetchedMe } from '../lib/auth-prefetch';
 
 interface AuthState {
   token: string | null;
@@ -53,10 +54,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setToken(stored);
 
-    // Verify token and fetch fresh profile (admin status, active status)
-    fetch(`${API_BASE}/api/auth/me`, { headers: { Authorization: `Bearer ${stored}` } })
-      .then((r) => {
-        if (r.status === 401) {
+    // Use the pre-parsed result from auth-prefetch (started at module
+    // evaluation time, before React mounted) to avoid one extra render-
+    // cycle of latency on cold load. The result is already parsed so it
+    // is idempotent to consume — StrictMode double-fires are safe.
+    const mePromise = prefetchedMe ??
+      fetch(`${API_BASE}/api/auth/me`, { headers: { Authorization: `Bearer ${stored}` } })
+        .then(async (r) => ({ status: r.status, data: r.ok ? await r.json() : null }))
+        .catch(() => ({ status: 0, data: null }));
+
+    mePromise
+      .then(({ status, data }) => {
+        if (status === 401) {
           // Token expired or user deactivated — clear auth state
           removeCompatItem(KEYS.authToken.new, KEYS.authToken.legacy);
           removeCompatItem(KEYS.authEmail.new, KEYS.authEmail.legacy);
@@ -65,12 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setEmail(null);
           setIsAdmin(false);
           setIsDemo(false);
-          return null;
-        }
-        return r.ok ? r.json() : null;
-      })
-      .then((data) => {
-        if (data) {
+        } else if (data) {
           setIsAdmin(data.is_superuser);
           setIsDemo(data.is_demo ?? false);
           setCompatItem(KEYS.authAdmin.new, KEYS.authAdmin.legacy, String(data.is_superuser));

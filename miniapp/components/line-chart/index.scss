@@ -1,0 +1,80 @@
+.line-chart {
+  width: 100%;
+}
+
+.line-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24rpx;
+  padding: 0 8rpx 16rpx;
+}
+
+.line-chart-legend-item {
+  display: flex;
+  align-items: center;
+}
+
+.line-chart-legend-dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 8rpx;
+  margin-right: 8rpx;
+}
+
+.line-chart-legend-label {
+  font-size: 22rpx;
+  color: var(--text-muted);
+}
+
+.line-chart-canvas {
+  width: 100%;
+  display: block;
+}
+
+// --- Tap-to-show-value tooltip ---
+.line-chart-wrap {
+  position: relative;
+}
+.line-chart-tooltip {
+  position: absolute;
+  top: 8rpx;
+  // `left` is set inline in pixels by drawChart's tap handler — it's the
+  // x-coordinate of the *snapped* data point, so the tooltip lands right
+  // above the line, not where the user actually tapped.
+  transform: translateX(-50%);
+  background-color: var(--surface);
+  border: 1rpx solid var(--border);
+  border-radius: 8rpx;
+  padding: 10rpx 14rpx;
+  pointer-events: none;
+  // Wider than before so multi-series rows like "Fitness (CTL)" don't
+  // wrap word-by-word into a column. Each row is a flex row with label
+  // and value flush left/right.
+  max-width: 360rpx;
+}
+.line-chart-tooltip-date {
+  display: block;
+  font-size: 18rpx;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  margin-bottom: 4rpx;
+}
+.line-chart-tooltip-row {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 12rpx;
+  // Single-series rows have an empty label and just show the value.
+}
+.line-chart-tooltip-row-label {
+  font-size: 20rpx;
+  color: var(--text-muted);
+}
+.line-chart-tooltip-row-value {
+  margin-left: auto;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: var(--text);
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}

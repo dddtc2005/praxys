@@ -1,22 +1,30 @@
 name: Miniapp build
 
-# The WeChat Mini Program artifact is distributed through Tencent's own
-# review + publish workflow — there's no equivalent of a `deploy` step
-# in CI. What we CAN catch in CI is build regressions: a TypeScript
-# error, a bad import, or a dependency bump that breaks the Taro
-# compile. This workflow runs on any PR that touches miniapp/ and
-# verifies that `taro build --type weapp` produces a dist/ with the
-# expected entry points.
+# Native WeChat Mini Program: WeChat DevTools (or `miniprogram-ci` in CI/CD)
+# compiles the project in-place — there's no separate `npm run build` step.
+# What we CAN catch in CI is build regressions: a TypeScript error, a stale
+# i18n catalog, or a missing page entry. So this workflow runs the
+# `pretypecheck` chain (sync-types + sync-i18n) followed by `tsc --noEmit`
+# and then sanity-checks the on-disk miniapp/ tree against the page list
+# declared in app.json.
+#
+# i18n note: the miniapp consumes `web/src/locales/{en,zh}/messages.po` via
+# `scripts/sync-i18n.cjs` (run by `pretypecheck`). The translation pipeline
+# itself lives in `.github/workflows/i18n.yml` — that workflow extracts and
+# fills the canonical .po files; the miniapp inherits them at typecheck/build
+# time. There is intentionally no separate i18n workflow for `miniapp/`.
 
 on:
   push:
     branches: [main]
     paths:
       - 'miniapp/**'
+      - 'web/src/locales/**'
       - '.github/workflows/miniapp-build.yml'
   pull_request:
     paths:
       - 'miniapp/**'
+      - 'web/src/locales/**'
       - '.github/workflows/miniapp-build.yml'
 
 permissions:
@@ -37,28 +45,42 @@ jobs:
           cache-dependency-path: miniapp/package-lock.json
       - name: Install
         run: npm ci --no-audit --no-fund
-      - name: Typecheck
+      - name: Typecheck (also runs sync-types + sync-i18n)
         run: npm run typecheck
-      - name: Build (weapp)
-        run: npm run build:weapp
-      - name: Verify expected pages in dist/
+      - name: Verify expected pages exist
         run: |
-          for p in login today training goal history settings; do
-            if [ ! -d "dist/pages/$p" ]; then
-              echo "Missing dist/pages/$p — build incomplete" >&2
+          for p in login today training goal history settings science; do
+            if [ ! -f "pages/$p/index.ts" ] || [ ! -f "pages/$p/index.wxml" ]; then
+              echo "::error::Missing pages/$p/{index.ts,index.wxml}"
               exit 1
             fi
           done
-          echo "All 6 pages present in dist/."
-      - name: Report bundle size
+          echo "All 7 page entries present."
+      - name: Verify shared components exist
         run: |
-          size=$(du -sk dist | cut -f1)
-          echo "dist/ size: ${size} KB"
-          # WeChat's main-package limit is 2 MB (2048 KB). Warn over
-          # 1500, fail over 2000 so we notice bloat before the user does.
+          for c in nav-bar line-chart bar-chart scatter-chart; do
+            if [ ! -f "components/$c/index.ts" ] || [ ! -f "components/$c/index.wxml" ]; then
+              echo "::error::Missing components/$c/{index.ts,index.wxml}"
+              exit 1
+            fi
+          done
+          echo "All 4 components present."
+      - name: Report source size
+        # Native compiles in DevTools; we can't run `miniprogram-ci` without
+        # the platform secret. Report raw source size as a rough proxy —
+        # WeChat's main-package limit is 2 MB after compile, and the source
+        # is typically near 1:1 (no transpiled bundle to expand into).
+        run: |
+          # Exclude node_modules and the auto-generated catalogs, which
+          # would skew the comparison vs what DevTools actually packages.
+          size=$(du -sk \
+            --exclude=node_modules \
+            --exclude='utils/i18n-catalog.ts' \
+            . | cut -f1)
+          echo "miniapp/ source size (excl. node_modules): ${size} KB"
           if [ "$size" -gt 2000 ]; then
-            echo "::error::dist/ exceeds 2 MB WeChat main-package limit"
+            echo "::error::miniapp/ source size exceeds 2 MB WeChat main-package limit"
             exit 1
           elif [ "$size" -gt 1500 ]; then
-            echo "::warning::dist/ is ${size} KB — closing in on the 2 MB cap"
+            echo "::warning::miniapp/ source is ${size} KB — closing in on the 2 MB cap"
           fi

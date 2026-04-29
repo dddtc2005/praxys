@@ -28,6 +28,7 @@ from fastapi_users.password import PasswordHelper
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 
+from api.auth import get_current_user_id
 from api.auth_secrets import get_jwt_secret
 from api.env_compat import getenv_compat
 from sqlalchemy.exc import IntegrityError
@@ -401,3 +402,41 @@ async def wechat_register(
             raise HTTPException(400, detail="REGISTER_INVALID_INVITATION")
 
     return WeChatAuthResponse(access_token=_issue_access_token(new_user_id))
+
+
+class WeChatUnlinkResponse(BaseModel):
+    """Result of an unlink call. The same shape regardless of whether the
+    caller had a binding to begin with — clients treat both as success."""
+
+    status: str  # "ok"
+    was_bound: bool
+
+
+@router.post("/unlink", response_model=WeChatUnlinkResponse)
+def wechat_unlink(
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> WeChatUnlinkResponse:
+    """Detach the WeChat openid (and unionid) from the authenticated user.
+
+    Used by the mini program's "Switch Account" flow: after unlink, the
+    next ``wx.login`` returns ``status: needs_setup`` so the user can pick
+    a different Praxys account (link with email/password) or register a
+    new one. The auth-required pre-condition means a sign-in attacker
+    can't unbind a victim's account. We don't refuse if the binding is
+    already empty — the operation is idempotent. We also drop the cached
+    nickname/avatar since they're tied to the WeChat identity that just
+    left.
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        # The token decoded to a user_id that doesn't exist — caller is
+        # holding a stale JWT. Treat as not bound, no rows touched.
+        return WeChatUnlinkResponse(status="ok", was_bound=False)
+    was_bound = bool(user.wechat_openid)
+    user.wechat_openid = None
+    user.wechat_unionid = None
+    user.wechat_nickname = None
+    user.wechat_avatar_url = None
+    db.commit()
+    return WeChatUnlinkResponse(status="ok", was_bound=was_bound)

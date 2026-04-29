@@ -1,0 +1,6 @@
+{
+  "orientation": "portrait",
+  "usingComponents": {
+    "nav-bar": "/components/nav-bar/index"
+  }
+}

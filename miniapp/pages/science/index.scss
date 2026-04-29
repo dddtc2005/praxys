@@ -1,0 +1,216 @@
+.sci-root {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.sci-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.sci-content {
+  padding: 32rpx 32rpx 200rpx;
+}
+
+.sci-header {
+  font-size: 52rpx;
+  font-weight: 700;
+  color: var(--text);
+  display: block;
+  margin-bottom: 24rpx;
+}
+
+.sci-intro {
+  display: block;
+  font-size: 26rpx;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-bottom: 32rpx;
+}
+
+.sci-pillar-section {
+  margin-bottom: 48rpx;
+}
+
+.sci-pillar-heading {
+  display: block;
+  font-size: 36rpx;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4rpx;
+}
+
+.sci-pillar-question {
+  display: block;
+  font-size: 24rpx;
+  margin-bottom: 16rpx;
+  line-height: 1.5;
+}
+
+// --- Per-pillar Simple/Advanced tabs ---
+.sci-mode-tabs {
+  display: flex;
+  gap: 16rpx;
+  margin-bottom: 16rpx;
+}
+
+.sci-mode-tab {
+  flex: 0 0 auto;
+  padding: 10rpx 24rpx;
+  font-size: 24rpx;
+  border-radius: 16rpx;
+  background-color: var(--surface-subtle);
+  color: var(--text-muted);
+  border: 1rpx solid var(--border);
+}
+
+.sci-mode-tab--active {
+  background-color: var(--primary);
+  color: var(--primary-on);
+  border-color: var(--primary);
+  font-weight: 600;
+}
+
+// --- Active + alternative theory cards ---
+// Active card gets the primary-color left rail AND a tinted background
+// so the selection state reads at thumb-arm distance. Previous design
+// relied only on a tiny ACTIVE badge; the badge alone disappeared in
+// the visual scan when scrolling through alternatives below.
+.sci-active-card {
+  border-left: 4rpx solid var(--primary);
+  background-color: rgba(30, 142, 91, 0.06); // ~6% --primary
+}
+
+.sci-alt-card {
+  border-left: 4rpx solid var(--border);
+}
+
+.sci-active-header {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 4rpx;
+}
+
+.sci-card-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.sci-active-badge {
+  // Bumped 18rpx → 22rpx so the active state reads even when the user
+  // skims past the active card to compare alternatives.
+  font-size: 22rpx;
+  letter-spacing: 1rpx;
+  font-weight: 700;
+  padding: 2rpx 10rpx;
+  border-radius: 12rpx;
+  background-color: var(--surface-subtle);
+}
+
+.sci-card-author {
+  display: block;
+  font-size: 22rpx;
+  margin-bottom: 12rpx;
+}
+
+.sci-card-text {
+  display: block;
+  font-size: 26rpx;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+// --- Rich-text markdown rendering ---
+.sci-rich-text {
+  display: block;
+  font-size: 26rpx;
+  color: var(--text);
+  line-height: 1.6;
+  // <rich-text> renders the inner nodes — these classes apply to the
+  // outer wrapper. The nodes themselves use default WeChat styling for
+  // <p>, <strong>, <em>, <ul>, etc., which respects the inherited
+  // font-size and color above.
+}
+
+// --- Citations / References ---
+.sci-citations {
+  margin-top: 16rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid var(--border-subtle);
+}
+
+.sci-citations-label {
+  display: block;
+  font-size: 20rpx;
+  text-transform: uppercase;
+  letter-spacing: 2rpx;
+  font-weight: 600;
+  margin-bottom: 8rpx;
+}
+
+.sci-citation-row {
+  padding: 8rpx 0;
+  border-bottom: 1rpx solid var(--border-subtle);
+}
+
+.sci-citation-row:last-child {
+  border-bottom: none;
+}
+
+.sci-citation-text {
+  display: block;
+  font-size: 22rpx;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.sci-citation-url {
+  display: block;
+  font-size: 20rpx;
+  margin-top: 4rpx;
+  text-decoration: underline;
+}
+
+// --- Recommendation hint ---
+.sci-recommendation {
+  padding: 16rpx 24rpx;
+  margin-bottom: 16rpx;
+  border-radius: 12rpx;
+  background-color: var(--surface-subtle);
+  border: 1rpx solid var(--warning);
+}
+
+.sci-recommendation-text {
+  font-size: 24rpx;
+  line-height: 1.5;
+}
+
+.sci-recommendation-name {
+  font-weight: 700;
+  color: var(--warning);
+}
+
+.sci-line {
+  display: block;
+  font-size: 26rpx;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.sci-muted-line {
+  display: block;
+  font-size: 22rpx;
+  line-height: 1.5;
+  margin-top: 8rpx;
+}
+
+// "Use this theory" button on alternative theory cards. Compact so it
+// reads as an action affordance rather than a hero CTA.
+.sci-use-btn {
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  width: 100%;
+}

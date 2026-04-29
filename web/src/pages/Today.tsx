@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { useApi } from '@/hooks/useApi';
 import type { TodayResponse } from '@/types/api';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -7,7 +8,11 @@ import { AlertTriangle } from 'lucide-react';
 import SignalHero from '@/components/SignalHero';
 import RecoveryPanel from '@/components/RecoveryPanel';
 import WorkoutCard from '@/components/WorkoutCard';
-import FormSparkline from '@/components/charts/FormSparkline';
+
+// Lazy-loaded: recharts (397 KB) is only needed for this chart.
+// Wrapping in Suspense lets SignalHero + RecoveryPanel + WorkoutCard
+// render before recharts parses, which is the visible first paint.
+const FormSparkline = lazy(() => import('@/components/charts/FormSparkline'));
 import LastActivityCard from '@/components/LastActivityCard';
 import WeeklyLoadMini from '@/components/WeeklyLoadMini';
 import DataHint from '@/components/DataHint';
@@ -80,14 +85,17 @@ export default function Today() {
         <WorkoutCard plan={signal.plan} alternatives={signal.alternatives} upcoming={data.upcoming} />
       </div>
 
-      {/* Form sparkline — full width */}
-      <DataHint
-        sufficient={data.data_meta?.pmc_sufficient ?? true}
-        message={t`Not enough data for accurate form tracking`}
-        hint={t`Sync at least 6 weeks of activity data to see your training form trend.`}
-      >
-        <FormSparkline data={tsb_sparkline} scienceNote={data.science_notes?.load} />
-      </DataHint>
+      {/* Form sparkline — full width. Lazy-loaded so recharts parses after
+          the hero content above is already visible. */}
+      <Suspense fallback={<Skeleton className="h-48 w-full rounded-2xl" />}>
+        <DataHint
+          sufficient={data.data_meta?.pmc_sufficient ?? true}
+          message={t`Not enough data for accurate form tracking`}
+          hint={t`Sync at least 6 weeks of activity data to see your training form trend.`}
+        >
+          <FormSparkline data={tsb_sparkline} scienceNote={data.science_notes?.load} />
+        </DataHint>
+      </Suspense>
 
       {/* Context row: Last Activity + Weekly Load */}
       {(data.last_activity || data.week_load) && (

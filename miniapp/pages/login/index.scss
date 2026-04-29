@@ -1,0 +1,291 @@
+// Refined-minimal centered landing.
+//
+// WeChat layout constraints we have to respect:
+//   * Top-right is RESERVED for the system capsule (`...` + `⊙`). Mini
+//     programs can't draw there — anything we place collides with it.
+//     So the language toggle goes top-LEFT below the status bar.
+//   * iOS home indicator (~34pt / ~65rpx on notched devices) needs
+//     `env(safe-area-inset-bottom)` clearance. WebView renderer (which
+//     this page uses) honors it; the fixed-rpx fallback covers cases
+//     where env() resolves to 0.
+//
+// Composition strategy: the whole brand stack + footer is *one* visual
+// composition centered on the screen. We don't pin the footer to the
+// absolute bottom — that creates a scroll-inducing dead zone on tall
+// phones (iPhone 12/13/14/15 Pro all 1623rpx tall, way bigger than the
+// content needs). Centering keeps everything in the eye's natural
+// reading band, and the explicit `margin-top` on the footer sets the
+// gap between stack and footer to a fixed, comfortable distance.
+.login-root {
+  // min-height (not height) so the page can scroll when needed — the
+  // link stage opens the keyboard, and WeChat's adjust-position needs
+  // a scrollable page to push the focused input into view. Idle stage
+  // composition fits in 100vh with no scroll happening naturally.
+  // Disabling scroll altogether (which we tried before) broke
+  // keyboard handling on the link stage; the user couldn't see the
+  // input they were typing into.
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: calc(32rpx + env(safe-area-inset-top)) 56rpx
+           calc(56rpx + env(safe-area-inset-bottom));
+  text-align: center;
+  position: relative;
+}
+
+// Brand stack — mark, wordmark, hero, description, CTA. Natural height,
+// just centered horizontally and stacked with consistent gap.
+.login-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  // 20rpx gap (was 24rpx) — saves ~16rpx total across the stack so the
+  // composition fits iPhone SE without scroll while staying airy on
+  // taller phones.
+  gap: 20rpx;
+  width: 100%;
+  max-width: 560rpx;
+}
+
+.login-mark {
+  width: 144rpx;
+  height: 144rpx;
+}
+
+// Pra<x>ys wordmark — sentence case, Geist 500, x in --primary. Tight
+// letter-spacing per brand guide (-0.055em ≈ -3rpx at 84rpx).
+.login-wordmark {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+}
+.login-wordmark__text {
+  font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont,
+    'PingFang SC', 'Hiragino Sans GB', sans-serif;
+  font-size: 84rpx;
+  font-weight: 500;
+  letter-spacing: -3rpx;
+  line-height: 0.86;
+  color: var(--text);
+}
+.login-wordmark__accent {
+  color: var(--primary);
+}
+
+.login-hero {
+  display: block;
+  font-size: 44rpx;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text);
+  margin-top: 12rpx;
+  max-width: 520rpx;
+}
+
+.login-description {
+  display: block;
+  font-size: 26rpx;
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--text-muted);
+  max-width: 520rpx;
+}
+
+.login-cta {
+  width: 100%;
+  margin-top: 28rpx;
+}
+
+// --- Login form fields ---
+//
+// WeChat's `<input>` is a *native iOS input* on real device even when
+// the page is in WebView renderer mode. The native pipeline has known
+// quirks:
+//   1. CSS `color` from a class often loses to native input rendering.
+//      Inline `style="color: ..."` is the only way to ensure the value
+//      text is visible. (This was the "typed text invisible on real
+//      device" bug.)
+//   2. `placeholder-style` (style attribute) can bleed into the value
+//      color on some iOS WeChat versions; `placeholder-class` (class
+//      attribute) is the recommended path.
+//   3. The native input ignores parent `font-family` cascade — needs an
+//      explicit stack so 'PingFang SC' wins for zh.
+//   4. The native input inherits parent's `text-align: center` (which
+//      `.login-root` has) and renders the value in the wrong place.
+//      Reset it explicitly on the input.
+//
+// Visual treatment: filled-pill row with a leading icon (envelope for
+// email, lock for password). 88rpx tall to clear iOS HIG min tap
+// targets. No border by default; primary-green hairline ring + soft
+// glow on focus replaces the iOS native focus indicator with a
+// brand-aligned one. Reads as a "container the user fills" rather
+// than a styled rectangle — same affordance as iOS Settings, Mail,
+// or Stripe checkout.
+.login-field {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
+  width: 100%;
+  height: 88rpx;
+  padding: 0 24rpx;
+  margin-top: 16rpx;
+  background-color: var(--surface);
+  border: 1rpx solid var(--border-subtle);
+  border-radius: 16rpx;
+  box-sizing: border-box;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.login-field:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2rpx rgba(30, 142, 91, 0.12);
+}
+
+.login-field__icon {
+  flex-shrink: 0;
+  width: 28rpx;
+  height: 28rpx;
+  background-color: var(--text-muted);
+  -webkit-mask-size: contain;
+          mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+          mask-position: center;
+}
+.login-field__icon--mail {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='4' width='20' height='16' rx='2'/%3E%3Cpath d='m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7'/%3E%3C/svg%3E");
+          mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='4' width='20' height='16' rx='2'/%3E%3Cpath d='m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7'/%3E%3C/svg%3E");
+}
+.login-field__icon--lock {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='18' height='11' x='3' y='11' rx='2' ry='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E");
+          mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='18' height='11' x='3' y='11' rx='2' ry='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E");
+}
+
+.login-field__input {
+  flex: 1;
+  height: 100%;
+  font-size: 30rpx;
+  // Native iOS input ignores parent's font-family cascade — declare
+  // the stack explicitly so 'PingFang SC' wins for zh and the Latin
+  // glyphs match.
+  font-family: -apple-system, system-ui, BlinkMacSystemFont,
+    'PingFang SC', 'Hiragino Sans GB', sans-serif;
+  // Reset the native input's transparent background and any platform
+  // border so only the parent .login-field's chrome shows. The value
+  // text inherits contrast from the parent surface, never fighting a
+  // hidden background fill that some WeChat versions inject.
+  background-color: transparent;
+  border: none;
+  padding: 0;
+  // Belt-and-suspenders fallback if the inline `text-align: left`
+  // doesn't propagate from the WXML attribute.
+  text-align: left;
+}
+
+// `placeholder-class` route — class-driven placeholder color so the
+// native input doesn't conflate it with the value color attribute.
+.login-field__placeholder {
+  color: #8b93a7;
+  font-size: 30rpx;
+}
+
+.login-error {
+  display: block;
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  line-height: 1.5;
+  text-align: center;
+}
+
+// Footer "new here?" row — sits below the stack with a fixed margin so
+// the visual gap is consistent, hairline divider above. Because the
+// whole composition is centered (root has `justify-content: center`),
+// any extra screen height above-and-below distributes evenly: footer
+// always reads as anchored to the lower portion without being literally
+// pinned to the bottom edge (which would be hidden behind the home
+// indicator on iOS or scroll off on tiny screens).
+.login-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4rpx;
+  padding-top: 20rpx;
+  // 48rpx margin-top (was 64rpx) — tighter footer-to-stack gap so the
+  // composition fits iPhone SE.
+  margin-top: 48rpx;
+  border-top: 1rpx solid var(--border-subtle);
+  width: 80%;
+  max-width: 480rpx;
+}
+.login-newhere-label {
+  font-size: 24rpx;
+}
+.login-signup-row {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 8rpx;
+  padding: 4rpx 0;
+}
+.login-signup-url {
+  font-size: 30rpx;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+}
+.login-signup-hint {
+  font-size: 22rpx;
+}
+
+// Top-LEFT language toggle. WeChat's `... | ⊙` capsule reserves the
+// top-right; top-LEFT below the status bar is fully ours. Visual
+// treatment: a single pill with two segments. Active segment gets an
+// inset surface chip + bolder text; inactive sits muted on the pill
+// background. Mirrors web's small chip-style toggle while feeling
+// native to a touch surface (44rpx tall hit targets).
+.login-lang-toggle {
+  position: absolute;
+  top: calc(128rpx + env(safe-area-inset-top));
+  left: 32rpx;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  background-color: var(--surface-subtle);
+  border: 1rpx solid var(--border-subtle);
+  border-radius: 999rpx;
+  padding: 4rpx;
+  z-index: 10;
+}
+.login-lang-toggle-opt {
+  font-size: 24rpx;
+  font-weight: 500;
+  color: var(--text-muted);
+  // Generous horizontal padding so each segment is a comfortable hit
+  // target; vertical padding keeps the pill compact.
+  padding: 8rpx 20rpx;
+  border-radius: 999rpx;
+  line-height: 1.2;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+.login-lang-toggle-opt--active {
+  color: var(--text);
+  font-weight: 600;
+  background-color: var(--surface);
+  // Tiny inner shadow so the active chip reads as "lifted on top of
+  // the pill track" rather than just a color swap.
+  box-shadow: 0 1rpx 3rpx rgba(0, 0, 0, 0.06);
+}
+
+// Single orchestrated entrance: mark fades first, each subsequent
+// element 80ms after. Translate-from-below 8rpx adds a hint of depth
+// without being showy. `both` keeps the start state visible so we
+// never get the unmounted-flicker that some Skyline animations show.
+@keyframes login-fade-in {
+  from { opacity: 0; transform: translateY(8rpx); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in {
+  animation: login-fade-in 480ms ease-out both;
+}

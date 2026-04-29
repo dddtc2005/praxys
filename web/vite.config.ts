@@ -64,7 +64,6 @@ export default defineConfig({
           if (!id.includes('node_modules')) return undefined
           if (/node_modules[\\/](react-router-dom|react-dom|react)[\\/]/.test(id)) return 'react-vendor'
           if (/node_modules[\\/]recharts[\\/]/.test(id)) return 'recharts'
-          if (/node_modules[\\/](react-markdown|remark-gfm)[\\/]/.test(id)) return 'markdown'
           if (/node_modules[\\/]@tanstack[\\/]react-query[\\/]/.test(id)) return 'query'
           return undefined
         },

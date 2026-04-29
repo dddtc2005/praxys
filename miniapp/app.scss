@@ -1,0 +1,203 @@
+/*
+ * Design tokens — every colour used by any page lives here as a CSS
+ * variable. `.theme-dark` is the default; `.theme-light` overrides the
+ * same names. Colour values are hex approximations of the OKLCH
+ * definitions in web/src/index.css (the authoritative Praxys brand
+ * source). WeChat's WXSS doesn't reliably support oklch(), so we use
+ * hex equivalents.
+ *
+ * Mini programs don't share a DOM across pages, so each page applies
+ * the theme class on its own root <view>. The resolved class is
+ * computed once in app.ts onLaunch and stashed on globalData, so each
+ * page reads the same value at module load — first paint matches the
+ * user's preference without flashing the light default. Theme switches
+ * reLaunch the app to make the change uniform across every page in
+ * one shot (which also re-runs onLaunch and refreshes globalData).
+ */
+
+.theme-dark {
+  --bg: #0d1220;
+  --surface: #161b2e;
+  --surface-subtle: #0d1220;
+  --border: #1f2536;
+  --border-subtle: #161b2e;
+  --text: #e8ebf0;
+  --text-muted: #8b93a7;
+  --text-placeholder: #6b7394;
+  --primary: #00ff87;
+  --primary-on: #0d1220;
+  --destructive: #ef4444;
+  --warning: #f59e0b;
+  --accent-blue: #3b82f6;
+  --accent-purple: #8b5cf6;
+  --accent-cobalt: #6ba5e6;
+  background-color: #0d1220;
+  color: #e8ebf0;
+}
+
+.theme-light {
+  --bg: #faf9f5;
+  --surface: #ffffff;
+  --surface-subtle: #edeae0;
+  --border: #dbd6c7;
+  --border-subtle: #edeae0;
+  --text: #15192a;
+  --text-muted: #6b6b66;
+  --text-placeholder: #999;
+  --primary: #1e8e5b;
+  --primary-on: #ffffff;
+  --destructive: #d93a2c;
+  --warning: #d97706;
+  --accent-blue: #2563eb;
+  --accent-purple: #7c3aed;
+  --accent-cobalt: #2e71c6;
+  background-color: #faf9f5;
+  color: #15192a;
+}
+
+page {
+  font-family:
+    'DM Sans', -apple-system, BlinkMacSystemFont, 'Noto Sans SC',
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+    'Helvetica Neue', Arial, sans-serif;
+  font-size: 28rpx;
+  line-height: 1.5;
+  background-color: #faf9f5;
+  color: #15192a;
+}
+
+.ts-container {
+  padding: 32rpx;
+}
+
+.ts-card {
+  background-color: var(--surface);
+  border-radius: 16rpx;
+  padding: 32rpx;
+  margin-bottom: 24rpx;
+  // Skyline shadow rendering is patchy and adds visual sludge on the
+  // warm light-theme bg. A subtle border on light theme separates the
+  // surface; dark theme relies on --surface != --bg for separation.
+}
+
+.theme-light .ts-card {
+  border: 1rpx solid var(--border-subtle);
+}
+
+// Flat labeled section — for non-elevated content that doesn't earn a
+// card frame (Recovery rows, Settings rows, simple lists). Heavier
+// vertical rhythm replaces the card frame as the visual delimiter.
+.ts-section {
+  margin-bottom: 24rpx;
+  padding: 16rpx 8rpx;
+}
+.ts-section + .ts-section {
+  border-top: 1rpx solid var(--border-subtle);
+  padding-top: 32rpx;
+}
+
+// Section labels — sentence case at 24rpx muted. The previous
+// uppercase + 2rpx letter-spacing treatment read like a desktop-
+// dashboard accent, especially when stacked through every page
+// ("FORM TSB" / "RECOVERY" / "WEEKLY LOAD"). iOS / native-mobile
+// convention is sentence case, with hierarchy carried by the
+// numeric values directly below.
+.ts-section-label {
+  display: block;
+  font-size: 24rpx;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-bottom: 12rpx;
+}
+
+.ts-value {
+  font-family: 'SF Mono', Menlo, Monaco, 'Courier New', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.ts-heading {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8rpx;
+}
+
+.ts-muted {
+  color: var(--text-muted);
+}
+
+.ts-primary {
+  color: var(--primary);
+}
+
+.ts-destructive {
+  color: var(--destructive);
+}
+
+.ts-warning {
+  color: var(--warning);
+}
+
+.ts-button {
+  background-color: var(--primary);
+  color: var(--primary-on);
+  border: none;
+  border-radius: 12rpx;
+  padding: 20rpx 32rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.ts-button--secondary {
+  // Lift slightly off the page so the chip is visible on dark theme.
+  // The previous transparent + --border combo failed WCAG-AA contrast
+  // against --bg in dark mode (both navy-grey).
+  background-color: var(--surface);
+  color: var(--text);
+  border: 2rpx solid var(--text-muted);
+}
+
+.ts-input {
+  // Explicit hex fallback first, then CSS-var override. On real-device dark
+  // mode WeChat's <input> sometimes ignores CSS custom properties — both
+  // foreground and background fall back to system dark grey, rendering text
+  // invisible. Literal values keep the input legible if var() resolution
+  // fails; the var line still lets the light theme override via specificity.
+  background-color: #161b2e;
+  background-color: var(--surface);
+  color: #e8ebf0;
+  color: var(--text);
+  border: 2rpx solid var(--border);
+  border-radius: 12rpx;
+  // 22rpx vertical (was 28rpx) — drops the input from ~84rpx tall to
+  // ~76rpx so it feels less chunky in a stacked form. Horizontal stays
+  // at 24rpx for thumb-friendly tap padding.
+  padding: 22rpx 24rpx;
+  font-size: 30rpx;
+  width: 100%;
+  box-sizing: border-box;
+  // Inline cursor color so the WeChat <input> renders the caret in
+  // brand green even when CSS vars don't propagate.
+  &:focus {
+    border-color: var(--primary);
+  }
+}
+
+.theme-light .ts-input {
+  background-color: #ffffff;
+  color: #15192a;
+}
+
+.ts-skeleton {
+  background-color: var(--surface);
+  border-radius: 8rpx;
+  height: 40rpx;
+  width: 100%;
+  animation: tsPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes tsPulse {
+  0% { opacity: 0.7; }
+  50% { opacity: 1; }
+  100% { opacity: 0.7; }
+}

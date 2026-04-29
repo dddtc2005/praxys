@@ -1,0 +1,143 @@
+<view class="today-root {{themeClass}}">
+  <nav-bar title="Today" theme-class="{{themeClass}}" show-wordmark="{{true}}" right-share="{{true}}" />
+
+  <scroll-view
+    scroll-y="{{true}}"
+    refresher-enabled="{{true}}"
+    refresher-triggered="{{refreshing}}"
+    bindrefresherrefresh="onScrollRefresh"
+    class="today-scroll"
+  >
+    <view class="today-content">
+      <text class="today-date">{{today}}</text>
+
+    <block wx:if="{{loading && !hasResponse}}">
+      <view class="ts-card">
+        <view class="ts-skeleton" style="height: 180rpx;"></view>
+      </view>
+      <view class="ts-card">
+        <view class="ts-skeleton"></view>
+      </view>
+    </block>
+
+    <block wx:elif="{{errorMessage}}">
+      <view class="ts-card">
+        <text class="today-header ts-destructive">{{tr.failedToLoad}}</text>
+        <text class="today-date">{{errorMessage}}</text>
+        <button class="ts-button" bindtap="onRetry">{{tr.retry}}</button>
+      </view>
+    </block>
+
+    <block wx:elif="{{!hasResponse}}">
+      <view class="ts-card">
+        <text class="today-date">{{tr.noDataYet}}</text>
+      </view>
+    </block>
+
+    <block wx:else>
+      <view class="ts-card signal-hero">
+        <view class="signal-circle signal-circle--{{signalColor}}">
+          <view class="signal-glow signal-glow--{{signalColor}}"></view>
+          <text class="signal-label signal-label--{{signalColor}}">{{signalLabel}}</text>
+        </view>
+        <text class="signal-subtitle signal-subtitle--{{signalColor}}">{{signalSubtitle}}</text>
+        <text class="signal-reason">{{signalReason}}</text>
+      </view>
+
+      <view wx:if="{{hasSparkline}}" class="ts-card">
+        <text class="ts-section-label">{{tr.formTsb}}</text>
+        <view wx:if="{{formTsbHasValue}}" class="today-tsb-headline-row">
+          <text class="today-tsb-value ts-value">{{formTsbValue}}</text>
+          <text class="today-tsb-zone {{formTsbZoneAccent}}">{{formTsbZone}}</text>
+        </view>
+        <text wx:else class="today-tsb-headline ts-muted">{{tr.noTsbData}}</text>
+        <line-chart
+          canvas-id="today-sparkline"
+          height="{{200}}"
+          show-legend="{{false}}"
+          show-zero-line="{{true}}"
+          dates="{{sparklineDates}}"
+          series="{{sparklineSeries}}"
+          theme="{{chartTheme}}"
+        />
+      </view>
+
+      <view class="ts-card">
+        <text class="ts-section-label">{{tr.recovery}}</text>
+        <view class="today-recovery-row">
+          <text class="today-recovery-label ts-muted">{{tr.status}}</text>
+          <text class="today-recovery-value ts-value">{{recoveryStatus}}</text>
+        </view>
+        <view class="today-recovery-row">
+          <text class="today-recovery-label ts-muted">{{tr.hrv}}</text>
+          <text class="today-recovery-value ts-value">{{recoveryHrv}}</text>
+        </view>
+        <view class="today-recovery-row">
+          <text class="today-recovery-label ts-muted">{{tr.restingHr}}</text>
+          <text class="today-recovery-value ts-value">{{recoveryRhr}}</text>
+        </view>
+        <view class="today-recovery-row">
+          <text class="today-recovery-label ts-muted">{{tr.sleep}}</text>
+          <text class="today-recovery-value ts-value">{{recoverySleep}}</text>
+        </view>
+      </view>
+
+      <view wx:if="{{hasWeekLoad}}" class="ts-card today-week-load">
+        <view class="today-week-load-head">
+          <text class="ts-section-label">{{tr.weeklyLoad}}</text>
+          <text wx:if="{{weekLoadLabel}}" class="today-week-load-week ts-muted">{{weekLoadLabel}}</text>
+        </view>
+        <view class="today-week-load-row">
+          <text class="today-week-load-actual ts-value">{{weekLoadActual}}</text>
+          <text class="today-week-load-planned ts-muted">{{weekLoadPlannedSuffix}}</text>
+          <text wx:if="{{weekLoadHasPct}}" class="today-week-load-pct ts-value {{weekLoadPctAccent}}">{{weekLoadPct}}</text>
+        </view>
+        <view wx:if="{{weekLoadHasPct}}" class="today-week-load-track">
+          <view
+            class="today-week-load-fill {{weekLoadBarAccent}}"
+            style="width: {{weekLoadBarPct}}%;"
+          ></view>
+        </view>
+      </view>
+
+      <view wx:if="{{hasUpcoming}}" class="ts-card">
+        <text class="ts-section-label">{{tr.upcomingWorkouts}}</text>
+        <view
+          wx:for="{{upcomingRows}}"
+          wx:key="date"
+          class="today-upcoming-row"
+        >
+          <text class="today-upcoming-date">{{item.date}}</text>
+          <text class="today-upcoming-name">{{item.name}}</text>
+          <text wx:if="{{item.hasMeta}}" class="today-upcoming-meta">{{item.meta}}</text>
+        </view>
+      </view>
+
+      <view wx:if="{{hasLastActivity}}" class="ts-card">
+        <text class="ts-section-label">{{tr.lastActivity}}</text>
+        <text class="today-last-date">{{lastDate}}</text>
+        <view class="today-last-metrics">
+          <view
+            wx:for="{{lastMetrics}}"
+            wx:key="label"
+            class="today-metric"
+          >
+            <text class="today-metric-label ts-muted">{{item.label}}</text>
+            <text class="today-metric-value ts-value">{{item.value}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{hasWarnings}}" class="ts-card today-warnings">
+        <text class="ts-section-label">{{tr.warnings}}</text>
+        <text
+          wx:for="{{warnings}}"
+          wx:key="*this"
+          class="today-warning-item ts-warning"
+        >• {{item}}</text>
+      </view>
+
+    </block>
+    </view>
+  </scroll-view>
+</view>

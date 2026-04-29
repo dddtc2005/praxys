@@ -100,7 +100,32 @@ class TestMergeZonesWithLabels:
         merged = merge_zones_with_labels(zones, labels)
         assert len(merged) == 3
         assert merged[0].min == 25
-        assert merged[0].label  # Should have a label from the label set
+        assert merged[0].label == "Detraining"
+
+    def test_merge_populates_key_from_yaml(self):
+        zones = [TsbZone(min=25), TsbZone(min=5, max=25)]
+        labels = load_labels("standard")
+        merged = merge_zones_with_labels(zones, labels)
+        assert merged[0].key == "Detraining"
+        assert merged[1].key == "Performance"
+
+    def test_merge_key_is_stable_across_locales(self):
+        zones = [TsbZone(min=25), TsbZone(min=5, max=25), TsbZone(min=-10, max=5)]
+        en_labels = load_labels("standard")
+        zh_labels = load_labels("standard", locale="zh")
+        en_merged = merge_zones_with_labels(zones, en_labels)
+        zh_merged = merge_zones_with_labels(zones, zh_labels)
+        for en_z, zh_z in zip(en_merged, zh_merged):
+            assert en_z.key == zh_z.key, f"key diverged: {en_z.key!r} != {zh_z.key!r}"
+            assert zh_z.label != zh_z.key, "zh label should be translated, not equal to the English key"
+
+    def test_merge_key_falls_back_to_label_when_absent(self):
+        zones = [TsbZone(min=0)]
+        from analysis.science import LabelSet
+        labels = LabelSet(id="custom", name="Custom", tsb_zone_labels=[{"label": "Easy", "color": "#aaa"}])
+        merged = merge_zones_with_labels(zones, labels)
+        assert merged[0].key == "Easy"
+        assert merged[0].label == "Easy"
 
     def test_merge_with_fewer_labels_uses_defaults(self):
         zones = [TsbZone(min=i) for i in range(10)]
@@ -131,6 +156,24 @@ class TestLoadActiveScience:
         load = active["load"]
         assert len(load.tsb_zones_labeled) > 0
         assert load.tsb_zones_labeled[0].label
+        assert load.tsb_zones_labeled[0].key
+
+    def test_tsb_zones_labeled_key_stable_in_zh(self):
+        choices = {"load": "banister_pmc"}
+        en_active = load_active_science(choices)
+        zh_active = load_active_science(choices, locale="zh")
+        en_zones = en_active["load"].tsb_zones_labeled
+        zh_zones = zh_active["load"].tsb_zones_labeled
+        assert len(en_zones) == len(zh_zones)
+        for en_z, zh_z in zip(en_zones, zh_zones):
+            assert en_z.key == zh_z.key, f"key diverged: {en_z.key!r} != {zh_z.key!r}"
+
+    def test_stryd_zh_keys_mirror_en(self):
+        en_labels = load_labels("stryd")
+        zh_labels = load_labels("stryd", locale="zh")
+        en_keys = [lbl.get("key") for lbl in en_labels.tsb_zone_labels]
+        zh_keys = [lbl.get("key") for lbl in zh_labels.tsb_zone_labels]
+        assert en_keys == zh_keys
 
 
 class TestRecommendScience:

@@ -1,0 +1,144 @@
+.nav-bar {
+  width: 100%;
+  background-color: var(--bg);
+  border-bottom: 2rpx solid var(--border-subtle);
+  // Page roots are flex-column with a <scroll-view> below this nav-bar,
+  // so the nav-bar is automatically pinned at the top by the parent's
+  // layout — no need for position: sticky. (Skyline supports sticky but
+  // it's redundant here and adds a stacking context we don't need.)
+}
+
+.nav-bar__status {
+  // Reserved area for the device status bar — drawn empty so the bar's
+  // background matches the page background.
+  width: 100%;
+}
+
+.nav-bar__content {
+  position: relative;
+  display: flex;
+  align-items: center;
+  // Left padding gives the title breathing room from the screen edge;
+  // right padding is set inline because the WeChat capsule is over there
+  // and its position is device-specific.
+  padding-left: 32rpx;
+}
+
+.nav-bar__back {
+  // Tapped to navigate back. The Unicode ‹ matches WeChat's own back
+  // glyph closely enough at this size that we don't need an SVG.
+  font-size: 56rpx;
+  font-weight: 300;
+  line-height: 1;
+  color: var(--text);
+  width: 60rpx;
+  text-align: left;
+  margin-right: 8rpx;
+}
+
+.nav-bar__title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  // Single-line ellipsis: Skyline requires explicit overflow on <text>.
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+// --- Praxys logo + wordmark in nav-bar ---
+// Per docs/brand/index.html: race-flag mark + "Pra<x>ys" wordmark
+// sentence-case, font Geist 500, the 'x' in --primary. Tight
+// letter-spacing (-0.055em) so the wordmark reads as a unit.
+.nav-bar__wordmark {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+.nav-bar__logo {
+  width: 44rpx;
+  height: 44rpx;
+  flex-shrink: 0;
+}
+// Wordmark is a SINGLE text run with a nested <text> for the accented
+// x. This avoids the flex-gap bug ("Pra x ys" with visible spaces) that
+// happens when each glyph is a separate flex item under gap: Nrpx.
+.nav-bar__brand {
+  font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont,
+    'PingFang SC', 'Hiragino Sans GB', sans-serif;
+  font-size: 36rpx;
+  font-weight: 500;
+  letter-spacing: -2rpx;
+  line-height: 1;
+  color: var(--text);
+}
+.nav-bar__brand-accent {
+  // Inherits font + size from parent <text>; only color changes.
+  color: var(--primary);
+}
+
+// --- Right-slot action (Edit / Share / etc.) ---
+// Lives at the end of the flex row, right before the capsule reserve.
+// Sized small so it reads as a header action, not a hero CTA.
+.nav-bar__action {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 16rpx;
+}
+
+.nav-bar__action--text {
+  // Tappable label like "Edit" / "Save". Sized to read as a header
+  // action — same weight as title, primary color so it pops as a CTA.
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--primary);
+  padding: 8rpx 16rpx;
+  border-radius: 8rpx;
+  line-height: 1;
+}
+
+// open-type="share" is a real <button> — strip default chrome and size
+// it tight so it reads as an icon-only affordance. Mirrors the previous
+// signal-share-fab styling that lived on the Today page; consolidated
+// here so every page can request a nav-bar share button via rightShare.
+.nav-bar__action--share {
+  width: 64rpx;
+  height: 64rpx;
+  padding: 0;
+  margin-left: 16rpx;
+  background-color: var(--surface-subtle);
+  border-radius: 32rpx;
+  border: 1rpx solid var(--border);
+  line-height: 0;
+}
+.nav-bar__action--share::after {
+  // WeChat <button> renders a default ::after border; strip it.
+  border: none;
+}
+
+.nav-bar__action--press {
+  background-color: var(--border-subtle);
+}
+
+// Lucide share icon (square-arrow-up-right) carved out via mask-image.
+// Same SVG previously inlined on the Today FAB — moved here so the
+// nav-bar owns the share affordance.
+.nav-bar__action-icon {
+  width: 32rpx;
+  height: 32rpx;
+  background-color: var(--text-muted);
+  -webkit-mask-size: contain;
+          mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+          mask-position: center;
+}
+.nav-bar__action-icon--share {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7'/%3E%3Cpolyline points='16 3 21 3 21 8'/%3E%3Cline x1='10' y1='14' x2='21' y2='3'/%3E%3C/svg%3E");
+          mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7'/%3E%3Cpolyline points='16 3 21 3 21 8'/%3E%3Cline x1='10' y1='14' x2='21' y2='3'/%3E%3C/svg%3E");
+}

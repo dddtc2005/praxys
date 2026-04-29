@@ -1,0 +1,23 @@
+<view class="bar-chart">
+  <view
+    class="bar-chart-wrap"
+    bindtap="onChartTap"
+    bindtouchstart="onChartTouchStart"
+    bindtouchmove="onChartTouchMove"
+  >
+    <canvas
+      type="2d"
+      id="{{canvasId}}"
+      class="bar-chart-canvas"
+      style="height: {{height}}rpx;"
+    ></canvas>
+    <view
+      wx:if="{{tooltipVisible}}"
+      class="bar-chart-tooltip"
+      style="left: {{tooltipLeft}}px;"
+    >
+      <text wx:if="{{tooltipWeek}}" class="bar-chart-tooltip-week">{{tooltipWeek}}</text>
+      <text class="bar-chart-tooltip-value">{{tooltipText}}</text>
+    </view>
+  </view>
+</view>

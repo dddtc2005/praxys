@@ -1,0 +1,585 @@
+.goal-root {
+  // Skyline pages need flex-column root + scroll-view for content overflow.
+  // See pages/today/index.scss for the full reasoning.
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.goal-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.goal-content {
+  padding: 32rpx 32rpx 200rpx;
+}
+
+.goal-header {
+  font-size: 52rpx;
+  font-weight: 700;
+  color: var(--text);
+  display: block;
+  margin-bottom: 24rpx;
+}
+
+// --- Hero card (used by all three modes) ---
+.goal-hero {
+  text-align: center;
+  padding: 48rpx 32rpx;
+}
+
+.goal-countdown-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+  margin-bottom: 24rpx;
+}
+
+.goal-countdown-value {
+  font-size: 96rpx;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+
+.goal-countdown-label {
+  font-size: 26rpx;
+  display: block;
+}
+
+.goal-status-badge {
+  // Status pill — "ON TRACK" / "BEHIND" / etc. Use 999rpx so the
+  // radius always fully rounds regardless of computed line-height.
+  // The previous fixed 20rpx would render flat on the left/right
+  // edges any time Skyline computed a taller line-height than
+  // expected ("oval" instead of "pill").
+  display: inline-block;
+  padding: 8rpx 20rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+  letter-spacing: 2rpx;
+  background-color: var(--surface-subtle);
+  margin-top: 8rpx;
+}
+
+// --- Time grid (predicted vs target) ---
+.goal-time-grid {
+  display: grid;
+  gap: 24rpx;
+  margin-top: 16rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid var(--border-subtle);
+}
+
+.goal-time-grid--two {
+  grid-template-columns: 1fr 1fr;
+}
+
+.goal-time-grid--one {
+  grid-template-columns: 1fr;
+}
+
+.goal-time-label {
+  font-size: 22rpx;
+  text-transform: uppercase;
+  letter-spacing: 1rpx;
+  display: block;
+  margin-bottom: 4rpx;
+}
+
+.goal-time-value {
+  font-size: 40rpx;
+  font-weight: 600;
+  color: var(--text);
+  display: block;
+}
+
+// --- Race-date mode: gap row ---
+.goal-assessment {
+  display: block;
+  font-size: 28rpx;
+  line-height: 1.5;
+  margin-bottom: 16rpx;
+  font-weight: 500;
+}
+
+.goal-gap-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 20rpx 24rpx;
+  background-color: var(--surface-subtle);
+  border-radius: 12rpx;
+  margin-bottom: 16rpx;
+}
+
+.goal-gap-cell {
+  text-align: center;
+}
+
+.goal-gap-cell--last {
+  margin-left: auto;
+}
+
+.goal-gap-label {
+  font-size: 20rpx;
+  text-transform: uppercase;
+  letter-spacing: 1rpx;
+  display: block;
+  margin-bottom: 4rpx;
+}
+
+.goal-gap-value {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text);
+  display: block;
+}
+
+.goal-gap-arrow {
+  font-size: 24rpx;
+}
+
+.goal-trend-note {
+  display: block;
+  font-size: 24rpx;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-top: 8rpx;
+}
+
+// --- Realistic targets ---
+.goal-realistic {
+  margin-top: 16rpx;
+  padding: 16rpx 24rpx;
+  background-color: var(--surface-subtle);
+  border-radius: 12rpx;
+}
+
+.goal-realistic-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24rpx;
+  margin-top: 8rpx;
+}
+
+.goal-realistic-cell {
+  text-align: center;
+}
+
+// --- CP-milestone progress block ---
+.goal-cp-progress {
+  margin-top: 24rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx solid var(--border-subtle);
+}
+
+.goal-cp-progress-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 12rpx;
+  margin-bottom: 12rpx;
+}
+
+.goal-cp-progress-current {
+  font-size: 56rpx;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.goal-cp-progress-arrow {
+  font-size: 28rpx;
+}
+
+.goal-cp-progress-target {
+  font-size: 36rpx;
+}
+
+.goal-cp-progress-unit {
+  font-size: 24rpx;
+}
+
+.goal-progress-track {
+  margin: 12rpx auto;
+  max-width: 480rpx;
+  height: 16rpx;
+  border-radius: 8rpx;
+  background-color: var(--border-subtle);
+  overflow: hidden;
+}
+
+.goal-progress-fill {
+  height: 100%;
+  background-color: var(--primary);
+  border-radius: 8rpx;
+}
+
+.goal-progress-pct {
+  display: block;
+  font-size: 22rpx;
+  color: var(--text-muted);
+  margin-top: 4rpx;
+}
+
+// --- Milestones ---
+.goal-ms-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 14rpx 16rpx;
+  border-radius: 12rpx;
+}
+
+.goal-ms-row--current {
+  background-color: var(--surface-subtle);
+}
+
+.goal-ms-icon {
+  font-size: 28rpx;
+  width: 36rpx;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.goal-ms-icon--reached {
+  color: var(--primary);
+}
+
+.goal-ms-cp {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 100rpx;
+}
+
+.goal-ms-marathon {
+  font-size: 26rpx;
+  flex: 1;
+}
+
+.goal-ms-current-badge {
+  font-size: 18rpx;
+  text-transform: uppercase;
+  letter-spacing: 1rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 16rpx;
+  background-color: var(--primary);
+  color: var(--primary-on);
+  font-weight: 600;
+}
+
+.goal-est-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 24rpx;
+  background-color: var(--surface-subtle);
+  border-radius: 12rpx;
+  margin-top: 16rpx;
+}
+
+.goal-est-value {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text);
+}
+
+// --- Continuous mode ---
+.goal-cont-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 12rpx;
+  margin-bottom: 12rpx;
+}
+
+.goal-cont-cp {
+  font-size: 80rpx;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+
+.goal-cont-unit {
+  font-size: 26rpx;
+}
+
+.goal-cont-trend {
+  display: flex;
+  justify-content: center;
+  gap: 12rpx;
+  align-items: baseline;
+}
+
+.goal-cont-direction {
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.goal-cont-slope {
+  font-size: 22rpx;
+}
+
+.goal-cont-predicted {
+  margin-top: 24rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx solid var(--border-subtle);
+}
+
+// --- Science note (expandable) ---
+.goal-note-card {
+  padding: 20rpx 32rpx;
+}
+
+.goal-note-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.goal-note-arrow {
+  font-size: 22rpx;
+  color: var(--text-muted);
+  width: 24rpx;
+}
+
+.goal-note-label {
+  font-size: 22rpx;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1rpx;
+  font-weight: 600;
+}
+
+.goal-note-body {
+  margin-top: 12rpx;
+  padding-top: 12rpx;
+  border-top: 1rpx solid var(--border-subtle);
+}
+
+.goal-note-text {
+  display: block;
+  font-size: 24rpx;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-bottom: 12rpx;
+}
+
+.goal-note-source-row {
+  // Tap target — full-width hit area. The underline-on-text styling
+  // mimics a hyperlink without using <a> (which doesn't navigate in
+  // mini programs anyway).
+  padding: 8rpx 0;
+}
+
+.goal-note-source {
+  font-size: 24rpx;
+  text-decoration: underline;
+}
+
+.goal-share {
+  margin-top: 32rpx;
+  padding: 0 16rpx;
+}
+.goal-share-btn { width: 100%; }
+
+// --- Inline edit affordances -------------------------------------------
+// Shared pencil icon used inline next to the Target value and in the
+// "Change goal" row on continuous mode. Background-color shows through
+// the mask so the icon themes via plain CSS without any SVG fill edits.
+%pencil-icon {
+  width: 26rpx;
+  height: 26rpx;
+  background-color: var(--text-muted);
+  flex-shrink: 0;
+  -webkit-mask-size: contain;
+          mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+          mask-position: center;
+  -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z'/%3E%3Cpath d='m15 5 4 4'/%3E%3C/svg%3E");
+          mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z'/%3E%3Cpath d='m15 5 4 4'/%3E%3C/svg%3E");
+}
+
+// Target cell: the whole grid cell is tappable in race/cp-milestone mode.
+.goal-target-cell {
+  text-align: left;
+}
+
+// Row inside the target cell — value + inline pencil side by side.
+.goal-target-row {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.goal-inline-edit {
+  @extend %pencil-icon;
+}
+
+// "Set target" placeholder shown when no target is configured.
+.goal-set-target {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 500;
+  margin-top: 4rpx;
+}
+
+// "Change goal" row was removed — the nav-bar Edit affordance and
+// the inline-edit cells on the hero now cover both entry points.
+
+// --- Goal editor bottom sheet -------------------------------------------
+.goal-editor-mask {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(0, 0, 0, 0.45);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.goal-editor-sheet {
+  width: 100%;
+  // The custom tab bar is in a separate render layer that the page's
+  // z-index can't beat. Reserve space at the bottom for it (110rpx
+  // tab-bar + safe-area-inset) so the Save button never lives behind
+  // the Goal-tab pill. The mask still covers the gap underneath the
+  // sheet so the user can't see the tab bar through it.
+  max-height: 88vh;
+  background-color: var(--surface);
+  border-top-left-radius: 28rpx;
+  border-top-right-radius: 28rpx;
+  padding: 16rpx 32rpx 32rpx;
+  margin-bottom: calc(110rpx + env(safe-area-inset-bottom));
+  box-shadow: 0 -4rpx 24rpx rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+// Sheet header — Cancel (left), centered title, Save (right). Replaces
+// the old close × + bottom-row Cancel/Save split: keeping both the
+// header close and bottom CTAs always made the sheet feel like it had
+// two competing exits. The header now hosts both actions; the bottom
+// row was deleted entirely.
+.goal-editor-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+  padding-bottom: 16rpx;
+  border-bottom: 1rpx solid var(--border-subtle);
+}
+.goal-editor-header-action {
+  font-size: 28rpx;
+  font-weight: 500;
+  padding: 8rpx 16rpx;
+  border-radius: 8rpx;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+.goal-editor-header-action--cancel {
+  color: var(--text-muted);
+}
+.goal-editor-header-action--save {
+  color: var(--primary);
+  font-weight: 600;
+}
+.goal-editor-header-action--disabled {
+  opacity: 0.4;
+}
+.goal-editor-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  text-align: center;
+}
+.goal-editor-label {
+  font-size: 24rpx;
+  margin-top: 16rpx;
+  margin-bottom: 8rpx;
+}
+
+.goal-editor-toggle {
+  display: flex;
+  flex-direction: row;
+  gap: 16rpx;
+  margin-bottom: 8rpx;
+}
+.goal-editor-toggle-item {
+  flex: 1;
+  padding: 24rpx;
+  border-radius: 16rpx;
+  border: 2rpx solid var(--border-subtle);
+  background-color: var(--surface-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+.goal-editor-toggle-item--active {
+  border-color: var(--primary);
+  background-color: var(--primary-soft, rgba(30, 142, 91, 0.08));
+}
+.goal-editor-toggle-label {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text);
+}
+.goal-editor-toggle-desc {
+  font-size: 22rpx;
+}
+
+.goal-editor-input {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx;
+  border-radius: 12rpx;
+  border: 2rpx solid var(--border-subtle);
+  background-color: var(--surface-subtle);
+  margin-bottom: 8rpx;
+}
+.goal-editor-input--text {
+  font-size: 28rpx;
+  color: var(--text);
+}
+.goal-editor-input-placeholder {
+  color: var(--text-muted);
+}
+.goal-editor-input-value {
+  font-size: 28rpx;
+  color: var(--text);
+}
+.goal-editor-input-chev {
+  font-size: 32rpx;
+}
+// Live preview line under the target-time input. Shows "= H:MM:SS"
+// only when the user's input parses; reads as direct parser feedback.
+// Sits above the steady help-copy hint.
+.goal-editor-preview {
+  font-size: 26rpx;
+  font-weight: 500;
+  margin-top: 4rpx;
+  margin-bottom: 4rpx;
+  font-variant-numeric: tabular-nums;
+}
+.goal-editor-hint {
+  font-size: 22rpx;
+  margin-top: 4rpx;
+  margin-bottom: 8rpx;
+}
+.goal-editor-error {
+  font-size: 24rpx;
+  margin-top: 16rpx;
+}
+// Bottom .goal-editor-actions row removed — Cancel/Save now live in
+// the sheet header (.goal-editor-header-action).
+

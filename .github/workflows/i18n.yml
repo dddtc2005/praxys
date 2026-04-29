@@ -63,7 +63,7 @@ jobs:
   # Azure AI Foundry deployment (with glossary + placeholder validation + cost
   # cap), and opens a PR. Human reviews the zh diff before merging.
   #
-  # Auth: OIDC federation via azure/login@v2 — no API key lives in a repo
+  # Auth: OIDC federation via azure/login@v3 — no API key lives in a repo
   # secret. Configuration (repository > Settings > Secrets and variables > Actions):
   #   Secrets:
   #     AZURE_CLIENT_ID        (app registration client ID)
@@ -97,7 +97,7 @@ jobs:
           python-version: '3.11'
 
       - name: Azure login (OIDC)
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}

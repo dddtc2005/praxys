@@ -1,0 +1,113 @@
+<view class="login-root {{themeClass}}">
+  <!-- Top-LEFT language toggle. WeChat reserves the top-right for its
+       capsule (`...` + `⊙`); placing anything there overlaps it on
+       real devices. Tap to switch — writes praxys-language to wx
+       storage and reLaunches so all `t()` calls re-resolve. -->
+  <view class="login-lang-toggle">
+    <text
+      class="login-lang-toggle-opt {{locale === 'en' ? 'login-lang-toggle-opt--active' : ''}}"
+      data-lang="en"
+      bindtap="onSwitchLang"
+    >EN</text>
+    <text
+      class="login-lang-toggle-opt {{locale === 'zh' ? 'login-lang-toggle-opt--active' : ''}}"
+      data-lang="zh"
+      bindtap="onSwitchLang"
+    >中</text>
+  </view>
+
+  <block wx:if="{{stage === 'idle'}}">
+    <view class="login-stack">
+      <image class="login-mark fade-in" src="/assets/brand/mark.png" mode="aspectFit"
+             style="animation-delay: 0ms" />
+      <view class="login-wordmark fade-in" style="animation-delay: 80ms">
+        <text class="login-wordmark__text">Pra<text class="login-wordmark__accent">x</text>ys</text>
+      </view>
+      <text class="login-hero fade-in" style="animation-delay: 160ms">{{tr.hero}}</text>
+      <text class="login-description fade-in" style="animation-delay: 240ms">{{tr.description}}</text>
+      <button class="ts-button login-cta fade-in" style="animation-delay: 320ms"
+              bindtap="onSignInTap">{{tr.signInWeChat}}</button>
+    </view>
+    <view class="login-footer fade-in" style="animation-delay: 400ms">
+      <text class="login-newhere-label ts-muted">{{tr.newHere}}</text>
+      <view class="login-signup-row" bindtap="onCopySignupUrl">
+        <text class="login-signup-url ts-primary">praxys.run</text>
+        <text class="login-signup-hint ts-muted">·  {{tr.tapToCopyUrl}}</text>
+      </view>
+    </view>
+  </block>
+
+  <block wx:elif="{{stage === 'loading'}}">
+    <view class="login-stack">
+      <image class="login-mark" src="/assets/brand/mark.png" mode="aspectFit" />
+      <text class="login-hero">{{tr.signingIn}}</text>
+    </view>
+  </block>
+
+  <block wx:elif="{{stage === 'error'}}">
+    <view class="login-stack">
+      <image class="login-mark" src="/assets/brand/mark.png" mode="aspectFit" />
+      <text class="login-hero ts-destructive">{{tr.signInFailed}}</text>
+      <text class="login-description">{{errorMessage}}</text>
+      <button class="ts-button login-cta" bindtap="onRetry">{{tr.retry}}</button>
+    </view>
+  </block>
+
+  <!-- Link form: WeChat is unbound on the backend. Same brand stack at
+       top, then email + password inputs, then "Link to Praxys" CTA.
+       The "new here?" footer stays so a brand-new WeChat user can pivot
+       to the praxys.run signup flow without backing out. -->
+  <block wx:elif="{{stage === 'choose' || stage === 'link'}}">
+    <view class="login-stack">
+      <image class="login-mark" src="/assets/brand/mark.png" mode="aspectFit" />
+      <view class="login-wordmark">
+        <text class="login-wordmark__text">Pra<text class="login-wordmark__accent">x</text>ys</text>
+      </view>
+      <text class="login-hero">{{tr.linkTitle}}</text>
+      <text class="login-description">{{tr.linkDetail}}</text>
+      <view class="login-field">
+        <view class="login-field__icon login-field__icon--mail"></view>
+        <input
+          class="login-field__input"
+          type="email"
+          placeholder="{{tr.emailPlaceholder}}"
+          placeholder-class="login-field__placeholder"
+          style="color: {{themeClass === 'theme-light' ? '#15192a' : '#e8ebf0'}}; text-align: left;"
+          cursor-spacing="{{40}}"
+          adjust-position="{{true}}"
+          confirm-type="next"
+          value="{{linkEmail}}"
+          bindinput="onLinkEmailInput"
+        />
+      </view>
+      <view class="login-field">
+        <view class="login-field__icon login-field__icon--lock"></view>
+        <input
+          class="login-field__input"
+          password="{{true}}"
+          placeholder="{{tr.passwordPlaceholder}}"
+          placeholder-class="login-field__placeholder"
+          style="color: {{themeClass === 'theme-light' ? '#15192a' : '#e8ebf0'}}; text-align: left;"
+          cursor-spacing="{{40}}"
+          adjust-position="{{true}}"
+          confirm-type="done"
+          value="{{linkPassword}}"
+          bindinput="onLinkPasswordInput"
+        />
+      </view>
+      <text wx:if="{{linkError}}" class="login-error ts-destructive">{{linkError}}</text>
+      <button
+        class="ts-button login-cta"
+        loading="{{linkSubmitting}}"
+        bindtap="onLinkSubmit"
+      >{{tr.linkAction}}</button>
+    </view>
+    <view class="login-footer">
+      <text class="login-newhere-label ts-muted">{{tr.newHere}}</text>
+      <view class="login-signup-row" bindtap="onCopySignupUrl">
+        <text class="login-signup-url ts-primary">praxys.run</text>
+        <text class="login-signup-hint ts-muted">·  {{tr.tapToCopyUrl}}</text>
+      </view>
+    </view>
+  </block>
+</view>
