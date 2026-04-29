@@ -3,5 +3,7 @@
     "nav-bar": "/components/nav-bar/index",
     "line-chart": "/components/line-chart/index",
     "state-card": "../../components/state-card/index"
-  }
+  },
+  "backgroundColor": "@bgColor",
+  "backgroundColorBottom": "@bgColor"
 }

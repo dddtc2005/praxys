@@ -5,5 +5,7 @@
     "scatter-chart": "/components/scatter-chart/index",
     "bar-chart": "/components/bar-chart/index",
     "state-card": "../../components/state-card/index"
-  }
+  },
+  "backgroundColor": "@bgColor",
+  "backgroundColorBottom": "@bgColor"
 }

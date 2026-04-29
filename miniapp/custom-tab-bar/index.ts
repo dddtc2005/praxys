@@ -13,6 +13,7 @@
  */
 
 import { t } from '../utils/i18n';
+import type { IAppOption } from '../app';
 
 interface TabConfig {
   pagePath: string;
@@ -57,7 +58,9 @@ Component({
   data: {
     tabs: TABS,
     selected: 0,
-    themeClass: 'theme-light',
+    // Read from globalData (set in app.ts onLaunch) so the first render
+    // already has the correct theme — not a hardcoded light fallback.
+    themeClass: getApp<IAppOption>().globalData.themeClass,
   },
 
   lifetimes: {
