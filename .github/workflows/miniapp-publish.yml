@@ -5,8 +5,10 @@ name: Miniapp publish
 #
 # Versioning: CalVer, per-component tags. `miniapp-YYYY.MM.MICRO` (e.g.
 # `miniapp-2026.04.1`) goes to robot 1 (release line). Plain `main` pushes
-# go to robot 5 (dev line) with a synthetic version `YYYY.MM.DD.<run>+<sha>`
-# so they never overwrite the release candidate.
+# go to robot 5 (dev line) with a synthetic version `YYYY.MM.DD.<run>-<sha>`
+# so they never overwrite the release candidate. The dash (not `+`) keeps
+# the version string safely within the conservative subset of characters
+# that miniprogram-ci is known to accept.
 #
 # Robots 1..30 are independent slots in 版本管理 — each robot keeps its own
 # latest 开发版. Promoting to 体验版 / 提交审核 / 发布 stays manual in
@@ -32,12 +34,17 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          # Need HEAD^ to compute the path-change diff for main pushes.
-          fetch-depth: 2
+          # 0 → fetch full history. We diff `github.event.before..sha` to
+          # cover *all* commits in a multi-commit push, not just the tip
+          # (HEAD^..HEAD would silently miss a miniapp change buried under
+          # a later unrelated commit in the same push).
+          fetch-depth: 0
 
       - name: Decide whether to publish
         id: gate
         working-directory: ${{ github.workspace }}
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
         shell: bash
         run: |
           set -euo pipefail
@@ -49,15 +56,28 @@ jobs:
             echo "reason=manual" >> "$GITHUB_OUTPUT"
           else
             # main push: only publish when miniapp-relevant paths changed
-            # (web/src/locales/ and web/src/types/api.ts feed into miniapp
-            # via sync-types/sync-i18n at typecheck time, so they count).
-            changed=$(git diff --name-only HEAD^ HEAD || true)
-            if echo "$changed" | grep -qE '^(miniapp/|web/src/locales/|web/src/types/api\.ts$|\.github/workflows/miniapp-publish\.yml$)'; then
+            # across the entire push range (web/src/locales/ and
+            # web/src/types/api.ts feed into miniapp via sync-types/
+            # sync-i18n at typecheck time, so they count).
+            #
+            # github.event.before is the SHA at the prior tip of main; for
+            # a brand-new branch (impossible on main but defensive) it's
+            # 40 zeros, in which case we can't compute a diff and default
+            # to publishing rather than silently skipping.
+            null_sha="0000000000000000000000000000000000000000"
+            if [[ -z "$BEFORE_SHA" || "$BEFORE_SHA" == "$null_sha" ]]; then
               echo "publish=true" >> "$GITHUB_OUTPUT"
-              echo "reason=main-push" >> "$GITHUB_OUTPUT"
+              echo "reason=main-push-new-branch" >> "$GITHUB_OUTPUT"
+              echo "::notice::No prior SHA available; publishing unconditionally."
             else
-              echo "publish=false" >> "$GITHUB_OUTPUT"
-              echo "::notice::No miniapp-relevant paths changed in HEAD^..HEAD; skipping upload."
+              changed=$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" || true)
+              if echo "$changed" | grep -qE '^(miniapp/|web/src/locales/|web/src/types/api\.ts$|\.github/workflows/miniapp-publish\.yml$)'; then
+                echo "publish=true" >> "$GITHUB_OUTPUT"
+                echo "reason=main-push" >> "$GITHUB_OUTPUT"
+              else
+                echo "publish=false" >> "$GITHUB_OUTPUT"
+                echo "::notice::No miniapp-relevant paths changed in $BEFORE_SHA..$GITHUB_SHA; skipping upload."
+              fi
             fi
           fi
 
@@ -91,11 +111,17 @@ jobs:
             tag_version="${GITHUB_REF#refs/tags/miniapp-}"
             echo "robot=1" >> "$GITHUB_OUTPUT"
             echo "version=$tag_version" >> "$GITHUB_OUTPUT"
-            echo "desc=release $tag_version" >> "$GITHUB_OUTPUT"
+            # Include short_sha so 版本管理 stays self-describing even when
+            # the same tag is force-pushed to a different commit.
+            echo "desc=release $tag_version ($short_sha)" >> "$GITHUB_OUTPUT"
           else
             ymd=$(date -u +%Y.%m.%d)
             echo "robot=5" >> "$GITHUB_OUTPUT"
-            echo "version=${ymd}.${GITHUB_RUN_NUMBER}+${short_sha}" >> "$GITHUB_OUTPUT"
+            # Use `-` (not `+`) as the run/sha separator. miniprogram-ci
+            # is documented with semver-like strings; `-` is unambiguously
+            # accepted whereas `+` (semver build-metadata) is not
+            # confirmed to round-trip cleanly.
+            echo "version=${ymd}.${GITHUB_RUN_NUMBER}-${short_sha}" >> "$GITHUB_OUTPUT"
             echo "desc=main ${short_sha}" >> "$GITHUB_OUTPUT"
           fi
 
@@ -136,6 +162,11 @@ jobs:
                 'package*.json',
                 '.gitignore',
                 '*.md',
+                // Defensive: outside projectPath today (we're in miniapp/),
+                // but explicit listing prevents accidental bundling if
+                // anyone ever runs from the repo root.
+                '.github/**/*',
+                '.git/**/*',
               ],
             });
             ci.upload({

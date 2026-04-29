@@ -68,7 +68,7 @@ The three components (backend, web, miniapp) ship at different cadences, so each
 
 **Why CalVer over semver here:** Praxys components are deployed apps, not libraries — there's no external consumer reading a version to decide compatibility, so semver's "MAJOR vs MINOR vs PATCH" judgment calls add overhead without value. CalVer encodes "when did this ship," which is what we actually want to know when debugging "what's running in 体验版?"
 
-**Dev / non-tag pushes** to `main` get a synthetic version: `YYYY.MM.DD.<run_number>+<sha7>` (e.g., `2026.04.29.42+abc1234`). This goes to robot 5, separate from the tag release line on robot 1, so dev iteration never overwrites the release candidate.
+**Dev / non-tag pushes** to `main` get a synthetic version: `YYYY.MM.DD.<run_number>-<sha7>` (e.g., `2026.04.29.42-abc1234`). This goes to robot 5, separate from the tag release line on robot 1, so dev iteration never overwrites the release candidate. The dash separator (rather than semver's `+` build-metadata) is the conservative pick — `+` is not confirmed to round-trip cleanly through `miniprogram-ci`'s server-side validation.
 
 **`miniapp/package.json` `version` field** stays as a project-marker (currently `0.2.0`); the publish workflow does **not** read it. Tags are the source of truth. This removes the "did I remember to bump package.json?" failure mode.
 
@@ -120,11 +120,11 @@ These steps happen **once**, by the mini program admin (Feitao):
 The actual implementation lives at **`.github/workflows/miniapp-publish.yml`** in this branch — see that file for the canonical YAML. High-level shape:
 
 - **Triggers:** push to `main` (path-gated by inline `git diff` since GitHub's `paths:` filter doesn't compose cleanly with tag triggers), tag pushes matching `miniapp-*`, and `workflow_dispatch` for manual reruns.
-- **Gate step decides** whether to run: tag push → always; manual → always; main push → only if any of `miniapp/**`, `web/src/locales/**`, `web/src/types/api.ts`, or the workflow file itself changed in `HEAD^..HEAD`.
+- **Gate step decides** whether to run: tag push → always; manual → always; main push → only if any of `miniapp/**`, `web/src/locales/**`, `web/src/types/api.ts`, or the workflow file itself changed across the **entire push range** (`github.event.before..github.sha`, with `fetch-depth: 0` so the prior tip is in the local clone). Using the full range — not just `HEAD^..HEAD` — covers multi-commit pushes where a miniapp change might be buried under a later unrelated commit.
 - **Always run typecheck first** (`npm run typecheck` includes `sync-types` + `sync-i18n` + `tsc`). A typecheck failure aborts the upload — we never publish a broken build.
 - **Robot + version** chosen by the meta step:
   - `refs/tags/miniapp-2026.04.1` → robot 1, version `2026.04.1`, desc `release 2026.04.1`
-  - main push → robot 5, version `YYYY.MM.DD.<run_number>+<sha7>`, desc `main <sha7>`
+  - main push → robot 5, version `YYYY.MM.DD.<run_number>-<sha7>`, desc `main <sha7>`
 - **Upload step** uses `miniprogram-ci` with `setting.uploadWithSourceMap: true` so server-side stack traces remain useful. Result JSON (compiled package sizes, etc.) is logged.
 - **Job summary** writes a markdown table to GitHub Actions UI showing trigger / robot / version / desc / ref / sha for at-a-glance audit.
 
