@@ -10,28 +10,42 @@
  * sync form works. This shim tries the callback form first (Skyline)
  * and falls back to the sync form (WebView).
  */
+type TabBarInstance = { setData: (d: Record<string, unknown>) => void };
+
+/**
+ * Call setData on the custom tab bar Component in a way that works in
+ * both Skyline (async getTabBar callback) and WebView (sync return).
+ */
+function callTabBar(
+  page: { getTabBar?: unknown },
+  data: Record<string, unknown>,
+): void {
+  if (typeof page.getTabBar !== 'function') return;
+  try {
+    const result = (page.getTabBar as Function)(
+      (tabBar: TabBarInstance | null) => {
+        tabBar?.setData(data);
+      },
+    );
+    // WebView sync fallback: getTabBar() returned the instance
+    if (result && typeof (result as { setData?: unknown }).setData === 'function') {
+      (result as TabBarInstance).setData(data);
+    }
+  } catch {
+    // not available on sub-pages (science, login, etc.)
+  }
+}
+
 export function setTabBarSelected(
   page: { getTabBar?: unknown },
   selected: number,
 ): void {
-  if (typeof page.getTabBar !== 'function') return;
+  callTabBar(page, { selected });
+}
 
-  // Skyline: getTabBar(callback) — async
-  // WebView: getTabBar() returns instance — sync
-  // We try calling with a callback. In WebView the function signature
-  // ignores the argument and returns the instance; we handle that fallback.
-  try {
-    const result = (page.getTabBar as Function)(
-      (tabBar: { setData: (d: Record<string, unknown>) => void } | null) => {
-        // Skyline callback path
-        tabBar?.setData({ selected });
-      },
-    );
-    // WebView sync path: getTabBar() returned the instance directly
-    if (result && typeof (result as { setData?: unknown }).setData === 'function') {
-      (result as { setData: (d: Record<string, unknown>) => void }).setData({ selected });
-    }
-  } catch {
-    // ignore — tab bar not available on this page (e.g. sub-pages)
-  }
+export function setTabBarTheme(
+  page: { getTabBar?: unknown },
+  themeClass: string,
+): void {
+  callTabBar(page, { themeClass });
 }

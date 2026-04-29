@@ -1,4 +1,4 @@
-import { setTabBarSelected } from '../../utils/tabbar';
+import { setTabBarSelected, setTabBarTheme } from '../../utils/tabbar';
 import { apiGet, apiPost, apiPut } from '../../utils/api-client';
 import type { ApiError } from '../../utils/api-client';
 import { clearToken } from '../../utils/auth';
@@ -470,6 +470,10 @@ Page({
           (page as WechatMiniprogram.Page.Instance<Record<string, unknown>, Record<string, unknown>>)
             .setData({ themeClass: newThemeClass, chartTheme: newChartTheme });
         }
+
+        // Update the custom tab bar — it lives outside getCurrentPages()
+        // so it needs a direct call via the Skyline-safe shim.
+        setTabBarTheme(this, newThemeClass);
 
         applyThemeChrome();
 
