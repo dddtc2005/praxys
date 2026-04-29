@@ -945,6 +945,7 @@ def _sync_coros(user_id: str, creds: dict, from_date: str | None,
         "timestamp": creds.get("timestamp", 0),
     }
     token_creds, changed = refresh_if_needed(token_creds, email, password)
+    logger.info("COROS hub token refresh: changed=%s, timestamp=%s", changed, token_creds.get("timestamp"))
     if changed:
         updated = dict(creds)
         updated["access_token"] = token_creds["access_token"]
@@ -959,8 +960,22 @@ def _sync_coros(user_id: str, creds: dict, from_date: str | None,
 
     status = _get_user_status(user_id)
 
-    # Activities
-    raw_activities = fetch_activities(access_token, region, start, end)
+    # Activities — retry with fresh login if token was revoked early
+    try:
+        raw_activities = fetch_activities(access_token, region, start, end)
+    except Exception:
+        # Force re-login and retry once
+        from sync.coros_sync import login as coros_login
+        logger.info("COROS hub token invalid, forcing re-login for user %s", user_id)
+        token_creds = coros_login(email, password, region)
+        access_token = token_creds["access_token"]
+        updated = dict(creds)
+        updated["access_token"] = access_token
+        updated["coros_user_id"] = token_creds["user_id"]
+        updated["timestamp"] = token_creds["timestamp"]
+        _persist_credentials(user_id, "coros", updated, db)
+        db.commit()
+        raw_activities = fetch_activities(access_token, region, start, end)
     activity_rows = parse_activities(raw_activities)
     for row in activity_rows:
         row.setdefault("activity_type", "other")
@@ -1013,8 +1028,8 @@ def _sync_coros(user_id: str, creds: dict, from_date: str | None,
     try:
         mobile_token = creds.get("mobile_access_token", "")
         mobile_ts = int(creds.get("mobile_timestamp", 0))
-        # Re-login if no mobile token or expired (same TTL as hub token)
-        if not mobile_token or (time_mod.time() - mobile_ts) > 23 * 3600:
+        # Mobile API tokens expire after ~1 hour — always re-login
+        if not mobile_token or (time_mod.time() - mobile_ts) > 3500:
             mobile_creds = mobile_login(email, password, region)
             mobile_token = mobile_creds["mobile_access_token"]
             updated = dict(creds)
@@ -1025,7 +1040,9 @@ def _sync_coros(user_id: str, creds: dict, from_date: str | None,
 
         raw_sleep = fetch_sleep(mobile_token, region, dm_start, end)
         sleep_rows = parse_sleep(raw_sleep)
-        logger.info("COROS sleep: %d nights fetched for user %s", len(sleep_rows), user_id)
+        logger.info("COROS sleep: %d nights fetched for user %s, latest dates: %s",
+                     len(sleep_rows), user_id,
+                     [r["date"] for r in sleep_rows[:5]] if sleep_rows else [])
 
         if sleep_rows:
             # Merge sleep into recovery rows: write_recovery handles upsert
