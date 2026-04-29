@@ -231,23 +231,24 @@ export async function generateShareCard(input: ShareCardInput): Promise<string> 
   ctx.textAlign = 'center';
   ctx.fillStyle = signalColor;
   const label = input.label || '—';
-  const labelSize = label.length <= 3 ? 94 : label.length <= 5 ? 74 : 58;
+  // Larger label sizes (+10px each tier)
+  const labelSize = label.length <= 3 ? 108 : label.length <= 5 ? 86 : 68;
   ctx.font = `700 ${labelSize}px -apple-system, BlinkMacSystemFont, system-ui, sans-serif`;
   ctx.fillText(label, CX, CY);
 
   // ── Subtitle ────────────────────────────────────────────────────────────
   ctx.textBaseline = 'top';
   ctx.textAlign = 'center';
-  ctx.font = '600 36px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+  ctx.font = '600 44px -apple-system, BlinkMacSystemFont, system-ui, sans-serif'; // was 36
   ctx.fillStyle = signalColor;
   ctx.fillText(input.subtitle || '', CX, CY + R + 28);
 
   // ── Reason text (wrapped, centered) ────────────────────────────────────
-  ctx.font = '400 25px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+  ctx.font = '400 30px -apple-system, BlinkMacSystemFont, system-ui, sans-serif'; // was 25
   ctx.fillStyle = C.muted;
   const reasonLines = wrapLines(ctx, input.reason || '', W - 120, 2);
-  const reasonY0 = CY + R + 74;
-  reasonLines.forEach((line, i) => ctx.fillText(line, CX, reasonY0 + i * 36));
+  const reasonY0 = CY + R + 86; // shifted down slightly for larger subtitle
+  reasonLines.forEach((line, i) => ctx.fillText(line, CX, reasonY0 + i * 42));
 
   // ── Divider ─────────────────────────────────────────────────────────────
   const BAR_H = 46;

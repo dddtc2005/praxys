@@ -73,6 +73,10 @@
   margin-top: 16rpx;
   padding-top: 16rpx;
   border-top: 1rpx solid var(--border-subtle);
+  // Override hero's text-align: center so both columns are consistently
+  // left-aligned (data-table convention) rather than one centred and
+  // one left-aligned (from goal-target-cell).
+  text-align: left;
 }
 
 .goal-time-grid--two {

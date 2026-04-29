@@ -103,8 +103,8 @@
 }
 
 .signal-circle--green {
-  border: 6rpx solid rgba(0, 255, 135, 0.3);
-  box-shadow: 0 0 40rpx rgba(0, 255, 135, 0.3);
+  border: 6rpx solid var(--signal-green-glow);
+  box-shadow: 0 0 40rpx var(--signal-green-glow);
 }
 .signal-circle--amber {
   border: 6rpx solid rgba(245, 158, 11, 0.3);
@@ -129,9 +129,9 @@
   opacity: 0.12;
   animation: signal-pulse 2s ease-in-out infinite;
 }
-.signal-glow--green { background-color: #00ff87; }
-.signal-glow--amber { background-color: #f59e0b; }
-.signal-glow--red { background-color: #ef4444; }
+.signal-glow--green { background-color: var(--primary); }
+.signal-glow--amber { background-color: var(--warning); }
+.signal-glow--red { background-color: var(--destructive); }
 
 @keyframes signal-pulse {
   0%, 100% { opacity: 0.10; }
@@ -144,17 +144,17 @@
   font-weight: 700;
   letter-spacing: 4rpx;
 }
-.signal-label--green { color: #00ff87; }
-.signal-label--amber { color: #f59e0b; }
-.signal-label--red { color: #ef4444; }
+.signal-label--green { color: var(--primary); }
+.signal-label--amber { color: var(--warning); }
+.signal-label--red { color: var(--destructive); }
 
 .signal-subtitle {
   font-size: 32rpx;
   font-weight: 600;
 }
-.signal-subtitle--green { color: #00ff87; }
-.signal-subtitle--amber { color: #f59e0b; }
-.signal-subtitle--red { color: #ef4444; }
+.signal-subtitle--green { color: var(--primary); }
+.signal-subtitle--amber { color: var(--warning); }
+.signal-subtitle--red { color: var(--destructive); }
 
 .signal-reason {
   font-size: 26rpx;

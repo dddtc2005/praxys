@@ -366,6 +366,15 @@ Page({
     if (tc !== this.data.themeClass) {
       this.setData({ themeClass: tc, chartTheme: tc === 'theme-light' ? 'light' : 'dark' });
     }
+    // Locale guard: rebuilds tr when language changed while this tab
+    // was not active (same pattern as theme — globalData stores the
+    // active locale so we detect drift without a storage read).
+    const curLocale = getApp<IAppOption>().globalData.locale;
+    const pgMut = this as unknown as Record<string, unknown>;
+    if (curLocale !== pgMut._locale) {
+      pgMut._locale = curLocale;
+      this.setData({ tr: buildTranslations() });
+    }
     applyThemeChrome();
     setTabBarSelected(this, 0);
   },

@@ -11,7 +11,7 @@ import {
 import type { ThemePref } from '../../utils/theme';
 import type { IAppOption } from '../../app';
 import { getLanguagePreference, setLanguagePreference } from '../../utils/share';
-import { t } from '../../utils/i18n';
+import { t, detectLocale } from '../../utils/i18n';
 import type { SettingsResponse } from '../../types/api';
 
 /**
@@ -436,13 +436,18 @@ Page({
           // eslint-disable-next-line no-console
           console.warn('[settings] language backend sync failed:', err);
         }
-        // Pages cache pre-translated tr objects — a reLaunch is required to
-        // remount all pages so they re-evaluate their `buildXxxTr()` calls.
-        // Navigate back to whichever tab/page the user was previously on so
-        // the switch feels transparent rather than ejecting them to Settings.
-        const url = relaunchUrl();
-        saveScrollBefore((this as unknown as Record<string, number>)._scrollY ?? 0, url);
-        wx.reLaunch({ url });
+        // Live update — same approach as theme switching. The settings page
+        // rebuilds tr immediately; other pages rebuild in their guarded onShow
+        // (locale check prevents re-renders on normal tab switches).
+        // We store the active locale on globalData so onShow guards work.
+        getApp<IAppOption>().globalData.locale = next === 'auto'
+          ? detectLocale()
+          : next;
+        this.setData({
+          language: next,
+          languageLabel: languageLabelFor(next),
+          tr: buildSettingsTr(),
+        });
       },
     });
   },
