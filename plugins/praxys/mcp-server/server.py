@@ -21,13 +21,31 @@ from mcp.server.fastmcp import FastMCP
 mcp = FastMCP("praxys", instructions="Training data tools for Praxys dashboard")
 
 # Mode detection — prefer PRAXYS_*, fall back to legacy TRAINSIGHT_* for one
-# release (deprecation: 2026-05-19).
-REMOTE_URL = os.environ.get("PRAXYS_URL") or os.environ.get("TRAINSIGHT_URL", "")
+# release (deprecation: 2026-05-19). Defaults to praxys.run production so the
+# plugin works out-of-the-box; local devs override via PRAXYS_URL in their env
+# (see CLAUDE.md "Running" section).
+_DEFAULT_BACKEND = "https://api.praxys.run"
+_DEFAULT_FRONTEND = "https://www.praxys.run"
+
+
+def _clean(value: str | None) -> str:
+    """Trim and reject unexpanded ${VAR} placeholders that slip through MCP env."""
+    if not value:
+        return ""
+    v = value.strip().rstrip("/")
+    return "" if v.startswith("${") and v.endswith("}") else v
+
+
+REMOTE_URL = (
+    _clean(os.environ.get("PRAXYS_URL"))
+    or _clean(os.environ.get("TRAINSIGHT_URL"))
+    or _DEFAULT_BACKEND
+)
 IS_REMOTE = bool(REMOTE_URL)
-# Frontend URL for browser-based login (defaults to same as backend for local dev)
 FRONTEND_URL = (
-    os.environ.get("PRAXYS_FRONTEND_URL")
-    or os.environ.get("TRAINSIGHT_FRONTEND_URL", REMOTE_URL)
+    _clean(os.environ.get("PRAXYS_FRONTEND_URL"))
+    or _clean(os.environ.get("TRAINSIGHT_FRONTEND_URL"))
+    or _DEFAULT_FRONTEND
 )
 
 

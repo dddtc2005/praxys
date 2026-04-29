@@ -2,11 +2,7 @@
   "mcpServers": {
     "praxys": {
       "command": "python",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-server/server.py"],
-      "env": {
-        "PRAXYS_URL": "${PRAXYS_URL}",
-        "PRAXYS_FRONTEND_URL": "${PRAXYS_FRONTEND_URL}"
-      }
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-server/server.py"]
     }
   }
 }
