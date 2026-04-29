@@ -58,8 +58,6 @@ Component({
   data: {
     tabs: TABS,
     selected: 0,
-    // Read from globalData (set in app.ts onLaunch) so the first render
-    // already has the correct theme — not a hardcoded light fallback.
     themeClass: getApp<IAppOption>().globalData.themeClass,
   },
 

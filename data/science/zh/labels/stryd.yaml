@@ -1,14 +1,20 @@
 id: stryd
 name: Stryd RSB
 author: system
+# `key` mirrors the English identifier; only `label` is translated.
 tsb_zone_labels:
-- label: 训练不足
+- key: Detraining
+  label: 训练不足
   color: '#64748b'
-- label: 竞赛状态
+- key: Performance
+  label: 竞赛状态
   color: '#22c55e'
-- label: 吸收与维持
+- key: Productive & Maintenance
+  label: 吸收与维持
   color: '#3b82f6'
-- label: 需要谨慎
+- key: Cautionary
+  label: 需要谨慎
   color: '#f59e0b'
-- label: 过度训练
+- key: Overreaching
+  label: 过度训练
   color: '#ef4444'

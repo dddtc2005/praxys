@@ -59,6 +59,13 @@ Component({
      *  for backwards compatibility with older callers. Pages should
      *  pass the resolved theme so light-mode charts have proper contrast. */
     theme: { type: String as StringConstructor, value: 'dark' },
+    /** Optional unit label appended to the top-most y-tick (e.g. 'W',
+     *  'bpm', 'm/s'). Empty string disables the suffix entirely.
+     *  Useful when a chart's value is unit-ambiguous from context — CP
+     *  can be either Watts (power base) or bpm (HR base) depending on
+     *  the user's training base, and the legend is too far from the
+     *  axis to disambiguate. */
+    yUnit: { type: String as StringConstructor, value: '' },
   },
 
   data: {
@@ -281,6 +288,7 @@ Component({
           this.data.showAxes as boolean,
           referenceY,
           chartColors(themePref === 'light' ? 'light' : 'dark'),
+          this.data.yUnit as string,
         );
         },
       );
@@ -303,6 +311,7 @@ function renderChart(
   showAxes: boolean,
   referenceY: number | null,
   colors: { axis: string; grid: string; tick: string; zero: string; reference: string },
+  yUnit: string,
 ) {
   const { yMin, yMax, n } = bounds;
   ctx.clearRect(0, 0, width, height);
@@ -419,7 +428,10 @@ function renderChart(
 
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
-    ctx.fillText(formatTick(yMax), plotLeft - 6, plotTop);
+    // Unit suffix only on the top tick — repeating it on min would be
+    // visual noise. Caller passes empty string to opt out.
+    const topTick = yUnit ? `${formatTick(yMax)} ${yUnit}` : formatTick(yMax);
+    ctx.fillText(topTick, plotLeft - 6, plotTop);
     ctx.fillText(formatTick(yMin), plotLeft - 6, plotBottom);
 
     if (dates && dates.length > 0) {

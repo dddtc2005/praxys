@@ -22,7 +22,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Check, Link2, RefreshCw, Gauge, Target, ChevronRight, Sparkles } from 'lucide-react';
 import GoalEditor from '@/components/GoalEditor';
 import { Trans, Plural, useLingui } from '@lingui/react/macro';
-import { GarminWordmark, StrydWordmark, StravaWordmark, OuraWordmark } from '@/components/PlatformWordmark';
+import { GarminWordmark, StrydWordmark, StravaWordmark, OuraWordmark, CorosWordmark } from '@/components/PlatformWordmark';
 
 // --- Platform metadata ---
 
@@ -115,9 +115,20 @@ const PLATFORM_META: Record<string, {
     ],
     help: 'Generate a token at cloud.ouraring.com/personal-access-tokens.',
   },
+  coros: {
+    label: 'COROS',
+    wordmark: <CorosWordmark />,
+    categories: ['Activities', 'Recovery', 'Fitness'],
+    detail: 'Activities, sleep, HRV, resting HR, VO2max, training load',
+    credFields: [
+      { key: 'email', label: 'Email', type: 'email' },
+      { key: 'password', label: 'Password', type: 'password' },
+    ],
+    help: 'Use your COROS Training Hub credentials.',
+  },
 };
 
-const CONNECTABLE_PLATFORMS = ['garmin', 'strava', 'stryd', 'oura'] as const;
+const CONNECTABLE_PLATFORMS = ['garmin', 'strava', 'stryd', 'oura', 'coros'] as const;
 
 
 // Training-base keys used by `BASE_CONFIG` below. Display labels come from
@@ -220,6 +231,7 @@ export default function Setup() {
     GARMIN_ACTIVITY_CATEGORIES.filter((c) => c.default).map((c) => c.key)
   );
   const [garminRegion, setGarminRegion] = useState<'international' | 'cn'>('international');
+  const [corosRegion, setCorosRegion] = useState<'eu' | 'us' | 'cn'>('us');
 
   // Primary source prompt — shown when connecting a second source for same category
   const [primaryPrompt, setPrimaryPrompt] = useState<{
@@ -357,6 +369,7 @@ export default function Setup() {
         body: JSON.stringify({
           ...connectCreds,
           ...(connectPlatform === 'garmin' ? { is_cn: garminRegion === 'cn' } : {}),
+          ...(connectPlatform === 'coros' ? { region: corosRegion } : {}),
         }),
       });
       const data = await res.json();
@@ -829,6 +842,27 @@ export default function Setup() {
                         onClick={() => setGarminRegion(value)}
                         className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all border ${
                           garminRegion === value
+                            ? 'border-primary/40 bg-primary/10 text-primary'
+                            : 'border-border bg-muted text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {connectPlatform === 'coros' && (
+                <div className="space-y-2">
+                  <Label><Trans>Region</Trans></Label>
+                  <div className="flex gap-2">
+                    {([['eu', 'Europe'], ['us', 'International'], ['cn', 'China']] as const).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setCorosRegion(value)}
+                        className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all border ${
+                          corosRegion === value
                             ? 'border-primary/40 bg-primary/10 text-primary'
                             : 'border-border bg-muted text-muted-foreground hover:text-foreground'
                         }`}

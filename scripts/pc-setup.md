@@ -86,6 +86,15 @@ PRAXYS_PERF_USER=other@example.com PRAXYS_PERF_PASSWORD=secret \
 
 `PRAXYS_PERF_BASE_URL` overrides the host (defaults to `https://www.praxys.run`); useful for testing against a staging deploy.
 
-## What this PR doesn't yet cover
+## Cross-region cells
 
-- **S1 / S2 / S3 in CI (ACI workflow)** — the login scripts work locally; pushing them through the ACI workflow needs the YAML deployment file pattern (the current `--command-line` argv parser shreds compound args). Tracked separately.
+The local runner's job is in-region (CN) reality. For `eastasia` /
+`westus` / `northeurope` cells, use
+[`scripts/aci_baseline.sh`](./aci_baseline.sh) — same scenarios, same
+cell layout, same analyzer, just executed inside an Azure Container
+Instance in the chosen region instead of on your laptop. Prereqs +
+auth model are documented in
+[`../docs/perf-baselines/ci-setup.md`](../docs/perf-baselines/ci-setup.md).
+The `--command-line` argv-shredding bug that previously blocked S1/S2/S3
+in the cloud is sidestepped by passing inputs via env vars + a wrapper
+script uploaded to the share, not via positional CLI args.

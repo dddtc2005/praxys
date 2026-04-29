@@ -25,7 +25,18 @@
       </view>
 
       <view class="ts-section">
-        <text class="ts-section-label">{{tr.connections}}</text>
+        <view class="settings-section-header">
+          <text class="ts-section-label settings-section-header-label">{{tr.connections}}</text>
+          <view
+            wx:if="{{hasConnections}}"
+            class="settings-section-action {{syncing ? 'settings-section-action--spinning' : ''}}"
+            hover-class="settings-section-action--press"
+            bindtap="onSyncAll"
+            aria-label="{{syncing ? tr.syncing : tr.syncNow}}"
+          >
+            <view class="settings-section-action-icon settings-section-action-icon--refresh"></view>
+          </view>
+        </view>
         <block wx:if="{{hasConnections}}">
           <view
             wx:for="{{connectionRows}}"
@@ -35,13 +46,6 @@
             <text class="settings-label ts-muted">{{item.label}}</text>
             <text class="settings-value ts-value">{{tr.connected}}</text>
           </view>
-          <button
-            class="ts-button settings-sync-btn"
-            bindtap="onSyncAll"
-            disabled="{{syncing}}"
-          >
-            {{syncing ? tr.syncing : tr.syncNow}}
-          </button>
           <text wx:if="{{syncMessage}}" class="settings-hint ts-muted">{{syncMessage}}</text>
           <text class="settings-hint ts-muted">{{tr.manageOnWeb}}</text>
         </block>

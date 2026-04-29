@@ -11,15 +11,16 @@ Mainland-China users cross the Great Firewall to hit our Azure East Asia deploym
 | Layer | Purpose | Tool | When |
 |---|---|---|---|
 | **Lab synthetic** | Catch code regressions in controlled conditions | Lighthouse CI in GitHub Actions | On every `web/**` PR (added in a later phase) |
-| **Multi-region synthetic** | Ground truth for each phase's delta | **sitespeed.io** (primary — runs on PC for CN probe, via ACI for others in PR-F); **WebPageTest** (fallback, if sitespeed breaks) — Beijing/Shanghai/Hong Kong/US West | Before & after each phase merges |
+| **Multi-region synthetic** | Ground truth for each phase's delta | **sitespeed.io** — local Docker for CN probes, ACI on demand for `eastasia` / `westus` / `northeurope` (see runners below); **WebPageTest** as a fallback if sitespeed breaks | Before & after each phase merges |
 | **Production RUM** | Real user experience over time | Azure Application Insights (wired in `api/main.py` + `web/src/lib/appinsights.ts`) | Continuous, once `APPLICATIONINSIGHTS_CONNECTION_STRING` is set |
 
 Azure Availability Tests (cheap URL pings from multiple Azure regions) provide an always-on uptime + TTFB baseline — see [`azure-provisioning.md`](./azure-provisioning.md) to set them up.
 
 Tooling for sitespeed.io-based baselines:
-- **Runner**: [`../../scripts/sitespeed_runner.sh`](../../scripts/sitespeed_runner.sh) — wraps the official Docker image for a cell (scenario × device).
-- **Analyzer**: [`../../scripts/analyze_baseline.py`](../../scripts/analyze_baseline.py) — parses the sitespeed.io output into TEMPLATE.md-ready markdown rows.
-- **Windows / Docker Desktop setup**: [`../../scripts/pc-setup.md`](../../scripts/pc-setup.md).
+- **Local runner**: [`../../scripts/sitespeed_runner.sh`](../../scripts/sitespeed_runner.sh) — wraps the official Docker image for a cell (scenario × device). Use this for CN probes (cn-pc, hk-laptop) or any time you want sub-minute iteration on a fix.
+- **Cross-region runner**: [`../../scripts/aci_baseline.sh`](../../scripts/aci_baseline.sh) — orchestrates one Azure Container Instance per probe-device (eastasia / westus / northeurope), runs all requested scenarios serially in that warm container, downloads the same cell layout. See [`ci-setup.md`](./ci-setup.md) for prereqs (`az login` once, no GHA / no secrets).
+- **Analyzer**: [`../../scripts/analyze_baseline.py`](../../scripts/analyze_baseline.py) — parses the sitespeed.io output into TEMPLATE.md-ready markdown rows. Works on any directory either runner produces.
+- **Windows / Docker Desktop setup for the local runner**: [`../../scripts/pc-setup.md`](../../scripts/pc-setup.md).
 
 ## The scenarios
 
@@ -118,11 +119,24 @@ Each phase's PR description cites the row in `summary.md` that names the metrics
 
 ## How to run a baseline
 
-Primary path — sitespeed.io from your PC (+ Azure ACI regions once PR-F lands):
+In-region (CN, your laptop) — sitespeed.io via local Docker:
 
 ```bash
-bash scripts/sitespeed_runner.sh --probe cn-pc --scenario s4 --device both
+bash scripts/sitespeed_runner.sh --probe cn-pc --scenario all --device both
+```
+
+Cross-region (eastasia / westus / northeurope) — sitespeed.io via Azure Container Instances:
+
+```bash
+# Prereq, one time: az login
+scripts/aci_baseline.sh --probe northeurope --device both --scenario all \
+  --reason "after L3 measurement"
+```
+
+Then aggregate, regardless of which runner produced the cells:
+
+```bash
 python scripts/analyze_baseline.py --baseline-dir docs/perf-baselines/<YYYY-MM-DD>-<sha>
 ```
 
-See [`../../scripts/pc-setup.md`](../../scripts/pc-setup.md) for Windows + Docker Desktop first-run notes, and [`../../scripts/run-baseline.md`](../../scripts/run-baseline.md) for the WebPageTest fallback checklist.
+See [`../../scripts/pc-setup.md`](../../scripts/pc-setup.md) for Windows + Docker Desktop first-run notes (local runner), [`./ci-setup.md`](./ci-setup.md) for ACI prereqs (cross-region runner), and [`../../scripts/run-baseline.md`](../../scripts/run-baseline.md) for the WebPageTest fallback checklist.

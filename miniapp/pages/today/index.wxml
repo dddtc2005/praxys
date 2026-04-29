@@ -1,5 +1,5 @@
 <view class="today-root {{themeClass}}">
-  <nav-bar title="Today" theme-class="{{themeClass}}" show-wordmark="{{true}}" />
+  <nav-bar title="Today" theme-class="{{themeClass}}" show-wordmark="{{true}}" right-share="{{true}}" />
 
   <scroll-view
     scroll-y="{{true}}"
@@ -34,6 +34,7 @@
         >
           <view class="signal-share-fab__icon"></view>
         </view>
+
 
         <view class="signal-circle signal-circle--{{signalColor}}">
           <view class="signal-glow signal-glow--{{signalColor}}"></view>

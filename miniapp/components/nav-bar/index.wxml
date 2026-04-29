@@ -10,5 +10,25 @@
       <text class="nav-bar__brand">Pra<text class="nav-bar__brand-accent">x</text>ys</text>
     </view>
     <text wx:else class="nav-bar__title">{{title}}</text>
+
+    <!-- Optional right-side action. Two flavours:
+         - rightShare=true  → <button open-type="share"> with share glyph;
+                              WeChat handles tap natively (onShareAppMessage).
+         - rightText set    → tappable label that triggers `rightaction` event.
+         Hidden entirely when neither is set so legacy callers stay unchanged. -->
+    <button
+      wx:if="{{rightShare}}"
+      class="nav-bar__action nav-bar__action--share"
+      open-type="share"
+      hover-class="nav-bar__action--press"
+    >
+      <view class="nav-bar__action-icon nav-bar__action-icon--share"></view>
+    </button>
+    <text
+      wx:elif="{{rightText}}"
+      class="nav-bar__action nav-bar__action--text"
+      hover-class="nav-bar__action--press"
+      bindtap="onRightTap"
+    >{{rightText}}</text>
   </view>
 </view>

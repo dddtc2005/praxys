@@ -1,8 +1,8 @@
 /**
  * Official brand wordmarks for the platforms Praxys connects to.
  *
- * Web-optimized copies live at `web/public/logos/{garmin.png, oura.svg,
- * stryd.svg, strava.svg}`. Vendor source files (AI/EPS/PDF + alt colour
+ * Web-optimized copies live at `web/public/logos/{garmin.png, coros.png,
+ * oura.svg, stryd.svg, strava.svg}`. Vendor source files (AI/EPS/PDF + alt colour
  * variants) are kept out of the repo to keep SWA deploys fast — store them
  * elsewhere if you need them for future design work.
  *
@@ -86,12 +86,12 @@ export function OuraWordmark({ className }: WordmarkProps) {
 
 export function CorosWordmark({ className }: WordmarkProps) {
   return (
-    <span
-      className={`inline-flex h-5 items-center text-[0.95rem] font-bold uppercase leading-none tracking-[0.12em] ${className ?? ''}`}
-      aria-label="COROS"
-    >
-      COROS
-    </span>
+    <img
+      src="/logos/coros.png"
+      alt="COROS"
+      className={`h-5 w-auto dark:invert ${className ?? ''}`}
+      onError={handleWordmarkImgError}
+    />
   );
 }
 

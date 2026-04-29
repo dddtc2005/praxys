@@ -1113,9 +1113,15 @@ def _compute_recovery_analysis(recovery: pd.DataFrame) -> tuple[dict, float | No
             elif isinstance(latest_date_val, date):
                 latest_date = latest_date_val
 
+        # The latest row may lack HRV/RHR (e.g., sleep-only row from COROS).
+        # Fall back to the most recent row that has each metric.
         hrv_val = pd.to_numeric(
             pd.Series([latest_row.get("hrv_avg")]), errors="coerce"
         ).iloc[0]
+        if pd.isna(hrv_val) or hrv_val <= 0:
+            hrv_col = pd.to_numeric(recovery_sorted["hrv_avg"], errors="coerce") if "hrv_avg" in recovery_sorted.columns else pd.Series(dtype=float)
+            valid_hrv = hrv_col[hrv_col > 0]
+            hrv_val = valid_hrv.iloc[-1] if not valid_hrv.empty else float("nan")
         today_hrv = float(hrv_val) if pd.notna(hrv_val) and hrv_val > 0 else None
 
         sleep_val = pd.to_numeric(
@@ -1126,6 +1132,10 @@ def _compute_recovery_analysis(recovery: pd.DataFrame) -> tuple[dict, float | No
         rhr_val = pd.to_numeric(
             pd.Series([latest_row.get("resting_hr")]), errors="coerce"
         ).iloc[0]
+        if pd.isna(rhr_val) or rhr_val <= 0:
+            rhr_col = pd.to_numeric(recovery_sorted["resting_hr"], errors="coerce") if "resting_hr" in recovery_sorted.columns else pd.Series(dtype=float)
+            valid_rhr = rhr_col[rhr_col > 0]
+            rhr_val = valid_rhr.iloc[-1] if not valid_rhr.empty else float("nan")
         today_rhr = float(rhr_val) if pd.notna(rhr_val) and rhr_val > 0 else None
 
     analysis = analyze_recovery(
@@ -1136,7 +1146,10 @@ def _compute_recovery_analysis(recovery: pd.DataFrame) -> tuple[dict, float | No
         rhr_series=rhr_series if rhr_series else None,
     )
 
-    is_stale = latest_date is not None and latest_date < date.today()
+    # Recovery data (sleep, HRV) is recorded under the night it was measured,
+    # which is typically yesterday's date. Allow a 1-day grace period so that
+    # last night's reading is not flagged as stale.
+    is_stale = latest_date is not None and latest_date < (date.today() - timedelta(days=1))
     augmented = {
         **analysis,
         "latest_date": latest_date.isoformat() if latest_date else None,
@@ -1509,7 +1522,7 @@ def get_dashboard_data(user_id: str = None, db=None) -> dict:
         },
         "data_meta": data_meta,
         "tsb_zones": [
-            {"min": z.min, "max": z.max, "label": z.label, "color": z.color}
+            {**({"key": z.key} if z.key else {}), "min": z.min, "max": z.max, "label": z.label, "color": z.color}
             for z in (load_theory.tsb_zones_labeled if load_theory else [])
         ],
     }

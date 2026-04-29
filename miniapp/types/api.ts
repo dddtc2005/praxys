@@ -9,6 +9,11 @@ export type SciencePillar = 'load' | 'recovery' | 'prediction' | 'zones';
 export interface TsbZoneConfig {
   min: number | null;
   max: number | null;
+  /** Stable English identifier for client-side lookups (e.g. zone-insight
+   * dictionaries). `label` is the localized display string and changes per
+   * locale; `key` is invariant. Optional because older API responses or
+   * custom label sets may omit it — clients should fall back to `label`. */
+  key?: string;
   label: string;
   color: string;
 }

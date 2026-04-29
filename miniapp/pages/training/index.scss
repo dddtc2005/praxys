@@ -201,3 +201,26 @@
   font-weight: 500;
   line-height: 1.4;
 }
+
+// Tappable toggle row that reveals/hides the Sleep×Performance scatter.
+// Reads as a subtle disclosure affordance — bordered top + chevron — so
+// it doesn't compete with the takeaway line above.
+.train-collapse-toggle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx 0;
+  border-top: 1rpx solid var(--border-subtle);
+  margin-top: 8rpx;
+}
+.train-collapse-toggle--press {
+  opacity: 0.6;
+}
+.train-collapse-toggle-label {
+  font-size: 24rpx;
+}
+.train-collapse-toggle-chev {
+  font-size: 24rpx;
+  font-variant-numeric: tabular-nums;
+}

@@ -285,12 +285,14 @@ html[lang="zh"] .landing-hero-sub { line-height: 1.7; }
      taller and nudge up by ~2px so letter-centres (not bbox-centres) land on the
      band's baseline. Without the translate, ŌURA sits visibly low. */
 .landing-platforms-band .plogo-garmin { height: 18px; }
+.landing-platforms-band .plogo-coros  { height: 18px; }
 .landing-platforms-band .plogo-stryd  { height: 18px; }
 .landing-platforms-band .plogo-oura   { height: 22px; transform: translateY(-2px); }
 .landing-platforms-band .plogo-strava { height: 18px; }
 
-/* Garmin PNG is black on transparent — invert to white on dark theme. */
+/* Garmin and COROS PNGs are black on transparent — invert to white on dark theme. */
 .dark .landing-platforms-band .plogo-garmin { filter: invert(1); }
+.dark .landing-platforms-band .plogo-coros  { filter: invert(1); }
 
 /* The standalone oura.svg asset has a hard-coded black fill — invert for dark
    theme. (The inline OuraWordmark React component uses currentColor and does

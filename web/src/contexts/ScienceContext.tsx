@@ -16,11 +16,11 @@ interface ScienceContextValue {
 
 /** Fallback zones if API hasn't loaded yet. */
 const DEFAULT_TSB_ZONES: TsbZoneConfig[] = [
-  { min: 25, max: null, label: 'Detraining', color: '#64748b' },
-  { min: 5, max: 25, label: 'Performance', color: '#00ff87' },
-  { min: -10, max: 5, label: 'Optimal', color: '#3b82f6' },
-  { min: -25, max: -10, label: 'Productive', color: '#22c55e' },
-  { min: null, max: -25, label: 'Overreaching', color: '#ef4444' },
+  { key: 'Detraining', min: 25, max: null, label: 'Detraining', color: '#64748b' },
+  { key: 'Performance', min: 5, max: 25, label: 'Performance', color: '#00ff87' },
+  { key: 'Optimal', min: -10, max: 5, label: 'Optimal', color: '#3b82f6' },
+  { key: 'Productive', min: -25, max: -10, label: 'Productive', color: '#22c55e' },
+  { key: 'Overreaching', min: null, max: -25, label: 'Overreaching', color: '#ef4444' },
 ];
 
 const ScienceContext = createContext<ScienceContextValue>({
@@ -86,22 +86,26 @@ export function useScience() {
   return useContext(ScienceContext);
 }
 
-/** Get zone label + color for a TSB value. Uses the active science context. */
-export function useTsbZone(tsb: number): { label: string; color: string } {
+/** Get zone key + label + color for a TSB value. Uses the active science context. */
+export function useTsbZone(tsb: number): { key?: string; label: string; color: string } {
   const { tsbZones } = useScience();
   return tsbZoneFromConfig(tsb, tsbZones);
 }
 
-/** Pure function: classify a TSB value against a zone config. */
+/** Pure function: classify a TSB value against a zone config.
+ *
+ * Returns `key` (stable English identifier) alongside `label` and `color`
+ * so callers can look up locale-invariant zone metadata (e.g. insight
+ * prose) without re-deriving it from the localized label. */
 export function tsbZoneFromConfig(
   tsb: number,
   zones: TsbZoneConfig[],
-): { label: string; color: string } {
+): { key?: string; label: string; color: string } {
   for (const zone of zones) {
     const aboveMin = zone.min == null || tsb >= zone.min;
     const belowMax = zone.max == null || tsb < zone.max;
     if (aboveMin && belowMax) {
-      return { label: zone.label, color: zone.color };
+      return { key: zone.key, label: zone.label, color: zone.color };
     }
   }
   return { label: 'Unknown', color: '#64748b' };
