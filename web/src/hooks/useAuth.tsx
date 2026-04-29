@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
 import { KEYS, getCompatItem, setCompatItem, removeCompatItem } from '../lib/storage-compat';
+import { prefetchedMeResponse } from '../lib/auth-prefetch';
 
 interface AuthState {
   token: string | null;
@@ -53,8 +54,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setToken(stored);
 
-    // Verify token and fetch fresh profile (admin status, active status)
-    fetch(`${API_BASE}/api/auth/me`, { headers: { Authorization: `Bearer ${stored}` } })
+    // Use the response already in-flight from auth-prefetch (started at
+    // module evaluation time, before React mounted) to avoid one extra
+    // render-cycle of latency on cold load.
+    const meResponse = prefetchedMeResponse ??
+      fetch(`${API_BASE}/api/auth/me`, { headers: { Authorization: `Bearer ${stored}` } });
+
+    meResponse
       .then((r) => {
         if (r.status === 401) {
           // Token expired or user deactivated — clear auth state
