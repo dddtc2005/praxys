@@ -122,6 +122,12 @@ export function applyThemeChrome(theme: ResolvedTheme = resolveTheme()): void {
   const selected = isLight ? '#1e8e5b' : '#00ff87';
   const muted = isLight ? '#6b6b66' : '#8b93a7';
 
+  // Also update the window background color that WeChat briefly shows
+  // between page renders (tab switch, pull-to-refresh bounce). Without
+  // this, dark-mode users see a white flash (#faf9f5, hardcoded in
+  // app.json window.backgroundColor) every time they switch tabs.
+  wx.setBackgroundColor({ backgroundColor: bg, fail: () => {} });
+
   wx.setTabBarStyle({
     backgroundColor: bg,
     color: muted,

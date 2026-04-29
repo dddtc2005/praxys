@@ -144,9 +144,10 @@
        User long-presses the image to get WeChat's native "Save image"
        context menu, then shares from camera roll. Tap the backdrop to
        dismiss. -->
+  <!-- Share card overlay: the "长按图片转发" hint is baked into the
+       canvas image itself so there's no need to repeat it here. -->
   <view wx:if="{{shareCardVisible}}" class="share-overlay" bindtap="onShareCardToggle">
     <view class="share-overlay-sheet" catchtap="noop">
-      <text class="share-overlay-title ts-muted">{{tr.longPressToShare}}</text>
       <view wx:if="{{!shareImagePath}}" class="share-overlay-loading">
         <view class="ts-skeleton share-overlay-skeleton"></view>
       </view>

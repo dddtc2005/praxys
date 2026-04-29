@@ -445,6 +445,7 @@ Page({
         reason: response.signal?.reason ?? '',
         color: meta.color,
         locale: detectShareLocale(),
+        theme: this.data.chartTheme, // 'light' | 'dark' — follows user's theme
       });
       this.setData({ shareImagePath: path });
     } catch (e) {

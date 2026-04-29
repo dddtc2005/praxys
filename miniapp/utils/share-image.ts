@@ -18,25 +18,44 @@ export interface ShareCardInput {
   reason: string;
   color: SignalColor;
   locale?: 'en' | 'zh';
+  /** 'dark' (default) or 'light' — card adapts to the user's active theme. */
+  theme?: 'dark' | 'light';
 }
 
 const W = 750;
 const H = 750;
 
-// Matches mini program app.scss dark theme tokens + signal colors.
-const C = {
+// Dark theme palette — dark bg, bright accent.
+const DARK = {
   bg: '#0d1220',
-  surface: '#161b2e',
   border: '#1f2536',
   text: '#e8ebf0',
   muted: '#8b93a7',
   primary: '#00ff87',
   amber: '#f59e0b',
   red: '#ef4444',
-  wordmarkX: '#00ff87', // green 'x' in Praxys
+  wordmarkX: '#00ff87',
+  cta: '#0d1220', // text on accent bar
 };
 
-function signalHex(color: SignalColor): string {
+// Light theme palette — cream bg, darker accent.
+const LIGHT = {
+  bg: '#faf9f5',
+  border: '#dbd6c7',
+  text: '#15192a',
+  muted: '#6b6b66',
+  primary: '#1e8e5b',
+  amber: '#d97706',
+  red: '#d93a2c',
+  wordmarkX: '#1e8e5b',
+  cta: '#ffffff', // text on accent bar
+};
+
+function getC(theme: 'dark' | 'light') {
+  return theme === 'light' ? LIGHT : DARK;
+}
+
+function signalHex(color: SignalColor, C: typeof DARK): string {
   if (color === 'amber') return C.amber;
   if (color === 'red') return C.red;
   return C.primary; // green
@@ -130,41 +149,33 @@ function drawSignalCircle(ctx: Ctx, cx: number, cy: number, r: number, color: st
 
 export async function generateShareCard(input: ShareCardInput): Promise<string> {
   const locale = input.locale ?? 'en';
-  const signalColor = signalHex(input.color);
+  const cardTheme = input.theme ?? 'dark';
+  const C = getC(cardTheme);
+  const signalColor = signalHex(input.color, C);
 
-  // Scale up by device pixel ratio so the output is sharp on retina screens.
-  // Capped at 3 — above that the JPEG is oversized for chat bubble display.
+  // Scale up by device pixel ratio for retina sharpness (capped at 3×).
   const DPR = Math.min(
     ((typeof wx.getWindowInfo === 'function' ? wx.getWindowInfo() : wx.getSystemInfoSync()) as
       { pixelRatio?: number }).pixelRatio ?? 2,
     3,
   );
-  const CW = W * DPR; // physical canvas pixels
+  const CW = W * DPR;
   const CH = H * DPR;
 
   const canvas = wx.createOffscreenCanvas({ type: '2d', width: CW, height: CH });
   const ctx = canvas.getContext('2d') as unknown as Ctx;
   if (!ctx) throw new Error('Failed to acquire canvas 2D context');
-  ctx.scale(DPR, DPR); // all drawing commands use logical 750×750
+  ctx.scale(DPR, DPR);
 
   const ext = ctx as unknown as WxCtxExt & Ctx;
   const drawImage = ctx as unknown as { drawImage: (...a: unknown[]) => void };
 
-  // ── Background ──────────────────────────────────────────────────────────
+  // ── Background ─────────────────────────────────────────────────────────
   ctx.fillStyle = C.bg;
   ctx.fillRect(0, 0, W, H);
+  // No scan-line texture — it creates visible horizontal artifacts on JPEG.
 
-  // Subtle horizontal scan-line texture for data-terminal aesthetic.
-  ctx.strokeStyle = '#ffffff06';
-  ctx.lineWidth = 1;
-  for (let y = 0; y < H; y += 18) {
-    ctx.beginPath();
-    ext.moveTo(0, y);
-    ext.lineTo(W, y);
-    ctx.stroke();
-  }
-
-  // ── Top bar: brand mark + wordmark ───────────────────────────────────────
+  // ── Top bar: brand mark + wordmark ─────────────────────────────────────
   const MARK_X = 40;
   const MARK_Y = 40;
   const MARK_SIZE = 56;
@@ -187,14 +198,12 @@ export async function generateShareCard(input: ShareCardInput): Promise<string> 
   ctx.fillStyle = C.text;
   ctx.fillText('ys', WMX + praW + xW, WMY);
 
-  // ── Signal circle ────────────────────────────────────────────────────────
+  // ── Signal circle ───────────────────────────────────────────────────────
   const CX = W / 2;
-  const CY = 320;
+  const CY = 315;
   const R = 148;
-
   drawSignalCircle(ctx, CX, CY, R, signalColor);
 
-  // Signal label inside circle.
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'center';
   ctx.fillStyle = signalColor;
@@ -203,30 +212,23 @@ export async function generateShareCard(input: ShareCardInput): Promise<string> 
   ctx.font = `700 ${labelSize}px -apple-system, BlinkMacSystemFont, system-ui, sans-serif`;
   ctx.fillText(label, CX, CY);
 
-  // ── Subtitle ─────────────────────────────────────────────────────────────
+  // ── Subtitle ────────────────────────────────────────────────────────────
   ctx.textBaseline = 'top';
   ctx.textAlign = 'center';
   ctx.font = '600 36px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
   ctx.fillStyle = signalColor;
   ctx.fillText(input.subtitle || '', CX, CY + R + 28);
 
-  // ── Reason (wrapped) ─────────────────────────────────────────────────────
+  // ── Reason text (wrapped, centered) ────────────────────────────────────
   ctx.font = '400 25px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
   ctx.fillStyle = C.muted;
   const reasonLines = wrapLines(ctx, input.reason || '', W - 120, 2);
-  const reasonY0 = CY + R + 76;
+  const reasonY0 = CY + R + 74;
   reasonLines.forEach((line, i) => ctx.fillText(line, CX, reasonY0 + i * 36));
 
-  // ── Editorial strip above divider ────────────────────────────────────────
-  const divY = H - 148; // moved up to fit taller accent bar
-  ctx.font = '500 14px -apple-system, system-ui, monospace, sans-serif';
-  ctx.fillStyle = C.primary + '50'; // 32% opacity accent
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  const strip = locale === 'zh' ? '训练信号  ·  PRAXYS.RUN' : 'TRAINING SIGNAL  ·  PRAXYS.RUN';
-  ctx.fillText(strip, W / 2, divY - 22);
-
-  // ── Divider ───────────────────────────────────────────────────────────────
+  // ── Divider ─────────────────────────────────────────────────────────────
+  const BAR_H = 46;
+  const divY = H - BAR_H - 110; // leave room for footer + accent bar
   ctx.strokeStyle = C.border;
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -234,50 +236,49 @@ export async function generateShareCard(input: ShareCardInput): Promise<string> 
   ext.lineTo(W - 40, divY);
   ctx.stroke();
 
-  // ── Footer: tagline (left) + QR code (right) ─────────────────────────────
+  // ── Footer: tagline (left), praxys.run (right), same line ──────────────
+  const footerY = divY + 38;
+  const QR_SIZE = 76;
+  const QR_X = W - 40 - QR_SIZE;
+  const QR_Y = divY + 18;
+  const textRightEdge = QR_X - 20; // text stops before QR code
+
   ctx.textBaseline = 'middle';
   ctx.font = '400 21px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
   ctx.fillStyle = C.muted;
-  const footerY = divY + 30;
   ctx.textAlign = 'left';
   ctx.fillText(
     locale === 'zh' ? '像专业选手一样训练，无论水平高低。' : 'Train like a pro. Whatever your level.',
-    40,
-    footerY,
+    40, footerY,
   );
-  // praxys.run URL (visible when QR not available)
-  ctx.textAlign = 'left';
-  ctx.font = '400 18px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
-  ctx.fillStyle = C.muted;
-  ctx.fillText('praxys.run', 40, footerY + 28);
 
-  // QR code (bottom-right, above accent bar)
-  const QR_SIZE = 72;
-  const QR_X = W - 40 - QR_SIZE;
-  const QR_Y = H - 46 - QR_SIZE; // just above accent bar
+  // praxys.run right-aligned on the same line
+  ctx.textAlign = 'right';
+  ctx.fillStyle = C.primary;
+  ctx.font = '500 21px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+  ctx.fillText('praxys.run', textRightEdge, footerY);
+
+  // ── QR code ─────────────────────────────────────────────────────────────
   try {
-    const qr = (await loadImage(canvas, '/assets/qr-praxys.png')) as unknown as object;
-    // White background pad so QR is always readable regardless of card bg.
+    const qr = (await loadImage(canvas, '/assets/qr-praxys-prod.png')) as unknown as object;
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(QR_X - 4, QR_Y - 4, QR_SIZE + 8, QR_SIZE + 8);
     drawImage.drawImage(qr, QR_X, QR_Y, QR_SIZE, QR_SIZE);
   } catch { /* no QR asset — silently skip */ }
 
-  // ── Accent bar — taller with "长按图片转发" CTA ─────────────────────────
-  const BAR_H = 46;
+  // ── Accent bar with CTA ──────────────────────────────────────────────────
   ctx.fillStyle = C.primary;
   ctx.fillRect(0, H - BAR_H, W, BAR_H);
-  ctx.font = '500 19px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
-  ctx.fillStyle = C.bg;
-  ctx.textAlign = 'left';
+  ctx.font = '500 20px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+  ctx.fillStyle = C.cta;
+  ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(locale === 'zh' ? '长按图片转发' : 'Long press to share', 24, H - BAR_H / 2);
+  ctx.fillText(locale === 'zh' ? '长按图片转发' : 'Long press to share', W / 2, H - BAR_H / 2);
 
   return new Promise<string>((resolve, reject) => {
     wx.canvasToTempFilePath({
       canvas: canvas as unknown as WechatMiniprogram.Canvas,
-      width: CW, height: CH,
-      destWidth: CW, destHeight: CH,
+      width: CW, height: CH, destWidth: CW, destHeight: CH,
       fileType: 'jpg', quality: 0.92,
       success: (res) => resolve(res.tempFilePath),
       fail: (err) => reject(err),
