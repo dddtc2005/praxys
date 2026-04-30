@@ -36,12 +36,15 @@ const VERDICT_LABEL: Record<TrainingSignal['recommendation'], MessageDescriptor>
   rest: msg`REST`,
 };
 
+// Subtitle casing intentionally matches SignalHero.tsx's existing strings
+// (title case: "Go Easy", "Follow Plan", etc.) so the same translation
+// catalogue entries cover both surfaces — no duplicate zh keys.
 const VERDICT_SUBTITLE: Record<TrainingSignal['recommendation'], MessageDescriptor> = {
-  follow_plan: msg`Follow plan`,
-  easy: msg`Go easy`,
-  modify: msg`Adjust workout`,
-  reduce_intensity: msg`Reduce intensity`,
-  rest: msg`Recovery day`,
+  follow_plan: msg`Follow Plan`,
+  easy: msg`Go Easy`,
+  modify: msg`Adjust Workout`,
+  reduce_intensity: msg`Reduce Intensity`,
+  rest: msg`Recovery Day`,
 };
 
 type SignalTone = 'green' | 'amber' | 'red';
