@@ -9,7 +9,7 @@ from datetime import date, datetime
 from sqlalchemy.orm import Session
 
 from db.cache_revision import bump_revisions
-from db.models import Activity, ActivitySplit, RecoveryData, FitnessData, TrainingPlan
+from db.models import Activity, ActivitySample, ActivitySplit, RecoveryData, FitnessData, TrainingPlan
 
 logger = logging.getLogger(__name__)
 
@@ -515,6 +515,63 @@ def write_lactate_threshold(user_id: str, rows: list[dict], db: Session) -> int:
     if count > 0:
         bump_revisions(db, user_id, ["fitness"])
     return count
+
+
+_SAMPLE_BATCH_SIZE = 500
+
+
+def write_samples(user_id: str, rows: list[dict], db: Session) -> int:
+    """Upsert per-second activity samples. Returns count of rows written.
+
+    Uses INSERT OR IGNORE keyed on (activity_id, t_sec) so re-syncing an
+    activity is idempotent — existing rows are left untouched. Inserts are
+    batched to avoid oversized transactions for long activities.
+    """
+    if not rows:
+        return 0
+
+    from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
+    total = 0
+    for batch_start in range(0, len(rows), _SAMPLE_BATCH_SIZE):
+        batch = rows[batch_start : batch_start + _SAMPLE_BATCH_SIZE]
+        records = []
+        for row in batch:
+            t = row.get("t_sec")
+            aid = row.get("activity_id")
+            if t is None or not aid:
+                continue
+            speed = _float(row.get("speed_ms"))
+            records.append({
+                "user_id": user_id,
+                "activity_id": str(aid),
+                "source": str(row.get("source", "")),
+                "t_sec": int(t),
+                "power_watts": _float(row.get("power_watts")),
+                "hr_bpm": _float(row.get("hr_bpm")),
+                "speed_ms": speed,
+                "pace_sec_km": round(1000.0 / speed, 2) if speed and speed > 0 else _float(row.get("pace_sec_km")),
+                "cadence_spm": _float(row.get("cadence_spm")),
+                "altitude_m": _float(row.get("altitude_m")),
+                "distance_m": _float(row.get("distance_m")),
+                "lat": _float(row.get("lat")),
+                "lng": _float(row.get("lng")),
+                "grade_pct": _float(row.get("grade_pct")),
+                "temperature_c": _float(row.get("temperature_c")),
+                "ground_time_ms": _float(row.get("ground_time_ms")),
+                "oscillation_mm": _float(row.get("oscillation_mm")),
+                "leg_spring_kn_m": _float(row.get("leg_spring_kn_m")),
+                "vertical_ratio": _float(row.get("vertical_ratio")),
+                "form_power_watts": _float(row.get("form_power_watts")),
+                "respiration_rate": _float(row.get("respiration_rate")),
+            })
+        if not records:
+            continue
+        stmt = sqlite_insert(ActivitySample).values(records)
+        stmt = stmt.on_conflict_do_nothing(index_elements=["user_id", "activity_id", "t_sec"])
+        result = db.execute(stmt)
+        total += result.rowcount
+    return total
 
 
 def write_training_plan(user_id: str, rows: list[dict], source: str,
