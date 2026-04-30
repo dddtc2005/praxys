@@ -153,15 +153,43 @@ export default function Today() {
       {!hasCoachBrief && <p className="today-rationale">{signal.reason}</p>}
 
       {localizedInsight && (
-
-        <aside className="today-gloss">
-          <div className="today-gloss-eyebrow">
-            <Trans>Praxys Coach</Trans>
-            {localizedInsight.headline ? <> · {localizedInsight.headline}</> : null}
+        <aside className="coach-receipt">
+          <div className="coach-banner">
+            <span className="coach-mark"><Trans>Praxys Coach</Trans></span>
+            <span className="coach-stamp">5 min</span>
           </div>
-          <p className="today-gloss-text">{linkifyScienceTerms(localizedInsight.summary ?? '')}</p>
+          <div className="coach-body">
+            <p className="coach-headline">{localizedInsight.headline}</p>
+            {localizedInsight.findings.length > 0 && (
+              <>
+                <p className="coach-label">Findings</p>
+                <ul className="coach-list">
+                  {localizedInsight.findings.map((f, i) => (
+                    <li key={i} className={`coach-row coach-row-${f.type}`}>
+                      <span className="coach-tag">[{f.type === 'positive' ? '+' : f.type === 'warning' ? '!' : '·'}]</span>
+                      <span className="coach-text">{linkifyScienceTerms(f.text)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {localizedInsight.recommendations.length > 0 && (
+              <>
+                <hr className="coach-rule" />
+                <p className="coach-label">Recommendations</p>
+                <ul className="coach-list">
+                  {localizedInsight.recommendations.map((r, i) => (
+                    <li key={i} className="coach-row">
+                      <span className="coach-tag coach-tag-rec">→</span>
+                      <span className="coach-text">{linkifyScienceTerms(r)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+          <div className="coach-foot">Plews HRV-guided · Banister PMC</div>
         </aside>
-
       )}
 
       <div className="today-supporting">
