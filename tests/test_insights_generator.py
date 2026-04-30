@@ -254,3 +254,38 @@ def test_returns_none_when_finding_types_disagree(monkeypatch):
     monkeypatch.setattr(llm, "get_client", lambda: fake)
 
     assert insights_generator.generate_daily_brief(_fake_context(), PILLARS) is None
+
+
+def test_returns_none_when_headline_empty(monkeypatch):
+    bad = _valid_bilingual_response()
+    bad["en"]["headline"] = ""
+    fake = _FakeClient(json.dumps(bad))
+    monkeypatch.setattr(llm, "get_client", lambda: fake)
+
+    assert insights_generator.generate_daily_brief(_fake_context(), PILLARS) is None
+
+
+def test_returns_none_when_recommendations_contain_non_strings(monkeypatch):
+    bad = _valid_bilingual_response()
+    bad["zh"]["recommendations"] = ["ok", 42]  # 42 is not a string
+    fake = _FakeClient(json.dumps(bad))
+    monkeypatch.setattr(llm, "get_client", lambda: fake)
+
+    assert insights_generator.generate_daily_brief(_fake_context(), PILLARS) is None
+
+
+def test_validator_returns_specific_reason_for_each_failure_class():
+    """Spot-check that the validator emits a useful tag per failure class —
+    the rejection log relies on this to be debuggable."""
+    from api.insights_generator import _validate_bilingual_shape
+
+    valid = _valid_bilingual_response()
+    ok, reason = _validate_bilingual_shape(valid)
+    assert ok and reason == "ok"
+
+    no_zh = {"en": valid["en"]}
+    assert _validate_bilingual_shape(no_zh) == (False, "missing_zh")
+
+    misaligned = {**valid}
+    misaligned["zh"] = {**valid["zh"], "findings": valid["zh"]["findings"][:0]}
+    assert _validate_bilingual_shape(misaligned)[1] == "findings_length_mismatch"

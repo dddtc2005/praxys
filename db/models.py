@@ -215,7 +215,8 @@ class FitnessData(Base):
 
 
 class AiInsight(Base):
-    """AI-generated insights pushed from CLI skills (training review, etc.)."""
+    """AI-generated insights — written by the post-sync LLM runner
+    (``api/insights_runner.py``) and the legacy CLI / MCP push paths."""
 
     __tablename__ = "ai_insights"
 

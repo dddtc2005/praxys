@@ -219,5 +219,6 @@ def _sync_connection(user_id: str, platform: str, db):
         insight_results = run_insights_for_user(user_id, db, counts)
         logger.info("Insight generation for user=%s: %s", user_id, insight_results)
     except Exception:
+        # No rollback: the runner uses its own session, and the caller's
+        # session has nothing pending past the prior db.commit().
         logger.exception("Insight generation failed for user=%s", user_id)
-        db.rollback()

@@ -14,8 +14,10 @@ always wrap it in try/except.
 
 Transaction ownership: the runner opens its own ``SessionLocal`` so its
 commits / rollbacks are fully isolated from the caller's sync session.
-The caller passes a session in only as a hint that DB infrastructure is
-ready; tests inject their own session to bypass ``SessionLocal``.
+The caller's ``db`` parameter is unused for writes — it's accepted so the
+two call sites (sync route, scheduler) stay symmetric and so a future
+refactor can plumb caller state without changing the signature again.
+Tests inject ``_session=...`` to substitute an in-memory session.
 """
 from __future__ import annotations
 

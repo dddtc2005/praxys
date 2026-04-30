@@ -106,8 +106,18 @@ def _generate(
         user=user_msg,
         model=llm.INSIGHT_MODEL,
     )
-    if not raw or not _validate_bilingual_shape(raw):
-        logger.warning("Insight %s skipped: invalid response shape", insight_type)
+    if not raw:
+        # chat_json already logged the underlying error; no need to repeat.
+        return None
+    ok, reason = _validate_bilingual_shape(raw)
+    if not ok:
+        # Cost was incurred — log enough context to diagnose what went wrong
+        # six months from now without re-running the prompt.
+        preview = json.dumps(raw, ensure_ascii=False)[:300] if raw else None
+        logger.warning(
+            "Insight %s rejected: reason=%s model=%s raw_preview=%r",
+            insight_type, reason, llm.INSIGHT_MODEL, preview,
+        )
         return None
 
     en = raw["en"]
@@ -284,37 +294,42 @@ def _race_forecast_inputs(context: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def _validate_bilingual_shape(raw: Any) -> bool:
-    """Return True iff ``raw`` matches the strict en+zh schema."""
+def _validate_bilingual_shape(raw: Any) -> tuple[bool, str]:
+    """Validate ``raw`` against the strict en+zh schema.
+
+    Returns ``(ok, reason)``. ``reason`` is a short tag suitable for logging
+    (e.g. ``"missing_zh"``, ``"finding_type_mismatch"``) so a debug log can
+    pinpoint which check failed without dumping the full payload.
+    """
     if not isinstance(raw, dict):
-        return False
+        return False, "not_dict"
     for lang in ("en", "zh"):
         block = raw.get(lang)
         if not isinstance(block, dict):
-            return False
+            return False, f"missing_{lang}"
         if not isinstance(block.get("headline"), str) or not block["headline"]:
-            return False
+            return False, f"{lang}_headline_invalid"
         if not isinstance(block.get("summary"), str) or not block["summary"]:
-            return False
+            return False, f"{lang}_summary_invalid"
         findings = block.get("findings")
         if not isinstance(findings, list):
-            return False
+            return False, f"{lang}_findings_not_list"
         for f in findings:
             if not isinstance(f, dict):
-                return False
+                return False, f"{lang}_finding_not_dict"
             if f.get("type") not in {"positive", "warning", "neutral"}:
-                return False
+                return False, f"{lang}_finding_type_unknown"
             if not isinstance(f.get("text"), str) or not f["text"]:
-                return False
+                return False, f"{lang}_finding_text_invalid"
         recs = block.get("recommendations")
         if not isinstance(recs, list) or not all(isinstance(r, str) for r in recs):
-            return False
+            return False, f"{lang}_recommendations_invalid"
     # findings/recommendations must align across languages
     if len(raw["en"]["findings"]) != len(raw["zh"]["findings"]):
-        return False
+        return False, "findings_length_mismatch"
     if len(raw["en"]["recommendations"]) != len(raw["zh"]["recommendations"]):
-        return False
+        return False, "recommendations_length_mismatch"
     for en_f, zh_f in zip(raw["en"]["findings"], raw["zh"]["findings"]):
         if en_f["type"] != zh_f["type"]:
-            return False
-    return True
+            return False, "finding_type_mismatch"
+    return True, "ok"

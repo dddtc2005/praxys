@@ -37,6 +37,10 @@ def get_client() -> Any | None:
     - The optional ``openai`` or ``azure-identity`` SDKs are not installed.
     - The ``AZURE_AI_ENDPOINT`` env var is unset.
 
+    Both fallback paths log once at module-call time so operators see the
+    AI-tier state in deploy logs (otherwise a missing SDK or unset endpoint
+    silently disables AI insights for the lifetime of the process).
+
     Tests that mutate ``AZURE_AI_ENDPOINT`` should call ``get_client.cache_clear()``
     afterwards because the result is memoised at process scope.
     """
@@ -46,14 +50,27 @@ def get_client() -> Any | None:
             DefaultAzureCredential,
             get_bearer_token_provider,
         )
-    except ImportError:
+    except ImportError as e:
+        logger.warning(
+            "Azure OpenAI SDK missing — AI insights disabled, "
+            "rule-based fallback active (%s)", e
+        )
         return None
     endpoint = os.environ.get("AZURE_AI_ENDPOINT")
     if not endpoint:
+        logger.info(
+            "AZURE_AI_ENDPOINT unset — AI insights disabled, "
+            "rule-based fallback active"
+        )
         return None
     token_provider = get_bearer_token_provider(
         DefaultAzureCredential(),
         "https://cognitiveservices.azure.com/.default",
+    )
+    logger.info(
+        "Azure OpenAI client initialised: endpoint=%s api_version=%s "
+        "insight_model=%s translate_model=%s",
+        endpoint, API_VERSION, INSIGHT_MODEL, TRANSLATE_MODEL,
     )
     return AzureOpenAI(
         azure_endpoint=endpoint,
@@ -74,10 +91,28 @@ def chat_json(
 ) -> dict | None:
     """Strict JSON chat completion. Returns parsed dict or None on failure.
 
-    Uses ``response_format={"type": "json_object"}`` so the model is constrained
-    to emit a JSON object. On JSON decode failure or transient SDK errors,
-    retries up to ``retry`` additional times then returns None.
+    Uses ``response_format={"type": "json_object"}`` so the model is
+    constrained to emit a JSON object.
+
+    Failure handling distinguishes operator-actionable errors (auth misconfig,
+    bad request — logged at ERROR, no retry) from transient errors (rate
+    limit, transient API error, JSON decode — logged at WARNING and retried).
+    Returns None in either case so callers fall back to rule-based prose;
+    distinct log levels let alerting route operator-actionable failures
+    differently from noisy transient ones.
     """
+    # SDK exception classes — imported here so this module stays importable
+    # without the openai SDK (chat_json is unreachable in that case anyway).
+    try:
+        from openai import (  # type: ignore[import-not-found]
+            APIError,
+            AuthenticationError,
+            BadRequestError,
+            RateLimitError,
+        )
+    except ImportError:  # pragma: no cover — get_client returns None first
+        AuthenticationError = BadRequestError = RateLimitError = APIError = ()  # type: ignore[assignment]
+
     last_err: Exception | None = None
     for attempt in range(retry + 1):
         try:
@@ -93,9 +128,23 @@ def chat_json(
             )
             content = resp.choices[0].message.content or ""
             return json.loads(content)
-        except Exception as e:  # SDK + json.JSONDecodeError both surface here
+        except AuthenticationError:
+            logger.error(
+                "chat_json: Azure auth failed — DefaultAzureCredential or "
+                "endpoint misconfigured", exc_info=True,
+            )
+            return None  # operator-actionable, no retry
+        except BadRequestError as e:
+            logger.error("chat_json: bad request (no retry): %s", e)
+            return None  # malformed prompt — bug in caller
+        except (RateLimitError, APIError, json.JSONDecodeError) as e:
+            last_err = e  # transient — fall through to retry
+        except Exception as e:  # pragma: no cover — unexpected
             last_err = e
-            if attempt < retry:
-                continue
-    logger.warning("chat_json failed after %d attempt(s): %s", retry + 1, last_err)
+        if attempt < retry:
+            continue
+    logger.warning(
+        "chat_json failed after %d attempt(s): %s",
+        retry + 1, last_err,
+    )
     return None

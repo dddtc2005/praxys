@@ -18,7 +18,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 def compute_dataset_hash(
@@ -45,9 +48,12 @@ def compute_dataset_hash(
         rs = context.get("recovery_state", {}) or {}
         cf = context.get("current_fitness", {}) or {}
         plan_list = context.get("current_plan") or []
-        # ``current_plan`` comes from a pandas DataFrame's iterrows() and may
-        # not have a guaranteed order. Sort by date so two upcoming workouts
-        # on the same day don't flip the hash between syncs.
+        # Sort defensively before taking the first entry: upstream plan
+        # ordering isn't part of the dashboard contract — a future filter
+        # change or two workouts sharing a date could swap positions and
+        # burn an LLM call. Date strings here are already ISO-style
+        # (api/ai.py wraps them in ``str(date_obj)``), so lex sort matches
+        # chronological sort.
         plan_first = (
             sorted(
                 (p for p in plan_list if isinstance(p, dict)),
@@ -119,21 +125,31 @@ def compute_dataset_hash(
 
 
 def _round(v: Any, step: float) -> float | None:
+    """Bucket ``v`` to the nearest ``step``. Returns None for missing/non-numeric.
+
+    Logs once when a non-numeric, non-None value sneaks in — silently dropping
+    it would freeze the hash on a typo'd field forever (stuck-cache bug).
+    """
     if v is None:
         return None
-    try:
-        return round(float(v) / step) * step
-    except (TypeError, ValueError):
+    if not isinstance(v, (int, float)):
+        logger.warning(
+            "insight_hash._round: non-numeric value %r — projection lossy", v
+        )
         return None
+    return round(v / step) * step
 
 
 def _bucket(v: Any, step: float) -> float | None:
+    """Floor-bucket ``v`` to ``step``. Returns None for missing/non-numeric."""
     if v is None:
         return None
-    try:
-        return int(float(v) // step) * step
-    except (TypeError, ValueError):
+    if not isinstance(v, (int, float)):
+        logger.warning(
+            "insight_hash._bucket: non-numeric value %r — projection lossy", v
+        )
         return None
+    return int(v // step) * step
 
 
 def _project_plan_entry(entry: Any) -> Any:
