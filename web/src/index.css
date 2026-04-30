@@ -330,9 +330,9 @@
    ══════════════════════════════════════════════════════════════════════ */
 .today-spread {
   display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 32px 40px;
-  padding: 48px 0;
+  grid-template-columns: 5fr 4fr;
+  gap: 32px 48px;
+  padding: 40px 0;
   font-family: var(--font-sans);
 }
 .today-spread > .today-eyebrow {
@@ -347,23 +347,15 @@
 }
 .today-spread > .today-verdict {
   grid-column: 1 / 2;
+  align-self: start;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 16px;
-  margin: 0;
-}
-.today-spread > .today-rationale {
-  grid-column: 1 / 2;
-  font-size: 18px;
-  line-height: 1.45;
-  color: var(--foreground);
-  margin: 0;
-  max-width: 540px;
+  align-items: center;
+  gap: 18px;
+  padding: 24px 0;
 }
 .today-spread > .coach-receipt {
   grid-column: 2 / 3;
-  grid-row: 2 / 4;
   align-self: start;
 }
 .today-spread > .today-supporting {
@@ -453,9 +445,6 @@
   }
   .today-spread > .today-supporting > .today-cell:nth-last-child(-n+2) {
     border-bottom: none;
-  }
-  .today-spread > .today-verdict {
-    font-size: clamp(3rem, 14vw, 5rem);
   }
 }
 

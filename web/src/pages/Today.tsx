@@ -73,6 +73,19 @@ const TONE_CLASSES: Record<SignalTone, { text: string; bg: string; ring: string;
 
 const TREND_ARROW = { stable: '→', improving: '↑', declining: '↓' } as const;
 
+// Mirrors AiInsightsCard's helper. Should be extracted to a shared util when
+// a third caller appears.
+function timeAgo(isoDate: string, locale: string): string {
+  const diff = Date.now() - new Date(isoDate).getTime();
+  const rtf = new Intl.RelativeTimeFormat(locale === 'zh' ? 'zh-CN' : 'en-US', { style: 'short' });
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 60) return rtf.format(-mins, 'minute');
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return rtf.format(-hours, 'hour');
+  const days = Math.floor(hours / 24);
+  return rtf.format(-days, 'day');
+}
+
 function formatPlan(plan: TrainingSignal['plan']): string | null {
   if (!plan?.workout_type) return null;
   const parts: string[] = [plan.workout_type];
@@ -140,23 +153,20 @@ export default function Today() {
     <div className="today-spread">
       <p className="today-eyebrow">Today · {dateStr}</p>
       <div className="today-verdict">
-        <div
-          className={`relative flex h-32 w-32 items-center justify-center rounded-full ring-4 ${tone.ring} ${tone.shadow}`}
-        >
+        <div className={`relative flex h-44 w-44 sm:h-56 sm:w-56 items-center justify-center rounded-full ring-4 ${tone.ring} ${tone.shadow}`}>
           <div className={`absolute inset-0 rounded-full ${tone.bg} opacity-10 animate-pulse`} />
-          <span className={`relative text-3xl font-bold font-data tracking-wider ${tone.text}`}>
-            {verdictText}
-          </span>
+          <span className={`relative text-5xl sm:text-6xl font-bold font-data tracking-wider ${tone.text}`}>{verdictText}</span>
         </div>
-        <p className={`text-lg font-semibold ${tone.text}`}>{verdictSubtitle}</p>
+        <p className={`text-xl font-semibold ${tone.text}`}>{verdictSubtitle}</p>
+        {!hasCoachBrief && <p className="text-sm text-muted-foreground text-center max-w-sm">{signal.reason}</p>}
       </div>
-      {!hasCoachBrief && <p className="today-rationale">{signal.reason}</p>}
-
-      {localizedInsight && (
+      {localizedInsight && insight && (
         <aside className="coach-receipt">
           <div className="coach-banner">
             <span className="coach-mark"><Trans>Praxys Coach</Trans></span>
-            <span className="coach-stamp">5 min</span>
+            {insight.generated_at && (
+              <span className="coach-stamp">{timeAgo(insight.generated_at, locale)}</span>
+            )}
           </div>
           <div className="coach-body">
             <p className="coach-headline">{localizedInsight.headline}</p>
@@ -191,42 +201,14 @@ export default function Today() {
           <div className="coach-foot">Plews HRV-guided · Banister PMC</div>
         </aside>
       )}
-
       <div className="today-supporting">
-        <div className="today-cell">
-          <span className="today-cell-label">HRV (ln RMSSD)</span>
-          <span className="today-cell-value">{hrv ? hrv.today_ln.toFixed(2) : '—'}</span>
-          <span className="today-cell-sub">
-            {hrv?.today_ms != null ? `${hrv.today_ms} ms · ` : ''}
-            {hrv ? `vs ${hrv.baseline_mean_ln.toFixed(2)} baseline` : 'no data'}
-          </span>
-        </div>
-        <div className="today-cell">
-          <span className="today-cell-label">7d Trend</span>
-          <span className="today-cell-value">{trendArrow}</span>
-          <span className="today-cell-sub">{hrv ? `${hrv.trend} · CV ${trendCv}` : 'no data'}</span>
-        </div>
-        <div className="today-cell">
-          <span className="today-cell-label">RHR</span>
-          <span className="today-cell-value">{rhrDisplay}</span>
-          <span className="today-cell-sub">{restingHr != null ? `bpm · ${ra?.rhr_trend ?? 'normal'}` : 'no data'}</span>
-        </div>
-        <div className="today-cell">
-          <span className="today-cell-label">Sleep</span>
-          <span className="today-cell-value">{sleepScore != null ? sleepScore : '—'}</span>
-          <span className="today-cell-sub">{sleepScore != null ? 'overnight score' : 'no data'}</span>
-        </div>
-        <div className="today-cell">
-          <span className="today-cell-label">TSB</span>
-          <span className={`today-cell-value ${tsb > 0 ? 'today-cell-value-positive' : ''}`.trim()}>{tsbDisplay}</span>
-          <span className="today-cell-sub">{tsbDescriptor}</span>
-        </div>
+        <div className="today-cell"><span className="today-cell-label">HRV (ln RMSSD)</span><span className="today-cell-value">{hrv ? hrv.today_ln.toFixed(2) : '—'}</span><span className="today-cell-sub">{hrv?.today_ms != null ? `${hrv.today_ms} ms · ` : ''}{hrv ? `vs ${hrv.baseline_mean_ln.toFixed(2)} baseline` : 'no data'}</span></div>
+        <div className="today-cell"><span className="today-cell-label">7d Trend</span><span className="today-cell-value">{trendArrow}</span><span className="today-cell-sub">{hrv ? `${hrv.trend} · CV ${trendCv}` : 'no data'}</span></div>
+        <div className="today-cell"><span className="today-cell-label">RHR</span><span className="today-cell-value">{rhrDisplay}</span><span className="today-cell-sub">{restingHr != null ? `bpm · ${ra?.rhr_trend ?? 'normal'}` : 'no data'}</span></div>
+        <div className="today-cell"><span className="today-cell-label">Sleep</span><span className="today-cell-value">{sleepScore != null ? sleepScore : '—'}</span><span className="today-cell-sub">{sleepScore != null ? 'overnight score' : 'no data'}</span></div>
+        <div className="today-cell"><span className="today-cell-label">TSB</span><span className={`today-cell-value ${tsb > 0 ? 'today-cell-value-positive' : ''}`.trim()}>{tsbDisplay}</span><span className="today-cell-sub">{tsbDescriptor}</span></div>
       </div>
-
-      <div className="today-plan">
-        <span className="today-plan-eyebrow">Planned · Today</span>
-        <span className="today-plan-text">{planText}</span>
-      </div>
+      <div className="today-plan"><span className="today-plan-eyebrow">Planned · Today</span><span className="today-plan-text">{planText}</span></div>
     </div>
   );
 }
