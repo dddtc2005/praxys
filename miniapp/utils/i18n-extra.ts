@@ -150,6 +150,10 @@ const EN_TODAY = {
   Power: 'Power',
   'Heart rate': 'Heart rate',
   Pace: 'Pace',
+  // Section heading for the warnings list. Lived in web's Today.tsx until
+  // PR #238 redesigned the page and dropped the warnings block; miniapp's
+  // pages/today still renders warnings, so the key lives here now.
+  Warnings: 'Warnings',
   // Recovery status — must mirror RecoveryStatus in types/api.ts exactly.
   normal: 'Normal',
   fresh: 'Fresh',
@@ -410,6 +414,7 @@ const ZH_TODAY = {
   Power: '功率',
   'Heart rate': '心率',
   Pace: '配速',
+  Warnings: '警告',
   // Recovery status — must mirror RecoveryStatus in types/api.ts exactly.
   normal: '正常',
   fresh: '恢复良好',
