@@ -297,7 +297,15 @@ function CpMilestoneMode({ data, hideAssessment }: { data: GoalResponse; hideAss
               </div>
               <div className="mx-auto max-w-md">
                 <Progress value={progressPct} className="h-4" />
-                <p className="text-xs text-muted-foreground mt-1 font-data">{progressPct.toFixed(0)}%</p>
+                <p className="text-xs text-muted-foreground mt-1 font-data">
+                  {progressPct.toFixed(0)}%
+                  {rc.estimated_months != null && (
+                    <span className="text-muted-foreground/70">
+                      {' · '}
+                      <Trans>~{rc.estimated_months.toFixed(1)} months to target</Trans>
+                    </span>
+                  )}
+                </p>
               </div>
             </>
           )}
@@ -326,32 +334,31 @@ function CpMilestoneMode({ data, hideAssessment }: { data: GoalResponse; hideAss
         </Card>
       )}
 
-      {/* Assessment — prose hidden when the Coach card covers it. The
-          estimated-months metric below stays as a deterministic fallback. */}
-      {(!hideAssessment || rc.estimated_months != null) && (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"><Trans>Assessment</Trans></CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {!hideAssessment && (
+      {/* Assessment — fully suppressed when the Coach card covers the same
+          ground. The estimated-months metric has been relocated next to the
+          progress bar in the hero so it survives the suppression. */}
+      {!hideAssessment && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"><Trans>Assessment</Trans></CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <p className={`text-sm font-medium ${severityColor(rCheck.severity)}`}>
               {rCheck.assessment}
             </p>
-          )}
-          {rc.estimated_months != null && (
-            <div className="rounded-lg bg-muted px-4 py-3">
-              <p className="text-xs text-muted-foreground"><Trans>Estimated time to target</Trans></p>
-              <p className="font-data text-lg text-foreground">
-                <Trans>{rc.estimated_months.toFixed(1)} months</Trans>
-              </p>
-            </div>
-          )}
-          {!hideAssessment && rCheck.trend_note && (
-            <p className="text-sm text-muted-foreground">{rCheck.trend_note}</p>
-          )}
-        </CardContent>
-      </Card>
+            {rc.estimated_months != null && (
+              <div className="rounded-lg bg-muted px-4 py-3">
+                <p className="text-xs text-muted-foreground"><Trans>Estimated time to target</Trans></p>
+                <p className="font-data text-lg text-foreground">
+                  <Trans>{rc.estimated_months.toFixed(1)} months</Trans>
+                </p>
+              </div>
+            )}
+            {rCheck.trend_note && (
+              <p className="text-sm text-muted-foreground">{rCheck.trend_note}</p>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       <DataHint sufficient={data.data_meta?.cp_trend_sufficient ?? true} message={t`Not enough data to show CP trend`} hint={t`Need at least 3 activities with power data.`}><CpTrendChart data={data.cp_trend} targetCp={targetCp} label={d?.trend_label} unit={d?.threshold_unit} metricName={d?.threshold_abbrev} /></DataHint>
