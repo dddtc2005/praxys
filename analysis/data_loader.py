@@ -380,6 +380,33 @@ def load_data_from_db(user_id: str, db: Session) -> dict[str, pd.DataFrame]:
     }
 
 
+def load_activity_samples(
+    user_id: str,
+    db,
+    activity_ids: list[str] | None = None,
+) -> pd.DataFrame:
+    """Load per-second stream samples from activity_samples for analysis.
+
+    Returns a DataFrame with columns: activity_id, t_sec, power_watts,
+    hr_bpm, pace_sec_km, source. Columns not populated by a given connector
+    will be present but NaN.
+
+    If activity_ids is provided, only samples for those activities are
+    returned — pass the recent activity IDs from the loaded activities
+    DataFrame to avoid loading all historical samples on every request.
+    """
+    df = pd.read_sql(
+        "SELECT activity_id, t_sec, power_watts, hr_bpm, pace_sec_km, source "
+        "FROM activity_samples WHERE user_id = :uid",
+        db.bind,
+        params={"uid": user_id},
+    )
+    if activity_ids is not None and not df.empty:
+        ids_set = {str(a) for a in activity_ids}
+        df = df[df["activity_id"].astype(str).isin(ids_set)]
+    return df
+
+
 def _pivot_fitness(raw: pd.DataFrame) -> pd.DataFrame:
     """Pivot fitness_data rows into a wide DataFrame with one column per metric."""
     if raw.empty:

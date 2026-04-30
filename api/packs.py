@@ -134,6 +134,27 @@ class RequestContext:
         return self._data["splits"]
 
     @cached_property
+    def samples(self) -> pd.DataFrame:
+        """Per-second stream samples for recent activities (last 8 weeks).
+
+        Returns an empty DataFrame when the activity_samples table has no rows
+        for this user — gracefully degrades to split-based zone analysis.
+        """
+        from analysis.data_loader import load_activity_samples
+        from datetime import timedelta
+        cutoff = self.today - timedelta(weeks=8)
+        merged = self.merged_activities
+        if merged.empty or "activity_id" not in merged.columns or "date" not in merged.columns:
+            return pd.DataFrame()
+        recent_aids = list(
+            merged[pd.to_datetime(merged["date"]).dt.date >= cutoff]["activity_id"]
+            .astype(str).unique()
+        )
+        if not recent_aids:
+            return pd.DataFrame()
+        return load_activity_samples(self.user_id, self.db, recent_aids)
+
+    @cached_property
     def recovery(self) -> pd.DataFrame:
         return self._data["recovery"]
 
@@ -483,6 +504,7 @@ def get_diagnosis_pack(ctx: RequestContext) -> dict:
         "diagnosis": _compute_diagnosis(
             ctx.merged_activities, ctx.splits, cp_trend,
             ctx.config, ctx.thresholds, ctx.science,
+            samples=ctx.samples,
         ),
         "workout_flags": _build_workout_flags(
             ctx.merged_activities, ctx.recovery, ctx.config.training_base,
