@@ -121,12 +121,16 @@ export default function Today() {
   const insight = briefData?.insight ?? null;
   const localizedInsight =
     insight && locale === 'zh' && insight.translations?.zh ? insight.translations.zh : insight;
+  // When the LLM Coach narrative is available, suppress the rule-based reason —
+  // it covers the same ground in a more generic voice. Rule-based is the fallback.
+  const hasCoachBrief = localizedInsight != null;
 
   const hrv = ra?.hrv ?? null;
   const trendArrow = hrv ? TREND_ARROW[hrv.trend] : '—';
-  const trendCv = hrv != null ? `${(hrv.rolling_cv * 100).toFixed(1)}%` : '—';
+  const trendCv = hrv != null ? `${hrv.rolling_cv.toFixed(1)}%` : '—';
   const sleepScore = ra?.sleep_score;
   const restingHr = ra?.resting_hr;
+  const rhrDisplay = restingHr != null ? Math.round(restingHr) : '—';
   const tsb = signal.recovery.tsb;
   const tsbDisplay = `${tsb >= 0 ? '+' : ''}${tsb.toFixed(1)}`;
   const tsbDescriptor = tsb > 10 ? 'strongly positive' : tsb > 0 ? 'positive' : tsb > -10 ? 'mild fatigue' : 'fatigued';
@@ -146,9 +150,10 @@ export default function Today() {
         </div>
         <p className={`text-lg font-semibold ${tone.text}`}>{verdictSubtitle}</p>
       </div>
-      <p className="today-rationale">{signal.reason}</p>
+      {!hasCoachBrief && <p className="today-rationale">{signal.reason}</p>}
 
       {localizedInsight && (
+
         <aside className="today-gloss">
           <div className="today-gloss-eyebrow">
             <Trans>Praxys Coach</Trans>
@@ -156,6 +161,7 @@ export default function Today() {
           </div>
           <p className="today-gloss-text">{linkifyScienceTerms(localizedInsight.summary ?? '')}</p>
         </aside>
+
       )}
 
       <div className="today-supporting">
@@ -174,7 +180,7 @@ export default function Today() {
         </div>
         <div className="today-cell">
           <span className="today-cell-label">RHR</span>
-          <span className="today-cell-value">{restingHr != null ? restingHr : '—'}</span>
+          <span className="today-cell-value">{rhrDisplay}</span>
           <span className="today-cell-sub">{restingHr != null ? `bpm · ${ra?.rhr_trend ?? 'normal'}` : 'no data'}</span>
         </div>
         <div className="today-cell">
