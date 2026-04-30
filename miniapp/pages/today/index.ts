@@ -3,10 +3,11 @@ import type { IAppOption } from '../../app';
 import { apiGet } from '../../utils/api-client';
 import { generateShareCard } from '../../utils/share-image';
 import type { ApiError } from '../../utils/api-client';
-import type { TodayResponse } from '../../types/api';
+import type { AiInsight, AiInsightFinding, TodayResponse } from '../../types/api';
 import { formatDistance, formatTime } from '../../utils/format';
 import { applyThemeChrome, themeClassName } from '../../utils/theme';
 import { t, detectLocale } from '../../utils/i18n';
+import { fetchInsight, localizedInsight } from '../../utils/insights';
 import {
   buildShareMessage,
   buildTimelineMessage,
@@ -68,6 +69,84 @@ interface SparklineSeries {
   fill: boolean;
 }
 
+interface CoachFindingRow {
+  /** [+] / [!] / [·] glyph; same convention as web's coach-receipt. */
+  marker: string;
+  /** 'positive' | 'warning' | 'neutral' — used to tone the row. */
+  tone: AiInsightFinding['type'];
+  text: string;
+}
+
+interface CoachRecRow {
+  index: string;
+  text: string;
+}
+
+interface CoachReceipt {
+  /** Time-since-generated, e.g. "2h ago" / "5分钟前". Empty when no
+   *  generated_at on the row (legacy inserts). */
+  stamp: string;
+  headline: string;
+  hasFindings: boolean;
+  findings: CoachFindingRow[];
+  hasRecommendations: boolean;
+  recommendations: CoachRecRow[];
+  /** Active recovery + load theory names joined with ` · `. Empty when
+   *  the API didn't surface science_notes (e.g. fresh user before
+   *  first sync). Mirrors web's footer-attribution behaviour. */
+  attribution: string;
+}
+
+/**
+ * Format a relative-time stamp for the coach receipt header. Mirrors
+ * web/src/pages/Today.tsx::timeAgo — minute / hour / day buckets via
+ * Intl.RelativeTimeFormat. WeChat 7.x supports Intl in mini programs.
+ */
+function timeAgo(isoDate: string, locale: 'en' | 'zh'): string {
+  try {
+    const diff = Date.now() - new Date(isoDate).getTime();
+    const rtf = new Intl.RelativeTimeFormat(locale === 'zh' ? 'zh-CN' : 'en-US', { style: 'short' });
+    const mins = Math.floor(diff / 60_000);
+    if (mins < 60) return rtf.format(-mins, 'minute');
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return rtf.format(-hours, 'hour');
+    const days = Math.floor(hours / 24);
+    return rtf.format(-days, 'day');
+  } catch {
+    // Older WeChat builds may not implement RelativeTimeFormat. Drop
+    // the stamp rather than blowing up — the headline + body still read.
+    return '';
+  }
+}
+
+function buildCoachReceipt(
+  insight: AiInsight,
+  locale: 'en' | 'zh',
+  recoveryName: string | undefined,
+  loadName: string | undefined,
+): CoachReceipt {
+  const view = localizedInsight(insight, locale);
+  const findings: CoachFindingRow[] = view.findings.map((f) => ({
+    marker: f.type === 'positive' ? '[+]' : f.type === 'warning' ? '[!]' : '[·]',
+    tone: f.type,
+    text: f.text,
+  }));
+  const recommendations: CoachRecRow[] = view.recommendations.map((r, i) => ({
+    index: `${i + 1}`,
+    text: r,
+  }));
+  const attribution = [recoveryName, loadName].filter((s): s is string => !!s).join(' · ');
+  return {
+    stamp: insight.generated_at ? timeAgo(insight.generated_at, locale) : '',
+    headline: view.headline,
+    hasFindings: findings.length > 0,
+    findings,
+    hasRecommendations: recommendations.length > 0,
+    recommendations,
+    attribution,
+  };
+}
+
 interface RenderState {
   themeClass: string;
   /** 'light' | 'dark' — narrow form passed to chart components. Derived
@@ -81,7 +160,21 @@ interface RenderState {
   signalLabel: string;
   signalSubtitle: string;
   signalColor: 'green' | 'amber' | 'red';
+  /** Rule-based reason text. Suppressed (empty string) when the LLM
+   *  Coach narrative is available — the receipt below covers the same
+   *  ground in a more specific voice, mirrors web/src/pages/Today.tsx. */
   signalReason: string;
+  hasCoach: boolean;
+  coach: CoachReceipt | null;
+  /** Pre-translated coach-receipt eyebrow / labels. Captured here so
+   *  WXML stays stringless and the i18n-check pass doesn't flag the
+   *  template for hardcoded English. */
+  coachTr: {
+    mark: string;
+    findings: string;
+    recommendations: string;
+    aria: string;
+  } | null;
 
   hasSparkline: boolean;
   sparklineDates: string[];
@@ -119,7 +212,12 @@ interface RenderState {
   warnings: string[];
 }
 
-function buildRenderState(response: TodayResponse | null, themeClass: string, today: string): Partial<RenderState> {
+function buildRenderState(
+  response: TodayResponse | null,
+  themeClass: string,
+  today: string,
+  insight: AiInsight | null,
+): Partial<RenderState> {
   if (!response) {
     return {};
   }
@@ -146,7 +244,10 @@ function buildRenderState(response: TodayResponse | null, themeClass: string, to
   const rec = response.recovery_analysis;
   const recoveryStatus = rec ? t(rec.status) : '—';
   const recoveryHrv = rec?.hrv?.today_ms != null ? `${rec.hrv.today_ms.toFixed(0)} ms` : '—';
-  const recoveryRhr = rec?.resting_hr != null ? `${rec.resting_hr.toFixed(0)} bpm` : '—';
+  // Match web's PR #238 fix: round resting HR rather than relying on
+  // toFixed's banker's-rounding edge case (60.5 → "60" in V8). Both
+  // surfaces should report the same integer for the same float.
+  const recoveryRhr = rec?.resting_hr != null ? `${Math.round(rec.resting_hr)} bpm` : '—';
   const recoverySleep = rec?.sleep_score != null ? `${rec.sleep_score.toFixed(0)}/100` : '—';
 
   const upcomingRows: UpcomingRow[] = (response.upcoming ?? []).slice(0, 3).map((w) => ({
@@ -169,6 +270,24 @@ function buildRenderState(response: TodayResponse | null, themeClass: string, to
   }
 
   const warnings = response.warnings ?? [];
+
+  // Coach receipt: the LLM-generated daily brief, rendered between the
+  // signal hero and the supporting cells. Mirrors web/src/pages/Today.tsx —
+  // when present, suppresses the rule-based signal.reason directly above
+  // so the user doesn't read the same idea twice in two voices.
+  const locale = detectLocale();
+  const recoveryNoteName = response.science_notes?.recovery?.name;
+  const loadNoteName = response.science_notes?.load?.name;
+  const coach = insight ? buildCoachReceipt(insight, locale, recoveryNoteName, loadNoteName) : null;
+  const hasCoach = coach != null;
+  const coachTr = hasCoach
+    ? {
+        mark: t('Praxys Coach'),
+        findings: t('Findings'),
+        recommendations: t('Recommendations'),
+        aria: t('Praxys Coach insight'),
+      }
+    : null;
 
   // Weekly Load mini — mirrors web/src/components/WeeklyLoadMini.tsx.
   // Compliance bands: <70% under, >120% over, else on target. Color
@@ -195,7 +314,10 @@ function buildRenderState(response: TodayResponse | null, themeClass: string, to
     signalLabel: meta.label,
     signalSubtitle: meta.subtitle,
     signalColor: meta.color,
-    signalReason: response.signal.reason,
+    signalReason: hasCoach ? '' : response.signal.reason,
+    hasCoach,
+    coach,
+    coachTr,
 
     hasSparkline,
     sparklineDates: hasSparkline ? sparkline.dates : [],
@@ -301,6 +423,9 @@ const initialData: RenderState & RefreshState = {
   signalSubtitle: '',
   signalColor: 'green',
   signalReason: '',
+  hasCoach: false,
+  coach: null,
+  coachTr: null,
 
   hasSparkline: false,
   sparklineDates: [],
@@ -485,12 +610,20 @@ Page({
   async refetch() {
     this.setData({ loading: true, errorMessage: '' });
     try {
-      const response = await apiGet<TodayResponse>('/api/today');
+      // Today + daily brief in parallel. The brief endpoint always
+      // resolves (returns ``insight: null`` when LLM is disabled or no
+      // row exists yet) — but we still wrap it so a transient brief
+      // failure can't block the whole page. The rule-based signal
+      // reason is the deterministic fallback in that case.
+      const [response, insight] = await Promise.all([
+        apiGet<TodayResponse>('/api/today'),
+        fetchInsight('daily_brief').catch(() => null),
+      ]);
       // Cache raw response so renderShareCard can access it on first FAB tap.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (this as unknown as Record<string, any>)._todayResponse = response;
       this.setData(
-        buildRenderState(response, this.data.themeClass, this.data.today) as Record<string, unknown>,
+        buildRenderState(response, this.data.themeClass, this.data.today, insight) as Record<string, unknown>,
       );
       // Share card is rendered lazily on first FAB tap. Clear any stale
       // path so the old signal's card doesn't show for the new signal.

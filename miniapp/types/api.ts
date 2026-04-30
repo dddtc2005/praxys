@@ -6,6 +6,13 @@
 export type TrainingBase = 'power' | 'hr' | 'pace';
 export type SciencePillar = 'load' | 'recovery' | 'prediction' | 'zones';
 
+/** Build version of the running ``api/main.py``. The backend always
+ * returns a non-empty string (``"develop"`` is the local-dev fallback),
+ * so consumers don't need to handle a missing field. */
+export interface VersionResponse {
+  version: string;
+}
+
 export interface TsbZoneConfig {
   min: number | null;
   max: number | null;
