@@ -760,10 +760,13 @@ def _sync_stryd(user_id: str, creds: dict, from_date: str | None,
             row["activity_id"] = f"stryd_{row.get('date', '')}_{row.get('start_time', '')}"
     act_count = sync_writer.write_activities(user_id, activity_rows, db)
 
-    # Fetch per-activity splits (lap-level power data from activity detail API)
+    # Fetch per-activity splits and per-second samples from the activity detail API.
+    # fetch_activity_splits returns both from a single API call — samples are the
+    # raw per-second arrays that were previously discarded after lap averaging.
     import time as time_mod
     from sync.stryd_sync import fetch_activity_splits
     all_splits = []
+    all_samples = []
     for idx, raw_act in enumerate(_raw):
         act_id = raw_act.get("id")
         if not act_id:
@@ -771,12 +774,15 @@ def _sync_stryd(user_id: str, creds: dict, from_date: str | None,
         with _sync_lock:
             status["stryd"]["progress"] = f"Fetching splits: {idx + 1}/{total}"
         try:
-            splits = fetch_activity_splits(str(act_id), token)
+            splits, samples = fetch_activity_splits(str(act_id), token)
             all_splits.extend(splits)
+            all_samples.extend(samples)
             time_mod.sleep(0.3)  # Rate limit
         except Exception as e:
             logger.debug("Stryd splits for %s: skipped (%s)", act_id, e)
     split_count = sync_writer.write_splits(user_id, all_splits, db)
+    sample_count = sync_writer.write_samples(user_id, all_samples, db)
+    logger.debug("Stryd sync: %d splits, %d samples written", split_count, sample_count)
 
     # CP estimates → fitness_data table (for threshold auto-detection)
     from db.models import FitnessData

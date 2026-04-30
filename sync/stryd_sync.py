@@ -80,14 +80,16 @@ def fetch_current_cp(user_id: str, token: str) -> float | None:
 def fetch_activity_splits(
     activity_id: str,
     token: str,
-) -> list[dict]:
-    """Fetch per-lap splits from a Stryd activity detail.
+) -> tuple[list[dict], list[dict]]:
+    """Fetch per-lap splits and per-second samples from a Stryd activity detail.
 
-    Uses the activity's lap_events timestamps and per-second time series
-    (total_power_list, heart_rate_list, speed_list, distance_list) to
-    compute per-lap averages.
+    Returns (splits, samples):
+    - splits: per-lap averages compatible with sync_writer.write_splits()
+    - samples: per-second rows compatible with sync_writer.write_samples()
 
-    Returns list of split dicts compatible with sync_writer.write_splits().
+    Both are derived from the same API call — the per-second arrays are
+    already fetched to compute lap averages; this function preserves them
+    instead of discarding after averaging.
     """
     url = STRYD_ACTIVITY_API.format(activity_id=activity_id)
     resp = requests.get(
@@ -103,16 +105,25 @@ def fetch_activity_splits(
     speed_list = data.get("speed_list", [])
     distance_list = data.get("distance_list", [])
     ts_list = data.get("timestamp_list", [])
+    cadence_list = data.get("cadence_list", [])
+    elevation_list = data.get("elevation_list", [])
+    ground_time_list = data.get("ground_time_list", [])
+    oscillation_list = data.get("oscillation_list", [])
+    leg_spring_list = data.get("leg_spring_list", [])
+    vertical_ratio_list = data.get("vertical_oscillation_ratio_list", [])
+    form_power_list = data.get("form_power_list", [])
+
     lap_events = data.get("lap_events", [])
     start_events = data.get("start_events", [])
     stop_events = data.get("stop_events", [])
 
     if not ts_list or not power_list:
-        return []
+        return [], []
 
-    # Build lap boundaries: [start, lap1, lap2, ..., end]
     start_ts = start_events[0] if start_events else ts_list[0]
     end_ts = stop_events[0] if stop_events else ts_list[-1]
+
+    # Build lap boundaries: [start, lap1, lap2, ..., end]
     boundaries = [start_ts] + lap_events + [end_ts]
 
     splits = []
@@ -162,7 +173,36 @@ def fetch_activity_splits(
             "avg_pace_min_km": str(avg_pace) if avg_pace else "",
         })
 
-    return splits
+    # Build per-second samples from the same arrays, bounded to the
+    # activity window [start_ts, end_ts] to exclude pre-start padding.
+    def _at(lst: list, i: int):
+        """Return lst[i] or None if out of range or None value."""
+        if lst and i < len(lst):
+            return lst[i]
+        return None
+
+    samples = []
+    for i, t in enumerate(ts_list):
+        if t < start_ts or t > end_ts:
+            continue
+        samples.append({
+            "activity_id": str(activity_id),
+            "source": "stryd",
+            "t_sec": t,
+            "power_watts": _at(power_list, i),
+            "hr_bpm": _at(hr_list, i),
+            "speed_ms": _at(speed_list, i),
+            "cadence_spm": _at(cadence_list, i),
+            "altitude_m": _at(elevation_list, i),
+            "distance_m": _at(distance_list, i),
+            "ground_time_ms": _at(ground_time_list, i),
+            "oscillation_mm": _at(oscillation_list, i),
+            "leg_spring_kn_m": _at(leg_spring_list, i),
+            "vertical_ratio": _at(vertical_ratio_list, i),
+            "form_power_watts": _at(form_power_list, i),
+        })
+
+    return splits, samples
 
 
 def fetch_activities_api(
