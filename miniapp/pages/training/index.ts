@@ -691,7 +691,10 @@ Page({
       this.setData(buildState(response, this.data.themeClass) as Record<string, unknown>);
     } catch (e) {
       const err = e as Partial<ApiError>;
-      if (err?.code === 'UNAUTHENTICATED') return;
+      if (err?.code === 'UNAUTHENTICATED') {
+        this.setData({ loading: false });
+        return;
+      }
       const detail = err?.detail ?? String(e);
       this.setData({ loading: false, errorMessage: detail, hasResponse: false });
     }

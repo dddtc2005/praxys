@@ -469,8 +469,9 @@ function formatThreshold(value: number, unit: string): string {
 }
 
 function statusBadgeText(status: string): string {
-  // t() resolves the status key (e.g. 'on_track' → '达标' / 'On track').
-  // toUpperCase is a no-op on CJK characters so both locales look right.
+  // Badge displays ALL CAPS for en (e.g. 'On track' → 'ON TRACK').
+  // toUpperCase is a no-op on CJK characters so zh translations ('达标')
+  // are unaffected and render as-is.
   return t(status).toUpperCase();
 }
 
@@ -980,7 +981,10 @@ Page({
       // The api-client throws UNAUTHENTICATED *and* schedules a reLaunch.
       // Skip the error UI so the page doesn't flash the raw code before
       // it's unmounted; the toast in api-client already explains.
-      if (err?.code === 'UNAUTHENTICATED') return;
+      if (err?.code === 'UNAUTHENTICATED') {
+        this.setData({ loading: false });
+        return;
+      }
       const detail = err?.detail ?? String(e);
       this.setData({ loading: false, errorMessage: detail, hasResponse: false });
     }

@@ -150,12 +150,12 @@ const EN_TODAY = {
   Power: 'Power',
   'Heart rate': 'Heart rate',
   Pace: 'Pace',
-  // Recovery status values returned by the API (lowercase snake_case keys)
+  // Recovery status — must mirror RecoveryStatus in types/api.ts exactly.
   normal: 'Normal',
   fresh: 'Fresh',
   fatigued: 'Fatigued',
   insufficient_data: 'Insufficient data',
-  // Volume trend values returned by the API
+  // Volume trend values (volume.trend field in DiagnosisData)
   increasing: 'Increasing',
   decreasing: 'Decreasing',
   stable: 'Stable',
@@ -241,7 +241,7 @@ const EN_HISTORY_SCIENCE = {
 
 const EN_SETTINGS = {
   Name: 'Name',
-  // Unit system values returned by API
+  // Unit system — must mirror UnitSystem in types/api.ts exactly.
   metric: 'Metric',
   imperial: 'Imperial',
   Connections: 'Connections',
@@ -410,12 +410,12 @@ const ZH_TODAY = {
   Power: '功率',
   'Heart rate': '心率',
   Pace: '配速',
-  // Recovery status values (lowercase API keys)
+  // Recovery status — must mirror RecoveryStatus in types/api.ts exactly.
   normal: '正常',
   fresh: '恢复良好',
   fatigued: '疲劳',
   insufficient_data: '数据不足',
-  // Volume trend values (lowercase API keys)
+  // Volume trend values (volume.trend field in DiagnosisData)
   increasing: '上升中',
   decreasing: '下降中',
   stable: '平稳',
@@ -496,7 +496,7 @@ const ZH_HISTORY_SCIENCE = {
 
 const ZH_SETTINGS = {
   Name: '姓名',
-  // Unit system values (lowercase API keys)
+  // Unit system — must mirror UnitSystem in types/api.ts exactly.
   metric: '公制',
   imperial: '英制',
   Connections: '已连接平台',

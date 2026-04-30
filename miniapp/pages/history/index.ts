@@ -78,7 +78,9 @@ const initialData: HistoryState = {
 
 function formatActivityType(raw: string): string {
   // Split on underscores, capitalise each word, then run through t() for locale.
-  // Known types (Running, Cycling) get translated; others fall back to formatted English.
+  // The formatted string is intentionally used as the t() key — known types
+  // (Running, Cycling) get translated; unknown types fall back to the formatted
+  // English string via t()'s key-is-fallback behaviour.
   const formatted = raw
     .split('_')
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
@@ -211,7 +213,10 @@ Page({
       });
     } catch (e) {
       const err = e as Partial<ApiError>;
-      if (err?.code === 'UNAUTHENTICATED') return;
+      if (err?.code === 'UNAUTHENTICATED') {
+        this.setData({ loading: false, loadingMore: false });
+        return;
+      }
       const detail = err?.detail ?? String(e);
       this.setData({
         loading: false,
