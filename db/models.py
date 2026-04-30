@@ -221,8 +221,7 @@ class ActivitySample(Base):
     respiration_rate = Column(Float, nullable=True)
 
     __table_args__ = (
-        UniqueConstraint("activity_id", "t_sec", name="uq_sample_activity_t"),
-        Index("ix_sample_user", "user_id"),
+        UniqueConstraint("user_id", "activity_id", "t_sec", name="uq_sample_user_activity_t"),
         Index("ix_sample_activity", "activity_id"),
     )
 

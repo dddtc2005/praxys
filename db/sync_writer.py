@@ -568,7 +568,7 @@ def write_samples(user_id: str, rows: list[dict], db: Session) -> int:
         if not records:
             continue
         stmt = sqlite_insert(ActivitySample).values(records)
-        stmt = stmt.on_conflict_do_nothing(index_elements=["activity_id", "t_sec"])
+        stmt = stmt.on_conflict_do_nothing(index_elements=["user_id", "activity_id", "t_sec"])
         result = db.execute(stmt)
         total += result.rowcount
     return total
