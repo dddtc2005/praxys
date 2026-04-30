@@ -324,18 +324,22 @@ def _instantiate_openai_exc(name: str):
     Older 0.x SDKs in dev environments don't expose these symbols at all;
     rather than silently passing as a no-op, we skip — the production
     behaviour is verified anywhere the right SDK is installed.
+
+    ``APIStatusError.__init__`` (the parent of AuthenticationError /
+    BadRequestError) chains ``response.request`` into ``APIError.__init__``,
+    so a ``None`` response triggers ``AttributeError`` *inside* the
+    constructor — not ``TypeError`` at the call site. We therefore build a
+    minimal ``httpx.Response`` with a real request attached, which is how
+    the real SDK constructs these exceptions in production.
     """
     openai = pytest.importorskip("openai")
+    httpx = pytest.importorskip("httpx")
     cls = getattr(openai, name, None)
     if cls is None:
         pytest.skip(f"openai {getattr(openai, '__version__', '?')} lacks {name}; needs >=1.0")
-    # Constructor signature varies across 1.x minor releases. Try the
-    # widely-stable (message, response, body) shape first; fall back to
-    # bare message.
-    try:
-        return cls("fake", response=None, body=None)
-    except TypeError:
-        return cls("fake")
+    request = httpx.Request("POST", "http://test/")
+    response = httpx.Response(401, request=request)
+    return cls("fake", response=response, body=None)
 
 
 def test_chat_json_records_auth_error(fake_meter):
