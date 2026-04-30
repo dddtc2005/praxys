@@ -157,7 +157,7 @@ msgid "6 months"
 msgstr "6 months"
 
 #: src/components/RecoveryPanel.tsx:141
-#: src/pages/Today.tsx:270
+#: src/pages/Today.tsx:296
 msgid "7d Trend"
 msgstr "7d Trend"
 
@@ -204,7 +204,7 @@ msgid "Actual"
 msgstr "Actual"
 
 #: src/components/SignalHero.tsx:22
-#: src/pages/Today.tsx:45
+#: src/pages/Today.tsx:69
 msgid "Adjust Workout"
 msgstr "Adjust Workout"
 
@@ -328,7 +328,7 @@ msgid "Cancel"
 msgstr "Cancel"
 
 #: src/components/SignalHero.tsx:23
-#: src/pages/Today.tsx:35
+#: src/pages/Today.tsx:59
 msgid "CAUTION"
 msgstr "CAUTION"
 
@@ -551,7 +551,7 @@ msgstr "Data synced successfully"
 msgid "days until {0}"
 msgstr "days until {0}"
 
-#: src/pages/Today.tsx:89
+#: src/pages/Today.tsx:113
 msgid "declining"
 msgstr "declining"
 
@@ -664,7 +664,7 @@ msgid "e.g. 8:00:00"
 msgstr "e.g. 8:00:00"
 
 #: src/components/SignalHero.tsx:21
-#: src/pages/Today.tsx:33
+#: src/pages/Today.tsx:57
 msgid "EASY"
 msgstr "EASY"
 
@@ -681,7 +681,7 @@ msgstr "Edit"
 msgid "Elev"
 msgstr "Elev"
 
-#: src/pages/Today.tsx:99
+#: src/pages/Today.tsx:123
 msgid "elevated"
 msgstr "elevated"
 
@@ -731,7 +731,7 @@ msgstr "Extended rest period. Fitness declining."
 msgid "Failed (HTTP {0})"
 msgstr "Failed (HTTP {0})"
 
-#: src/pages/Today.tsx:161
+#: src/pages/Today.tsx:185
 msgid "Failed to load"
 msgstr "Failed to load"
 
@@ -775,7 +775,7 @@ msgstr "Fatigue"
 msgid "Fatigue is climbing — watch recovery before adding load."
 msgstr "Fatigue is climbing — watch recovery before adding load."
 
-#: src/pages/Today.tsx:199
+#: src/pages/Today.tsx:225
 msgid "fatigued"
 msgstr "fatigued"
 
@@ -784,7 +784,7 @@ msgid "Fatigued"
 msgstr "Fatigued"
 
 #: src/components/AiInsightsCard.tsx:110
-#: src/pages/Today.tsx:239
+#: src/pages/Today.tsx:265
 msgid "Findings"
 msgstr "Findings"
 
@@ -808,7 +808,7 @@ msgid "Flat"
 msgstr "Flat"
 
 #: src/components/SignalHero.tsx:20
-#: src/pages/Today.tsx:43
+#: src/pages/Today.tsx:67
 msgid "Follow Plan"
 msgstr "Follow Plan"
 
@@ -881,12 +881,12 @@ msgid "Get the Claude Code Plugin"
 msgstr "Get the Claude Code Plugin"
 
 #: src/components/SignalHero.tsx:20
-#: src/pages/Today.tsx:32
+#: src/pages/Today.tsx:56
 msgid "GO"
 msgstr "GO"
 
 #: src/components/SignalHero.tsx:21
-#: src/pages/Today.tsx:44
+#: src/pages/Today.tsx:68
 msgid "Go Easy"
 msgstr "Go Easy"
 
@@ -999,7 +999,7 @@ msgstr "HRV below threshold (Kiviniemi)"
 msgid "HRV within normal range"
 msgstr "HRV within normal range"
 
-#: src/pages/Today.tsx:88
+#: src/pages/Today.tsx:112
 msgid "improving"
 msgstr "improving"
 
@@ -1099,7 +1099,7 @@ msgstr "Log out"
 msgid "Login"
 msgstr "Login"
 
-#: src/pages/Today.tsx:100
+#: src/pages/Today.tsx:124
 msgid "low"
 msgstr "low"
 
@@ -1135,7 +1135,7 @@ msgstr "Marathon"
 msgid "Max HR"
 msgstr "Max HR"
 
-#: src/pages/Today.tsx:198
+#: src/pages/Today.tsx:224
 msgid "mild fatigue"
 msgstr "mild fatigue"
 
@@ -1153,7 +1153,7 @@ msgid "Mode"
 msgstr "Mode"
 
 #: src/components/SignalHero.tsx:22
-#: src/pages/Today.tsx:34
+#: src/pages/Today.tsx:58
 msgid "MODIFY"
 msgstr "MODIFY"
 
@@ -1196,10 +1196,10 @@ msgstr "Next sync"
 msgid "No activities found."
 msgstr "No activities found."
 
-#: src/pages/Today.tsx:189
-#: src/pages/Today.tsx:270
-#: src/pages/Today.tsx:271
-#: src/pages/Today.tsx:272
+#: src/pages/Today.tsx:215
+#: src/pages/Today.tsx:296
+#: src/pages/Today.tsx:297
+#: src/pages/Today.tsx:298
 msgid "no data"
 msgstr "no data"
 
@@ -1227,7 +1227,7 @@ msgstr "No split data available."
 msgid "No Workout"
 msgstr "No Workout"
 
-#: src/pages/Today.tsx:101
+#: src/pages/Today.tsx:125
 msgid "normal"
 msgstr "normal"
 
@@ -1295,7 +1295,7 @@ msgstr "Options"
 msgid "Other Signals"
 msgstr "Other Signals"
 
-#: src/pages/Today.tsx:272
+#: src/pages/Today.tsx:298
 msgid "overnight score"
 msgstr "overnight score"
 
@@ -1332,7 +1332,7 @@ msgstr "Plan"
 msgid "Planned"
 msgstr "Planned"
 
-#: src/pages/Today.tsx:275
+#: src/pages/Today.tsx:301
 msgid "Planned · Today"
 msgstr "Planned · Today"
 
@@ -1344,7 +1344,7 @@ msgstr "Planned bars are estimated — your plan has no {label} targets for the 
 msgid "Planned Workout"
 msgstr "Planned Workout"
 
-#: src/pages/Today.tsx:197
+#: src/pages/Today.tsx:223
 msgid "positive"
 msgstr "positive"
 
@@ -1364,11 +1364,11 @@ msgid "Power-based training dashboard"
 msgstr "Power-based training dashboard"
 
 #: src/components/AiInsightsCard.tsx:62
-#: src/pages/Today.tsx:230
+#: src/pages/Today.tsx:256
 msgid "Praxys Coach"
 msgstr "Praxys Coach"
 
-#: src/pages/Today.tsx:228
+#: src/pages/Today.tsx:254
 msgid "Praxys Coach insight"
 msgstr "Praxys Coach insight"
 
@@ -1497,7 +1497,7 @@ msgid "Reality Check"
 msgstr "Reality Check"
 
 #: src/components/AiInsightsCard.tsx:125
-#: src/pages/Today.tsx:253
+#: src/pages/Today.tsx:279
 msgid "Recommendations"
 msgstr "Recommendations"
 
@@ -1522,7 +1522,7 @@ msgid "Recovery"
 msgstr "Recovery"
 
 #: src/components/SignalHero.tsx:24
-#: src/pages/Today.tsx:47
+#: src/pages/Today.tsx:71
 msgid "Recovery Day"
 msgstr "Recovery Day"
 
@@ -1544,7 +1544,7 @@ msgid "Redirecting..."
 msgstr "Redirecting..."
 
 #: src/components/SignalHero.tsx:23
-#: src/pages/Today.tsx:46
+#: src/pages/Today.tsx:70
 msgid "Reduce Intensity"
 msgstr "Reduce Intensity"
 
@@ -1581,11 +1581,11 @@ msgid "Rest"
 msgstr "Rest"
 
 #: src/components/SignalHero.tsx:24
-#: src/pages/Today.tsx:36
+#: src/pages/Today.tsx:60
 msgid "REST"
 msgstr "REST"
 
-#: src/pages/Today.tsx:201
+#: src/pages/Today.tsx:227
 msgid "Rest day. No workout scheduled."
 msgstr "Rest day. No workout scheduled."
 
@@ -1597,7 +1597,7 @@ msgstr "Resting HR"
 #: src/pages/Goal.tsx:509
 #: src/pages/History.tsx:53
 #: src/pages/Settings.tsx:316
-#: src/pages/Today.tsx:164
+#: src/pages/Today.tsx:188
 #: src/pages/Training.tsx:55
 msgid "Retry"
 msgstr "Retry"
@@ -1614,7 +1614,7 @@ msgstr "Revoke"
 msgid "Revoked"
 msgstr "Revoked"
 
-#: src/pages/Today.tsx:271
+#: src/pages/Today.tsx:297
 msgid "RHR"
 msgstr "RHR"
 
@@ -1712,7 +1712,7 @@ msgid "Skip for now"
 msgstr "Skip for now"
 
 #: src/components/RecoveryPanel.tsx:174
-#: src/pages/Today.tsx:272
+#: src/pages/Today.tsx:298
 msgid "Sleep"
 msgstr "Sleep"
 
@@ -1741,8 +1741,8 @@ msgstr "Sleep, HRV, readiness"
 msgid "Source"
 msgstr "Source"
 
-#: src/pages/Today.tsx:87
-#: src/pages/Today.tsx:98
+#: src/pages/Today.tsx:111
+#: src/pages/Today.tsx:122
 msgid "stable"
 msgstr "stable"
 
@@ -1770,7 +1770,7 @@ msgstr "Strength"
 msgid "Stretch"
 msgstr "Stretch"
 
-#: src/pages/Today.tsx:196
+#: src/pages/Today.tsx:222
 msgid "strongly positive"
 msgstr "strongly positive"
 
@@ -1896,8 +1896,8 @@ msgstr "Thresholds"
 #: src/components/AppSidebar.tsx:61
 #: src/components/charts/FitnessFatigueChart.tsx:216
 #: src/components/RecoveryPanel.tsx:118
-#: src/pages/Today.tsx:16
-#: src/pages/Today.tsx:213
+#: src/pages/Today.tsx:20
+#: src/pages/Today.tsx:239
 msgid "Today"
 msgstr "Today"
 
@@ -2014,7 +2014,7 @@ msgid "VO2max, CP, LTHR, training status"
 msgstr "VO2max, CP, LTHR, training status"
 
 #. placeholder {0}: hrv.baseline_mean_ln.toFixed(2)
-#: src/pages/Today.tsx:189
+#: src/pages/Today.tsx:215
 msgid "vs {0} baseline"
 msgstr "vs {0} baseline"
 
