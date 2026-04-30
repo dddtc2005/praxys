@@ -43,16 +43,13 @@
 
       <!--
         Praxys Coach receipt — the LLM-generated daily brief. Sits
-        between the rule-based signal hero and the recovery card so the
-        coach narrative is the first interpretive layer the athlete
-        sees. Renders nothing when no AiInsight row exists (LLM
-        disabled, generation cap hit, transient error). Visual treatment
-        is a flat cobalt-banner strip rather than the bordered ts-card
-        used elsewhere — the issue spec calls for a Skyline-mobile
-        adaptation that reads as "voice from coach" rather than another
-        metrics card. Data shape (banner mark + stamp, headline,
-        findings with type-coded markers, numbered recommendations,
-        theory attribution) matches web's coach-receipt component.
+        between the rule-based signal hero and the recovery card so
+        the coach narrative is the first interpretive layer the
+        athlete sees. Renders nothing when no AiInsight row exists
+        (LLM disabled, generation cap hit, transient error). Visual
+        treatment is a flat cobalt-banner strip rather than a bordered
+        card so it reads as a separate interpretive voice rather than
+        another metric tile.
       -->
       <view wx:if="{{hasCoach}}" class="coach-receipt" aria-label="{{coachTr.aria}}">
         <view class="coach-banner">
@@ -66,7 +63,7 @@
             <text class="coach-label">{{coachTr.findings}}</text>
             <view
               wx:for="{{coach.findings}}"
-              wx:key="text"
+              wx:key="id"
               class="coach-row coach-row--{{item.tone}}"
             >
               <text class="coach-tag">{{item.marker}}</text>

@@ -69,15 +69,24 @@ interface SparklineSeries {
   fill: boolean;
 }
 
+type CoachMarker = '[+]' | '[!]' | '[·]';
+
 interface CoachFindingRow {
-  /** [+] / [!] / [·] glyph; same convention as web's coach-receipt. */
-  marker: string;
-  /** 'positive' | 'warning' | 'neutral' — used to tone the row. */
+  /** Stable unique key for `wx:key` — array position is sufficient since
+   *  findings are consumed read-only. Plain `text` is unsafe because two
+   *  findings can share copy (e.g. repeated neutral notes across days),
+   *  which would collide and confuse Skyline's reconciler. */
+  id: string;
+  /** Glyph derived from `tone`; same convention as web's coach-receipt. */
+  marker: CoachMarker;
+  /** Tone class suffix used for `coach-row--{{tone}}` styling. */
   tone: AiInsightFinding['type'];
   text: string;
 }
 
 interface CoachRecRow {
+  /** 1-based ordinal as a string for WXML rendering. Doubles as the
+   *  `wx:key` since recommendations are presented in a stable order. */
   index: string;
   text: string;
 }
@@ -93,14 +102,27 @@ interface CoachReceipt {
   recommendations: CoachRecRow[];
   /** Active recovery + load theory names joined with ` · `. Empty when
    *  the API didn't surface science_notes (e.g. fresh user before
-   *  first sync). Mirrors web's footer-attribution behaviour. */
+   *  first sync). */
   attribution: string;
 }
 
+/** Pre-translated coach-receipt copy. Captured in render state so WXML
+ *  stays stringless and `check-i18n.cjs` doesn't flag the template. */
+interface CoachTranslations {
+  mark: string;
+  findings: string;
+  recommendations: string;
+  aria: string;
+}
+
 /**
- * Format a relative-time stamp for the coach receipt header. Mirrors
- * web/src/pages/Today.tsx::timeAgo — minute / hour / day buckets via
- * Intl.RelativeTimeFormat. WeChat 7.x supports Intl in mini programs.
+ * Format a relative-time stamp ("2h ago" / "5分钟前") for the coach
+ * receipt header. Buckets into minute / hour / day via
+ * `Intl.RelativeTimeFormat` — Skyline's Intl support is base-library
+ * dependent, and an older runtime that lacks `RelativeTimeFormat`, or
+ * a malformed ISO date, falls back to an empty string (the headline
+ * and body still read; the `wx:if="{{coach.stamp}}"` gate hides the
+ * empty chip cleanly).
  */
 function timeAgo(isoDate: string, locale: 'en' | 'zh'): string {
   try {
@@ -112,9 +134,9 @@ function timeAgo(isoDate: string, locale: 'en' | 'zh'): string {
     if (hours < 24) return rtf.format(-hours, 'hour');
     const days = Math.floor(hours / 24);
     return rtf.format(-days, 'day');
-  } catch {
-    // Older WeChat builds may not implement RelativeTimeFormat. Drop
-    // the stamp rather than blowing up — the headline + body still read.
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn('[today] timeAgo failed; dropping stamp:', isoDate, e);
     return '';
   }
 }
@@ -126,7 +148,8 @@ function buildCoachReceipt(
   loadName: string | undefined,
 ): CoachReceipt {
   const view = localizedInsight(insight, locale);
-  const findings: CoachFindingRow[] = view.findings.map((f) => ({
+  const findings: CoachFindingRow[] = view.findings.map((f, i) => ({
+    id: `${i}`,
     marker: f.type === 'positive' ? '[+]' : f.type === 'warning' ? '[!]' : '[·]',
     tone: f.type,
     text: f.text,
@@ -160,21 +183,16 @@ interface RenderState {
   signalLabel: string;
   signalSubtitle: string;
   signalColor: 'green' | 'amber' | 'red';
-  /** Rule-based reason text. Suppressed (empty string) when the LLM
-   *  Coach narrative is available — the receipt below covers the same
-   *  ground in a more specific voice, mirrors web/src/pages/Today.tsx. */
+  /** Rule-based reason text. Invariant: empty string iff `hasCoach`
+   *  is true — the Coach receipt below covers the same ground in a
+   *  more specific voice, so we render only one. WXML's
+   *  `wx:if="{{signalReason}}"` treats `''` as falsy and skips the
+   *  block. Rule-based prose is the deterministic fallback when the
+   *  brief is missing (LLM disabled, transient endpoint failure). */
   signalReason: string;
   hasCoach: boolean;
   coach: CoachReceipt | null;
-  /** Pre-translated coach-receipt eyebrow / labels. Captured here so
-   *  WXML stays stringless and the i18n-check pass doesn't flag the
-   *  template for hardcoded English. */
-  coachTr: {
-    mark: string;
-    findings: string;
-    recommendations: string;
-    aria: string;
-  } | null;
+  coachTr: CoachTranslations | null;
 
   hasSparkline: boolean;
   sparklineDates: string[];
@@ -244,9 +262,9 @@ function buildRenderState(
   const rec = response.recovery_analysis;
   const recoveryStatus = rec ? t(rec.status) : '—';
   const recoveryHrv = rec?.hrv?.today_ms != null ? `${rec.hrv.today_ms.toFixed(0)} ms` : '—';
-  // Match web's PR #238 fix: round resting HR rather than relying on
-  // toFixed's banker's-rounding edge case (60.5 → "60" in V8). Both
-  // surfaces should report the same integer for the same float.
+  // resting_hr from the API is a 7-day mean float (e.g. 51.625). Round
+  // to the same integer the web Today page shows for the same input —
+  // Math.round is the idiomatic call for rounding a float to display.
   const recoveryRhr = rec?.resting_hr != null ? `${Math.round(rec.resting_hr)} bpm` : '—';
   const recoverySleep = rec?.sleep_score != null ? `${rec.sleep_score.toFixed(0)}/100` : '—';
 
@@ -272,15 +290,26 @@ function buildRenderState(
   const warnings = response.warnings ?? [];
 
   // Coach receipt: the LLM-generated daily brief, rendered between the
-  // signal hero and the supporting cells. Mirrors web/src/pages/Today.tsx —
-  // when present, suppresses the rule-based signal.reason directly above
-  // so the user doesn't read the same idea twice in two voices.
+  // signal hero and the supporting cells. When present, suppresses the
+  // rule-based signal.reason above so the user doesn't read the same
+  // idea twice in two voices. A throw inside buildCoachReceipt (e.g.
+  // a future schema change yields an unexpected finding shape) must
+  // not blank the whole page — degrade to "no receipt" and let the
+  // rule-based prose re-appear.
   const locale = detectLocale();
   const recoveryNoteName = response.science_notes?.recovery?.name;
   const loadNoteName = response.science_notes?.load?.name;
-  const coach = insight ? buildCoachReceipt(insight, locale, recoveryNoteName, loadNoteName) : null;
+  let coach: CoachReceipt | null = null;
+  if (insight) {
+    try {
+      coach = buildCoachReceipt(insight, locale, recoveryNoteName, loadNoteName);
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('[today] coach receipt build failed; suppressing receipt:', e);
+    }
+  }
   const hasCoach = coach != null;
-  const coachTr = hasCoach
+  const coachTr: CoachTranslations | null = hasCoach
     ? {
         mark: t('Praxys Coach'),
         findings: t('Findings'),
@@ -590,11 +619,17 @@ Page({
     if (!response) return;
     const theme = this.data.chartTheme;
     const meta = signalMeta()[response.signal?.recommendation] ?? signalMeta().follow_plan;
+    // Prefer the Coach headline when a receipt is rendering — otherwise
+    // the on-screen narrative and the screenshot would carry different
+    // sentences for the same signal. Falls through to the rule-based
+    // reason when no receipt (LLM disabled, transient failure).
+    const coach = this.data.coach;
+    const shareReason = coach?.headline || response.signal?.reason || '';
     try {
       const path = await generateShareCard({
         label: meta.label,
         subtitle: meta.subtitle,
-        reason: response.signal?.reason ?? '',
+        reason: shareReason,
         color: meta.color,
         locale: detectShareLocale(),
         theme,
@@ -610,14 +645,19 @@ Page({
   async refetch() {
     this.setData({ loading: true, errorMessage: '' });
     try {
-      // Today + daily brief in parallel. The brief endpoint always
-      // resolves (returns ``insight: null`` when LLM is disabled or no
-      // row exists yet) — but we still wrap it so a transient brief
-      // failure can't block the whole page. The rule-based signal
-      // reason is the deterministic fallback in that case.
+      // The brief endpoint normally returns `{ insight: null }` when
+      // LLM is disabled — `.catch` here protects against a real
+      // transport / 5xx failure (which the rule-based signal.reason
+      // covers as deterministic fallback). Logged so a broken
+      // /api/insights/daily_brief is observable in WeChat DevTools
+      // and 实时日志 instead of silently regressing the receipt.
       const [response, insight] = await Promise.all([
         apiGet<TodayResponse>('/api/today'),
-        fetchInsight('daily_brief').catch(() => null),
+        fetchInsight('daily_brief').catch((e) => {
+          // eslint-disable-next-line no-console
+          console.warn('[today] daily brief fetch failed; falling back to rule-based reason:', e);
+          return null;
+        }),
       ]);
       // Cache raw response so renderShareCard can access it on first FAB tap.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
