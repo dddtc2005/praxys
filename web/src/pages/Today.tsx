@@ -28,15 +28,48 @@ const VERDICT_LABEL: Record<TrainingSignal['recommendation'], string> = {
   follow_plan: 'GO',
   easy: 'EASY',
   modify: 'MODIFY',
-  reduce_intensity: 'REDUCE',
+  reduce_intensity: 'CAUTION',
   rest: 'REST',
 };
 
-function verdictColorClass(rec: TrainingSignal['recommendation']): string {
-  if (rec === 'follow_plan') return 'today-verdict-go';
-  if (rec === 'rest') return 'today-verdict-rest';
-  return '';
-}
+const VERDICT_SUBTITLE: Record<TrainingSignal['recommendation'], string> = {
+  follow_plan: 'Follow plan',
+  easy: 'Go easy',
+  modify: 'Adjust workout',
+  reduce_intensity: 'Reduce intensity',
+  rest: 'Recovery day',
+};
+
+type SignalTone = 'green' | 'amber' | 'red';
+
+const VERDICT_TONE: Record<TrainingSignal['recommendation'], SignalTone> = {
+  follow_plan: 'green',
+  easy: 'amber',
+  modify: 'amber',
+  reduce_intensity: 'amber',
+  rest: 'red',
+};
+
+const TONE_CLASSES: Record<SignalTone, { text: string; bg: string; ring: string; shadow: string }> = {
+  green: {
+    text: 'text-primary',
+    bg: 'bg-primary',
+    ring: 'ring-accent-green/30',
+    shadow: 'shadow-[0_0_40px_rgba(0,255,135,0.3)]',
+  },
+  amber: {
+    text: 'text-accent-amber',
+    bg: 'bg-accent-amber',
+    ring: 'ring-accent-amber/30',
+    shadow: 'shadow-[0_0_40px_rgba(245,158,11,0.3)]',
+  },
+  red: {
+    text: 'text-destructive',
+    bg: 'bg-destructive',
+    ring: 'ring-accent-red/30',
+    shadow: 'shadow-[0_0_40px_rgba(239,68,68,0.3)]',
+  },
+};
 
 const TREND_ARROW = { stable: '→', improving: '↑', declining: '↓' } as const;
 
@@ -83,7 +116,8 @@ export default function Today() {
 
   const { signal, recovery_analysis: ra } = data;
   const verdictText = VERDICT_LABEL[signal.recommendation] ?? signal.recommendation.toUpperCase();
-  const verdictModifier = verdictColorClass(signal.recommendation);
+  const verdictSubtitle = VERDICT_SUBTITLE[signal.recommendation] ?? signal.recommendation;
+  const tone = TONE_CLASSES[VERDICT_TONE[signal.recommendation] ?? 'amber'];
   const insight = briefData?.insight ?? null;
   const localizedInsight =
     insight && locale === 'zh' && insight.translations?.zh ? insight.translations.zh : insight;
@@ -101,7 +135,17 @@ export default function Today() {
   return (
     <div className="today-spread">
       <p className="today-eyebrow">Today · {dateStr}</p>
-      <h1 className={`today-verdict ${verdictModifier}`.trim()}>{verdictText}</h1>
+      <div className="today-verdict">
+        <div
+          className={`relative flex h-32 w-32 items-center justify-center rounded-full ring-4 ${tone.ring} ${tone.shadow}`}
+        >
+          <div className={`absolute inset-0 rounded-full ${tone.bg} opacity-10 animate-pulse`} />
+          <span className={`relative text-3xl font-bold font-data tracking-wider ${tone.text}`}>
+            {verdictText}
+          </span>
+        </div>
+        <p className={`text-lg font-semibold ${tone.text}`}>{verdictSubtitle}</p>
+      </div>
       <p className="today-rationale">{signal.reason}</p>
 
       {localizedInsight && (
