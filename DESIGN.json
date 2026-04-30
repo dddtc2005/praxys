@@ -1,0 +1,235 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-04-30T00:00:00Z",
+  "title": "Design System: Praxys",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Field Green",
+        "canonical": "oklch(0.55 0.16 155)",
+        "tonalRamp": [
+          "oklch(0.20 0.10 155)",
+          "oklch(0.30 0.13 155)",
+          "oklch(0.40 0.15 155)",
+          "oklch(0.55 0.16 155)",
+          "oklch(0.65 0.17 155)",
+          "oklch(0.75 0.18 155)",
+          "oklch(0.85 0.18 155)",
+          "oklch(0.94 0.10 155)"
+        ]
+      },
+      "cobalt": {
+        "role": "secondary",
+        "displayName": "Reasoning Cobalt",
+        "canonical": "oklch(0.50 0.18 258)",
+        "tonalRamp": [
+          "oklch(0.22 0.10 258)",
+          "oklch(0.32 0.13 258)",
+          "oklch(0.42 0.16 258)",
+          "oklch(0.50 0.18 258)",
+          "oklch(0.62 0.17 258)",
+          "oklch(0.74 0.14 258)",
+          "oklch(0.84 0.10 258)",
+          "oklch(0.94 0.05 258)"
+        ]
+      },
+      "amber": {
+        "role": "tertiary",
+        "displayName": "Caution Amber",
+        "canonical": "oklch(0.72 0.15 75)",
+        "tonalRamp": [
+          "oklch(0.30 0.10 75)",
+          "oklch(0.42 0.13 75)",
+          "oklch(0.55 0.15 75)",
+          "oklch(0.65 0.16 75)",
+          "oklch(0.72 0.15 75)",
+          "oklch(0.80 0.14 75)",
+          "oklch(0.88 0.10 75)",
+          "oklch(0.95 0.05 75)"
+        ]
+      },
+      "rust": {
+        "role": "tertiary",
+        "displayName": "Cost Rust",
+        "canonical": "oklch(0.55 0.18 30)",
+        "tonalRamp": [
+          "oklch(0.22 0.10 30)",
+          "oklch(0.32 0.13 30)",
+          "oklch(0.42 0.16 30)",
+          "oklch(0.55 0.18 30)",
+          "oklch(0.65 0.17 30)",
+          "oklch(0.72 0.18 30)",
+          "oklch(0.84 0.10 30)",
+          "oklch(0.94 0.05 30)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Warm Paper",
+        "canonical": "oklch(0.975 0.008 85)",
+        "tonalRamp": [
+          "oklch(0.17 0.013 260)",
+          "oklch(0.22 0.014 260)",
+          "oklch(0.30 0.012 260)",
+          "oklch(0.45 0.010 85)",
+          "oklch(0.65 0.010 85)",
+          "oklch(0.85 0.008 85)",
+          "oklch(0.955 0.012 85)",
+          "oklch(0.975 0.008 85)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Cool Ink",
+        "canonical": "oklch(0.18 0.02 260)",
+        "tonalRamp": [
+          "oklch(0.18 0.02 260)",
+          "oklch(0.30 0.02 260)",
+          "oklch(0.40 0.02 260)",
+          "oklch(0.50 0.02 260)",
+          "oklch(0.60 0.015 260)",
+          "oklch(0.74 0.013 260)",
+          "oklch(0.88 0.008 260)",
+          "oklch(0.96 0.006 260)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Brand moments, hero numbers on the Today signal hero, the wordmark itself. Used sparingly." },
+      "headline": { "displayName": "Headline", "purpose": "Page titles ('Today', 'Goal', 'History')." },
+      "title": { "displayName": "Title", "purpose": "Card headers and section titles inside pages." },
+      "body": { "displayName": "Body", "purpose": "The working text. Cap line length at 65–75ch for prose blocks." },
+      "label": { "displayName": "Label", "purpose": "Eyebrow labels, table headers, ScienceNote section markers (WHY THIS / METHODOLOGY / CITATION). JetBrains Mono uppercase." },
+      "data": { "displayName": "Data", "purpose": "Every numeric value. JetBrains Mono with tabular-nums. Applied via the .font-data utility." }
+    },
+    "shadows": [
+      {
+        "name": "popover-lift",
+        "value": "0 8px 24px -4px oklch(0.18 0.02 260 / 0.12), 0 2px 6px -2px oklch(0.18 0.02 260 / 0.08)",
+        "purpose": "Lift for floating surfaces (Dialog, DropdownMenu, Tooltip). State-driven, never ambient on cards."
+      },
+      {
+        "name": "hover-soft",
+        "value": "0 2px 8px -2px oklch(0.18 0.02 260 / 0.08)",
+        "purpose": "Optional hover lift on interactive cards. Apply only when the card itself is the click target."
+      }
+    ],
+    "motion": [
+      { "name": "ease-out-quart", "value": "cubic-bezier(0.25, 1, 0.5, 1)", "purpose": "Default easing for state transitions. Exponential ease-out per impeccable shared laws — no bounce, no elastic." },
+      { "name": "duration-fast", "value": "120ms", "purpose": "Micro-feedback (button press, focus shift)." },
+      { "name": "duration-base", "value": "200ms", "purpose": "Default state changes (hover, color shifts)." },
+      { "name": "duration-slow", "value": "320ms", "purpose": "Layered transitions (Dialog open, sheet slide). Reduce to 0 under prefers-reduced-motion." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Field Green action button. One per surface, ideally one per page.",
+      "html": "<button class=\"ds-btn-primary\">Follow plan</button>",
+      "css": ".ds-btn-primary { background: oklch(0.55 0.16 155); color: oklch(0.975 0.008 85); padding: 0.5rem 1rem; border: none; border-radius: 0.5rem; font-family: 'Geist Variable', 'DM Sans Variable', system-ui, sans-serif; font-size: 0.875rem; font-weight: 600; line-height: 1.5; letter-spacing: 0; cursor: pointer; transition: background 200ms cubic-bezier(0.25, 1, 0.5, 1); } .ds-btn-primary:hover { background: oklch(0.35 0.14 155); } .ds-btn-primary:focus-visible { outline: 2px solid oklch(0.55 0.16 155); outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Default secondary action. No background at rest; fills with rule-soft on hover.",
+      "html": "<button class=\"ds-btn-ghost\">Cancel</button>",
+      "css": ".ds-btn-ghost { background: transparent; color: oklch(0.40 0.02 260); padding: 0.5rem 1rem; border: none; border-radius: 0.5rem; font-family: 'Geist Variable', 'DM Sans Variable', system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; line-height: 1.5; cursor: pointer; transition: background 200ms cubic-bezier(0.25, 1, 0.5, 1), color 200ms cubic-bezier(0.25, 1, 0.5, 1); } .ds-btn-ghost:hover { background: oklch(0.92 0.006 85); color: oklch(0.18 0.02 260); } .ds-btn-ghost:focus-visible { outline: 2px solid oklch(0.55 0.16 155); outline-offset: 2px; }"
+    },
+    {
+      "name": "Signal Badge",
+      "kind": "chip",
+      "refersTo": "badge-positive",
+      "description": "Today's training signal. Three semantic variants: positive (Go, green), caution (Modify, amber), rest (Rest, rust).",
+      "html": "<span class=\"ds-badge-go\">GO</span> <span class=\"ds-badge-modify\">MODIFY</span> <span class=\"ds-badge-rest\">REST</span>",
+      "css": ".ds-badge-go, .ds-badge-modify, .ds-badge-rest { display: inline-block; padding: 0.125rem 0.5rem; margin-right: 0.5rem; border-radius: 0.375rem; font-family: 'JetBrains Mono Variable', ui-monospace, monospace; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; font-variant-numeric: tabular-nums; } .ds-badge-go { background: oklch(0.55 0.16 155); color: oklch(0.975 0.008 85); } .ds-badge-modify { background: oklch(0.72 0.15 75); color: oklch(0.18 0.02 260); } .ds-badge-rest { background: oklch(0.55 0.18 30); color: oklch(0.975 0.008 85); }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "The default container. Sits flat on warm paper with a hairline rule-soft border. No ambient shadows.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-label\">WEEKLY LOAD</div><div class=\"ds-card-value\">42.6 <span class=\"ds-card-unit\">km</span></div><div class=\"ds-card-meta\">+8% vs 4-wk avg</div></div>",
+      "css": ".ds-card { background: oklch(0.99 0.004 85); color: oklch(0.18 0.02 260); padding: 1.5rem; border-radius: 0.625rem; border: 1px solid oklch(0.92 0.006 85); font-family: 'Geist Variable', 'DM Sans Variable', system-ui, sans-serif; max-width: 280px; } .ds-card-label { font-family: 'JetBrains Mono Variable', ui-monospace, monospace; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: oklch(0.40 0.02 260); margin-bottom: 0.5rem; } .ds-card-value { font-family: 'JetBrains Mono Variable', ui-monospace, monospace; font-size: 2rem; font-weight: 500; line-height: 1.1; letter-spacing: -0.02em; color: oklch(0.18 0.02 260); font-variant-numeric: tabular-nums; } .ds-card-unit { font-size: 1rem; color: oklch(0.60 0.015 260); margin-left: 0.25rem; } .ds-card-meta { margin-top: 0.5rem; font-family: 'JetBrains Mono Variable', ui-monospace, monospace; font-size: 0.75rem; color: oklch(0.55 0.16 155); font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Input field. Rule border at rest; primary on focus (no glow ring). Caret in primary.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"e.g. 3:30:00\" />",
+      "css": ".ds-input { background: oklch(0.99 0.004 85); color: oklch(0.18 0.02 260); padding: 0.5rem 0.75rem; border: 1px solid oklch(0.85 0.008 85); border-radius: 0.5rem; font-family: 'Geist Variable', 'DM Sans Variable', system-ui, sans-serif; font-size: 0.875rem; line-height: 1.5; caret-color: oklch(0.55 0.16 155); width: 220px; transition: border-color 200ms cubic-bezier(0.25, 1, 0.5, 1); } .ds-input::placeholder { color: oklch(0.60 0.015 260); } .ds-input:focus { outline: none; border-color: oklch(0.55 0.16 155); } .ds-input:focus-visible { outline: none; }"
+    },
+    {
+      "name": "Science Note",
+      "kind": "custom",
+      "refersTo": "science-note",
+      "description": "Signature reasoning surface. The cobalt 3px left border is reserved for this component alone — it is the brand's commitment to methodology made visible.",
+      "html": "<aside class=\"ds-science-note\"><div class=\"ds-science-eyebrow\">WHY THIS RECOMMENDATION</div><p class=\"ds-science-body\">Today's GO signal is grounded in your 7-day HRV trend (+4.2% above baseline) and last-night sleep score (84). Recent 7-day load is within +/-10% of your 28-day chronic load, indicating adequate training stress without accumulated fatigue.</p><div class=\"ds-science-citation\"><em>Banister et al., 1975. <a href=\"#\">A systems model of training for athletic performance.</a></em></div></aside>",
+      "css": ".ds-science-note { background: color-mix(in oklab, oklch(0.50 0.18 258) 5%, oklch(0.99 0.004 85)); border-left: 3px solid oklch(0.50 0.18 258); border-top: 1px solid color-mix(in oklab, oklch(0.50 0.18 258) 15%, oklch(0.92 0.006 85)); border-right: 1px solid color-mix(in oklab, oklch(0.50 0.18 258) 15%, oklch(0.92 0.006 85)); border-bottom: 1px solid color-mix(in oklab, oklch(0.50 0.18 258) 15%, oklch(0.92 0.006 85)); border-radius: 0.5rem; padding: 0.75rem 1rem; font-family: 'Geist Variable', 'DM Sans Variable', system-ui, sans-serif; max-width: 480px; } .ds-science-eyebrow { font-family: 'JetBrains Mono Variable', ui-monospace, monospace; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: oklch(0.50 0.18 258); margin-bottom: 0.5rem; } .ds-science-body { font-size: 0.875rem; line-height: 1.5; color: oklch(0.40 0.02 260); margin: 0 0 0.75rem 0; } .ds-science-citation { padding-top: 0.5rem; border-top: 1px dashed oklch(0.85 0.008 85); font-size: 0.75rem; color: oklch(0.60 0.015 260); } .ds-science-citation em { font-style: italic; } .ds-science-citation a { color: oklch(0.50 0.18 258); text-decoration: none; } .ds-science-citation a:hover { text-decoration: underline; }"
+    },
+    {
+      "name": "Sidebar Item",
+      "kind": "nav",
+      "refersTo": "button-ghost",
+      "description": "Sidebar navigation row. Active state shown by primary left-edge indicator and bolder weight, not background fill.",
+      "html": "<nav class=\"ds-sidebar\"><a class=\"ds-sidebar-item ds-sidebar-item-active\" href=\"#\">Today</a><a class=\"ds-sidebar-item\" href=\"#\">Training</a><a class=\"ds-sidebar-item\" href=\"#\">Goal</a><a class=\"ds-sidebar-item\" href=\"#\">History</a></nav>",
+      "css": ".ds-sidebar { display: flex; flex-direction: column; gap: 0.125rem; padding: 0.5rem; background: oklch(0.97 0.005 80); border-right: 1px solid oklch(0.92 0.006 85); width: 200px; font-family: 'Geist Variable', 'DM Sans Variable', system-ui, sans-serif; } .ds-sidebar-item { padding: 0.5rem 0.75rem; padding-left: 1rem; color: oklch(0.40 0.02 260); font-size: 0.875rem; font-weight: 500; text-decoration: none; border-radius: 0.5rem; border-left: 2px solid transparent; transition: background 200ms cubic-bezier(0.25, 1, 0.5, 1), color 200ms cubic-bezier(0.25, 1, 0.5, 1); } .ds-sidebar-item:hover { background: oklch(0.92 0.006 85); color: oklch(0.18 0.02 260); } .ds-sidebar-item-active { color: oklch(0.18 0.02 260); font-weight: 600; border-left-color: oklch(0.55 0.16 155); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Field Lab",
+    "overview": "Praxys looks like a rigorous instrument that travels outdoors with you. Warm paper instead of clinical white. Precise typography instead of marketing flourish. Citations in the margins, not in a footer. The interface respects that the reader is a person making real decisions about real training, often in real sunlight, often with a sweaty thumb. It does not perform.\n\nThe system has two voices, separated by color: green carries action — follow this plan, run today, this is your signal — and cobalt carries reasoning — this is why, this is the paper, this is the methodology. The user always knows whether they are being told to do or being shown why. The two-track palette is the design system's central commitment; everything else flows from it.",
+    "keyCharacteristics": [
+      "Warm paper surfaces (oklch(0.975 0.008 85)), never #fff. Light theme is the default — runners use this in sunlight.",
+      "Two-track semantic palette: green for action, cobalt for reasoning. Amber for caution. Rust for rest and high-intensity ('this costs you').",
+      "Tabular monospace numerals everywhere a number lives. Column alignment is the point.",
+      "Flat-by-default surfaces; thin rules separate; elevation is a response to state, not ambient decoration.",
+      "Bilingual (EN + 中文) is structural, with three explicit modes — never always-both by reflex."
+    ],
+    "rules": [
+      { "name": "The Two-Track Rule", "body": "Green means act; cobalt means the system explaining itself. Never blur them. A green ScienceNote is a bug. A cobalt CTA button is a bug.", "section": "colors" },
+      { "name": "The Warm Paper Rule", "body": "Surfaces are tinted toward 85° hue at low chroma (≤0.012). Pure #fff and pure #000 are forbidden — they are clinical and they punish the eye in real sunlight.", "section": "colors" },
+      { "name": "The Restraint Rule", "body": "Primary green appears on ≤10% of any given screen. Its rarity is the point. Plastering green everywhere flattens its meaning into chrome.", "section": "colors" },
+      { "name": "The Rust = Cost Rule", "body": "Rust marks rest and high-intensity zones with the same color because both say this costs you. Recovery is not a soft message; it is the system stopping you from breaking yourself.", "section": "colors" },
+      { "name": "The Tabular Numerals Rule", "body": "Every digit on every screen renders in JetBrains Mono with tabular-nums. Mixing proportional and tabular numerals across a column is a bug.", "section": "typography" },
+      { "name": "The Right Word Rule", "body": "Use the technical term — threshold, CTL, polarized, RPE, zone 2 — and explain it inline once, the first time it appears in a flow. Don't dumb it down.", "section": "typography" },
+      { "name": "The Section Label Rule", "body": "Section labels are JetBrains Mono, uppercase, tracking 0.05em, in ink-soft. They are eyebrows above content blocks.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "Surfaces are flat at rest. Shadows are responses, not decoration. If you can't articulate which user state caused the shadow, remove it.", "section": "elevation" },
+      { "name": "The Rule-Line Rule", "body": "Use rule-soft (hairline) to separate flat surfaces. Use rule only where the boundary needs to be unmistakable.", "section": "elevation" },
+      { "name": "The Reasoning Rail Rule", "body": "Only the ScienceNote earns the cobalt 3px left border. The rail is reserved; that's why it's recognizable.", "section": "components" },
+      { "name": "The One Primary Rule", "body": "A surface has at most one primary green button. Two competing primaries means the user has to choose between two action paths.", "section": "components" }
+    ],
+    "dos": [
+      "Do use oklch() for color tokens; the project has an OKLCH-only doctrine. Hex appears only where downstream tools require it (chart libraries, miniapp WXSS).",
+      "Do apply .font-data to every numeric value, including digits embedded inside body prose.",
+      "Do reserve the cobalt 3px left border for the ScienceNote and nothing else.",
+      "Do keep one primary green button per surface. Other actions are ghost.",
+      "Do treat the light theme as the default; design for outdoor / sunlight legibility first.",
+      "Do codify bilingual treatment by surface purpose: brand surfaces always-both, product chrome locale-only, marketing primary-with-subtitle.",
+      "Do lead every dashboard screen with an interpretation — a signal, a verdict, a recommendation. The data underneath supports the interpretation; it does not replace it."
+    ],
+    "donts": [
+      "Don't use #fff or #000 anywhere. Surfaces tint toward 85° hue (warm paper); foregrounds tint toward 260° hue (cool ink).",
+      "Don't use border-left greater than 1px as a colored accent on cards, list items, callouts, or alerts. The cobalt 3px rail belongs to the ScienceNote exclusively.",
+      "Don't drift toward the crypto / wearable neon-on-black aesthetic. No glassmorphism, no animated gradients, no neon-on-black hero surfaces.",
+      "Don't assemble a generic SaaS hero-metric template — big number, small label, four supporting stats, gradient accent.",
+      "Don't ship a Garmin-Connect data dump — endless tabs, no narrative, no opinion, no methodology. Charts without a takeaway are failures.",
+      "Don't nest cards. A card inside a card is always wrong; use a horizontal rule, a section label, or a flat row instead.",
+      "Don't use Strava-style social validation tropes (kudos, achievement explosions, segment leaderboard chrome).",
+      "Don't use gradient text (background-clip: text + gradient) for headings.",
+      "Don't apply ambient drop shadows on cards at rest. Elevation is a response to state.",
+      "Don't use --accent-blue or --accent-purple in new code — they are deprecated.",
+      "Don't show always-both EN + 中文 by reflex on product chrome. Surface purpose decides; the user's locale wins for app UI."
+    ]
+  }
+}
