@@ -951,6 +951,7 @@ def _sync_coros(user_id: str, creds: dict, from_date: str | None,
         fetch_fitness_summary,
         parse_activities,
         parse_splits,
+        parse_activity_stream as parse_coros_stream,
         parse_daily_metrics as parse_daily,
         parse_fitness_summary as parse_fitness,
         mobile_login,
@@ -1007,8 +1008,11 @@ def _sync_coros(user_id: str, creds: dict, from_date: str | None,
         row.setdefault("source", "coros")
     act_count = sync_writer.write_activities(user_id, activity_rows, db)
 
-    # Splits (per-activity laps)
+    # Splits and per-second samples from the same activity detail call.
+    # parse_activity_stream() reads trackPoints when present; returns []
+    # otherwise (UNVERIFIED field names — needs real COROS data to confirm).
     all_splits = []
+    all_samples = []
     total = len(raw_activities)
     for idx, raw_act in enumerate(raw_activities):
         act_id = str(raw_act.get("labelId") or raw_act.get("activityId") or "")
@@ -1019,10 +1023,13 @@ def _sync_coros(user_id: str, creds: dict, from_date: str | None,
         try:
             detail = fetch_activity_detail(access_token, region, act_id)
             all_splits.extend(parse_splits(act_id, detail))
+            all_samples.extend(parse_coros_stream(act_id, detail))
             time_mod.sleep(0.3)
         except Exception as e:
             logger.debug("COROS splits for %s: skipped (%s)", act_id, e)
     split_count = sync_writer.write_splits(user_id, all_splits, db)
+    sample_count = sync_writer.write_samples(user_id, all_samples, db)
+    logger.debug("COROS sync: %d splits, %d samples written", split_count, sample_count)
 
     # Daily metrics (HRV, resting HR, training load)
     # Fetch a wider window (90 days) to ensure enough HRV readings for

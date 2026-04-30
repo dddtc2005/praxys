@@ -580,6 +580,49 @@ def parse_splits(activity_id: str, detail: dict) -> list[dict]:
     return rows
 
 
+def parse_activity_stream(activity_id: str, detail: dict) -> list[dict]:
+    """Parse per-second stream data from a COROS activity detail response.
+
+    COROS returns per-second track data in a `trackPoints` list when available.
+    Each point contains timestamp (Unix seconds), GPS coords, HR, cadence, speed,
+    altitude, and optionally power.
+
+    WARNING: The field names and response shape are UNVERIFIED against a real
+    COROS account — this implementation is based on the COROS Sport Open API
+    documentation. A COROS user must run a sync and confirm that rows appear in
+    activity_samples with the expected values before this can be considered stable.
+
+    Returns an empty list when trackPoints is absent (older firmware, activity type
+    that doesn't record per-second data, or API shape differs from expectation).
+    """
+    track_points = detail.get("trackPoints") or detail.get("trackingPoints") or []
+    if not track_points:
+        return []
+
+    samples = []
+    for pt in track_points:
+        ts = pt.get("timestamp") or pt.get("utcTime") or pt.get("time")
+        if ts is None:
+            continue
+        lat = pt.get("latitude") or pt.get("lat")
+        lng = pt.get("longitude") or pt.get("lon") or pt.get("lng")
+        speed_ms = pt.get("speed")
+        samples.append({
+            "activity_id": str(activity_id),
+            "source": "coros",
+            "t_sec": int(float(ts)),
+            "hr_bpm": pt.get("heartRate") or pt.get("hr"),
+            "cadence_spm": pt.get("cadence"),
+            "speed_ms": speed_ms,
+            "altitude_m": pt.get("altitude") or pt.get("alt"),
+            "lat": float(lat) if lat is not None else None,
+            "lng": float(lng) if lng is not None else None,
+            "power_watts": pt.get("power"),
+        })
+
+    return samples
+
+
 def parse_daily_metrics(raw_metrics: list[dict]) -> list[dict]:
     """Parse daily metrics (HRV, resting HR, training load) into recovery/fitness rows.
 
