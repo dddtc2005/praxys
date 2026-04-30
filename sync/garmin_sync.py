@@ -164,6 +164,13 @@ def parse_splits(activity_id: str, splits_data: dict) -> list[dict]:
     return rows
 
 
+# maxChartSize to pass to get_activity_details(). Garmin samples at ~2s
+# intervals, so a 100-mile ultra (~28h) produces ~50,400 rows. 100,000
+# covers any conceivable endurance event with a large safety margin.
+# The API response includes totalMetricsCount so truncation is detectable.
+GARMIN_MAX_CHART_SIZE = 100_000
+
+
 def parse_activity_stream(activity_id: str, details: dict) -> list[dict]:
     """Parse per-sample stream data from get_activity_details() into sample dicts.
 
@@ -175,11 +182,27 @@ def parse_activity_stream(activity_id: str, details: dict) -> list[dict]:
     (half the row count of a 1Hz Stryd stream for the same activity duration).
     Power is not available in the stream for ConnectIQ-based devices — it only
     appears in lap splits via the CIQ developer field.
+
+    Returns an empty list and logs a warning when the response was truncated
+    (metricsCount < totalMetricsCount), which would indicate GARMIN_MAX_CHART_SIZE
+    needs to be raised.
     """
+    import logging as _log
+    _logger = _log.getLogger(__name__)
+
     descriptors = details.get("metricDescriptors") or []
     rows = details.get("activityDetailMetrics") or []
     if not descriptors or not rows:
         return []
+
+    metrics_count = details.get("metricsCount") or len(rows)
+    total_metrics_count = details.get("totalMetricsCount") or len(rows)
+    if metrics_count < total_metrics_count:
+        _logger.warning(
+            "Garmin stream truncated for activity %s: got %d of %d rows "
+            "(raise GARMIN_MAX_CHART_SIZE above %d)",
+            activity_id, metrics_count, total_metrics_count, GARMIN_MAX_CHART_SIZE,
+        )
 
     key_idx: dict[str, int] = {
         m["key"]: m["metricsIndex"]

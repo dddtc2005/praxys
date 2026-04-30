@@ -143,3 +143,23 @@ def test_missing_directtimestamp_descriptor_returns_empty():
         m for m in details["metricDescriptors"] if m["key"] != "directTimestamp"
     ]
     assert parse_activity_stream("act-13", details) == []
+
+
+def test_truncation_warning_logged(caplog):
+    """Warning is logged when metricsCount < totalMetricsCount (response was capped)."""
+    import logging
+    details = _make_details(n=5)
+    details["metricsCount"] = 5
+    details["totalMetricsCount"] = 10  # pretend 10 rows exist but only 5 returned
+    with caplog.at_level(logging.WARNING, logger="sync.garmin_sync"):
+        samples = parse_activity_stream("act-14", details)
+    assert len(samples) == 5  # returns what it got
+    assert "truncated" in caplog.text
+    assert "act-14" in caplog.text
+
+
+def test_garmin_max_chart_size_covers_ultra_marathon():
+    """GARMIN_MAX_CHART_SIZE is large enough for a 100-mile ultra at 2s sampling."""
+    from sync.garmin_sync import GARMIN_MAX_CHART_SIZE
+    # 100-mile ultra worst case: ~30 hours = 108,000 seconds / 2s = 54,000 rows
+    assert GARMIN_MAX_CHART_SIZE >= 54_000

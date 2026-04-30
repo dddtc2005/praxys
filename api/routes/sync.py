@@ -408,6 +408,7 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
         parse_activities, parse_splits, parse_activity_stream,
         parse_daily_metrics, parse_lactate_threshold, parse_user_profile,
         parse_heart_rates, parse_running_ftp, RATE_LIMIT_DELAY,
+        GARMIN_MAX_CHART_SIZE,
     )
     import time
 
@@ -519,7 +520,7 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
         with _sync_lock:
             status["garmin"]["progress"] = f"Fetching streams: {idx + 1}/{total}"
         try:
-            details = client.get_activity_details(aid, maxchart=20000) or {}
+            details = client.get_activity_details(aid, maxchart=GARMIN_MAX_CHART_SIZE) or {}
             all_samples.extend(parse_activity_stream(aid, details))
             time.sleep(RATE_LIMIT_DELAY)
         except Exception as e:
