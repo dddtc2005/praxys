@@ -37,6 +37,14 @@ httpx>=0.27.0
 # for FastAPI, requests, SQLAlchemy, and logging.
 azure-monitor-opentelemetry>=1.6.0
 
+# Azure OpenAI client used by api/llm.py for the post-sync Coach insight
+# generator. >=1.50.0 because chat_json passes max_completion_tokens
+# (introduced in openai 1.40) and response_format={"type": "json_object"}.
+# When unavailable, get_client() returns None and the rule-based prose
+# elsewhere serves as the fallback — but in production we want the LLM
+# path live, so this is a hard requirement, not optional.
+openai>=1.50.0
+
 # ── Visual asset generation ──────────────────────────────────────────
 # Headless Chromium via Playwright is used by scripts/generate_og_card.py
 # to rasterize web/public/og-card*.html into PNGs for OpenGraph / WeChat
