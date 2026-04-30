@@ -346,6 +346,15 @@ def _client():
     # insight generation use the same auth scaffolding. The CLI exits hard
     # when the client is unavailable; the insight generator returns None
     # and the app falls back to rule-based prose.
+    #
+    # When this script is invoked as ``python scripts/translate_missing.py``
+    # (CI workflow), sys.path[0] is ``scripts/`` and ``api`` isn't
+    # importable. Inject the project root once before the import so it
+    # resolves regardless of CWD.
+    project_root = str(Path(__file__).resolve().parent.parent)
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+
     from api import llm as _llm
 
     client = _llm.get_client()

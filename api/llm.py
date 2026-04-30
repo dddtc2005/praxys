@@ -102,7 +102,11 @@ def chat_json(
     differently from noisy transient ones.
     """
     # SDK exception classes — imported here so this module stays importable
-    # without the openai SDK (chat_json is unreachable in that case anyway).
+    # without the openai SDK (chat_json is unreachable in that case because
+    # ``get_client`` returns None first). When the SDK is missing we still
+    # need real BaseException subclasses in the ``except`` clauses below;
+    # falling back to ``()`` made Python reject the tuple at runtime
+    # ("catching classes that do not inherit from BaseException").
     try:
         from openai import (  # type: ignore[import-not-found]
             APIError,
@@ -111,7 +115,10 @@ def chat_json(
             RateLimitError,
         )
     except ImportError:  # pragma: no cover — get_client returns None first
-        AuthenticationError = BadRequestError = RateLimitError = APIError = ()  # type: ignore[assignment]
+        class _SdkUnavailable(BaseException):
+            """Sentinel that never matches — keeps except clauses syntactically valid."""
+
+        AuthenticationError = BadRequestError = RateLimitError = APIError = _SdkUnavailable  # type: ignore[assignment]
 
     last_err: Exception | None = None
     for attempt in range(retry + 1):
