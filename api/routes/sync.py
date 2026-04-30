@@ -519,7 +519,7 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
         with _sync_lock:
             status["garmin"]["progress"] = f"Fetching streams: {idx + 1}/{total}"
         try:
-            details = client.get_activity_details(aid, maxchart=2000) or {}
+            details = client.get_activity_details(aid, maxchart=20000) or {}
             all_samples.extend(parse_activity_stream(aid, details))
             time.sleep(RATE_LIMIT_DELAY)
         except Exception as e:
