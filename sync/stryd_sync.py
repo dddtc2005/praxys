@@ -107,11 +107,13 @@ def fetch_activity_splits(
     ts_list = data.get("timestamp_list", [])
     cadence_list = data.get("cadence_list", [])
     elevation_list = data.get("elevation_list", [])
+    grade_list = data.get("grade_list", [])
+    loc_list = data.get("loc_list", [])
+    temperature_list = data.get("temperature_device_list", [])
     ground_time_list = data.get("ground_time_list", [])
     oscillation_list = data.get("oscillation_list", [])
     leg_spring_list = data.get("leg_spring_list", [])
-    vertical_ratio_list = data.get("vertical_oscillation_ratio_list", [])
-    form_power_list = data.get("form_power_list", [])
+    vertical_ratio_list = data.get("vertical_ratio_list", [])
 
     lap_events = data.get("lap_events", [])
     start_events = data.get("start_events", [])
@@ -121,7 +123,10 @@ def fetch_activity_splits(
         return [], []
 
     start_ts = start_events[0] if start_events else ts_list[0]
-    end_ts = stop_events[0] if stop_events else ts_list[-1]
+    # Use the last stop event — for paused/resumed activities stop_events has
+    # one entry per pause; [0] would clip at the first pause and discard all
+    # samples after the resume.
+    end_ts = stop_events[-1] if stop_events else ts_list[-1]
 
     # Build lap boundaries: [start, lap1, lap2, ..., end]
     boundaries = [start_ts] + lap_events + [end_ts]
@@ -185,6 +190,7 @@ def fetch_activity_splits(
     for i, t in enumerate(ts_list):
         if t < start_ts or t > end_ts:
             continue
+        loc = _at(loc_list, i)
         samples.append({
             "activity_id": str(activity_id),
             "source": "stryd",
@@ -195,11 +201,14 @@ def fetch_activity_splits(
             "cadence_spm": _at(cadence_list, i),
             "altitude_m": _at(elevation_list, i),
             "distance_m": _at(distance_list, i),
+            "lat": loc["Lat"] if isinstance(loc, dict) else None,
+            "lng": loc["Lng"] if isinstance(loc, dict) else None,
+            "grade_pct": _at(grade_list, i),
+            "temperature_c": _at(temperature_list, i),
             "ground_time_ms": _at(ground_time_list, i),
             "oscillation_mm": _at(oscillation_list, i),
             "leg_spring_kn_m": _at(leg_spring_list, i),
             "vertical_ratio": _at(vertical_ratio_list, i),
-            "form_power_watts": _at(form_power_list, i),
         })
 
     return splits, samples

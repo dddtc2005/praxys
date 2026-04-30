@@ -1,4 +1,5 @@
 """Tests for fetch_activity_splits() — verifies splits and per-second samples."""
+import pytest
 from unittest.mock import patch, MagicMock
 
 from sync.stryd_sync import fetch_activity_splits
@@ -16,13 +17,14 @@ def _make_activity(
     start_ts: int = 1000,
     lap_events: list | None = None,
     include_dynamics: bool = False,
+    stop_events: list | None = None,
 ) -> dict:
     """Build a minimal Stryd activity detail payload with n seconds of data."""
     ts = list(range(start_ts, start_ts + n))
     return {
         "timestamp_list": ts,
         "start_events": [start_ts],
-        "stop_events": [start_ts + n - 1],
+        "stop_events": stop_events if stop_events is not None else [start_ts + n - 1],
         "lap_events": lap_events or [],
         "total_power_list": [200.0 + i for i in range(n)],
         "heart_rate_list": [150.0 + i for i in range(n)],
@@ -30,11 +32,13 @@ def _make_activity(
         "distance_list": [i * 3.5 for i in range(n)],
         "cadence_list": [172.0] * n,
         "elevation_list": [50.0 + i * 0.1 for i in range(n)],
+        "grade_list": [1.0] * n if include_dynamics else [],
+        "loc_list": [{"Lat": 31.18 + i * 0.001, "Lng": 121.25 + i * 0.001} for i in range(n)] if include_dynamics else [],
+        "temperature_device_list": [25.0] * n if include_dynamics else [],
         "ground_time_list": [260.0] * n if include_dynamics else [],
         "oscillation_list": [71.0] * n if include_dynamics else [],
         "leg_spring_list": [11.5] * n if include_dynamics else [],
-        "vertical_oscillation_ratio_list": [8.3] * n if include_dynamics else [],
-        "form_power_list": [40.0] * n if include_dynamics else [],
+        "vertical_ratio_list": [8.3] * n if include_dynamics else [],
     }
 
 
@@ -94,7 +98,7 @@ def test_samples_core_field_mapping():
 
 
 def test_samples_stryd_dynamics_mapped():
-    """Stryd running dynamics columns are populated when present."""
+    """Stryd running dynamics and GPS columns are populated when present."""
     payload = _make_activity(n=5, start_ts=4000, include_dynamics=True)
     with patch("sync.stryd_sync.requests.get", return_value=_mock_response(payload)):
         _, samples = fetch_activity_splits("act-4", "token")
@@ -104,7 +108,10 @@ def test_samples_stryd_dynamics_mapped():
     assert s["oscillation_mm"] == 71.0
     assert s["leg_spring_kn_m"] == 11.5
     assert s["vertical_ratio"] == 8.3
-    assert s["form_power_watts"] == 40.0
+    assert s["grade_pct"] == 1.0
+    assert s["lat"] == pytest.approx(31.18)
+    assert s["lng"] == pytest.approx(121.25)
+    assert s["temperature_c"] == 25.0
 
 
 def test_samples_dynamics_none_when_missing():
@@ -117,6 +124,25 @@ def test_samples_dynamics_none_when_missing():
     assert s["ground_time_ms"] is None
     assert s["oscillation_mm"] is None
     assert s["leg_spring_kn_m"] is None
+    assert s["lat"] is None
+    assert s["lng"] is None
+    assert s["grade_pct"] is None
+    assert s["temperature_c"] is None
+
+
+def test_samples_paused_activity_uses_last_stop_event():
+    """For paused/resumed activities, end_ts uses stop_events[-1], not [0]."""
+    # Simulate pause at t=1005, resume, end at t=1019 (20 total active seconds)
+    n = 20
+    payload = _make_activity(n=n, start_ts=1000, stop_events=[1005, 1019])
+    with patch("sync.stryd_sync.requests.get", return_value=_mock_response(payload)):
+        _, samples = fetch_activity_splits("act-pause", "token")
+
+    # All 20 timestamps (1000–1019) should be included, not just the 6 before pause
+    assert len(samples) == n
+    t_secs = [s["t_sec"] for s in samples]
+    assert 1019 in t_secs   # actual end is included
+    assert 1005 in t_secs   # pause moment is still included (it's in timestamp_list)
 
 
 def test_samples_bounded_to_activity_window():
