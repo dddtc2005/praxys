@@ -1,15 +1,19 @@
+import { useMemo } from 'react';
 import { useApi } from '@/hooks/useApi';
 import type { AiInsight, TodayResponse, TrainingSignal } from '@/types/api';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Trans } from '@lingui/react/macro';
+import { msg } from '@lingui/core/macro';
+import { Trans, useLingui } from '@lingui/react/macro';
+import type { MessageDescriptor } from '@lingui/core';
 import { useLocale } from '@/contexts/LocaleContext';
 import { linkifyScienceTerms } from '@/lib/science-links';
 
 function TodaySkeleton() {
   return (
     <div className="space-y-6">
+      <h1 className="sr-only"><Trans>Today</Trans></h1>
       <div>
         <Skeleton className="h-8 w-24" />
         <Skeleton className="h-4 w-48 mt-2" />
@@ -24,20 +28,20 @@ function TodaySkeleton() {
   );
 }
 
-const VERDICT_LABEL: Record<TrainingSignal['recommendation'], string> = {
-  follow_plan: 'GO',
-  easy: 'EASY',
-  modify: 'MODIFY',
-  reduce_intensity: 'CAUTION',
-  rest: 'REST',
+const VERDICT_LABEL: Record<TrainingSignal['recommendation'], MessageDescriptor> = {
+  follow_plan: msg`GO`,
+  easy: msg`EASY`,
+  modify: msg`MODIFY`,
+  reduce_intensity: msg`CAUTION`,
+  rest: msg`REST`,
 };
 
-const VERDICT_SUBTITLE: Record<TrainingSignal['recommendation'], string> = {
-  follow_plan: 'Follow plan',
-  easy: 'Go easy',
-  modify: 'Adjust workout',
-  reduce_intensity: 'Reduce intensity',
-  rest: 'Recovery day',
+const VERDICT_SUBTITLE: Record<TrainingSignal['recommendation'], MessageDescriptor> = {
+  follow_plan: msg`Follow plan`,
+  easy: msg`Go easy`,
+  modify: msg`Adjust workout`,
+  reduce_intensity: msg`Reduce intensity`,
+  rest: msg`Recovery day`,
 };
 
 type SignalTone = 'green' | 'amber' | 'red';
@@ -50,31 +54,44 @@ const VERDICT_TONE: Record<TrainingSignal['recommendation'], SignalTone> = {
   rest: 'red',
 };
 
+// Glow color is theme-aware via CSS custom properties — see :root / .dark in
+// index.css. Light theme uses the darker on-paper hue; dark theme uses the
+// vivid neon variant. Matches the rest of the accent system.
 const TONE_CLASSES: Record<SignalTone, { text: string; bg: string; ring: string; shadow: string }> = {
   green: {
     text: 'text-primary',
     bg: 'bg-primary',
     ring: 'ring-accent-green/30',
-    shadow: 'shadow-[0_0_40px_rgba(0,255,135,0.3)]',
+    shadow: 'shadow-[0_0_40px_var(--shadow-glow-primary)]',
   },
   amber: {
     text: 'text-accent-amber',
     bg: 'bg-accent-amber',
     ring: 'ring-accent-amber/30',
-    shadow: 'shadow-[0_0_40px_rgba(245,158,11,0.3)]',
+    shadow: 'shadow-[0_0_40px_var(--shadow-glow-amber)]',
   },
   red: {
     text: 'text-destructive',
     bg: 'bg-destructive',
     ring: 'ring-accent-red/30',
-    shadow: 'shadow-[0_0_40px_rgba(239,68,68,0.3)]',
+    shadow: 'shadow-[0_0_40px_var(--shadow-glow-red)]',
   },
 };
 
 const TREND_ARROW = { stable: '→', improving: '↑', declining: '↓' } as const;
 
+// Banister PMC interpretation of training stress balance (TSB):
+//   ≥ +10  strongly positive — peaked freshness, primed to perform
+//   0..10  positive — freshness, training adapted
+//   -10..0 mild fatigue — adaptation in progress
+//   < -10  fatigued — accumulated fatigue, recovery prioritized
+// Source: Banister, E.W. (1991). Modeling elite athletic performance.
+// In: Physiological Testing of Elite Athletes (MacDougall, Wenger, Green eds.).
+const TSB_STRONGLY_POSITIVE = 10;
+const TSB_MILD_FATIGUE = -10;
+
 // Mirrors AiInsightsCard's helper. Should be extracted to a shared util when
-// a third caller appears.
+// a third caller appears — see issue #236.
 function timeAgo(isoDate: string, locale: string): string {
   const diff = Date.now() - new Date(isoDate).getTime();
   const rtf = new Intl.RelativeTimeFormat(locale === 'zh' ? 'zh-CN' : 'en-US', { style: 'short' });
@@ -102,14 +119,18 @@ export default function Today() {
   // Same query key as AiInsightsCard, so React Query dedupes the fetch.
   const { data: briefData } = useApi<{ insight: AiInsight | null }>('/api/insights/daily_brief');
   const { locale } = useLocale();
+  const { i18n } = useLingui();
 
-  const now = new Date();
-  const dateStr = now.toLocaleDateString(locale === 'zh' ? 'zh-CN' : 'en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+  const dateStr = useMemo(
+    () =>
+      new Date().toLocaleDateString(locale === 'zh' ? 'zh-CN' : 'en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      }),
+    [locale],
+  );
 
   if (loading) return <TodaySkeleton />;
 
@@ -128,8 +149,8 @@ export default function Today() {
   if (!data) return null;
 
   const { signal, recovery_analysis: ra } = data;
-  const verdictText = VERDICT_LABEL[signal.recommendation] ?? signal.recommendation.toUpperCase();
-  const verdictSubtitle = VERDICT_SUBTITLE[signal.recommendation] ?? signal.recommendation;
+  const verdictText = i18n._(VERDICT_LABEL[signal.recommendation] ?? VERDICT_LABEL.follow_plan);
+  const verdictSubtitle = i18n._(VERDICT_SUBTITLE[signal.recommendation] ?? VERDICT_SUBTITLE.follow_plan);
   const tone = TONE_CLASSES[VERDICT_TONE[signal.recommendation] ?? 'amber'];
   const insight = briefData?.insight ?? null;
   const localizedInsight =
@@ -146,22 +167,40 @@ export default function Today() {
   const rhrDisplay = restingHr != null ? Math.round(restingHr) : '—';
   const tsb = signal.recovery.tsb;
   const tsbDisplay = `${tsb >= 0 ? '+' : ''}${tsb.toFixed(1)}`;
-  const tsbDescriptor = tsb > 10 ? 'strongly positive' : tsb > 0 ? 'positive' : tsb > -10 ? 'mild fatigue' : 'fatigued';
-  const planText = formatPlan(signal.plan) ?? 'Rest day. No workout scheduled.';
+  const tsbDescriptorMsg =
+    tsb >= TSB_STRONGLY_POSITIVE ? msg`strongly positive`
+    : tsb > 0 ? msg`positive`
+    : tsb > TSB_MILD_FATIGUE ? msg`mild fatigue`
+    : msg`fatigued`;
+  const tsbDescriptor = i18n._(tsbDescriptorMsg);
+  const planText = formatPlan(signal.plan) ?? i18n._(msg`Rest day. No workout scheduled.`);
+
+  // Theory attribution for the Coach receipt footer. Derived from the user's
+  // active recovery + load theories; falls back to nothing if the API didn't
+  // resolve them. Replaces the prior hardcoded "Plews HRV-guided · Banister
+  // PMC" string, which would have shown wrong sources after a theory switch.
+  const recoveryNoteName = data.science_notes?.recovery?.name;
+  const loadNoteName = data.science_notes?.load?.name;
+  const attribution = [recoveryNoteName, loadNoteName].filter(Boolean).join(' · ');
 
   return (
     <div className="today-spread">
-      <p className="today-eyebrow">Today · {dateStr}</p>
+      <h1 className="today-eyebrow">Today · {dateStr}</h1>
       <div className="today-verdict">
-        <div className={`relative flex h-44 w-44 sm:h-56 sm:w-56 items-center justify-center rounded-full ring-4 ${tone.ring} ${tone.shadow}`}>
-          <div className={`absolute inset-0 rounded-full ${tone.bg} opacity-10 animate-pulse`} />
-          <span className={`relative text-5xl sm:text-6xl font-bold font-data tracking-wider ${tone.text}`}>{verdictText}</span>
+        <div
+          className={`relative flex h-44 w-44 sm:h-56 sm:w-56 items-center justify-center rounded-full ring-4 ${tone.ring} ${tone.shadow}`}
+          aria-hidden="true"
+        >
+          <div className={`absolute inset-0 rounded-full ${tone.bg} opacity-10 motion-safe:animate-pulse`} />
+          <span className={`relative text-5xl sm:text-6xl font-bold font-data tracking-wider ${tone.text}`}>
+            {verdictText}
+          </span>
         </div>
         <p className={`text-xl font-semibold ${tone.text}`}>{verdictSubtitle}</p>
         {!hasCoachBrief && <p className="text-sm text-muted-foreground text-center max-w-sm">{signal.reason}</p>}
       </div>
       {localizedInsight && insight && (
-        <aside className="coach-receipt">
+        <aside className="coach-receipt" aria-label={i18n._(msg`Praxys Coach insight`)}>
           <div className="coach-banner">
             <span className="coach-mark"><Trans>Praxys Coach</Trans></span>
             {insight.generated_at && (
@@ -172,11 +211,11 @@ export default function Today() {
             <p className="coach-headline">{localizedInsight.headline}</p>
             {localizedInsight.findings.length > 0 && (
               <>
-                <p className="coach-label">Findings</p>
+                <p className="coach-label"><Trans>Findings</Trans></p>
                 <ul className="coach-list">
                   {localizedInsight.findings.map((f, i) => (
                     <li key={i} className={`coach-row coach-row-${f.type}`}>
-                      <span className="coach-tag">[{f.type === 'positive' ? '+' : f.type === 'warning' ? '!' : '·'}]</span>
+                      <span className="coach-tag" aria-hidden="true">[{f.type === 'positive' ? '+' : f.type === 'warning' ? '!' : '·'}]</span>
                       <span className="coach-text">{linkifyScienceTerms(f.text)}</span>
                     </li>
                   ))}
@@ -186,29 +225,29 @@ export default function Today() {
             {localizedInsight.recommendations.length > 0 && (
               <>
                 <hr className="coach-rule" />
-                <p className="coach-label">Recommendations</p>
-                <ul className="coach-list">
+                <p className="coach-label"><Trans>Recommendations</Trans></p>
+                <ol className="coach-list">
                   {localizedInsight.recommendations.map((r, i) => (
                     <li key={i} className="coach-row">
-                      <span className="coach-tag coach-tag-rec">→</span>
+                      <span className="coach-tag coach-tag-rec" aria-hidden="true">→</span>
                       <span className="coach-text">{linkifyScienceTerms(r)}</span>
                     </li>
                   ))}
-                </ul>
+                </ol>
               </>
             )}
           </div>
-          <div className="coach-foot">Plews HRV-guided · Banister PMC</div>
+          {attribution && <div className="coach-foot">{attribution}</div>}
         </aside>
       )}
       <div className="today-supporting">
-        <div className="today-cell"><span className="today-cell-label">HRV (ln RMSSD)</span><span className="today-cell-value">{hrv ? hrv.today_ln.toFixed(2) : '—'}</span><span className="today-cell-sub">{hrv?.today_ms != null ? `${hrv.today_ms} ms · ` : ''}{hrv ? `vs ${hrv.baseline_mean_ln.toFixed(2)} baseline` : 'no data'}</span></div>
-        <div className="today-cell"><span className="today-cell-label">7d Trend</span><span className="today-cell-value">{trendArrow}</span><span className="today-cell-sub">{hrv ? `${hrv.trend} · CV ${trendCv}` : 'no data'}</span></div>
-        <div className="today-cell"><span className="today-cell-label">RHR</span><span className="today-cell-value">{rhrDisplay}</span><span className="today-cell-sub">{restingHr != null ? `bpm · ${ra?.rhr_trend ?? 'normal'}` : 'no data'}</span></div>
-        <div className="today-cell"><span className="today-cell-label">Sleep</span><span className="today-cell-value">{sleepScore != null ? sleepScore : '—'}</span><span className="today-cell-sub">{sleepScore != null ? 'overnight score' : 'no data'}</span></div>
+        <div className="today-cell"><span className="today-cell-label">HRV (ln RMSSD)</span><span className="today-cell-value">{hrv ? hrv.today_ln.toFixed(2) : '—'}</span><span className="today-cell-sub">{hrv?.today_ms != null ? `${hrv.today_ms} ms · ` : ''}{hrv ? `vs ${hrv.baseline_mean_ln.toFixed(2)} baseline` : i18n._(msg`no data`)}</span></div>
+        <div className="today-cell"><span className="today-cell-label">7d Trend</span><span className="today-cell-value">{trendArrow}</span><span className="today-cell-sub">{hrv ? `${hrv.trend} · CV ${trendCv}` : i18n._(msg`no data`)}</span></div>
+        <div className="today-cell"><span className="today-cell-label">RHR</span><span className="today-cell-value">{rhrDisplay}</span><span className="today-cell-sub">{restingHr != null ? `bpm · ${ra?.rhr_trend ?? 'normal'}` : i18n._(msg`no data`)}</span></div>
+        <div className="today-cell"><span className="today-cell-label"><Trans>Sleep</Trans></span><span className="today-cell-value">{sleepScore != null ? sleepScore : '—'}</span><span className="today-cell-sub">{sleepScore != null ? i18n._(msg`overnight score`) : i18n._(msg`no data`)}</span></div>
         <div className="today-cell"><span className="today-cell-label">TSB</span><span className={`today-cell-value ${tsb > 0 ? 'today-cell-value-positive' : ''}`.trim()}>{tsbDisplay}</span><span className="today-cell-sub">{tsbDescriptor}</span></div>
       </div>
-      <div className="today-plan"><span className="today-plan-eyebrow">Planned · Today</span><span className="today-plan-text">{planText}</span></div>
+      <div className="today-plan"><span className="today-plan-eyebrow"><Trans>Planned · Today</Trans></span><span className="today-plan-text">{planText}</span></div>
     </div>
   );
 }

@@ -127,6 +127,12 @@
      explainers). Per the Praxys brand guideline, cobalt separates "why the system
      suggested it" from "what to do" (the green primary). */
   --accent-cobalt-val: #2e71c6;
+  /* Glow shadow tints used under the SignalHero / today-verdict pulsing
+     circle. Light theme uses the darker on-paper hues so the glow doesn't
+     bloom into the warm-paper background. */
+  --shadow-glow-primary: rgba(5, 150, 105, 0.3);
+  --shadow-glow-amber: rgba(217, 119, 6, 0.3);
+  --shadow-glow-red: rgba(220, 38, 38, 0.3);
 }
 
 /* Dark accent values — vivid/bright for dark backgrounds */
@@ -137,6 +143,10 @@
   --accent-blue-val: #3b82f6;
   --accent-purple-val: #8b5cf6;
   --accent-cobalt-val: #6ba5e6;
+  /* Vivid neon glows on the deep navy background. */
+  --shadow-glow-primary: rgba(0, 255, 135, 0.3);
+  --shadow-glow-amber: rgba(245, 158, 11, 0.3);
+  --shadow-glow-red: rgba(239, 68, 68, 0.3);
 }
 
 @theme {
@@ -556,4 +566,19 @@
   color: var(--muted-foreground);
   letter-spacing: 0.06em;
   text-align: right;
+}
+
+/* Mobile: inline science-term links inside Coach prose get extra vertical
+   padding (with offsetting negative margin to maintain visual flow) so the
+   tap target approaches the WCAG 2.5.5 guidance. Line-height is also bumped
+   up to give thumb-sized glyph rows. */
+@media (max-width: 768px) {
+  .coach-receipt > .coach-body > .coach-list > .coach-row > .coach-text {
+    line-height: 1.7;
+  }
+  .coach-receipt > .coach-body > .coach-list > .coach-row > .coach-text a {
+    display: inline-block;
+    padding: 4px 0;
+    margin: -4px 0;
+  }
 }
