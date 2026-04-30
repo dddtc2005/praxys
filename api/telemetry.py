@@ -151,7 +151,15 @@ def record_coach_run(*, insight_type: str, status: str, user_id: str) -> None:
     Prefers the customEvents path when available; falls back to a counter
     otherwise (see module docstring for why).
     """
-    user_id_hash = hash_user_id(user_id)
+    try:
+        user_id_hash = hash_user_id(user_id)
+    except Exception:
+        # The runner always passes a real str user_id today; this guard is
+        # purely defensive so a future caller passing None can't take down
+        # the post-sync hook with an AttributeError. Telemetry must be
+        # invisible when it can't do its job.
+        logger.debug("record_coach_run: bad user_id, skipping", exc_info=True)
+        return
     attrs = {
         "insight_type": insight_type,
         "status": status,

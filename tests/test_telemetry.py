@@ -372,43 +372,59 @@ def test_chat_json_records_bad_request(fake_meter):
 # ---------------------------------------------------------------------------
 
 
-def test_run_insights_emits_coach_run_per_type(fake_meter, monkeypatch):
-    """One coach_run per insight type with the right status."""
+_FAKE_CTX = {
+    "athlete_profile": {"goal": {"distance": "marathon"}},
+    "current_fitness": {"ctl": 50.0, "atl": 45.0, "tsb": 5.0,
+                         "cp_trend": {"current": 280.0, "direction": "up", "slope_per_month": 1.5},
+                         "predicted_time_sec": 11000},
+    "recent_training": {"weekly_summary": [], "sessions": []},
+    "recovery_state": {"hrv_ms": 60.0, "readiness": "fresh"},
+    "current_plan": [],
+    "science": {
+        "load": {"id": "banister_pmc", "name": "Banister PMC"},
+        "recovery": {"id": "hrv_based", "name": "Plews HRV-guided"},
+        "prediction": {"id": "critical_power", "name": "Critical Power"},
+        "zones": {"id": "five_zone", "name": "Coggan 5-zone",
+                  "target_distribution": [0.2, 0.6, 0.1, 0.05, 0.05]},
+    },
+}
+
+_FAKE_PILLARS = {
+    "load": "banister_pmc",
+    "recovery": "hrv_based",
+    "prediction": "critical_power",
+    "zones": "five_zone",
+}
+
+
+def _runner_session(monkeypatch):
+    """Build an in-memory session and stub the context + pillars used by
+    ``insights_runner._run``. Returns the session — caller closes it."""
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
 
-    from db.models import AiInsight, Base
-    from api import insights_runner, llm
+    from db.models import Base
 
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
     session = sessionmaker(bind=engine)()
 
-    # Stub context + pillars (mirrors test_insights_runner fixtures).
-    fake_ctx = {
-        "athlete_profile": {"goal": {"distance": "marathon"}},
-        "current_fitness": {"ctl": 50.0, "atl": 45.0, "tsb": 5.0,
-                             "cp_trend": {"current": 280.0, "direction": "up", "slope_per_month": 1.5},
-                             "predicted_time_sec": 11000},
-        "recent_training": {"weekly_summary": [], "sessions": []},
-        "recovery_state": {"hrv_ms": 60.0, "readiness": "fresh"},
-        "current_plan": [],
-        "science": {
-            "load": {"id": "banister_pmc", "name": "Banister PMC"},
-            "recovery": {"id": "hrv_based", "name": "Plews HRV-guided"},
-            "prediction": {"id": "critical_power", "name": "Critical Power"},
-            "zones": {"id": "five_zone", "name": "Coggan 5-zone",
-                      "target_distribution": [0.2, 0.6, 0.1, 0.05, 0.05]},
-        },
-    }
-    monkeypatch.setattr("api.ai.build_training_context", lambda **kw: fake_ctx)
+    monkeypatch.setattr("api.ai.build_training_context", lambda **kw: _FAKE_CTX)
 
-    class _Cfg: science = {"load": "banister_pmc", "recovery": "hrv_based",
-                             "prediction": "critical_power", "zones": "five_zone"}
+    class _Cfg:
+        science = _FAKE_PILLARS
+
     monkeypatch.setattr("analysis.config.load_config_from_db", lambda u, d: _Cfg())
+    return session
 
-    # First run: all generators return None → three "generator_returned_none".
+
+def test_run_insights_emits_coach_run_per_type(fake_meter, monkeypatch):
+    """All three generators return None → three coach_run with that status."""
+    from api import insights_runner, llm, telemetry
+
+    session = _runner_session(monkeypatch)
     monkeypatch.setattr(llm, "get_client", lambda: None)
+
     insights_runner.run_insights_for_user(
         "user-1", session, {"activities": 1}, _session=session,
     )
@@ -419,6 +435,128 @@ def test_run_insights_emits_coach_run_per_type(fake_meter, monkeypatch):
     types = sorted(c[1]["insight_type"] for c in counter.calls)
     assert types == ["daily_brief", "race_forecast", "training_review"]
     for _, attrs in counter.calls:
-        assert attrs["user_id_hash"] == __import__("api.telemetry", fromlist=["hash_user_id"]).hash_user_id("user-1")
+        assert attrs["user_id_hash"] == telemetry.hash_user_id("user-1")
+
+    session.close()
+
+
+def test_run_insights_emits_hash_match_status(fake_meter, monkeypatch):
+    """Pre-seeded rows with matching dataset_hash → three coach_run('hash_match').
+
+    Anchors the cache hit rate signal: removing the hash_match telemetry
+    call would silently flatten the cache effectiveness chart, and this
+    test would catch it.
+    """
+    from analysis.insight_hash import compute_dataset_hash
+    from db.models import AiInsight
+    from api import insights_runner, llm
+
+    session = _runner_session(monkeypatch)
+
+    # Pre-seed a row per insight_type whose meta.dataset_hash matches the
+    # one the runner will compute for the same context+pillars. This forces
+    # the loop into the hash_match branch for every itype.
+    for itype in insights_runner.GENERATORS_ORDER:
+        h = compute_dataset_hash(_FAKE_CTX, itype, science_pillars=_FAKE_PILLARS)
+        session.add(AiInsight(
+            user_id="user-2",
+            insight_type=itype,
+            headline="cached", summary="cached",
+            findings=[], recommendations=[],
+            translations={},
+            meta={"dataset_hash": h},
+        ))
+    session.commit()
+
+    # Generator client need not be reachable — the hash_match branch
+    # short-circuits before any LLM call.
+    monkeypatch.setattr(llm, "get_client", lambda: None)
+    insights_runner.run_insights_for_user(
+        "user-2", session, {"activities": 1}, _session=session,
+    )
+
+    counter = fake_meter.counters["praxys.coach_run"]
+    statuses = sorted(c[1]["status"] for c in counter.calls)
+    assert statuses == ["hash_match"] * 3
+
+    session.close()
+
+
+def test_run_insights_emits_cap_reached_status(fake_meter, monkeypatch):
+    """Cap=1 + zero pre-seeded rows → first generates, next two cap_reached.
+
+    Anchors the per-iteration cap-pressure branch in ``insights_runner._run``
+    (NOT the early-return branch — see test below). Removing the
+    cap_reached telemetry call silently masks the signal that paying users
+    are running into the daily limit; this test makes that regression
+    observable.
+    """
+    import json
+    from db.models import AiInsight
+    from api import insights_runner, llm
+
+    session = _runner_session(monkeypatch)
+
+    # Cap=1 → first generate succeeds (used_today goes 0→1), then the next
+    # two iterations hit the per-iteration cap branch.
+    monkeypatch.setenv("PRAXYS_INSIGHT_DAILY_CAP", "1")
+
+    # A working fake client so the first iteration's generate path is real.
+    bilingual = {
+        "en": {"headline": "h", "summary": "s",
+               "findings": [{"type": "neutral", "text": "f"}],
+               "recommendations": ["r"]},
+        "zh": {"headline": "标题", "summary": "摘要",
+               "findings": [{"type": "neutral", "text": "调查"}],
+               "recommendations": ["建议"]},
+    }
+    payload = json.dumps(bilingual)
+    client = _FakeClient(_FakeResponse(payload, _FakeUsage(prompt=10, completion=5)))
+    monkeypatch.setattr(llm, "get_client", lambda: client)
+
+    insights_runner.run_insights_for_user(
+        "user-3", session, {"activities": 1}, _session=session,
+    )
+
+    counter = fake_meter.counters["praxys.coach_run"]
+    statuses = [c[1]["status"] for c in counter.calls]
+    # Order matches GENERATORS_ORDER: first generated, next two cap_reached.
+    assert statuses == ["generated", "cap_reached", "cap_reached"]
+    # And only one row was actually written.
+    assert session.query(AiInsight).filter(AiInsight.user_id == "user-3").count() == 1
+
+    session.close()
+
+
+def test_run_insights_no_telemetry_on_short_circuit_cap(fake_meter, monkeypatch):
+    """Documented gap: when the cap is exhausted before the loop even
+    starts (early return at runner._run line ~77), no coach_run events
+    fire. This test pins that contract — flipping the behavior to emit
+    one event per itype before the early return would fail this and force
+    a deliberate revisit of the observability tradeoff.
+    """
+    from datetime import datetime
+    from db.models import AiInsight
+    from api import insights_runner, llm
+
+    session = _runner_session(monkeypatch)
+    monkeypatch.setenv("PRAXYS_INSIGHT_DAILY_CAP", "0")
+    monkeypatch.setattr(llm, "get_client", lambda: None)
+
+    # Seed a row from "today" so used_today >= cap on entry.
+    session.add(AiInsight(
+        user_id="user-4", insight_type="daily_brief",
+        headline="x", summary="x", findings=[], recommendations=[],
+        translations={}, meta={}, generated_at=datetime.utcnow(),
+    ))
+    session.commit()
+
+    result = insights_runner.run_insights_for_user(
+        "user-4", session, {"activities": 1}, _session=session,
+    )
+
+    assert result == {"skipped": "cap_reached"}
+    # No coach_run counter should have been touched at all.
+    assert "praxys.coach_run" not in fake_meter.counters
 
     session.close()

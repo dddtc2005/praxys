@@ -105,8 +105,15 @@ def chat_json(
     ``insight_type`` is forwarded to telemetry — when set, per-call token
     usage and operator-actionable errors are dimensioned by it so daily
     spend and Auth-error spikes are queryable per Coach surface in App
-    Insights. Defaults to ``"unknown"`` so non-Coach callers still emit
-    metrics, just without per-surface breakdown.
+    Insights. Defaults to ``"unknown"`` so future non-Coach callers still
+    emit metrics, just without per-surface breakdown.
+
+    Token telemetry note: ``record_coach_tokens`` fires once per Azure API
+    call that returns a usage payload, *before* the JSON parse. Retries
+    triggered by ``JSONDecodeError`` therefore double-record — but that
+    matches Azure's per-call billing (both attempts cost real tokens), so
+    operators tracking spend see honest numbers rather than insight-success
+    rate.
     """
     from api import telemetry
 
