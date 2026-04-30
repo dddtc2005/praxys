@@ -890,7 +890,10 @@ def _sync_strava(user_id: str, creds: dict, from_date: str | None, db) -> dict:
         row.setdefault("source", "strava")
     act_count = sync_writer.write_activities(user_id, activity_rows, db)
 
+    from sync.strava_sync import fetch_activity_streams, parse_activity_stream as parse_strava_stream
+
     all_splits = []
+    all_samples = []
     for idx, raw_act in enumerate(raw_activities):
         activity_id = raw_act.get("id")
         if not activity_id:
@@ -902,7 +905,16 @@ def _sync_strava(user_id: str, creds: dict, from_date: str | None, db) -> dict:
             time_mod.sleep(0.2)
         except Exception as exc:
             logger.debug("Strava laps for %s: skipped (%s)", activity_id, exc)
+        try:
+            streams = fetch_activity_streams(str(activity_id), access_token)
+            start_utc = str(raw_act.get("start_date") or "")
+            all_samples.extend(parse_strava_stream(str(activity_id), streams, start_utc))
+            time_mod.sleep(0.2)
+        except Exception as exc:
+            logger.debug("Strava streams for %s: skipped (%s)", activity_id, exc)
     split_count = sync_writer.write_splits(user_id, all_splits, db)
+    sample_count = sync_writer.write_samples(user_id, all_samples, db)
+    logger.debug("Strava sync: %d splits, %d samples written", split_count, sample_count)
 
     return {"activities": act_count, "splits": split_count}
 
