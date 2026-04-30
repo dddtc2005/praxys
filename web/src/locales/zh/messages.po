@@ -280,10 +280,6 @@ msgstr "平均心率"
 msgid "Avg Power"
 msgstr "平均功率"
 
-#: src/components/charts/SleepPerfChart.tsx:46
-#: src/components/charts/SleepPerfChart.tsx:49
-#~ msgid "Avg Power (W)"
-#~ msgstr "平均功率 (W)"
 
 #: src/components/DiagnosisCard.tsx:53
 msgid "Avg Work {intensityLabel}"
@@ -433,9 +429,6 @@ msgstr "连接平台"
 msgid "Connect a platform first"
 msgstr "请先连接一个平台"
 
-#: src/pages/Training.tsx:128
-#~ msgid "Connect a recovery source (like Oura Ring) and sync activities with power data."
-#~ msgstr "连接恢复数据源（如 Oura Ring）并同步带功率数据的活动。"
 
 #: src/pages/Settings.tsx:778
 msgid "Connected"
@@ -628,9 +621,6 @@ msgstr "距离"
 msgid "Distribution deviates from target"
 msgstr "分布偏离目标"
 
-#: src/pages/Settings.tsx:1073
-#~ msgid "Drive your zone calculations and training load. Click to override."
-#~ msgstr "驱动您的区间计算与训练负荷。点击设置自定义数值。"
 
 #: src/pages/Settings.tsx:1200
 msgid "Drive your zone calculations and training load. Values come from connected sources; pick which source to use when you have more than one."
@@ -1116,9 +1106,6 @@ msgstr "主训练"
 msgid "Manage users and invitation codes"
 msgstr "管理用户和邀请码"
 
-#: src/pages/Settings.tsx:1096
-#~ msgid "Manual"
-#~ msgstr "手动"
 
 #: src/components/GoalEditor.tsx:54
 #: src/lib/display-labels.ts:60
@@ -1590,9 +1577,6 @@ msgstr "跑步"
 msgid "Running"
 msgstr "跑步"
 
-#: src/pages/Settings.tsx:1118
-#~ msgid "Save"
-#~ msgstr "保存"
 
 #: src/components/GoalEditor.tsx:177
 msgid "Save Goal"
@@ -1685,9 +1669,6 @@ msgstr "睡眠评分"
 msgid "Sleep Score vs {metricLabel}"
 msgstr "睡眠得分 vs {metricLabel}"
 
-#: src/components/charts/SleepPerfChart.tsx:30
-#~ msgid "Sleep Score vs Power"
-#~ msgstr "睡眠评分 vs 功率"
 
 #: src/pages/Setup.tsx:191
 msgid "Sleep score, HRV, readiness"
@@ -2052,3 +2033,27 @@ msgstr "基于乳酸阈值心率的区间与负荷"
 #: src/pages/Setup.tsx:174
 msgid "Zones & load from Threshold Pace"
 msgstr "基于阈值配速的区间与负荷"
+#: src/components/charts/SleepPerfChart.tsx:46
+#: src/components/charts/SleepPerfChart.tsx:49
+#~ msgid "Avg Power (W)"
+#~ msgstr "平均功率 (W)"
+
+#: src/pages/Training.tsx:128
+#~ msgid "Connect a recovery source (like Oura Ring) and sync activities with power data."
+#~ msgstr "连接恢复数据源（如 Oura Ring）并同步带功率数据的活动。"
+
+#: src/pages/Settings.tsx:1073
+#~ msgid "Drive your zone calculations and training load. Click to override."
+#~ msgstr "驱动您的区间计算与训练负荷。点击设置自定义数值。"
+
+#: src/pages/Settings.tsx:1096
+#~ msgid "Manual"
+#~ msgstr "手动"
+
+#: src/pages/Settings.tsx:1118
+#~ msgid "Save"
+#~ msgstr "保存"
+
+#: src/components/charts/SleepPerfChart.tsx:30
+#~ msgid "Sleep Score vs Power"
+#~ msgstr "睡眠评分 vs 功率"
