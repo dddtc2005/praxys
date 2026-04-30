@@ -24,7 +24,7 @@ from __future__ import annotations
 import logging
 import os
 from datetime import datetime
-from typing import Optional  # noqa: F401  (kept for explicit Optional[Session] signature)
+from typing import Optional
 
 from sqlalchemy.orm import Session
 

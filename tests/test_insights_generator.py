@@ -219,11 +219,11 @@ def test_system_prompt_carries_coach_persona(monkeypatch):
     insights_generator.generate_training_review(_fake_context(), PILLARS)
     insights_generator.generate_race_forecast(_fake_context(), PILLARS)
 
-    # All three system prompts include the Praxys Coach persona signature.
-    for call in [fake.chat.completions.last_call]:
-        # Only the last call is captured; the persona is the same string for
-        # all three so checking the last is sufficient for the contract.
-        assert "Praxys Coach" in call["messages"][0]["content"]
+    # All three system prompts include the same Praxys Coach persona —
+    # checking the last call is sufficient because the persona prefix is
+    # invariant across types.
+    last_system_prompt = fake.chat.completions.last_call["messages"][0]["content"]
+    assert "Praxys Coach" in last_system_prompt
 
 
 def test_daily_brief_user_payload_includes_goal_context(monkeypatch):

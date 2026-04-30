@@ -185,7 +185,9 @@ def _frame_intro(context: dict) -> str:
     """
     science = context.get("science") or {}
     load = (science.get("load") or {}).get("name") or "Banister PMC"
-    recovery = (science.get("recovery") or {}).get("name") or "HRV-based"
+    # Default matches data/science/recovery/hrv_based.yaml's name so the
+    # fallback prompt phrase is already in the linkifier map.
+    recovery = (science.get("recovery") or {}).get("name") or "HRV-Based Recovery"
     prediction = (science.get("prediction") or {}).get("name") or "Critical Power"
     zones = (science.get("zones") or {}).get("name") or "Five-zone"
     return (
