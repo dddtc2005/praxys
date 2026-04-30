@@ -523,7 +523,7 @@ _SAMPLE_BATCH_SIZE = 500
 def write_samples(user_id: str, rows: list[dict], db: Session) -> int:
     """Upsert per-second activity samples. Returns count of rows written.
 
-    Uses INSERT OR IGNORE keyed on (activity_id, t_sec) so re-syncing an
+    Uses INSERT OR IGNORE keyed on (user_id, activity_id, t_sec) so re-syncing an
     activity is idempotent — existing rows are left untouched. Inserts are
     batched to avoid oversized transactions for long activities.
     """
