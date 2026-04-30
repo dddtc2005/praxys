@@ -88,6 +88,7 @@ def chat_json(
     max_completion_tokens: int = 4096,
     temperature: float = 0.3,
     retry: int = 1,
+    insight_type: str | None = None,
 ) -> dict | None:
     """Strict JSON chat completion. Returns parsed dict or None on failure.
 
@@ -100,7 +101,17 @@ def chat_json(
     Returns None in either case so callers fall back to rule-based prose;
     distinct log levels let alerting route operator-actionable failures
     differently from noisy transient ones.
+
+    ``insight_type`` is forwarded to telemetry — when set, per-call token
+    usage and operator-actionable errors are dimensioned by it so daily
+    spend and Auth-error spikes are queryable per Coach surface in App
+    Insights. Defaults to ``"unknown"`` so non-Coach callers still emit
+    metrics, just without per-surface breakdown.
     """
+    from api import telemetry
+
+    itype = insight_type or "unknown"
+
     # SDK exception classes — imported here so this module stays importable
     # without the openai SDK (chat_json is unreachable in that case because
     # ``get_client`` returns None first). When the SDK is missing we still
@@ -133,6 +144,16 @@ def chat_json(
                     {"role": "user", "content": user},
                 ],
             )
+            # ``resp.usage`` is None on streaming responses; we don't stream
+            # but guarding keeps telemetry robust if a future caller flips it.
+            usage = getattr(resp, "usage", None)
+            if usage is not None:
+                telemetry.record_coach_tokens(
+                    insight_type=itype,
+                    model=model,
+                    prompt_tokens=int(getattr(usage, "prompt_tokens", 0) or 0),
+                    completion_tokens=int(getattr(usage, "completion_tokens", 0) or 0),
+                )
             content = resp.choices[0].message.content or ""
             return json.loads(content)
         except AuthenticationError:
@@ -140,9 +161,11 @@ def chat_json(
                 "chat_json: Azure auth failed — DefaultAzureCredential or "
                 "endpoint misconfigured", exc_info=True,
             )
+            telemetry.record_coach_error(error_class="Auth")
             return None  # operator-actionable, no retry
         except BadRequestError as e:
             logger.error("chat_json: bad request (no retry): %s", e)
+            telemetry.record_coach_error(error_class="BadRequest")
             return None  # malformed prompt — bug in caller
         except (RateLimitError, APIError, json.JSONDecodeError) as e:
             last_err = e  # transient — fall through to retry

@@ -105,6 +105,8 @@ def _run(db: Session, user_id: str) -> dict:
         logger.exception("Insight context build failed for user=%s", user_id)
         return {"skipped": "context_build_failed"}
 
+    from api import telemetry
+
     results: dict[str, str] = {}
     for itype in GENERATORS_ORDER:
         new_hash = compute_dataset_hash(context, itype, science_pillars=pillars)
@@ -115,17 +117,21 @@ def _run(db: Session, user_id: str) -> dict:
         )
         if existing is not None and (existing.meta or {}).get("dataset_hash") == new_hash:
             results[itype] = "hash_match"
+            telemetry.record_coach_run(insight_type=itype, status="hash_match", user_id=user_id)
             continue
         if used_today >= cap:
             results[itype] = "cap_reached"
+            telemetry.record_coach_run(insight_type=itype, status="cap_reached", user_id=user_id)
             continue
         payload = generators[itype](context, pillars)
         if payload is None:
             results[itype] = "generator_returned_none"
+            telemetry.record_coach_run(insight_type=itype, status="generator_returned_none", user_id=user_id)
             continue
         _upsert_insight(db, user_id, itype, payload, new_hash)
         used_today += 1
         results[itype] = "generated"
+        telemetry.record_coach_run(insight_type=itype, status="generated", user_id=user_id)
 
     db.commit()
     return results

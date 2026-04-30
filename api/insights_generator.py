@@ -106,6 +106,7 @@ def _generate(
         system=system_prompt,
         user=user_msg,
         model=llm.INSIGHT_MODEL,
+        insight_type=insight_type,
     )
     if not raw:
         # chat_json already logged the underlying error; no need to repeat.
