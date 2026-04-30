@@ -374,7 +374,7 @@ def _login_garmin_with_cn_fallback(client, creds: dict, token_dir: str) -> None:
        (``"Invalid Username or Password"``) bubbling up.
     """
     import contextlib
-    from garminconnect.exceptions import GarminConnectAuthenticationError
+    from garminconnect import GarminConnectAuthenticationError
 
     if getattr(client, "is_cn", False):
         _patch_cn_di_exchange(client.client)
