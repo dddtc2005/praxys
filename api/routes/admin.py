@@ -11,18 +11,10 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
 from api.auth import get_current_user_id
-from api.views import utc_isoformat
+from api.views import utc_isoformat, require_admin as _require_admin
 from db.session import get_db
 
 router = APIRouter(prefix="/admin")
-
-
-def _require_admin(user_id: str, db: Session) -> None:
-    """Raise 403 if user is not a superuser."""
-    from db.models import User
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user or not user.is_superuser:
-        raise HTTPException(403, "Admin access required")
 
 
 def _generate_code() -> str:
