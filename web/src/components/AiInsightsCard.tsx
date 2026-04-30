@@ -2,10 +2,11 @@ import { useApi } from '@/hooks/useApi';
 import type { AiInsight } from '@/types/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, Sparkles, CheckCircle2, AlertTriangle, Minus } from 'lucide-react';
+import { ChevronDown, UserRound, CheckCircle2, AlertTriangle, Minus } from 'lucide-react';
 import { useState } from 'react';
 import { Trans, Plural, useLingui } from '@lingui/react/macro';
 import { useLocale } from '@/contexts/LocaleContext';
+import { linkifyScienceTerms } from '@/lib/science-links';
 
 interface Props {
   insightType: string;
@@ -54,8 +55,8 @@ export default function AiInsightsCard({ insightType }: Props) {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent-purple/15 text-accent-purple">
-              <Sparkles className="h-3.5 w-3.5" />
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-purple/15 text-accent-purple">
+              <UserRound className="h-3.5 w-3.5" />
             </div>
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-accent-purple">
               <Trans>Praxys Coach</Trans>
@@ -74,9 +75,9 @@ export default function AiInsightsCard({ insightType }: Props) {
           {headline}
         </p>
 
-        {/* Summary (always visible) */}
+        {/* Summary (always visible) — pillar names auto-linked to /science. */}
         <p className="text-sm text-muted-foreground leading-relaxed mb-3 whitespace-pre-line">
-          {summary}
+          {linkifyScienceTerms(summary)}
         </p>
 
         {/* Expandable details */}
@@ -110,7 +111,9 @@ export default function AiInsightsCard({ insightType }: Props) {
                   {findings.map((f, i) => (
                     <div key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
                       <FindingIcon type={f.type} />
-                      <span className={f.type === 'warning' ? 'text-foreground' : ''}>{f.text}</span>
+                      <span className={f.type === 'warning' ? 'text-foreground' : ''}>
+                        {linkifyScienceTerms(f.text)}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -123,7 +126,7 @@ export default function AiInsightsCard({ insightType }: Props) {
                   {recommendations.map((r, i) => (
                     <div key={i} className="flex items-start gap-2 text-sm text-foreground">
                       <span className="text-accent-purple font-bold shrink-0">{i + 1}.</span>
-                      <span>{r}</span>
+                      <span>{linkifyScienceTerms(r)}</span>
                     </div>
                   ))}
                 </div>

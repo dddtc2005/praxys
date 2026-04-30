@@ -5,7 +5,13 @@ import type { MessageDescriptor } from '@lingui/core';
 
 interface Props {
   recommendation: string;
-  reason: string;
+  /**
+   * Rule-based one-line reason. Pass null/undefined to suppress — Today.tsx
+   * does this when a Praxys Coach daily_brief insight exists, so the
+   * narrative isn't duplicated. The deterministic recommendation chip + label
+   * always render.
+   */
+  reason: string | null;
 }
 
 type SignalColor = 'green' | 'amber' | 'red';
@@ -67,8 +73,10 @@ export default function SignalHero({ recommendation, reason }: Props) {
           {/* Subtitle */}
           <p className={`text-lg font-semibold ${colors.text}`}>{i18n._(signal.subtitle)}</p>
 
-          {/* Reason */}
-          <p className="max-w-md text-center text-sm text-muted-foreground">{reason}</p>
+          {/* Reason — suppressed when Today.tsx detects a Coach narrative below. */}
+          {reason && (
+            <p className="max-w-md text-center text-sm text-muted-foreground">{reason}</p>
+          )}
         </div>
       </CardContent>
     </Card>

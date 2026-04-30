@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { useApi } from '@/hooks/useApi';
-import type { TodayResponse } from '@/types/api';
+import type { AiInsight, TodayResponse } from '@/types/api';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -40,6 +40,11 @@ function TodaySkeleton() {
 
 export default function Today() {
   const { data, loading, error, refetch } = useApi<TodayResponse>('/api/today');
+  // Same query key as AiInsightsCard, so React Query dedupes the fetch.
+  // Used to suppress the rule-based reason text under SignalHero when the
+  // Coach narrative covers the same ground below.
+  const { data: briefData } = useApi<{ insight: AiInsight | null }>('/api/insights/daily_brief');
+  const hasCoachBrief = briefData?.insight != null;
   const { locale } = useLocale();
   const { t } = useLingui();
 
@@ -77,8 +82,13 @@ export default function Today() {
         <p className="text-sm text-muted-foreground mt-1">{dateStr}</p>
       </div>
 
-      {/* Signal Hero — full width */}
-      <SignalHero recommendation={signal.recommendation} reason={signal.reason} />
+      {/* Signal Hero — full width. We hide the rule-based reason text when
+          a Coach narrative is rendering below so the user doesn't read the
+          same idea twice in two voices. */}
+      <SignalHero
+        recommendation={signal.recommendation}
+        reason={hasCoachBrief ? null : signal.reason}
+      />
 
       {/* Praxys Coach: today's brief — sits between the rule-based signal
           hero and the recovery/workout grid so the LLM commentary is the

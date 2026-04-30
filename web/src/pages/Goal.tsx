@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useApi } from '@/hooks/useApi';
 import { useAuth } from '@/hooks/useAuth';
 import { useSettings } from '@/contexts/SettingsContext';
-import type { GoalResponse } from '@/types/api';
+import type { AiInsight, GoalResponse } from '@/types/api';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -95,7 +95,7 @@ function isUltraDistance(distance?: string): boolean {
 
 // --- Tracking Modes ---
 
-function RaceDateMode({ data }: { data: GoalResponse }) {
+function RaceDateMode({ data, hideAssessment }: { data: GoalResponse; hideAssessment: boolean }) {
   const { t, i18n } = useLingui();
   const predictionNote = usePredictionNote();
   const ultraNote = useUltraNote();
@@ -158,9 +158,11 @@ function RaceDateMode({ data }: { data: GoalResponse }) {
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"><Trans>Reality Check</Trans></CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className={`text-sm font-medium ${severityColor(rCheck.severity)}`}>
-              {rCheck.assessment}
-            </p>
+            {!hideAssessment && (
+              <p className={`text-sm font-medium ${severityColor(rCheck.severity)}`}>
+                {rCheck.assessment}
+              </p>
+            )}
 
             {rCheck.current_cp != null && rCheck.needed_cp != null && (
               <div className="flex items-center gap-4 rounded-lg bg-muted px-4 py-3">
@@ -185,7 +187,7 @@ function RaceDateMode({ data }: { data: GoalResponse }) {
               </div>
             )}
 
-            {rCheck.trend_note && (
+            {!hideAssessment && rCheck.trend_note && (
               <p className="text-sm text-muted-foreground">{rCheck.trend_note}</p>
             )}
 
@@ -215,8 +217,9 @@ function RaceDateMode({ data }: { data: GoalResponse }) {
         </Card>
       )}
 
-      {/* Trend-based assessment when no target */}
-      {!hasTarget && rCheck.trend_note && (
+      {/* Trend-based assessment when no target — fully suppressed when the
+          Praxys Coach card carries the same narrative below. */}
+      {!hideAssessment && !hasTarget && rCheck.trend_note && (
         <Card>
           <CardHeader>
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"><Trans>Fitness Trend</Trans></CardTitle>
@@ -235,7 +238,7 @@ function RaceDateMode({ data }: { data: GoalResponse }) {
   );
 }
 
-function CpMilestoneMode({ data }: { data: GoalResponse }) {
+function CpMilestoneMode({ data, hideAssessment }: { data: GoalResponse; hideAssessment: boolean }) {
   const { t, i18n } = useLingui();
   const predictionNote = usePredictionNote();
   const ultraNote = useUltraNote();
@@ -323,15 +326,19 @@ function CpMilestoneMode({ data }: { data: GoalResponse }) {
         </Card>
       )}
 
-      {/* Assessment */}
+      {/* Assessment — prose hidden when the Coach card covers it. The
+          estimated-months metric below stays as a deterministic fallback. */}
+      {(!hideAssessment || rc.estimated_months != null) && (
       <Card>
         <CardHeader>
           <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"><Trans>Assessment</Trans></CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className={`text-sm font-medium ${severityColor(rCheck.severity)}`}>
-            {rCheck.assessment}
-          </p>
+          {!hideAssessment && (
+            <p className={`text-sm font-medium ${severityColor(rCheck.severity)}`}>
+              {rCheck.assessment}
+            </p>
+          )}
           {rc.estimated_months != null && (
             <div className="rounded-lg bg-muted px-4 py-3">
               <p className="text-xs text-muted-foreground"><Trans>Estimated time to target</Trans></p>
@@ -340,18 +347,19 @@ function CpMilestoneMode({ data }: { data: GoalResponse }) {
               </p>
             </div>
           )}
-          {rCheck.trend_note && (
+          {!hideAssessment && rCheck.trend_note && (
             <p className="text-sm text-muted-foreground">{rCheck.trend_note}</p>
           )}
         </CardContent>
       </Card>
+      )}
 
       <DataHint sufficient={data.data_meta?.cp_trend_sufficient ?? true} message={t`Not enough data to show CP trend`} hint={t`Need at least 3 activities with power data.`}><CpTrendChart data={data.cp_trend} targetCp={targetCp} label={d?.trend_label} unit={d?.threshold_unit} metricName={d?.threshold_abbrev} /></DataHint>
     </div>
   );
 }
 
-function ContinuousMode({ data }: { data: GoalResponse }) {
+function ContinuousMode({ data, hideAssessment }: { data: GoalResponse; hideAssessment: boolean }) {
   const { t, i18n } = useLingui();
   const predictionNote = usePredictionNote();
   const ultraNote = useUltraNote();
@@ -407,8 +415,9 @@ function ContinuousMode({ data }: { data: GoalResponse }) {
         </CardContent>
       </Card>
 
-      {/* Assessment */}
-      {rCheck.trend_note && (
+      {/* Assessment — fully suppressed when the Coach card carries the same
+          narrative below. Falls back to rule-based prose otherwise. */}
+      {!hideAssessment && rCheck.trend_note && (
         <Card>
           <CardHeader>
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"><Trans>Trend</Trans></CardTitle>
@@ -448,6 +457,11 @@ function GoalSkeleton() {
 export default function Goal() {
   const { t } = useLingui();
   const { data, loading, error, refetch } = useApi<GoalResponse>('/api/goal');
+  // Same query key as AiInsightsCard, dedupes via React Query.
+  const { data: forecastData } = useApi<{ insight: AiInsight | null }>(
+    '/api/insights/race_forecast',
+  );
+  const hasCoachForecast = forecastData?.insight != null;
   const { isDemo } = useAuth();
   const { config, updateSettings } = useSettings();
   const [isEditing, setIsEditing] = useState(false);
@@ -504,9 +518,9 @@ export default function Goal() {
 
       {data && (
         <>
-          {mode === 'race_date' && <RaceDateMode data={data} />}
-          {mode === 'cp_milestone' && <CpMilestoneMode data={data} />}
-          {(mode === 'continuous' || mode === 'none') && <ContinuousMode data={data} />}
+          {mode === 'race_date' && <RaceDateMode data={data} hideAssessment={hasCoachForecast} />}
+          {mode === 'cp_milestone' && <CpMilestoneMode data={data} hideAssessment={hasCoachForecast} />}
+          {(mode === 'continuous' || mode === 'none') && <ContinuousMode data={data} hideAssessment={hasCoachForecast} />}
         </>
       )}
 

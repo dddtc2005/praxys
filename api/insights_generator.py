@@ -161,9 +161,10 @@ Return STRICT JSON in this exact shape:
 Hard rules:
 - 'type' values are STABLE English enum keys: positive, warning, neutral. NEVER translate them.
 - 'findings' arrays in en and zh MUST have the same length and the same 'type' value at each index.
-- 'recommendations' arrays in en and zh MUST have the same length and AT MOST 3 entries each. Pick the highest-impact ones; do not pad.
+- 'recommendations' arrays in en and zh MUST have the same length. Length is 0-3 entries each. Fewer is better than padded — return 0 if there's nothing concrete to say, 1-3 if there is. Do not invent advice to hit a quota.
 - Do NOT translate technical acronyms: HRV, TSB, CTL, ATL, CP, VO2max, RPE.
-- In Chinese: use 您 (formal you), 阈值功率 (not 临界功率), 同步历史数据 (not 回填), 基准 (not 基线).
+- Science-pillar / theory NAMES stay in English in BOTH languages: write "Banister PMC", "Plews HRV-guided", "Critical Power Model", "Coggan 5-zone", "Seiler Polarized" verbatim — never paraphrase them as "阈值功率模型" / "Banister 表现管理模型" etc. The product links these names to the Science page; paraphrases break the link.
+- In Chinese: use 您 (formal you), 阈值功率 (not 临界功率) ONLY when referring to the metric (the user's CP value), 同步历史数据 (not 回填), 基准 (not 基线).
 - Plain text only — no markdown, no bullet points, no headings.
 
 Context-awareness rules:
@@ -201,10 +202,20 @@ def _daily_brief_system(context: dict) -> str:
     return (
         _frame_intro(context)
         + "\n\nYou will receive today's recovery + fitness state and the planned "
-        "workout (if any). Produce a tight, actionable brief: headline conveys the "
-        "core message in ≤8 words, summary explains why in 2-3 sentences, findings "
-        "highlight 1-3 specific signals (e.g. HRV below threshold, low TSB), and "
-        "recommendations are 1-3 short imperatives the athlete can act on today.\n"
+        "workout (if any). Produce a tight, actionable brief: headline conveys "
+        "the core message in ≤8 words, summary explains why in 2-3 sentences, "
+        "findings highlight 1-3 specific signals (e.g. HRV below threshold, "
+        "low TSB).\n\n"
+        "Recommendations rules — TODAY-specific, never generic:\n"
+        "- If a workout is planned, advise either 'continue as planned' (when "
+        "  signals support it) OR a specific adjustment ('cut to 30 min easy', "
+        "  'replace intervals with Z2', 'shift to tomorrow').\n"
+        "- If no workout is planned, advise something concrete for TODAY based "
+        "  on recovery state (an easy 30-min run, full rest, mobility).\n"
+        "- Do NOT give long-horizon training advice here — that belongs in the "
+        "  training review.\n"
+        "- 0-3 entries. If recovery is normal and the plan already fits, 0-1 "
+        "  recommendations is fine. Don't pad.\n"
         + _BILINGUAL_RULES
     )
 
@@ -212,13 +223,18 @@ def _daily_brief_system(context: dict) -> str:
 def _training_review_system(context: dict) -> str:
     return (
         _frame_intro(context)
-        + "\n\nYou will receive 6-8 weeks of training sessions (date, distance, RSS, "
-        "average power per session) and weekly aggregates. Produce a diagnosis: "
-        "headline names the dominant pattern, summary explains the trajectory, "
-        "findings flag specific issues (volume trend, intensity distribution vs "
-        "the zone framework's target distribution, consistency, threshold trend), "
-        "and recommendations are concrete next-cycle actions ('add 1x supra-CP "
-        "session/week', 'cut volume 15% next 2 weeks', etc.).\n"
+        + "\n\nYou will receive 6-8 weeks of training sessions (date, distance, "
+        "RSS, average power per session) and weekly aggregates. Produce a "
+        "diagnosis: headline names the dominant pattern, summary explains the "
+        "trajectory, findings flag specific issues (volume trend, intensity "
+        "distribution vs the zone framework's target distribution, consistency, "
+        "threshold trend).\n\n"
+        "Recommendations rules — next-cycle structural, consistent with the goal:\n"
+        "- Concrete next-cycle actions ('add 1x supra-CP session/week', "
+        "  'cut volume 15% next 2 weeks').\n"
+        "- Stay consistent with the goal mode: if a race is set, don't propose "
+        "  brand-new training blocks that wouldn't finish before race day.\n"
+        "- 0-3 entries. Pick highest-impact only.\n"
         + _BILINGUAL_RULES
     )
 
@@ -228,12 +244,18 @@ def _race_forecast_system(context: dict) -> str:
         _frame_intro(context)
         + "\n\nYou will receive the athlete's current threshold power, CP trend, "
         "predicted race time (from the prediction model), goal race date and "
-        "target time. Produce a feasibility narrative: headline says whether the "
-        "goal is on track / close / unlikely, summary explains the gap and trend, "
-        "findings flag the key constraints (threshold gap, time runway, weekly "
-        "improvement needed), and recommendations are 1-3 concrete adjustments "
-        "(specific CP target, weekly load shift, race plan tweaks). When no race "
-        "date is set, frame the narrative around CP milestones instead.\n"
+        "target time. Produce a feasibility narrative: headline says whether "
+        "the goal is on track / close / unlikely, summary explains the gap and "
+        "trend, findings flag the key constraints (threshold gap, time runway, "
+        "weekly improvement needed). When no race date is set, frame the "
+        "narrative around CP milestones instead.\n\n"
+        "Recommendations rules — gap-closing, scoped to this page:\n"
+        "- Specifically about closing the gap to the race target OR hitting the "
+        "  next CP milestone: a concrete CP target, a weekly load shift, race "
+        "  pacing, race-week prep.\n"
+        "- Do NOT recommend abstract training blocks that don't tie back to the "
+        "  goal numbers in front of the athlete.\n"
+        "- 0-3 entries. If the trend already projects on-target, 0-1 is fine.\n"
         + _BILINGUAL_RULES
     )
 
