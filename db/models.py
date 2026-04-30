@@ -390,3 +390,25 @@ class TrainingPlan(Base):
             "user_id", "date", "source", "workout_type", name="uq_user_date_plan"
         ),
     )
+
+
+class SystemAnnouncement(Base):
+    """Admin-configurable site-wide notification banners.
+
+    Active announcements are returned by GET /api/announcements to all
+    authenticated users and rendered as dismissible banners in the web UI.
+    Dismissed banner IDs are stored client-side (localStorage) so they
+    don't re-appear after reload without server-side per-user tracking.
+    """
+
+    __tablename__ = "system_announcements"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    title = Column(String(200), nullable=False)
+    body = Column(Text, nullable=False)
+    type = Column(String(20), default="info", nullable=False)  # info | warning | success
+    is_active = Column(Boolean, default=True, nullable=False)
+    link_text = Column(String(100), nullable=True)
+    link_url = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
