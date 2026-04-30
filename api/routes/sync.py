@@ -405,9 +405,9 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
     from db import sync_writer
     from garminconnect import Garmin
     from sync.garmin_sync import (
-        parse_activities, parse_splits, parse_daily_metrics,
-        parse_lactate_threshold, parse_user_profile, parse_heart_rates,
-        parse_running_ftp, RATE_LIMIT_DELAY,
+        parse_activities, parse_splits, parse_activity_stream,
+        parse_daily_metrics, parse_lactate_threshold, parse_user_profile,
+        parse_heart_rates, parse_running_ftp, RATE_LIMIT_DELAY,
     )
     import time
 
@@ -508,6 +508,30 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
             split_failures, total, user_id,
         )
     split_count = sync_writer.write_splits(user_id, all_splits, db)
+
+    # Fetch per-second streams and write to activity_samples. One extra API
+    # call per activity (get_activity_details). Rate-limited the same as splits.
+    # Power is not available in the Garmin stream for ConnectIQ-based devices
+    # (Stryd pod) — it only surfaces in lap splits via the CIQ developer field.
+    all_samples = []
+    stream_failures = 0
+    for idx, aid in enumerate(activity_ids):
+        with _sync_lock:
+            status["garmin"]["progress"] = f"Fetching streams: {idx + 1}/{total}"
+        try:
+            details = client.get_activity_details(aid, maxchart=2000) or {}
+            all_samples.extend(parse_activity_stream(aid, details))
+            time.sleep(RATE_LIMIT_DELAY)
+        except Exception as e:
+            stream_failures += 1
+            logger.debug("Stream for %s: skipped (%s)", aid, e)
+    if total and stream_failures >= max(3, total // 2):
+        logger.warning(
+            "Garmin stream fetch failed for %d of %d activities (user %s)",
+            stream_failures, total, user_id,
+        )
+    sample_count = sync_writer.write_samples(user_id, all_samples, db)
+    logger.debug("Garmin sync: %d splits, %d samples written", split_count, sample_count)
 
     # Lactate threshold. Log at warning so intermittent failures surface
     # instead of vanishing at debug level — the previous behaviour silently
