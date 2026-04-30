@@ -216,8 +216,8 @@ msgid "Aerobic"
 msgstr "Aerobic"
 
 #: src/components/AiInsightsCard.tsx:56
-msgid "AI Analysis"
-msgstr "AI Analysis"
+msgid "Praxys Coach"
+msgstr "Praxys Coach"
 
 #: src/pages/Today.tsx:125
 msgid "AI Daily Brief"

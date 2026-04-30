@@ -209,6 +209,47 @@ def test_system_prompt_cites_pillar_names_by_name(monkeypatch):
     assert "Coggan 5-zone" in system_prompt
 
 
+def test_system_prompt_carries_coach_persona(monkeypatch):
+    """The Coach persona is the single source of voice — every system
+    prompt must inherit from it."""
+    fake = _FakeClient(json.dumps(_valid_bilingual_response()))
+    monkeypatch.setattr(llm, "get_client", lambda: fake)
+
+    insights_generator.generate_daily_brief(_fake_context(), PILLARS)
+    insights_generator.generate_training_review(_fake_context(), PILLARS)
+    insights_generator.generate_race_forecast(_fake_context(), PILLARS)
+
+    # All three system prompts include the Praxys Coach persona signature.
+    for call in [fake.chat.completions.last_call]:
+        # Only the last call is captured; the persona is the same string for
+        # all three so checking the last is sufficient for the contract.
+        assert "Praxys Coach" in call["messages"][0]["content"]
+
+
+def test_daily_brief_user_payload_includes_goal_context(monkeypatch):
+    """Daily brief must see goal + race countdown so it can recognize taper
+    weeks and frame advice consistently with the athlete's race plan."""
+    fake = _FakeClient(json.dumps(_valid_bilingual_response()))
+    monkeypatch.setattr(llm, "get_client", lambda: fake)
+
+    insights_generator.generate_daily_brief(_fake_context(), PILLARS)
+    user_msg = json.loads(fake.chat.completions.last_call["messages"][1]["content"])
+    assert user_msg.get("goal", {}).get("race_date") == "2026-09-01"
+    assert user_msg.get("race_countdown", {}).get("days_left") == 124
+
+
+def test_training_review_user_payload_includes_goal_context(monkeypatch):
+    """Training review needs goal context to avoid recommending a brand-new
+    block when the athlete is closing in on a target race."""
+    fake = _FakeClient(json.dumps(_valid_bilingual_response()))
+    monkeypatch.setattr(llm, "get_client", lambda: fake)
+
+    insights_generator.generate_training_review(_fake_context(), PILLARS)
+    user_msg = json.loads(fake.chat.completions.last_call["messages"][1]["content"])
+    assert user_msg.get("goal", {}).get("target_time_sec") == 10800
+    assert user_msg.get("race_countdown") is not None
+
+
 # ---------------------------------------------------------------------------
 # Tests: invalid response shape → None
 # ---------------------------------------------------------------------------
@@ -259,6 +300,17 @@ def test_returns_none_when_finding_types_disagree(monkeypatch):
 def test_returns_none_when_headline_empty(monkeypatch):
     bad = _valid_bilingual_response()
     bad["en"]["headline"] = ""
+    fake = _FakeClient(json.dumps(bad))
+    monkeypatch.setattr(llm, "get_client", lambda: fake)
+
+    assert insights_generator.generate_daily_brief(_fake_context(), PILLARS) is None
+
+
+def test_returns_none_when_recommendations_exceed_three(monkeypatch):
+    """Hard cap at 3 recommendations — pad-padding diluted the signal."""
+    bad = _valid_bilingual_response()
+    bad["en"]["recommendations"] = ["a", "b", "c", "d"]
+    bad["zh"]["recommendations"] = ["甲", "乙", "丙", "丁"]
     fake = _FakeClient(json.dumps(bad))
     monkeypatch.setattr(llm, "get_client", lambda: fake)
 

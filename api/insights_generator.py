@@ -33,6 +33,7 @@ import logging
 from typing import Any
 
 from api import llm
+from api.coach import COACH_PERSONA
 
 logger = logging.getLogger(__name__)
 
@@ -160,31 +161,39 @@ Return STRICT JSON in this exact shape:
 Hard rules:
 - 'type' values are STABLE English enum keys: positive, warning, neutral. NEVER translate them.
 - 'findings' arrays in en and zh MUST have the same length and the same 'type' value at each index.
-- 'recommendations' arrays in en and zh MUST have the same length.
+- 'recommendations' arrays in en and zh MUST have the same length and AT MOST 3 entries each. Pick the highest-impact ones; do not pad.
 - Do NOT translate technical acronyms: HRV, TSB, CTL, ATL, CP, VO2max, RPE.
 - In Chinese: use 您 (formal you), 阈值功率 (not 临界功率), 同步历史数据 (not 回填), 基准 (not 基线).
 - Plain text only — no markdown, no bullet points, no headings.
+
+Context-awareness rules:
+- If a race is ≤ 14 days away AND load (ATL, weekly volume) is dropping, recognize this as a planned taper. Do NOT flag the drop as a regression; affirm the taper and focus advice on freshness, sleep, race execution.
+- If today's "planned_workout" is rest or easy, do not push the athlete to add intensity.
+- If the athlete is in race mode (race_date set, days_left ≤ 28), keep advice consistent with closing the gap to the goal — don't suggest brand-new training blocks.
 """
 
 
 def _frame_intro(context: dict) -> str:
-    """Two paragraphs naming the user's selected pillars by name."""
+    """Persona prefix + the user's selected science pillars, named.
+
+    The persona (``COACH_PERSONA``) supplies the voice; this function tacks
+    on the pillar enumeration so the model knows which framework names to
+    cite. Keeping pillar enumeration separate from the persona means the
+    persona stays stable across surfaces while pillar names are
+    per-request.
+    """
     science = context.get("science") or {}
     load = (science.get("load") or {}).get("name") or "Banister PMC"
     recovery = (science.get("recovery") or {}).get("name") or "HRV-based"
     prediction = (science.get("prediction") or {}).get("name") or "Critical Power"
     zones = (science.get("zones") or {}).get("name") or "Five-zone"
     return (
-        "You are a science-grounded endurance coach for an athlete using power-based "
-        "training.\n"
-        f"The athlete's chosen scientific framework:\n"
+        f"{COACH_PERSONA}\n\n"
+        "The athlete's chosen scientific framework:\n"
         f"- Load model: {load}\n"
         f"- Recovery model: {recovery}\n"
         f"- Race-prediction model: {prediction}\n"
-        f"- Zone framework: {zones}\n\n"
-        "Cite these pillar names by name when justifying advice (e.g. "
-        f'"per {recovery} trend", "per {load} TSB"). Avoid generic coaching '
-        "boilerplate."
+        f"- Zone framework: {zones}\n"
     )
 
 
@@ -234,6 +243,21 @@ def _race_forecast_system(context: dict) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _goal_context(context: dict) -> dict:
+    """Goal + race-countdown summary surfaced to every prompt.
+
+    The Coach persona uses this to recognize taper windows, race-week
+    behavior, and goal-mode framing. Including it in every prompt means
+    the LLM has the same context on Today, Training, and Goal pages.
+    """
+    cf = context.get("current_fitness") or {}
+    ap = context.get("athlete_profile") or {}
+    return {
+        "goal": ap.get("goal"),
+        "race_countdown": cf.get("race_countdown"),
+    }
+
+
 def _daily_brief_inputs(context: dict) -> dict:
     rs = context.get("recovery_state") or {}
     cf = context.get("current_fitness") or {}
@@ -251,6 +275,7 @@ def _daily_brief_inputs(context: dict) -> dict:
             "tsb": cf.get("tsb"),
         },
         "planned_workout": plan[0] if plan else None,
+        **_goal_context(context),
     }
 
 
@@ -274,6 +299,7 @@ def _training_review_inputs(context: dict) -> dict:
         "cp_trend": cf.get("cp_trend"),
         "zone_target_distribution": zones.get("target_distribution"),
         "zone_names": zones.get("zone_names"),
+        **_goal_context(context),
     }
 
 
@@ -324,6 +350,10 @@ def _validate_bilingual_shape(raw: Any) -> tuple[bool, str]:
         recs = block.get("recommendations")
         if not isinstance(recs, list) or not all(isinstance(r, str) for r in recs):
             return False, f"{lang}_recommendations_invalid"
+        if len(recs) > 3:
+            # Enforce the "≤ 3 recommendations" prompt rule. The LLM
+            # otherwise drifts to 5-8 entries, which dilutes signal.
+            return False, f"{lang}_too_many_recommendations"
     # findings/recommendations must align across languages
     if len(raw["en"]["findings"]) != len(raw["zh"]["findings"]):
         return False, "findings_length_mismatch"

@@ -58,7 +58,7 @@ export default function AiInsightsCard({ insightType }: Props) {
               <Sparkles className="h-3.5 w-3.5" />
             </div>
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-accent-purple">
-              <Trans>AI Analysis</Trans>
+              <Trans>Praxys Coach</Trans>
             </CardTitle>
           </div>
           {insight.generated_at && (

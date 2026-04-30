@@ -11,6 +11,7 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import GoalEditor from '@/components/GoalEditor';
 import CliHint from '@/components/CliHint';
+import AiInsightsCard from '@/components/AiInsightsCard';
 import MilestoneTracker from '@/components/MilestoneTracker';
 import CpTrendChart from '@/components/charts/CpTrendChart';
 import DataHint from '@/components/DataHint';
@@ -508,6 +509,10 @@ export default function Goal() {
           {(mode === 'continuous' || mode === 'none') && <ContinuousMode data={data} />}
         </>
       )}
+
+      {/* Praxys Coach: race feasibility narrative grounded in the user's
+          prediction theory pillar. Renders nothing when no row exists. */}
+      <AiInsightsCard insightType="race_forecast" />
 
       <CliHint
         skill="race-forecast"

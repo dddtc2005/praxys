@@ -17,6 +17,7 @@ import LastActivityCard from '@/components/LastActivityCard';
 import WeeklyLoadMini from '@/components/WeeklyLoadMini';
 import DataHint from '@/components/DataHint';
 import CliHint from '@/components/CliHint';
+import AiInsightsCard from '@/components/AiInsightsCard';
 import { Trans, useLingui } from '@lingui/react/macro';
 import { useLocale } from '@/contexts/LocaleContext';
 
@@ -78,6 +79,12 @@ export default function Today() {
 
       {/* Signal Hero — full width */}
       <SignalHero recommendation={signal.recommendation} reason={signal.reason} />
+
+      {/* Praxys Coach: today's brief — sits between the rule-based signal
+          hero and the recovery/workout grid so the LLM commentary is the
+          first interpretive layer the athlete sees. Renders nothing when
+          no insight row exists (LLM disabled, generation cap hit). */}
+      <AiInsightsCard insightType="daily_brief" />
 
       {/* Two-column grid: Recovery + Workout */}
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
