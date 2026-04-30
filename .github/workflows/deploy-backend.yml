@@ -12,6 +12,8 @@ on:
       - 'tests/**'
       - 'requirements.txt'
       - '.github/workflows/deploy-backend.yml'
+    tags:
+      - 'api-*'
 
 permissions:
   id-token: write
@@ -35,6 +37,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+
+      - name: Stamp build version
+        # Write ``api/_build_version.txt`` so ``api.version.get_api_version()``
+        # returns the deploy build instead of ``"develop"``. Mirrors the web
+        # bundle's ``VITE_APP_VERSION`` injection — both surfaces show a
+        # CalVer-ish synthetic version on auto-deploys, the stripped tag on
+        # tagged releases (``api-YYYY.MM.MICRO`` → ``YYYY.MM.MICRO``).
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" && "${GITHUB_REF_NAME}" == api-* ]]; then
+            VERSION="${GITHUB_REF_NAME#api-}"
+          else
+            VERSION="$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}"
+          fi
+          echo "${VERSION}" > api/_build_version.txt
+          echo "Build version: ${VERSION}"
+
       - name: Azure Login (OIDC)
         uses: azure/login@v3
         with:

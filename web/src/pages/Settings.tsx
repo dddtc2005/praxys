@@ -25,6 +25,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Link2, Gauge, SlidersHorizontal, Target, Activity, User, Check, Clock } from 'lucide-react';
 import GoalEditor from '@/components/GoalEditor';
 import { formatTime, formatPace } from '@/lib/format';
+import { WEB_VERSION } from '@/lib/version';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocale } from '@/contexts/LocaleContext';
 import { detectBrowserLocale } from '@/lib/locale-detect';
@@ -217,6 +218,10 @@ export default function Settings() {
   const [goalEditorOpen, setGoalEditorOpen] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
+  // Live API build, mirrored next to the bundled web version at the
+  // page footer. Empty string while loading or if the call fails — we
+  // still render the web version so the footer never blanks out.
+  const [apiVersion, setApiVersion] = useState('');
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -247,6 +252,19 @@ export default function Settings() {
       .then((r) => r.json())
       .then((data: SyncStatusResponse) => setSyncStatus(data))
       .catch(() => {});
+  }, []);
+
+  // /api/version is public (no auth) and cheap; fetch once per Settings
+  // mount so the footer shows the live API build alongside WEB_VERSION.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_BASE}/api/version`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { version?: string } | null) => {
+        if (!cancelled && data?.version) setApiVersion(data.version);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -1259,6 +1277,23 @@ export default function Settings() {
       </Card>
 
       </div>{/* end read-only overlay */}
+
+      {/* Build footer — mirrors the mini program's ``Praxys <version>``
+          line. Web and API ship from the same commit but different
+          App Service sites, so a partial deploy can leave them at
+          different versions; we surface both when they diverge so the
+          drift is legible without spelunking the Network tab. Brand
+          name and ``API`` label stay untranslated for parity with
+          ``miniapp/pages/settings/index.wxml``. */}
+      <p
+        className="mt-12 text-center text-[11px] font-data text-muted-foreground/60"
+        title={apiVersion ? `web ${WEB_VERSION} · api ${apiVersion}` : `web ${WEB_VERSION}`}
+      >
+        Praxys {WEB_VERSION}
+        {apiVersion && apiVersion !== WEB_VERSION && (
+          <> <span aria-hidden>·</span> API {apiVersion}</>
+        )}
+      </p>
     </div>
   );
 }

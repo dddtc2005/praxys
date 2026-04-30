@@ -15,6 +15,8 @@ on:
       - 'web/**'
       - 'frontend_server/**'
       - '.github/workflows/deploy-frontend-appservice.yml'
+    tags:
+      - 'web-*'
   workflow_dispatch:
 
 permissions:
@@ -50,6 +52,23 @@ jobs:
           cache: 'npm'
           cache-dependency-path: web/package-lock.json
 
+      - name: Compute build version
+        # Synthetic CalVer-ish version baked into the bundle and
+        # surfaced by the Settings footer. Matches the mini-program
+        # publish workflow so all three surfaces (web / api /
+        # miniapp) read identically. Tagged releases ``web-YYYY.MM.MICRO``
+        # strip the prefix so the displayed string matches the tag.
+        id: version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" && "${GITHUB_REF_NAME}" == web-* ]]; then
+            VERSION="${GITHUB_REF_NAME#web-}"
+          else
+            VERSION="$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Build version: ${VERSION}"
+
       - name: Build web bundle
         working-directory: web
         # --legacy-peer-deps because vite-plugin-pwa@1.2 declares older
@@ -60,6 +79,7 @@ jobs:
         env:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
           VITE_APPINSIGHTS_CONNECTION_STRING: ${{ vars.VITE_APPINSIGHTS_CONNECTION_STRING }}
+          VITE_APP_VERSION: ${{ steps.version.outputs.version }}
 
       - name: Stage deploy package
         # The deploy zip mirrors the repo layout that frontend_server.main

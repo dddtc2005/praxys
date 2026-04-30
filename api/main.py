@@ -48,6 +48,7 @@ from sqlalchemy.orm import Session
 
 from api.auth import get_current_user_id
 from api.env_compat import getenv_compat
+from api.version import get_api_version
 from api.views import utc_isoformat
 from db.session import get_db
 
@@ -90,7 +91,7 @@ async def lifespan(app: FastAPI):
                 logger.exception("Failed to stop sync scheduler cleanly")
 
 
-app = FastAPI(title="Praxys API", version="2.0.0", lifespan=lifespan)
+app = FastAPI(title="Praxys API", version=get_api_version(), lifespan=lifespan)
 
 # GZip API responses. Linux App Service's nginx proxy doesn't compress
 # dynamic upstream responses by default, so without this, JSON payloads
@@ -160,6 +161,14 @@ for router_module in [today, training, goal, history, plan, settings, sync, scie
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/api/version")
+def version() -> dict:
+    """Public — frontend Settings page reads this to surface the live
+    API build alongside the bundled web version, mirroring the mini
+    program's ``Praxys <version>`` line."""
+    return {"version": get_api_version()}
 
 
 @app.get("/api/auth/me")
