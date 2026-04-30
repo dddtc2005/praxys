@@ -177,7 +177,7 @@ class ActivitySample(Base):
 
     One row per second per activity. Columns cover the union of all connector
     field sets; connector-specific fields are NULL for other sources. The
-    unique constraint on (activity_id, t_sec) makes re-syncs idempotent —
+    unique constraint on (user_id, activity_id, t_sec) makes re-syncs idempotent —
     duplicate writes are silently ignored via INSERT OR IGNORE.
 
     Storage estimate: ~3,600 rows/hour of running. At SQLite scale for
