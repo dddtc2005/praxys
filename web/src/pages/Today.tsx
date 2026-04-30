@@ -10,20 +10,44 @@ import type { MessageDescriptor } from '@lingui/core';
 import { useLocale } from '@/contexts/LocaleContext';
 import { linkifyScienceTerms } from '@/lib/science-links';
 
+// Skeleton mirrors the today-spread layout shape so the page doesn't flash
+// from the old space-y-6 grid into the new asymmetric layout when data
+// resolves. Each child here gets the same grid-placement class as its
+// real-content counterpart.
 function TodaySkeleton() {
   return (
-    <div className="space-y-6">
+    <div className="today-spread">
       <h1 className="sr-only"><Trans>Today</Trans></h1>
-      <div>
-        <Skeleton className="h-8 w-24" />
-        <Skeleton className="h-4 w-48 mt-2" />
+      <div className="today-eyebrow"><Skeleton className="h-4 w-56" /></div>
+      <div className="today-verdict">
+        <Skeleton className="rounded-full h-44 w-44 sm:h-56 sm:w-56" />
+        <Skeleton className="h-6 w-28" />
       </div>
-      <Skeleton className="h-60 w-full rounded-2xl" />
-      <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
-        <Skeleton className="h-48 rounded-2xl" />
-        <Skeleton className="h-48 rounded-2xl" />
+      <div className="coach-receipt">
+        <div className="coach-banner">
+          <Skeleton className="h-3 w-24 bg-card/30" />
+          <Skeleton className="h-3 w-12 bg-card/30" />
+        </div>
+        <div className="coach-body">
+          <Skeleton className="h-4 w-3/4 mb-3" />
+          <Skeleton className="h-3 w-full mb-2" />
+          <Skeleton className="h-3 w-full mb-2" />
+          <Skeleton className="h-3 w-5/6" />
+        </div>
       </div>
-      <Skeleton className="h-32 w-full rounded-2xl" />
+      <div className="today-supporting">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="today-cell">
+            <Skeleton className="h-3 w-16" />
+            <Skeleton className="h-6 w-12" />
+            <Skeleton className="h-3 w-20" />
+          </div>
+        ))}
+      </div>
+      <div className="today-plan">
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="h-4 w-48" />
+      </div>
     </div>
   );
 }
@@ -184,8 +208,10 @@ export default function Today() {
   const trendArrow = hrv ? TREND_ARROW[hrv.trend] : '—';
   const trendLabel = hrv ? i18n._(HRV_TREND_LABEL[hrv.trend]) : '—';
   const trendCv = hrv != null ? `${hrv.rolling_cv.toFixed(1)}%` : '—';
-  const rhrTrendKey = ra?.rhr_trend ?? 'normal';
-  const rhrTrendLabel = i18n._(RHR_TREND_LABEL[rhrTrendKey]);
+  // Only show the RHR trend chip when the API actually emits one. Falling
+  // back to the literal "normal" was the prior behavior, but it asserts
+  // information that isn't there — better to render just `bpm` alone.
+  const rhrTrendLabel = ra?.rhr_trend ? i18n._(RHR_TREND_LABEL[ra.rhr_trend]) : null;
   const baselineLabel = hrv ? i18n._(msg`vs ${hrv.baseline_mean_ln.toFixed(2)} baseline`) : i18n._(msg`no data`);
   const sleepScore = ra?.sleep_score;
   const restingHr = ra?.resting_hr;
@@ -210,7 +236,7 @@ export default function Today() {
 
   return (
     <div className="today-spread">
-      <h1 className="today-eyebrow"><Trans>Today</Trans> · {dateStr}</h1>
+      <h1 className="today-eyebrow font-data"><Trans>Today</Trans> · {dateStr}</h1>
       <div className="today-verdict">
         <div
           className={`relative flex h-44 w-44 sm:h-56 sm:w-56 items-center justify-center rounded-full ring-4 ${tone.ring} ${tone.shadow}`}
@@ -229,7 +255,7 @@ export default function Today() {
           <div className="coach-banner">
             <span className="coach-mark"><Trans>Praxys Coach</Trans></span>
             {insight.generated_at && (
-              <span className="coach-stamp">{timeAgo(insight.generated_at, locale)}</span>
+              <span className="coach-stamp font-data">{timeAgo(insight.generated_at, locale)}</span>
             )}
           </div>
           <div className="coach-body">
@@ -266,11 +292,11 @@ export default function Today() {
         </aside>
       )}
       <div className="today-supporting">
-        <div className="today-cell"><span className="today-cell-label">HRV (ln RMSSD)</span><span className="today-cell-value">{hrv ? hrv.today_ln.toFixed(2) : '—'}</span><span className="today-cell-sub">{hrv?.today_ms != null ? `${hrv.today_ms} ms · ` : ''}{baselineLabel}</span></div>
-        <div className="today-cell"><span className="today-cell-label"><Trans>7d Trend</Trans></span><span className="today-cell-value">{trendArrow}</span><span className="today-cell-sub">{hrv ? `${trendLabel} · CV ${trendCv}` : i18n._(msg`no data`)}</span></div>
-        <div className="today-cell"><span className="today-cell-label"><Trans>RHR</Trans></span><span className="today-cell-value">{rhrDisplay}</span><span className="today-cell-sub">{restingHr != null ? `bpm · ${rhrTrendLabel}` : i18n._(msg`no data`)}</span></div>
-        <div className="today-cell"><span className="today-cell-label"><Trans>Sleep</Trans></span><span className="today-cell-value">{sleepScore != null ? sleepScore : '—'}</span><span className="today-cell-sub">{sleepScore != null ? i18n._(msg`overnight score`) : i18n._(msg`no data`)}</span></div>
-        <div className="today-cell"><span className="today-cell-label">TSB</span><span className={`today-cell-value ${tsb > 0 ? 'today-cell-value-positive' : ''}`.trim()}>{tsbDisplay}</span><span className="today-cell-sub">{tsbDescriptor}</span></div>
+        <div className="today-cell"><span className="today-cell-label">HRV (ln RMSSD)</span><span className="today-cell-value font-data">{hrv ? hrv.today_ln.toFixed(2) : '—'}</span><span className="today-cell-sub font-data">{hrv?.today_ms != null ? `${hrv.today_ms} ms · ` : ''}{baselineLabel}</span></div>
+        <div className="today-cell"><span className="today-cell-label"><Trans>7d Trend</Trans></span><span className="today-cell-value font-data">{trendArrow}</span><span className="today-cell-sub font-data">{hrv ? `${trendLabel} · CV ${trendCv}` : i18n._(msg`no data`)}</span></div>
+        <div className="today-cell"><span className="today-cell-label"><Trans>RHR</Trans></span><span className="today-cell-value font-data">{rhrDisplay}</span><span className="today-cell-sub font-data">{restingHr != null ? (rhrTrendLabel ? `bpm · ${rhrTrendLabel}` : 'bpm') : i18n._(msg`no data`)}</span></div>
+        <div className="today-cell"><span className="today-cell-label"><Trans>Sleep</Trans></span><span className="today-cell-value font-data">{sleepScore != null ? sleepScore : '—'}</span><span className="today-cell-sub font-data">{sleepScore != null ? i18n._(msg`overnight score`) : i18n._(msg`no data`)}</span></div>
+        <div className="today-cell"><span className="today-cell-label">TSB</span><span className={`today-cell-value font-data ${tsb > 0 ? 'today-cell-value-positive' : ''}`.trim()}>{tsbDisplay}</span><span className="today-cell-sub font-data">{tsbDescriptor}</span></div>
       </div>
       <div className="today-plan"><span className="today-plan-eyebrow"><Trans>Planned · Today</Trans></span><span className="today-plan-text">{planText}</span></div>
     </div>
