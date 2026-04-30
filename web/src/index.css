@@ -321,3 +321,167 @@
   color: var(--muted-foreground);
   font-style: italic;
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   Today page: verdict spread layout
+   "The Field Lab" — newspaper-front-page archetype. Big typographic
+   verdict + cobalt margin gloss for Praxys Coach + a 5-cell rule-divided
+   metric ribbon. Replaces the prior nested-card grid.
+   ══════════════════════════════════════════════════════════════════════ */
+.today-spread {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 32px 40px;
+  padding: 48px 0;
+  font-family: var(--font-sans);
+}
+.today-spread > .today-eyebrow {
+  grid-column: 1 / -1;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  margin: 0;
+}
+.today-spread > .today-verdict {
+  grid-column: 1 / 2;
+  font-family: var(--font-sans);
+  font-size: clamp(4rem, 9vw, 7rem);
+  font-weight: 500;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  color: var(--accent-amber-val);
+  margin: 0;
+}
+.today-spread > .today-verdict-go { color: var(--color-accent-green); }
+.today-spread > .today-verdict-rest { color: var(--accent-red-val); }
+.today-spread > .today-rationale {
+  grid-column: 1 / 2;
+  font-size: 18px;
+  line-height: 1.45;
+  color: var(--foreground);
+  margin: 0;
+  max-width: 540px;
+}
+.today-spread > .today-gloss {
+  grid-column: 2 / 3;
+  grid-row: 2 / 4;
+  align-self: start;
+  border-left: 3px solid var(--accent-cobalt-val);
+  background: color-mix(in oklab, var(--accent-cobalt-val) 5%, var(--card));
+  padding: 18px;
+  border-radius: 8px;
+}
+.today-spread > .today-gloss > .today-gloss-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--accent-cobalt-val);
+  margin-bottom: 10px;
+}
+.today-spread > .today-gloss > .today-gloss-text {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--foreground);
+  margin: 0;
+}
+.today-spread > .today-gloss > .today-gloss-text a {
+  color: var(--accent-cobalt-val);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.today-spread > .today-supporting {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 24px 0;
+}
+.today-spread > .today-supporting > .today-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 18px;
+  border-right: 1px solid var(--border);
+}
+.today-spread > .today-supporting > .today-cell:last-child {
+  border-right: none;
+}
+.today-spread > .today-supporting > .today-cell > .today-cell-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+.today-spread > .today-supporting > .today-cell > .today-cell-value {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 500;
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.today-spread > .today-supporting > .today-cell > .today-cell-value-positive {
+  color: var(--primary);
+}
+.today-spread > .today-supporting > .today-cell > .today-cell-sub {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+}
+.today-spread > .today-plan {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+.today-spread > .today-plan > .today-plan-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+.today-spread > .today-plan > .today-plan-text {
+  font-size: 14px;
+  color: var(--foreground);
+}
+
+/* Mobile: stack the gloss below, collapse supporting grid to two cols */
+@media (max-width: 768px) {
+  .today-spread {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding: 24px 0;
+  }
+  .today-spread > .today-gloss {
+    grid-column: 1;
+    grid-row: auto;
+  }
+  .today-spread > .today-supporting {
+    grid-template-columns: repeat(2, 1fr);
+    padding: 16px 0;
+  }
+  .today-spread > .today-supporting > .today-cell {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 12px 0;
+  }
+  .today-spread > .today-supporting > .today-cell:nth-child(odd) {
+    border-right: 1px solid var(--border);
+    padding-right: 14px;
+  }
+  .today-spread > .today-supporting > .today-cell:nth-last-child(-n+2) {
+    border-bottom: none;
+  }
+  .today-spread > .today-verdict {
+    font-size: clamp(3rem, 14vw, 5rem);
+  }
+}
