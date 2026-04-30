@@ -157,6 +157,7 @@ msgid "6 months"
 msgstr "6 months"
 
 #: src/components/RecoveryPanel.tsx:141
+#: src/pages/Today.tsx:270
 msgid "7d Trend"
 msgstr "7d Trend"
 
@@ -550,6 +551,10 @@ msgstr "Data synced successfully"
 msgid "days until {0}"
 msgstr "days until {0}"
 
+#: src/pages/Today.tsx:89
+msgid "declining"
+msgstr "declining"
+
 #: src/components/RecoveryPanel.tsx:28
 msgid "Declining"
 msgstr "Declining"
@@ -676,6 +681,10 @@ msgstr "Edit"
 msgid "Elev"
 msgstr "Elev"
 
+#: src/pages/Today.tsx:99
+msgid "elevated"
+msgstr "elevated"
+
 #: src/components/RecoveryPanel.tsx:33
 msgid "Elevated"
 msgstr "Elevated"
@@ -722,7 +731,7 @@ msgstr "Extended rest period. Fitness declining."
 msgid "Failed (HTTP {0})"
 msgstr "Failed (HTTP {0})"
 
-#: src/pages/Today.tsx:143
+#: src/pages/Today.tsx:161
 msgid "Failed to load"
 msgstr "Failed to load"
 
@@ -766,7 +775,7 @@ msgstr "Fatigue"
 msgid "Fatigue is climbing — watch recovery before adding load."
 msgstr "Fatigue is climbing — watch recovery before adding load."
 
-#: src/pages/Today.tsx:177
+#: src/pages/Today.tsx:199
 msgid "fatigued"
 msgstr "fatigued"
 
@@ -775,7 +784,7 @@ msgid "Fatigued"
 msgstr "Fatigued"
 
 #: src/components/AiInsightsCard.tsx:110
-#: src/pages/Today.tsx:217
+#: src/pages/Today.tsx:239
 msgid "Findings"
 msgstr "Findings"
 
@@ -990,6 +999,10 @@ msgstr "HRV below threshold (Kiviniemi)"
 msgid "HRV within normal range"
 msgstr "HRV within normal range"
 
+#: src/pages/Today.tsx:88
+msgid "improving"
+msgstr "improving"
+
 #: src/components/RecoveryPanel.tsx:27
 msgid "Improving"
 msgstr "Improving"
@@ -1086,6 +1099,10 @@ msgstr "Log out"
 msgid "Login"
 msgstr "Login"
 
+#: src/pages/Today.tsx:100
+msgid "low"
+msgstr "low"
+
 #: src/components/RecoveryPanel.tsx:34
 msgid "Low"
 msgstr "Low"
@@ -1118,7 +1135,7 @@ msgstr "Marathon"
 msgid "Max HR"
 msgstr "Max HR"
 
-#: src/pages/Today.tsx:176
+#: src/pages/Today.tsx:198
 msgid "mild fatigue"
 msgstr "mild fatigue"
 
@@ -1179,10 +1196,10 @@ msgstr "Next sync"
 msgid "No activities found."
 msgstr "No activities found."
 
-#: src/pages/Today.tsx:247
-#: src/pages/Today.tsx:248
-#: src/pages/Today.tsx:249
-#: src/pages/Today.tsx:250
+#: src/pages/Today.tsx:189
+#: src/pages/Today.tsx:270
+#: src/pages/Today.tsx:271
+#: src/pages/Today.tsx:272
 msgid "no data"
 msgstr "no data"
 
@@ -1209,6 +1226,10 @@ msgstr "No split data available."
 #: src/components/WorkoutCard.tsx:40
 msgid "No Workout"
 msgstr "No Workout"
+
+#: src/pages/Today.tsx:101
+msgid "normal"
+msgstr "normal"
 
 #: src/components/RecoveryPanel.tsx:19
 #: src/components/RecoveryPanel.tsx:32
@@ -1274,7 +1295,7 @@ msgstr "Options"
 msgid "Other Signals"
 msgstr "Other Signals"
 
-#: src/pages/Today.tsx:250
+#: src/pages/Today.tsx:272
 msgid "overnight score"
 msgstr "overnight score"
 
@@ -1311,7 +1332,7 @@ msgstr "Plan"
 msgid "Planned"
 msgstr "Planned"
 
-#: src/pages/Today.tsx:253
+#: src/pages/Today.tsx:275
 msgid "Planned · Today"
 msgstr "Planned · Today"
 
@@ -1323,7 +1344,7 @@ msgstr "Planned bars are estimated — your plan has no {label} targets for the 
 msgid "Planned Workout"
 msgstr "Planned Workout"
 
-#: src/pages/Today.tsx:175
+#: src/pages/Today.tsx:197
 msgid "positive"
 msgstr "positive"
 
@@ -1343,11 +1364,11 @@ msgid "Power-based training dashboard"
 msgstr "Power-based training dashboard"
 
 #: src/components/AiInsightsCard.tsx:62
-#: src/pages/Today.tsx:208
+#: src/pages/Today.tsx:230
 msgid "Praxys Coach"
 msgstr "Praxys Coach"
 
-#: src/pages/Today.tsx:206
+#: src/pages/Today.tsx:228
 msgid "Praxys Coach insight"
 msgstr "Praxys Coach insight"
 
@@ -1476,7 +1497,7 @@ msgid "Reality Check"
 msgstr "Reality Check"
 
 #: src/components/AiInsightsCard.tsx:125
-#: src/pages/Today.tsx:231
+#: src/pages/Today.tsx:253
 msgid "Recommendations"
 msgstr "Recommendations"
 
@@ -1564,7 +1585,7 @@ msgstr "Rest"
 msgid "REST"
 msgstr "REST"
 
-#: src/pages/Today.tsx:179
+#: src/pages/Today.tsx:201
 msgid "Rest day. No workout scheduled."
 msgstr "Rest day. No workout scheduled."
 
@@ -1576,7 +1597,7 @@ msgstr "Resting HR"
 #: src/pages/Goal.tsx:509
 #: src/pages/History.tsx:53
 #: src/pages/Settings.tsx:316
-#: src/pages/Today.tsx:146
+#: src/pages/Today.tsx:164
 #: src/pages/Training.tsx:55
 msgid "Retry"
 msgstr "Retry"
@@ -1592,6 +1613,10 @@ msgstr "Revoke"
 #: src/pages/Admin.tsx:347
 msgid "Revoked"
 msgstr "Revoked"
+
+#: src/pages/Today.tsx:271
+msgid "RHR"
+msgstr "RHR"
 
 #: src/pages/Goal.tsx:53
 msgid "Rising"
@@ -1687,7 +1712,7 @@ msgid "Skip for now"
 msgstr "Skip for now"
 
 #: src/components/RecoveryPanel.tsx:174
-#: src/pages/Today.tsx:250
+#: src/pages/Today.tsx:272
 msgid "Sleep"
 msgstr "Sleep"
 
@@ -1716,6 +1741,11 @@ msgstr "Sleep, HRV, readiness"
 msgid "Source"
 msgstr "Source"
 
+#: src/pages/Today.tsx:87
+#: src/pages/Today.tsx:98
+msgid "stable"
+msgstr "stable"
+
 #: src/components/RecoveryPanel.tsx:26
 msgid "Stable"
 msgstr "Stable"
@@ -1740,7 +1770,7 @@ msgstr "Strength"
 msgid "Stretch"
 msgstr "Stretch"
 
-#: src/pages/Today.tsx:174
+#: src/pages/Today.tsx:196
 msgid "strongly positive"
 msgstr "strongly positive"
 
@@ -1867,6 +1897,7 @@ msgstr "Thresholds"
 #: src/components/charts/FitnessFatigueChart.tsx:216
 #: src/components/RecoveryPanel.tsx:118
 #: src/pages/Today.tsx:16
+#: src/pages/Today.tsx:213
 msgid "Today"
 msgstr "Today"
 
@@ -1981,6 +2012,11 @@ msgstr "VO2max"
 #: src/pages/Settings.tsx:1113
 msgid "VO2max, CP, LTHR, training status"
 msgstr "VO2max, CP, LTHR, training status"
+
+#. placeholder {0}: hrv.baseline_mean_ln.toFixed(2)
+#: src/pages/Today.tsx:189
+msgid "vs {0} baseline"
+msgstr "vs {0} baseline"
 
 #: src/pages/Setup.tsx:162
 msgid "Walking"

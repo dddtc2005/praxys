@@ -83,6 +83,24 @@ const TONE_CLASSES: Record<SignalTone, { text: string; bg: string; ring: string;
 
 const TREND_ARROW = { stable: '→', improving: '↑', declining: '↓' } as const;
 
+const HRV_TREND_LABEL: Record<'stable' | 'improving' | 'declining', MessageDescriptor> = {
+  stable: msg`stable`,
+  improving: msg`improving`,
+  declining: msg`declining`,
+};
+
+// rhr_trend from the API can be 'stable' | 'elevated' | 'low' | null. The
+// 'normal' label is the historical fallback used when the trend is absent —
+// it's not an API-emitted value, but the cell text already used it before
+// i18n. Worth revisiting whether the cell should hide the trend chip
+// entirely when null instead of saying "normal".
+const RHR_TREND_LABEL: Record<'stable' | 'elevated' | 'low' | 'normal', MessageDescriptor> = {
+  stable: msg`stable`,
+  elevated: msg`elevated`,
+  low: msg`low`,
+  normal: msg`normal`,
+};
+
 // Banister PMC interpretation of training stress balance (TSB):
 //   ≥ +10  strongly positive — peaked freshness, primed to perform
 //   0..10  positive — freshness, training adapted
@@ -164,7 +182,11 @@ export default function Today() {
 
   const hrv = ra?.hrv ?? null;
   const trendArrow = hrv ? TREND_ARROW[hrv.trend] : '—';
+  const trendLabel = hrv ? i18n._(HRV_TREND_LABEL[hrv.trend]) : '—';
   const trendCv = hrv != null ? `${hrv.rolling_cv.toFixed(1)}%` : '—';
+  const rhrTrendKey = ra?.rhr_trend ?? 'normal';
+  const rhrTrendLabel = i18n._(RHR_TREND_LABEL[rhrTrendKey]);
+  const baselineLabel = hrv ? i18n._(msg`vs ${hrv.baseline_mean_ln.toFixed(2)} baseline`) : i18n._(msg`no data`);
   const sleepScore = ra?.sleep_score;
   const restingHr = ra?.resting_hr;
   const rhrDisplay = restingHr != null ? Math.round(restingHr) : '—';
@@ -188,7 +210,7 @@ export default function Today() {
 
   return (
     <div className="today-spread">
-      <h1 className="today-eyebrow">Today · {dateStr}</h1>
+      <h1 className="today-eyebrow"><Trans>Today</Trans> · {dateStr}</h1>
       <div className="today-verdict">
         <div
           className={`relative flex h-44 w-44 sm:h-56 sm:w-56 items-center justify-center rounded-full ring-4 ${tone.ring} ${tone.shadow}`}
@@ -244,9 +266,9 @@ export default function Today() {
         </aside>
       )}
       <div className="today-supporting">
-        <div className="today-cell"><span className="today-cell-label">HRV (ln RMSSD)</span><span className="today-cell-value">{hrv ? hrv.today_ln.toFixed(2) : '—'}</span><span className="today-cell-sub">{hrv?.today_ms != null ? `${hrv.today_ms} ms · ` : ''}{hrv ? `vs ${hrv.baseline_mean_ln.toFixed(2)} baseline` : i18n._(msg`no data`)}</span></div>
-        <div className="today-cell"><span className="today-cell-label">7d Trend</span><span className="today-cell-value">{trendArrow}</span><span className="today-cell-sub">{hrv ? `${hrv.trend} · CV ${trendCv}` : i18n._(msg`no data`)}</span></div>
-        <div className="today-cell"><span className="today-cell-label">RHR</span><span className="today-cell-value">{rhrDisplay}</span><span className="today-cell-sub">{restingHr != null ? `bpm · ${ra?.rhr_trend ?? 'normal'}` : i18n._(msg`no data`)}</span></div>
+        <div className="today-cell"><span className="today-cell-label">HRV (ln RMSSD)</span><span className="today-cell-value">{hrv ? hrv.today_ln.toFixed(2) : '—'}</span><span className="today-cell-sub">{hrv?.today_ms != null ? `${hrv.today_ms} ms · ` : ''}{baselineLabel}</span></div>
+        <div className="today-cell"><span className="today-cell-label"><Trans>7d Trend</Trans></span><span className="today-cell-value">{trendArrow}</span><span className="today-cell-sub">{hrv ? `${trendLabel} · CV ${trendCv}` : i18n._(msg`no data`)}</span></div>
+        <div className="today-cell"><span className="today-cell-label"><Trans>RHR</Trans></span><span className="today-cell-value">{rhrDisplay}</span><span className="today-cell-sub">{restingHr != null ? `bpm · ${rhrTrendLabel}` : i18n._(msg`no data`)}</span></div>
         <div className="today-cell"><span className="today-cell-label"><Trans>Sleep</Trans></span><span className="today-cell-value">{sleepScore != null ? sleepScore : '—'}</span><span className="today-cell-sub">{sleepScore != null ? i18n._(msg`overnight score`) : i18n._(msg`no data`)}</span></div>
         <div className="today-cell"><span className="today-cell-label">TSB</span><span className={`today-cell-value ${tsb > 0 ? 'today-cell-value-positive' : ''}`.trim()}>{tsbDisplay}</span><span className="today-cell-sub">{tsbDescriptor}</span></div>
       </div>
