@@ -496,7 +496,7 @@ function buildState(response: TrainingResponse, themeClass: string): Partial<Tra
     weeklyKm: hasVolume ? tFmt('{0} km/week', (weeklyKm as number).toFixed(1)) : '',
     hasVolumeTrend: !!diagnosis?.volume?.trend,
     volumeTrend: diagnosis?.volume?.trend
-      ? tFmt('trend: {0}', diagnosis.volume.trend)
+      ? tFmt('trend: {0}', t(diagnosis.volume.trend))
       : '',
 
     hasLatestCp: latestCp != null,
@@ -567,10 +567,10 @@ function buildState(response: TrainingResponse, themeClass: string): Partial<Tra
     // already be localized; if not we substitute the translated default.
     sleepPerfTitle: tFmt(
       'Sleep Score vs {0}',
-      sleep_perf?.metric_label || t('Avg Power'),
+      t(sleep_perf?.metric_label || 'Avg Power'),
     ),
     sleepPerfYLabel: sleep_perf
-      ? `${sleep_perf.metric_label || t('Avg Power')} (${sleep_perf.metric_unit || 'W'})`
+      ? `${t(sleep_perf.metric_label || 'Avg Power')} (${sleep_perf.metric_unit || 'W'})`
       : '',
     sleepPerfPairs: sleep_perf?.pairs ?? [],
     sleepPerfYIsPace: sleep_perf?.metric_unit === 'sec/km',
@@ -641,6 +641,7 @@ Page({
     if (curLocale !== pgMut._locale) {
       pgMut._locale = curLocale;
       this.setData({ tr: buildTrainingTr() });
+      void this.refetch();
     }
     applyThemeChrome();
     setTabBarSelected(this, 1);
@@ -690,7 +691,10 @@ Page({
       this.setData(buildState(response, this.data.themeClass) as Record<string, unknown>);
     } catch (e) {
       const err = e as Partial<ApiError>;
-      if (err?.code === 'UNAUTHENTICATED') return;
+      if (err?.code === 'UNAUTHENTICATED') {
+        this.setData({ loading: false });
+        return;
+      }
       const detail = err?.detail ?? String(e);
       this.setData({ loading: false, errorMessage: detail, hasResponse: false });
     }

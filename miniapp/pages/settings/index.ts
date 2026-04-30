@@ -292,8 +292,8 @@ function buildSettingsState(response: SettingsResponse): Partial<SettingsState> 
   const { config, effective_thresholds } = response;
   const profileRows: ProfileRow[] = [
     { label: t('Name'), value: config.display_name || '—' },
-    { label: t('Units'), value: config.unit_system },
-    { label: t('Training base'), value: config.training_base },
+    { label: t('Units'), value: t(config.unit_system) },
+    { label: t('Training base'), value: trainingBaseLabelFor(config.training_base) },
   ];
 
   const connectionRows: ConnectionRow[] = config.connections.map((c) => ({
@@ -372,7 +372,10 @@ Page({
       this.setData(buildSettingsState(response) as Record<string, unknown>);
     } catch (e) {
       const err = e as Partial<ApiError>;
-      if (err?.code === 'UNAUTHENTICATED') return;
+      if (err?.code === 'UNAUTHENTICATED') {
+        this.setData({ loading: false });
+        return;
+      }
       const detail = err?.detail ?? String(e);
       this.setData({ loading: false, errorMessage: detail, hasResponse: false });
     }
@@ -405,6 +408,8 @@ Page({
           languageLabel: languageLabelFor(next),
           tr: buildSettingsTr(),
         });
+        // Rebuild profile rows (labels + values) in the new locale.
+        void this.refetch();
       },
     });
   },

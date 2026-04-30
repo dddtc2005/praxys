@@ -120,6 +120,12 @@ const EN_GOAL = {
   'Source — tap to copy URL': 'Source — tap to copy URL',
   'Discussion — tap to copy URL': 'Discussion — tap to copy URL',
   'Ultra distance caveat': 'Ultra distance caveat',
+  // Goal status badge values (API uses lowercase snake_case)
+  on_track: 'On track',
+  close: 'Close',
+  behind: 'Behind',
+  unlikely: 'Unlikely',
+  unknown: '—',
   // Discard-edits modal
   'Discard changes?': 'Discard changes?',
   'Your goal edits will be lost.': 'Your goal edits will be lost.',
@@ -144,6 +150,15 @@ const EN_TODAY = {
   Power: 'Power',
   'Heart rate': 'Heart rate',
   Pace: 'Pace',
+  // Recovery status — must mirror RecoveryStatus in types/api.ts exactly.
+  normal: 'Normal',
+  fresh: 'Fresh',
+  fatigued: 'Fatigued',
+  insufficient_data: 'Insufficient data',
+  // Volume trend values (volume.trend field in DiagnosisData)
+  increasing: 'Increasing',
+  decreasing: 'Decreasing',
+  stable: 'Stable',
   'What metric Praxys uses to measure intensity. Power needs Stryd; Pace works with anything that gives you GPS.':
     'What metric Praxys uses to measure intensity. Power needs Stryd; Pace works with anything that gives you GPS.',
   'Unbind your WeChat profile from this Praxys account so you can sign in as a different user.':
@@ -212,6 +227,7 @@ const EN_TRAINING = {
 const EN_HISTORY_SCIENCE = {
   // History page footers
   'Loading more…': 'Loading more…',
+  'Tap to view {0} splits': 'Tap to view {0} splits',
   'End of activities': 'End of activities',
   '{0} total · showing {1}': '{0} total · showing {1}',
   // Science page intro / recommendation
@@ -225,6 +241,9 @@ const EN_HISTORY_SCIENCE = {
 
 const EN_SETTINGS = {
   Name: 'Name',
+  // Unit system — must mirror UnitSystem in types/api.ts exactly.
+  metric: 'Metric',
+  imperial: 'Imperial',
   Connections: 'Connections',
   'Manage connections from the web app.': 'Manage connections from the web app.',
   "No platforms connected. Link Garmin / Stryd / Oura from the web app — their OAuth flows aren't supported in mini programs.":
@@ -250,6 +269,8 @@ const EN_SETTINGS = {
 const EN_NAV_CHARTS = {
   // Page titles (for nav-bar / custom-tab-bar)
   Today: 'Today',
+  // Sleep perf metric label — API can return "Avg Pace" when base is pace
+  'Avg Pace': 'Avg Pace',
   Training: 'Training',
   Activities: 'Activities',
   Goal: 'Goal',
@@ -359,6 +380,12 @@ const ZH_GOAL = {
   'Source — tap to copy URL': '来源 — 点击复制链接',
   'Discussion — tap to copy URL': '讨论 — 点击复制链接',
   'Ultra distance caveat': '超长距离说明',
+  // Goal status badge values (lowercase API keys)
+  on_track: '达标',
+  close: '接近',
+  behind: '落后',
+  unlikely: '难以实现',
+  unknown: '—',
   // Discard-edits modal
   'Discard changes?': '放弃修改？',
   'Your goal edits will be lost.': '您当前的目标修改将丢失。',
@@ -383,6 +410,15 @@ const ZH_TODAY = {
   Power: '功率',
   'Heart rate': '心率',
   Pace: '配速',
+  // Recovery status — must mirror RecoveryStatus in types/api.ts exactly.
+  normal: '正常',
+  fresh: '恢复良好',
+  fatigued: '疲劳',
+  insufficient_data: '数据不足',
+  // Volume trend values (volume.trend field in DiagnosisData)
+  increasing: '上升中',
+  decreasing: '下降中',
+  stable: '平稳',
   'What metric Praxys uses to measure intensity. Power needs Stryd; Pace works with anything that gives you GPS.':
     'Praxys 用于衡量训练强度的指标。功率需要 Stryd；配速适用于任何具备 GPS 的设备。',
   'Unbind your WeChat profile from this Praxys account so you can sign in as a different user.':
@@ -447,6 +483,7 @@ const ZH_TRAINING = {
 
 const ZH_HISTORY_SCIENCE = {
   'Loading more…': '正在加载更多…',
+  'Tap to view {0} splits': '点击查看 {0} 个分段',
   'End of activities': '已加载全部活动',
   '{0} total · showing {1}': '共 {0} 条 · 当前显示 {1}',
   "Praxys's numbers come from published research. These are the theories currently powering your dashboard, plus the alternatives you could switch to on the web.":
@@ -459,6 +496,9 @@ const ZH_HISTORY_SCIENCE = {
 
 const ZH_SETTINGS = {
   Name: '姓名',
+  // Unit system — must mirror UnitSystem in types/api.ts exactly.
+  metric: '公制',
+  imperial: '英制',
   Connections: '已连接平台',
   'Manage connections from the web app.': '请在网页端管理已连接的平台。',
   "No platforms connected. Link Garmin / Stryd / Oura from the web app — their OAuth flows aren't supported in mini programs.":
@@ -482,6 +522,7 @@ const ZH_SETTINGS = {
 
 const ZH_NAV_CHARTS = {
   Today: '今日',
+  'Avg Pace': '平均配速',
   Training: '训练',
   Activities: '活动记录',
   Goal: '目标',

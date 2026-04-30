@@ -76,6 +76,18 @@ const initialData: HistoryState = {
   refreshing: false,
 };
 
+function formatActivityType(raw: string): string {
+  // Split on underscores, capitalise each word, then run through t() for locale.
+  // The formatted string is intentionally used as the t() key — known types
+  // (Running, Cycling) get translated; unknown types fall back to the formatted
+  // English string via t()'s key-is-fallback behaviour.
+  const formatted = raw
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+  return t(formatted);
+}
+
 function buildActivityRow(activity: Activity): ActivityRow {
   const metrics: MetricRow[] = [];
   if (activity.distance_km != null) {
@@ -104,7 +116,7 @@ function buildActivityRow(activity: Activity): ActivityRow {
   return {
     id: activity.activity_id,
     date: activity.date,
-    type: activity.activity_type,
+    type: formatActivityType(activity.activity_type),
     metrics,
     hasSplits,
     splitCount: splits.length,
@@ -112,7 +124,7 @@ function buildActivityRow(activity: Activity): ActivityRow {
     hasMoreSplits: splits.length > 20,
     moreSplitsCount: Math.max(0, splits.length - 20),
     expanded: false,
-    tapHint: hasSplits ? `Tap to view ${splits.length} splits` : '',
+    tapHint: hasSplits ? tFmt('Tap to view {0} splits', splits.length) : '',
   };
 }
 
@@ -141,6 +153,7 @@ Page({
     if (curLocale !== pgMut._locale) {
       pgMut._locale = curLocale;
       this.setData({ tr: buildHistoryTr() });
+      void this.fetchPage(0, true);
     }
     applyThemeChrome();
     setTabBarSelected(this, 2);
@@ -200,7 +213,10 @@ Page({
       });
     } catch (e) {
       const err = e as Partial<ApiError>;
-      if (err?.code === 'UNAUTHENTICATED') return;
+      if (err?.code === 'UNAUTHENTICATED') {
+        this.setData({ loading: false, loadingMore: false });
+        return;
+      }
       const detail = err?.detail ?? String(e);
       this.setData({
         loading: false,
