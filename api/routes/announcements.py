@@ -12,18 +12,10 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from api.auth import get_current_user_id
-from api.views import utc_isoformat
+from api.views import utc_isoformat, require_admin
 from db.session import get_db
 
 router = APIRouter()
-
-
-def _require_admin(user_id: str, db: Session) -> None:
-    """Raise 403 if user is not a superuser."""
-    from db.models import User
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user or not user.is_superuser:
-        raise HTTPException(403, "Admin access required")
 
 
 def _serialize(ann) -> dict:
@@ -92,7 +84,7 @@ def create_announcement(
     db: Session = Depends(get_db),
 ) -> dict:
     """Create a system announcement. Admin only."""
-    _require_admin(user_id, db)
+    require_admin(user_id, db)
     from db.models import SystemAnnouncement
     if payload.type not in ("info", "warning", "success"):
         raise HTTPException(422, "type must be info, warning, or success")
@@ -118,7 +110,7 @@ def update_announcement(
     db: Session = Depends(get_db),
 ) -> dict:
     """Update a system announcement. Admin only."""
-    _require_admin(user_id, db)
+    require_admin(user_id, db)
     from db.models import SystemAnnouncement
     ann = db.query(SystemAnnouncement).filter(SystemAnnouncement.id == ann_id).first()
     if not ann:
@@ -150,7 +142,7 @@ def delete_announcement(
     db: Session = Depends(get_db),
 ) -> dict:
     """Delete a system announcement. Admin only."""
-    _require_admin(user_id, db)
+    require_admin(user_id, db)
     from db.models import SystemAnnouncement
     ann = db.query(SystemAnnouncement).filter(SystemAnnouncement.id == ann_id).first()
     if not ann:
