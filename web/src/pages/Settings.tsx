@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSettings } from '@/contexts/SettingsContext';
 import { API_BASE, getAuthHeaders, extractErrorMessage } from '@/hooks/useApi';
-import type { TrainingBase, SyncStatusResponse } from '@/types/api';
+import type { TrainingBase, SyncStatusResponse, VersionResponse } from '@/types/api';
 import {
   buildStravaReturnTo,
   getStravaOAuthMessage,
@@ -259,8 +259,8 @@ export default function Settings() {
   useEffect(() => {
     let cancelled = false;
     fetch(`${API_BASE}/api/version`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: { version?: string } | null) => {
+      .then((r) => (r.ok ? (r.json() as Promise<VersionResponse>) : null))
+      .then((data) => {
         if (!cancelled && data?.version) setApiVersion(data.version);
       })
       .catch(() => {});
