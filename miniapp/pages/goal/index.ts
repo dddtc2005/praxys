@@ -458,9 +458,9 @@ function severityAccent(severity: string): string {
 }
 
 function trendDirectionLabel(direction: string): string {
-  if (direction === 'rising') return 'Rising';
-  if (direction === 'falling') return 'Falling';
-  return 'Flat';
+  if (direction === 'rising') return t('Rising');
+  if (direction === 'falling') return t('Falling');
+  return t('Flat');
 }
 
 function formatThreshold(value: number, unit: string): string {
@@ -469,7 +469,9 @@ function formatThreshold(value: number, unit: string): string {
 }
 
 function statusBadgeText(status: string): string {
-  return status.replace(/_/g, ' ').toUpperCase();
+  // t() resolves the status key (e.g. 'on_track' → '达标' / 'On track').
+  // toUpperCase is a no-op on CJK characters so both locales look right.
+  return t(status).toUpperCase();
 }
 
 function buildState(response: GoalResponse, themeClass: string): Partial<GoalState> {
@@ -538,7 +540,7 @@ function buildRaceDateState(
   const rc = response.race_countdown;
   const rCheck = rc.reality_check;
   const hasTarget = rc.target_time_sec != null && rc.target_time_sec > 0;
-  const distLabel = rc.distance_label ?? 'Race';
+  const distLabel = t(rc.distance_label ?? 'Race');
   const severityClass = severityAccent(rCheck.severity);
   const showReality = hasTarget && rCheck.severity !== 'unknown';
 
@@ -596,7 +598,7 @@ function buildCpMilestoneState(
   const rCheck = rc.reality_check;
   const currentCp = response.latest_cp;
   const targetCp = rc.target_cp ?? null;
-  const distLabel = rc.distance_label ?? 'Race';
+  const distLabel = t(rc.distance_label ?? 'Race');
   const hasTimeTarget = rc.target_time_sec != null && rc.target_time_sec > 0;
   const severityClass = severityAccent(rCheck.severity);
 
@@ -664,7 +666,7 @@ function buildContinuousState(
   const rCheck = rc.reality_check;
   const currentCp = response.latest_cp;
   const trend = rc.cp_trend_summary;
-  const distLabel = rc.distance_label ?? 'Marathon';
+  const distLabel = t(rc.distance_label ?? 'Marathon');
   const severityClass = severityAccent(rCheck.severity);
 
   let slopeText = '';
@@ -722,6 +724,7 @@ Page({
     if (curLocale !== pgMut._locale) {
       pgMut._locale = curLocale;
       this.setData({ tr: buildGoalTr() });
+      void this.refetch();
     }
     applyThemeChrome();
     setTabBarSelected(this, 3);

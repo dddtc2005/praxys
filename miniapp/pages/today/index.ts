@@ -144,7 +144,7 @@ function buildRenderState(response: TodayResponse | null, themeClass: string, to
   const tsbZoneInfo = tsbForHeadline != null ? tsbZone(tsbForHeadline) : null;
 
   const rec = response.recovery_analysis;
-  const recoveryStatus = rec?.status ?? '—';
+  const recoveryStatus = rec ? t(rec.status) : '—';
   const recoveryHrv = rec?.hrv?.today_ms != null ? `${rec.hrv.today_ms.toFixed(0)} ms` : '—';
   const recoveryRhr = rec?.resting_hr != null ? `${rec.resting_hr.toFixed(0)} bpm` : '—';
   const recoverySleep = rec?.sleep_score != null ? `${rec.sleep_score.toFixed(0)}/100` : '—';
@@ -382,6 +382,7 @@ Page({
     if (curLocale !== pgMut._locale) {
       pgMut._locale = curLocale;
       this.setData({ tr: buildTranslations() });
+      void this.refetch();
     }
     applyThemeChrome();
     setTabBarSelected(this, 0);

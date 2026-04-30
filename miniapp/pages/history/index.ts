@@ -76,6 +76,16 @@ const initialData: HistoryState = {
   refreshing: false,
 };
 
+function formatActivityType(raw: string): string {
+  // Split on underscores, capitalise each word, then run through t() for locale.
+  // Known types (Running, Cycling) get translated; others fall back to formatted English.
+  const formatted = raw
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+  return t(formatted);
+}
+
 function buildActivityRow(activity: Activity): ActivityRow {
   const metrics: MetricRow[] = [];
   if (activity.distance_km != null) {
@@ -104,7 +114,7 @@ function buildActivityRow(activity: Activity): ActivityRow {
   return {
     id: activity.activity_id,
     date: activity.date,
-    type: activity.activity_type,
+    type: formatActivityType(activity.activity_type),
     metrics,
     hasSplits,
     splitCount: splits.length,
@@ -112,7 +122,7 @@ function buildActivityRow(activity: Activity): ActivityRow {
     hasMoreSplits: splits.length > 20,
     moreSplitsCount: Math.max(0, splits.length - 20),
     expanded: false,
-    tapHint: hasSplits ? `Tap to view ${splits.length} splits` : '',
+    tapHint: hasSplits ? tFmt('Tap to view {0} splits', splits.length) : '',
   };
 }
 
@@ -141,6 +151,7 @@ Page({
     if (curLocale !== pgMut._locale) {
       pgMut._locale = curLocale;
       this.setData({ tr: buildHistoryTr() });
+      void this.fetchPage(0, true);
     }
     applyThemeChrome();
     setTabBarSelected(this, 2);
