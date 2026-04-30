@@ -1095,6 +1095,7 @@ def diagnose_training(
     splits_copy[metric_col] = pd.to_numeric(splits_copy[metric_col], errors="coerce")
     splits_copy["duration_sec"] = pd.to_numeric(splits_copy["duration_sec"], errors="coerce")
 
+    recent_ids: set[str] = set()
     if "activity_id" in splits_copy.columns and "activity_id" in recent.columns:
         recent_ids = set(recent["activity_id"].astype(str).values)
         splits_copy["_aid"] = splits_copy["activity_id"].astype(str)
