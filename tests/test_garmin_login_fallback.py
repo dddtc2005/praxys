@@ -65,7 +65,7 @@ def _make_client(login_behavior, *, is_cn: bool = True):
 def test_jwt_web_error_falls_back_to_portal_login(tmp_path) -> None:
     """The exact message from the upstream bug must trigger the portal
     fallback with the same credentials passed in."""
-    from garminconnect.exceptions import GarminConnectAuthenticationError
+    from garminconnect import GarminConnectAuthenticationError
     from api.routes.sync import _login_garmin_with_cn_fallback
 
     def _raise_jwt_web():
@@ -111,7 +111,7 @@ def test_successful_login_does_not_fall_back(tmp_path) -> None:
 def test_other_auth_errors_bubble_up(tmp_path) -> None:
     """Real credential failures (wrong password, etc.) must not be
     masked by the portal fallback — the user needs to see them."""
-    from garminconnect.exceptions import GarminConnectAuthenticationError
+    from garminconnect import GarminConnectAuthenticationError
     from api.routes.sync import _login_garmin_with_cn_fallback
 
     def _raise_bad_password():
