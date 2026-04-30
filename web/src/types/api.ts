@@ -488,6 +488,13 @@ export interface AiInsightFinding {
   text: string;
 }
 
+export interface AiInsightTranslation {
+  headline: string;
+  summary: string;
+  findings: AiInsightFinding[];
+  recommendations: string[];
+}
+
 export interface AiInsight {
   headline: string;
   summary: string;
@@ -495,6 +502,10 @@ export interface AiInsight {
   recommendations: string[];
   meta: Record<string, unknown>;
   generated_at: string | null;
+  // Issue #103: optional bilingual payload. The backend writes
+  // ``translations.zh`` for LLM-generated rows; the frontend prefers the
+  // current locale's block and falls back to the top-level English fields.
+  translations?: Partial<Record<'zh' | 'en', AiInsightTranslation>>;
 }
 
 export type AiInsightsResponse = {

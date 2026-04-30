@@ -157,6 +157,22 @@ Activities can come from Garmin, Stryd, or Coros. `data_loader.py` merges them:
 - Secondary sources enrich with additional columns (e.g., Stryd adds power to Garmin activities)
 - Matching uses date + timestamp proximity (handles timezone differences)
 
+### LLM-backed Insights
+
+The post-sync hook (`api/insights_runner.py`) runs three bilingual insight generators (`daily_brief`, `training_review`, `race_forecast`) after every sync, gated by:
+
+- **Content-addressable cache.** Each insight type has a SHA-256 fingerprint (`analysis/insight_hash.py`) of the inputs that drive it (recovery state, sessions, CP trend, goal, etc.). The user's selected science pillars are folded in, so swapping load model from Banister to Seiler invalidates the hash and regenerates on next sync. If the hash matches the previously stored `AiInsight.meta["dataset_hash"]`, generation is skipped.
+- **Per-user daily cap.** `PRAXYS_INSIGHT_DAILY_CAP` (default 30) bounds LLM calls per user per UTC day. When the cap is exhausted the runner short-circuits and existing rows persist.
+- **Graceful fallback.** When `AZURE_AI_ENDPOINT` is unset (or the openai/azure-identity SDKs are missing), `api.llm.get_client()` returns `None`, generators return `None`, and the rule-based prose in `analysis/metrics.py` continues to render unchanged. Sync never fails because of insight generation — both hook sites swallow exceptions.
+
+**Bilingual generation (issue #103).** A single LLM call returns `{"en": {...}, "zh": {...}}`. The English block populates the existing top-level columns (`headline`, `summary`, `findings`, `recommendations`); the zh block lands in the new additive `translations` JSON column. Categorical enums (finding `type`) stay as English keys and are translated client-side via `web/src/lib/display-labels.ts`. The frontend reads `insight.translations[locale]` with English fallback. `LocaleContext.setLocale` invalidates React Query so cached locale-sensitive payloads (science labels, AI insights) refetch immediately on switch.
+
+**Hook points.** `api/routes/sync.py::_run_sync()` (the API-triggered path) and `db/sync_scheduler.py::_sync_connection()` (background scheduler) both call `run_insights_for_user(user_id, db, counts)` after `db.commit()`, wrapped in try/except.
+
+**Auth.** `api/llm.py::get_client()` uses `DefaultAzureCredential` + `get_bearer_token_provider` — same scaffolding as `scripts/translate_missing.py`. No API key path. Reasoning deployment configured via `PRAXYS_INSIGHT_MODEL`; translation deployment via `TRANSLATE_MODEL`.
+
+**Mini program.** The miniapp's `utils/insights.ts` exposes `localizedInsight()` and `fetchInsight()` helpers, and the synced `types/api.ts` carries the `translations` field, but the miniapp does **not** yet render the AI insights card on today / training / goal pages. Tracked as a parity gap; the rule-based prose those pages already render continues to work and remains the deterministic fallback.
+
 ### MCP Plugin
 
 The Praxys MCP plugin (`plugins/praxys/mcp-server/server.py`) provides 12 tools for Claude Code and Copilot CLI. It operates in two modes:

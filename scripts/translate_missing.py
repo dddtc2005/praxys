@@ -342,34 +342,28 @@ def write_po(path: Path, entries: list[dict], tail: list[str] | None = None) -> 
 # ---------------------------------------------------------------------------
 
 def _client():
-    if AzureOpenAI is None:
-        print(
-            "openai / azure-identity not installed. "
-            "Run: pip install openai azure-identity",
-            file=sys.stderr,
-        )
+    # Delegate to the shared factory in api.llm so both translation and
+    # insight generation use the same auth scaffolding. The CLI exits hard
+    # when the client is unavailable; the insight generator returns None
+    # and the app falls back to rule-based prose.
+    from api import llm as _llm
+
+    client = _llm.get_client()
+    if client is None:
+        if AzureOpenAI is None:
+            print(
+                "openai / azure-identity not installed. "
+                "Run: pip install openai azure-identity",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                "AZURE_AI_ENDPOINT is not set — point it at the Azure OpenAI "
+                "resource base (e.g. https://<resource>.cognitiveservices.azure.com/).",
+                file=sys.stderr,
+            )
         sys.exit(2)
-    endpoint = os.environ.get("AZURE_AI_ENDPOINT")
-    if not endpoint:
-        print(
-            "AZURE_AI_ENDPOINT is not set — point it at the Azure OpenAI "
-            "resource base (e.g. https://<resource>.cognitiveservices.azure.com/).",
-            file=sys.stderr,
-        )
-        sys.exit(2)
-    # Bearer-token provider refreshes on demand — OpenAI SDK calls it before
-    # every request, so a long-running run never hits token expiry.
-    # DefaultAzureCredential picks up GitHub OIDC (via azure/login@v2), the
-    # Azure CLI (local dev), or a managed identity — no secret needed.
-    token_provider = get_bearer_token_provider(
-        DefaultAzureCredential(),
-        "https://cognitiveservices.azure.com/.default",
-    )
-    return AzureOpenAI(
-        azure_endpoint=endpoint,
-        api_version=API_VERSION,
-        azure_ad_token_provider=token_provider,
-    )
+    return client
 
 
 def _complete(client, system: str, user: str, max_tokens: int = 4096) -> str:

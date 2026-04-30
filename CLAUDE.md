@@ -109,6 +109,8 @@ Goal configuration stored in DB, managed via the Goal page:
 
 The `metric-addition-reviewer` agent enforces this 7-step checklist.
 
+When a metric ships **rule-based prose** (`reason`, `assessment`, `suggestions`) and you later add an **LLM-generated counterpart** (via `api/insights_generator.py`), keep the rule-based path live as the deterministic fallback for users without `AZURE_AI_ENDPOINT` set. Frontend prefers `insight.translations[locale]` and falls back to top-level English fields, then to the rule-based component when no `AiInsight` row exists.
+
 ## How to Add a New Data Source
 
 1. `sync/{source}_sync.py` — follow `garmin_sync.py` pattern.
@@ -251,4 +253,4 @@ Automations live in `.claude/` and are committed so every contributor using Clau
 
 The MCP server (`plugins/praxys/mcp-server/server.py`) runs in dual mode — local (direct DB) or remote (HTTP + JWT via `PRAXYS_URL`).
 
-AI features are always optional; the app works fully without `ANTHROPIC_API_KEY`. When present, AI powers the training-context builder (`api/ai.py`), plan validator, and the `AiPlanProvider` that loads `data/ai/training_plan.csv`.
+AI features are always optional; the app works fully without `AZURE_AI_ENDPOINT` (the post-sync LLM insight runner falls back to rule-based prose, and the training-context builder still feeds skill-side AI plan generation). When set, Azure OpenAI powers the bilingual insight generator (`api/insights_generator.py`), plan validator, and the `AiPlanProvider` that loads `data/ai/training_plan.csv`.

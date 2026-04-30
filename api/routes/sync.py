@@ -242,6 +242,18 @@ def _run_sync(user_id: str, source: str, creds: dict,
 
         logger.info("Sync %s for user %s: %s", source, user_id, counts)
 
+        # Post-sync LLM insight generation. Best-effort: failures here must
+        # never break the sync. The runner is content-addressable (skips when
+        # the dataset hash is unchanged) and self-throttling (per-user daily
+        # cap), so calling it on every sync is safe.
+        try:
+            from api.insights_runner import run_insights_for_user
+            insight_results = run_insights_for_user(user_id, db, counts)
+            logger.info("Insight generation for user %s: %s", user_id, insight_results)
+        except Exception:
+            logger.exception("Insight generation failed for user %s", user_id)
+            db.rollback()
+
         with _sync_lock:
             status[source] = {
                 "status": "done",

@@ -226,7 +226,11 @@ class AiInsight(Base):
     summary = Column(Text, nullable=True)
     findings = Column(JSON, default=list)  # [{type, text}, ...]
     recommendations = Column(JSON, default=list)  # [str, ...]
-    meta = Column(JSON, default=dict)  # data_range, training_base, etc.
+    meta = Column(JSON, default=dict)  # data_range, training_base, dataset_hash, etc.
+    # Issue #103: bilingual payload. Top-level fields stay English so legacy
+    # CLI/MCP push paths keep working; the frontend reads
+    # translations[locale] when present and falls back to top-level English.
+    translations = Column(JSON, default=dict)
     generated_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (

@@ -41,8 +41,13 @@ export default function AiInsightsCard({ insightType }: Props) {
   const insight = data?.insight;
   if (!insight) return null;
 
-  const findings = insight.findings ?? [];
-  const recommendations = insight.recommendations ?? [];
+  // Prefer the active-locale translation when present; fall back to the
+  // top-level English fields. Issue #103.
+  const localized = (locale === 'zh' && insight.translations?.zh) || insight;
+  const headline = localized.headline;
+  const summary = localized.summary;
+  const findings = localized.findings ?? insight.findings ?? [];
+  const recommendations = localized.recommendations ?? insight.recommendations ?? [];
 
   return (
     <Card className="border-accent-purple/30 bg-accent-purple/[0.03]">
@@ -66,12 +71,12 @@ export default function AiInsightsCard({ insightType }: Props) {
       <CardContent className="pt-0">
         {/* Headline */}
         <p className="text-sm font-semibold text-foreground mb-2">
-          {insight.headline}
+          {headline}
         </p>
 
         {/* Summary (always visible) */}
         <p className="text-sm text-muted-foreground leading-relaxed mb-3 whitespace-pre-line">
-          {insight.summary}
+          {summary}
         </p>
 
         {/* Expandable details */}

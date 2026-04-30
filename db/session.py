@@ -129,6 +129,7 @@ def init_db():
         ("users", "wechat_unionid", "VARCHAR(64) DEFAULT NULL"),
         ("users", "wechat_nickname", "VARCHAR(100) DEFAULT NULL"),
         ("users", "wechat_avatar_url", "VARCHAR(500) DEFAULT NULL"),
+        ("ai_insights", "translations", "JSON DEFAULT '{}'"),
     ]
     _indexes = [
         # (index_name, table, column, unique)
