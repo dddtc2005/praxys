@@ -984,7 +984,7 @@ msgstr "如何分类训练强度？"
 msgid "How often Praxys pulls new data in the background. Lower frequency uses less network and respects platform rate limits."
 msgstr "Praxys 后台拉取新数据的频率。较低频率占用更少网络流量，并尊重平台的速率限制。"
 
-#: src/components/ScienceNote.tsx:10
+#: src/components/ScienceNote.tsx:28
 msgid "How this is calculated"
 msgstr "计算方法"
 
@@ -1768,7 +1768,7 @@ msgstr "睡眠得分、HRV、准备度"
 msgid "Sleep, HRV, readiness"
 msgstr "睡眠、HRV、恢复度"
 
-#: src/components/ScienceNote.tsx:15
+#: src/components/ScienceNote.tsx:40
 #: src/pages/Goal.tsx:147
 #: src/pages/Goal.tsx:318
 #: src/pages/Goal.tsx:418

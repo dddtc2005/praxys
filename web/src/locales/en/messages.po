@@ -984,7 +984,7 @@ msgstr "How is intensity classified?"
 msgid "How often Praxys pulls new data in the background. Lower frequency uses less network and respects platform rate limits."
 msgstr "How often Praxys pulls new data in the background. Lower frequency uses less network and respects platform rate limits."
 
-#: src/components/ScienceNote.tsx:10
+#: src/components/ScienceNote.tsx:28
 msgid "How this is calculated"
 msgstr "How this is calculated"
 
@@ -1768,7 +1768,7 @@ msgstr "Sleep score, HRV, readiness"
 msgid "Sleep, HRV, readiness"
 msgstr "Sleep, HRV, readiness"
 
-#: src/components/ScienceNote.tsx:15
+#: src/components/ScienceNote.tsx:40
 #: src/pages/Goal.tsx:147
 #: src/pages/Goal.tsx:318
 #: src/pages/Goal.tsx:418
