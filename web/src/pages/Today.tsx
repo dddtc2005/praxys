@@ -292,7 +292,7 @@ export default function Today() {
           {attribution && <div className="coach-foot">{attribution}</div>}
         </aside>
       )}
-      <div className="today-supporting">
+      <div className={`today-supporting ${readinessScore != null ? 'today-supporting--6' : ''}`.trim()}>
         <div className="today-cell"><span className="today-cell-label">HRV (ln RMSSD)</span><span className="today-cell-value font-data">{hrv ? hrv.today_ln.toFixed(2) : '—'}</span><span className="today-cell-sub font-data">{hrv?.today_ms != null ? `${hrv.today_ms} ms · ` : ''}{baselineLabel}</span></div>
         <div className="today-cell"><span className="today-cell-label"><Trans>7d Trend</Trans></span><span className="today-cell-value font-data">{trendArrow}</span><span className="today-cell-sub font-data">{hrv ? `${trendLabel} · CV ${trendCv}` : i18n._(msg`no data`)}</span></div>
         <div className="today-cell"><span className="today-cell-label"><Trans>RHR</Trans></span><span className="today-cell-value font-data">{rhrDisplay}</span><span className="today-cell-sub font-data">{restingHr != null ? (rhrTrendLabel ? `bpm · ${rhrTrendLabel}` : 'bpm') : i18n._(msg`no data`)}</span></div>

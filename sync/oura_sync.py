@@ -88,6 +88,34 @@ def parse_daily_sleep_records(raw_records: list[dict]) -> list[dict]:
     return rows
 
 
+def merge_daily_sleep_score(
+    sleep_rows: list[dict], daily_sleep_rows: list[dict]
+) -> list[dict]:
+    """Inject the canonical daily sleep score into per-period sleep rows.
+
+    `/sleep` returns one row per sleep period (long_sleep, naps, …);
+    `/daily_sleep` returns one score per day. The writer expects each
+    sleep row carrying its day's score; this helper joins by date.
+
+    Mutates and returns ``sleep_rows`` for the caller's convenience —
+    the empty/missing-score case leaves the row untouched (no
+    `sleep_score` key), which the writer interprets as "no value" via
+    ``_float(None)``. Dates present in `/sleep` but missing from
+    `/daily_sleep` (e.g. nap-only day, score not yet computed) keep
+    their previous absent state rather than getting an empty string.
+    """
+    score_by_date = {
+        row["date"]: row["sleep_score"]
+        for row in daily_sleep_rows
+        if row.get("date") and row.get("sleep_score")
+    }
+    for row in sleep_rows:
+        score = score_by_date.get(row.get("date", ""))
+        if score:
+            row["sleep_score"] = score
+    return sleep_rows
+
+
 def parse_readiness_records(raw_records: list[dict]) -> list[dict]:
     """Transform Oura readiness API response into our CSV schema."""
     rows = []

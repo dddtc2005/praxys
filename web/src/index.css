@@ -376,6 +376,15 @@
   border-bottom: 1px solid var(--border);
   padding: 24px 0;
 }
+/* Oura users get a sixth cell (Readiness) between Sleep and TSB. The
+ * page sets `today-supporting--6` so the desktop grid widens to six
+ * tracks; without this, the sixth cell would land alone in row 2 col
+ * 1 and leave cols 2-5 empty. The mobile breakpoint below uses
+ * `repeat(2, 1fr)` regardless, so 5 vs 6 cells just changes the row
+ * count there. */
+.today-spread > .today-supporting--6 {
+  grid-template-columns: repeat(6, 1fr);
+}
 .today-spread > .today-supporting > .today-cell {
   display: flex;
   flex-direction: column;

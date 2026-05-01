@@ -896,7 +896,7 @@ def _sync_oura(user_id: str, creds: dict, from_date: str | None,
     from sync.oura_sync import (
         fetch_sleep_data, fetch_daily_sleep_data, fetch_readiness_data,
         parse_sleep_records, parse_daily_sleep_records, parse_readiness_records,
-        select_oura_hrv_per_day,
+        merge_daily_sleep_score, select_oura_hrv_per_day,
     )
 
     token = creds["token"]
@@ -911,12 +911,7 @@ def _sync_oura(user_id: str, creds: dict, from_date: str | None,
     sleep_rows = parse_sleep_records(sleep_raw)
     daily_sleep_raw = fetch_daily_sleep_data(token, start, end)
     daily_sleep_rows = parse_daily_sleep_records(daily_sleep_raw)
-
-    score_by_date = {row["date"]: row["sleep_score"] for row in daily_sleep_rows if row.get("date")}
-    for row in sleep_rows:
-        score = score_by_date.get(row.get("date", ""))
-        if score:
-            row["sleep_score"] = score
+    sleep_rows = merge_daily_sleep_score(sleep_rows, daily_sleep_rows)
 
     hrv_by_date = select_oura_hrv_per_day(sleep_raw)
 

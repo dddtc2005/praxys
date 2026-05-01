@@ -2,7 +2,7 @@ from unittest.mock import patch, MagicMock
 from sync.oura_sync import (
     fetch_sleep_data, fetch_daily_sleep_data, fetch_readiness_data,
     parse_sleep_records, parse_daily_sleep_records, parse_readiness_records,
-    select_oura_hrv_per_day,
+    merge_daily_sleep_score, select_oura_hrv_per_day,
 )
 
 SAMPLE_SLEEP_RESPONSE = {
@@ -139,6 +139,74 @@ def test_fetch_readiness_data(mock_get):
 
     data = fetch_readiness_data("fake_token", "2026-03-01", "2026-03-10")
     assert len(data) == 1
+
+
+# ---------------------------------------------------------------------------
+# merge_daily_sleep_score — joins /daily_sleep's score back into per-period
+# /sleep rows. Critical glue: without it, the writer falls back to the empty
+# sleep_score field on /sleep rows and the cell renders "—".
+# ---------------------------------------------------------------------------
+
+
+def test_merge_daily_sleep_score_basic():
+    sleep_rows = [
+        {"date": "2026-03-10", "total_sleep_sec": "28800"},
+        {"date": "2026-03-11", "total_sleep_sec": "27000"},
+    ]
+    daily_sleep_rows = [
+        {"date": "2026-03-10", "sleep_score": "78"},
+        {"date": "2026-03-11", "sleep_score": "82"},
+    ]
+    out = merge_daily_sleep_score(sleep_rows, daily_sleep_rows)
+    assert out[0]["sleep_score"] == "78"
+    assert out[1]["sleep_score"] == "82"
+
+
+def test_merge_daily_sleep_score_missing_day_left_untouched():
+    """A /sleep day with no matching /daily_sleep entry stays without a
+    sleep_score key. The writer reads dict.get('sleep_score') → None →
+    _float(None) → None, which is the right "no value" semantics. The
+    alternative — injecting an empty string — would make the writer
+    think it had a value and could mask a real partial-coverage bug."""
+    sleep_rows = [
+        {"date": "2026-03-10", "total_sleep_sec": "28800"},
+        {"date": "2026-03-11", "total_sleep_sec": "27000"},
+    ]
+    daily_sleep_rows = [{"date": "2026-03-10", "sleep_score": "78"}]
+    out = merge_daily_sleep_score(sleep_rows, daily_sleep_rows)
+    assert out[0]["sleep_score"] == "78"
+    assert "sleep_score" not in out[1]
+
+
+def test_merge_daily_sleep_score_empty_score_skipped():
+    """Oura occasionally returns a daily_sleep row with an empty
+    score (sleep is detected but the daily score isn't yet computed).
+    Such rows must not overwrite anything."""
+    sleep_rows = [{"date": "2026-03-10", "total_sleep_sec": "28800"}]
+    daily_sleep_rows = [{"date": "2026-03-10", "sleep_score": ""}]
+    out = merge_daily_sleep_score(sleep_rows, daily_sleep_rows)
+    assert "sleep_score" not in out[0]
+
+
+def test_merge_daily_sleep_score_does_not_corrupt_unrelated_dates():
+    """A /daily_sleep entry for a day not in /sleep is silently
+    discarded — the merge writes nowhere, so no orphan rows appear
+    downstream. Important for the case where /daily_sleep covers a
+    longer window than /sleep (e.g. nap-only day vs full sleep)."""
+    sleep_rows = [{"date": "2026-03-10", "total_sleep_sec": "28800"}]
+    daily_sleep_rows = [
+        {"date": "2026-03-09", "sleep_score": "75"},
+        {"date": "2026-03-10", "sleep_score": "78"},
+    ]
+    out = merge_daily_sleep_score(sleep_rows, daily_sleep_rows)
+    assert len(out) == 1
+    assert out[0]["sleep_score"] == "78"
+
+
+def test_merge_daily_sleep_score_handles_empty_inputs():
+    assert merge_daily_sleep_score([], []) == []
+    assert merge_daily_sleep_score([{"date": "2026-03-10"}], []) == [{"date": "2026-03-10"}]
+    assert merge_daily_sleep_score([], [{"date": "2026-03-10", "sleep_score": "78"}]) == []
 
 
 # ---------------------------------------------------------------------------
