@@ -514,6 +514,18 @@
   margin: 0 0 12px 0;
   line-height: 1.35;
 }
+.coach-receipt > .coach-body > .coach-summary {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--muted-foreground);
+  margin: 0 0 12px 0;
+  white-space: pre-line;
+}
+.coach-receipt > .coach-body > .coach-summary a {
+  color: var(--accent-cobalt-val);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .coach-receipt > .coach-body > .coach-rule {
   border: none;
   border-top: 1px dashed var(--border);
@@ -570,6 +582,46 @@
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+.coach-receipt > .coach-body > .coach-toggle {
+  background: transparent;
+  border: none;
+  padding: 4px 0;
+  margin: 4px 0 0 0;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--accent-cobalt-val);
+  letter-spacing: 0.02em;
+  text-align: left;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  transition: opacity 120ms ease-out;
+}
+.coach-receipt > .coach-body > .coach-toggle:hover {
+  opacity: 0.7;
+}
+.coach-receipt > .coach-body > .coach-toggle > .coach-toggle-caret {
+  font-size: 10px;
+  opacity: 0.6;
+}
+.coach-receipt > .coach-body > .coach-skill-hint {
+  margin: 14px 0 0 0;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+.coach-receipt > .coach-body > .coach-skill-hint > .coach-skill-link {
+  font-family: var(--font-mono);
+  color: var(--accent-cobalt-val);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.coach-receipt > .coach-body > .coach-skill-hint > .coach-skill-link:hover {
+  text-decoration: underline;
+}
 .coach-receipt > .coach-foot {
   padding: 6px 12px;
   background: var(--muted);
@@ -594,3 +646,224 @@
     margin: -4px 0;
   }
 }
+
+/* Goal page — trajectory-led layout. Chart is the hero; a one-sentence
+   verdict sits above; supporting metrics live in a horizontal strip
+   below; Coach receipt floats as a side rail on wide viewports.
+   Rhythm: tight pair eyebrow→headline, then varied breaks between
+   distinct concerns (verdict / proof / data / show-work). */
+.goal-trajectory {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0 32px;
+}
+.goal-trajectory > * + * {
+  margin-top: 28px;
+}
+.goal-trajectory > .goal-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.goal-trajectory > .goal-eyebrow > .goal-eyebrow-status {
+  font-size: 10px;
+}
+.goal-trajectory > .goal-headline {
+  font-size: 28px;
+  font-weight: 400;
+  color: var(--foreground);
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  max-width: 880px;
+  margin-top: 6px;
+}
+.goal-trajectory > .goal-cols {
+  margin-top: 32px;
+}
+.goal-trajectory > .goal-strip {
+  margin-top: 40px;
+}
+.goal-trajectory > .goal-section {
+  margin-top: 32px;
+}
+.goal-trajectory > .goal-rationale {
+  margin-top: 16px;
+}
+.goal-trajectory > .goal-headline strong {
+  font-weight: 500;
+  color: var(--foreground);
+}
+.goal-trajectory > .goal-headline .goal-headline-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+.goal-trajectory > .goal-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr);
+  gap: 32px;
+  align-items: start;
+}
+@media (max-width: 1023px) {
+  .goal-trajectory > .goal-cols {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+.goal-trajectory > .goal-cols > .goal-col-coach {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.goal-trajectory > .goal-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  border-top: 1px solid var(--border);
+  padding: 18px 0 4px;
+}
+.goal-trajectory > .goal-strip > .goal-strip-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 16px;
+  border-right: 1px solid var(--border);
+  /* Allow grid item to shrink below content size; long values truncate
+     via overflow rather than blowing out the column. */
+  min-width: 0;
+}
+.goal-trajectory > .goal-strip > .goal-strip-cell > .goal-strip-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.goal-trajectory > .goal-strip > .goal-strip-cell:last-child {
+  border-right: none;
+}
+.goal-trajectory .goal-strip-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+.goal-trajectory .goal-strip-value {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.goal-trajectory .goal-strip-sub {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.goal-trajectory .goal-strip-amber {
+  color: var(--accent-amber-val);
+}
+.goal-trajectory .goal-strip-positive {
+  color: var(--primary);
+}
+.goal-trajectory .goal-strip-destructive {
+  color: var(--destructive);
+}
+.goal-trajectory > .goal-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.goal-trajectory > .goal-section > .goal-section-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  margin: 0;
+}
+.goal-trajectory > .goal-section > .goal-alts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  max-width: 480px;
+}
+.goal-trajectory > .goal-section > .goal-alts-grid > .goal-alts-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.goal-trajectory > .goal-rationale {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  line-height: 1.6;
+  max-width: 720px;
+  margin: 0;
+}
+
+/* CP trend chart — flat (no card chrome) so it sits flush with the
+   trajectory layout. Time-range selector lives in the header row. */
+.cp-trend {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.cp-trend > .cp-trend-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.cp-trend > .cp-trend-header > .cp-trend-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+.cp-trend > .cp-trend-header > .cp-trend-ranges {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.cp-trend > .cp-trend-header > .cp-trend-ranges > .cp-trend-range {
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--border);
+  padding: 4px 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: background 120ms ease-out, color 120ms ease-out;
+}
+.cp-trend > .cp-trend-header > .cp-trend-ranges > .cp-trend-range:last-child {
+  border-right: none;
+}
+.cp-trend > .cp-trend-header > .cp-trend-ranges > .cp-trend-range:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+.cp-trend > .cp-trend-header > .cp-trend-ranges > .cp-trend-range:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+  z-index: 1;
+}
+.cp-trend > .cp-trend-header > .cp-trend-ranges > .cp-trend-range.is-active {
+  background: var(--foreground);
+  color: var(--background);
+}
+

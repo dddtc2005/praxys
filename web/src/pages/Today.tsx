@@ -8,7 +8,7 @@ import { msg } from '@lingui/core/macro';
 import { Trans, useLingui } from '@lingui/react/macro';
 import type { MessageDescriptor } from '@lingui/core';
 import { useLocale } from '@/contexts/LocaleContext';
-import { linkifyScienceTerms } from '@/lib/science-links';
+import AiInsightsCard from '@/components/AiInsightsCard';
 
 // Skeleton mirrors the today-spread layout shape so the page doesn't flash
 // from the old space-y-6 grid into the new asymmetric layout when data
@@ -135,19 +135,6 @@ const RHR_TREND_LABEL: Record<'stable' | 'elevated' | 'low' | 'normal', MessageD
 const TSB_STRONGLY_POSITIVE = 10;
 const TSB_MILD_FATIGUE = -10;
 
-// Mirrors AiInsightsCard's helper. Should be extracted to a shared util when
-// a third caller appears — see issue #236.
-function timeAgo(isoDate: string, locale: string): string {
-  const diff = Date.now() - new Date(isoDate).getTime();
-  const rtf = new Intl.RelativeTimeFormat(locale === 'zh' ? 'zh-CN' : 'en-US', { style: 'short' });
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 60) return rtf.format(-mins, 'minute');
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return rtf.format(-hours, 'hour');
-  const days = Math.floor(hours / 24);
-  return rtf.format(-days, 'day');
-}
-
 function formatPlan(plan: TrainingSignal['plan']): string | null {
   if (!plan?.workout_type) return null;
   const parts: string[] = [plan.workout_type];
@@ -197,12 +184,10 @@ export default function Today() {
   const verdictText = i18n._(VERDICT_LABEL[signal.recommendation] ?? VERDICT_LABEL.follow_plan);
   const verdictSubtitle = i18n._(VERDICT_SUBTITLE[signal.recommendation] ?? VERDICT_SUBTITLE.follow_plan);
   const tone = TONE_CLASSES[VERDICT_TONE[signal.recommendation] ?? 'amber'];
-  const insight = briefData?.insight ?? null;
-  const localizedInsight =
-    insight && locale === 'zh' && insight.translations?.zh ? insight.translations.zh : insight;
-  // When the LLM Coach narrative is available, suppress the rule-based reason —
-  // it covers the same ground in a more generic voice. Rule-based is the fallback.
-  const hasCoachBrief = localizedInsight != null;
+  // AiInsightsCard self-fetches /api/insights/daily_brief; React Query
+  // dedupes against the briefData fetch above. Today only needs the
+  // boolean to know whether to suppress the rule-based reason fallback.
+  const hasCoachBrief = briefData?.insight != null;
 
   const hrv = ra?.hrv ?? null;
   const trendArrow = hrv ? TREND_ARROW[hrv.trend] : '—';
@@ -214,7 +199,6 @@ export default function Today() {
   const rhrTrendLabel = ra?.rhr_trend ? i18n._(RHR_TREND_LABEL[ra.rhr_trend]) : null;
   const baselineLabel = hrv ? i18n._(msg`vs ${hrv.baseline_mean_ln.toFixed(2)} baseline`) : i18n._(msg`no data`);
   const sleepScore = ra?.sleep_score;
-  const readinessScore = ra?.readiness_score;
   const restingHr = ra?.resting_hr;
   const rhrDisplay = restingHr != null ? Math.round(restingHr) : '—';
   const tsb = signal.recovery.tsb;
@@ -251,55 +235,12 @@ export default function Today() {
         <p className={`text-xl font-semibold ${tone.text}`}>{verdictSubtitle}</p>
         {!hasCoachBrief && <p className="text-sm text-muted-foreground text-center max-w-sm">{signal.reason}</p>}
       </div>
-      {localizedInsight && insight && (
-        <aside className="coach-receipt" aria-label={i18n._(msg`Praxys Coach insight`)}>
-          <div className="coach-banner">
-            <span className="coach-mark"><Trans>Praxys Coach</Trans></span>
-            {insight.generated_at && (
-              <span className="coach-stamp font-data">{timeAgo(insight.generated_at, locale)}</span>
-            )}
-          </div>
-          <div className="coach-body">
-            <p className="coach-headline">{localizedInsight.headline}</p>
-            {localizedInsight.findings.length > 0 && (
-              <>
-                <p className="coach-label"><Trans>Findings</Trans></p>
-                <ul className="coach-list">
-                  {localizedInsight.findings.map((f, i) => (
-                    <li key={i} className={`coach-row coach-row-${f.type}`}>
-                      <span className="coach-tag" aria-hidden="true">[{f.type === 'positive' ? '+' : f.type === 'warning' ? '!' : '·'}]</span>
-                      <span className="coach-text">{linkifyScienceTerms(f.text)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-            {localizedInsight.recommendations.length > 0 && (
-              <>
-                <hr className="coach-rule" />
-                <p className="coach-label"><Trans>Recommendations</Trans></p>
-                <ol className="coach-list">
-                  {localizedInsight.recommendations.map((r, i) => (
-                    <li key={i} className="coach-row">
-                      <span className="coach-tag coach-tag-rec" aria-hidden="true">→</span>
-                      <span className="coach-text">{linkifyScienceTerms(r)}</span>
-                    </li>
-                  ))}
-                </ol>
-              </>
-            )}
-          </div>
-          {attribution && <div className="coach-foot">{attribution}</div>}
-        </aside>
-      )}
-      <div className={`today-supporting ${readinessScore != null ? 'today-supporting--6' : ''}`.trim()}>
+      <AiInsightsCard insightType="daily_brief" attribution={attribution} />
+      <div className="today-supporting">
         <div className="today-cell"><span className="today-cell-label">HRV (ln RMSSD)</span><span className="today-cell-value font-data">{hrv ? hrv.today_ln.toFixed(2) : '—'}</span><span className="today-cell-sub font-data">{hrv?.today_ms != null ? `${hrv.today_ms} ms · ` : ''}{baselineLabel}</span></div>
         <div className="today-cell"><span className="today-cell-label"><Trans>7d Trend</Trans></span><span className="today-cell-value font-data">{trendArrow}</span><span className="today-cell-sub font-data">{hrv ? `${trendLabel} · CV ${trendCv}` : i18n._(msg`no data`)}</span></div>
         <div className="today-cell"><span className="today-cell-label"><Trans>RHR</Trans></span><span className="today-cell-value font-data">{rhrDisplay}</span><span className="today-cell-sub font-data">{restingHr != null ? (rhrTrendLabel ? `bpm · ${rhrTrendLabel}` : 'bpm') : i18n._(msg`no data`)}</span></div>
-        <div className="today-cell"><span className="today-cell-label"><Trans>Sleep</Trans></span><span className="today-cell-value font-data">{sleepScore != null ? Math.round(sleepScore) : '—'}</span><span className="today-cell-sub font-data">{sleepScore != null ? i18n._(msg`overnight score`) : i18n._(msg`no data`)}</span></div>
-        {readinessScore != null && (
-          <div className="today-cell"><span className="today-cell-label"><Trans>Readiness</Trans></span><span className="today-cell-value font-data">{Math.round(readinessScore)}</span><span className="today-cell-sub font-data"><Trans>daily score</Trans></span></div>
-        )}
+        <div className="today-cell"><span className="today-cell-label"><Trans>Sleep</Trans></span><span className="today-cell-value font-data">{sleepScore != null ? sleepScore : '—'}</span><span className="today-cell-sub font-data">{sleepScore != null ? i18n._(msg`overnight score`) : i18n._(msg`no data`)}</span></div>
         <div className="today-cell"><span className="today-cell-label">TSB</span><span className={`today-cell-value font-data ${tsb > 0 ? 'today-cell-value-positive' : ''}`.trim()}>{tsbDisplay}</span><span className="today-cell-sub font-data">{tsbDescriptor}</span></div>
       </div>
       <div className="today-plan"><span className="today-plan-eyebrow"><Trans>Planned · Today</Trans></span><span className="today-plan-text">{planText}</span></div>

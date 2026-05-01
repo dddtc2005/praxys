@@ -20,15 +20,15 @@ export default function ScienceNote({ text, sourceUrl, sourceLabel }: { text: st
   const [expanded, setExpanded] = useState(false);
   const { t } = useLingui();
   return (
-    <div className="mt-3 pt-3 border-t border-border">
+    <div className="mt-4 pt-3 border-t border-border">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="text-[10px] text-accent-cobalt hover:text-accent-cobalt/80 transition-colors"
+        className="text-[12px] text-accent-cobalt hover:text-accent-cobalt/80 transition-colors"
       >
         {expanded ? '\u25be' : '\u25b8'} <Trans>How this is calculated</Trans>
       </button>
       {expanded && (
-        <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">
+        <p className="text-[13px] text-muted-foreground mt-2 leading-relaxed">
           {text}{' '}
           {sourceUrl && (
             <a
