@@ -160,24 +160,25 @@
 
 // --- Praxys Coach receipt (Skyline-adapted) ---
 //
-// Mirrors the data shape of web's .coach-receipt block but uses a
-// flat full-width strip suited to mobile: a thin cobalt accent line
-// at the top, sentence-cased section labels, no extra card frame.
-// This deliberately diverges from the rounded ts-card pattern so the
-// coach voice reads as a separate interpretive layer rather than yet
-// another metric tile. Cobalt is the brand's reasoning colour.
+// Mirrors the data shape of web's coach-receipt block but uses a
+// flat full-width strip suited to mobile: a cobalt banner header,
+// sentence-cased section labels, and no extra card frame around the
+// banner. Cobalt is the brand's reasoning colour (DESIGN.md Two-Track
+// Rule). Light theme adds a hairline rule-soft border on all four
+// sides for separation against warm-paper bg; dark theme relies on
+// the card-vs-paper lightness gap. The previous treatment combined a
+// 4rpx cobalt top-border with a 3-sides-only light-theme rule, which
+// produced a visible step where the banner met the body — dropped
+// in favour of a uniform hairline.
 .coach-receipt {
   background-color: var(--surface);
-  border-top: 4rpx solid var(--accent-cobalt);
   border-radius: 16rpx;
   margin-bottom: 24rpx;
   overflow: hidden;
 }
 
 .theme-light .coach-receipt {
-  border-bottom: 1rpx solid var(--border-subtle);
-  border-left: 1rpx solid var(--border-subtle);
-  border-right: 1rpx solid var(--border-subtle);
+  border: 1rpx solid var(--border-subtle);
 }
 
 .coach-banner {
@@ -279,7 +280,114 @@
   letter-spacing: 1rpx;
 }
 
-// Share card overlay — fixed above everything, backdrop + centered card.
+// --- Supporting cells (Today, simplified per PR #238) ---
+//
+// Cardless 2-col grid sitting directly on warm-paper bg. Hairline
+// rule-soft separators give the cells their own breathing room
+// without the SaaS-cliché ts-card frame. Field Lab "flat-by-default":
+// no shadows, no nested cards. The fifth cell (TSB, index 4) spans
+// both columns rather than stranding an empty slot.
+.today-supporting {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-bottom: 24rpx;
+  border-top: 1rpx solid var(--border-subtle);
+}
+
+.today-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid var(--border-subtle);
+}
+
+// Vertical hairline only between cells that share a row. Even cells
+// sit flush against the rule so the gap reads as rhythm rather than
+// a gutter; mirrors web's PR #238 mobile breakpoint.
+.today-cell:nth-child(odd):not(.today-cell--span) {
+  border-right: 1rpx solid var(--border-subtle);
+  padding-right: 28rpx;
+}
+
+.today-cell--span {
+  grid-column: 1 / -1;
+  // Last row in the supporting block — drop the bottom rule so it
+  // doesn't double up against the .today-plan border-top below.
+  border-bottom: none;
+}
+
+.today-cell-label {
+  font-family: 'SF Mono', Menlo, Monaco, 'Courier New', monospace;
+  font-size: 20rpx;
+  font-weight: 600;
+  letter-spacing: 1rpx;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.today-cell-value {
+  font-size: 52rpx;
+  font-weight: 500;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.today-cell-value-positive {
+  color: var(--primary);
+}
+
+.today-cell-sub {
+  font-size: 22rpx;
+  color: var(--text-muted);
+}
+
+// --- Plan one-liner ---
+//
+// Single baseline-aligned row: mono uppercase eyebrow + body text.
+// No card frame. Long workout strings wrap below the eyebrow rather
+// than truncating, so power ranges stay legible.
+.today-plan {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 16rpx;
+  padding: 16rpx 0;
+  margin-bottom: 24rpx;
+  border-top: 1rpx solid var(--border-subtle);
+  border-bottom: 1rpx solid var(--border-subtle);
+}
+
+.today-plan-eyebrow {
+  font-family: 'SF Mono', Menlo, Monaco, 'Courier New', monospace;
+  font-size: 20rpx;
+  font-weight: 600;
+  letter-spacing: 1rpx;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.today-plan-text {
+  font-size: 28rpx;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+}
+
+// --- Warnings ---
+.today-warnings {
+  margin-top: 24rpx;
+}
+
+.today-warnings .today-warning-item {
+  font-size: 26rpx;
+  display: block;
+  padding: 8rpx 0;
+  line-height: 1.5;
+}
+
+// --- Share card overlay — fixed above everything, backdrop + centered card.
 .share-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -328,181 +436,4 @@
   display: block;
   text-align: center;
   margin-top: 8rpx;
-}
-
-.today-recovery-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16rpx 0;
-  border-bottom: 1rpx solid var(--border-subtle);
-}
-
-.today-recovery-row:last-child {
-  border-bottom: none;
-}
-
-.today-recovery-label,
-.today-recovery-value {
-  font-size: 28rpx;
-}
-
-.today-upcoming-row {
-  display: flex;
-  align-items: center;
-  padding: 16rpx 0;
-  border-bottom: 1rpx solid var(--border-subtle);
-}
-
-.today-upcoming-row:last-child {
-  border-bottom: none;
-}
-
-.today-upcoming-date {
-  font-size: 24rpx;
-  color: var(--text-muted);
-  width: 160rpx;
-  font-variant-numeric: tabular-nums;
-}
-
-.today-upcoming-name {
-  font-size: 28rpx;
-  color: var(--text);
-  flex: 1;
-}
-
-.today-upcoming-meta {
-  font-size: 24rpx;
-  color: var(--text-muted);
-}
-
-.today-last-date {
-  font-size: 28rpx;
-  color: var(--text);
-  display: block;
-  margin-bottom: 16rpx;
-}
-
-.today-last-metrics {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 32rpx;
-}
-
-.today-metric {
-  min-width: 160rpx;
-}
-
-.today-metric-label {
-  font-size: 22rpx;
-  text-transform: uppercase;
-  letter-spacing: 1rpx;
-  display: block;
-  margin-bottom: 4rpx;
-}
-
-.today-metric-value {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: var(--text);
-  display: block;
-}
-
-.today-warnings .today-warning-item {
-  font-size: 26rpx;
-  display: block;
-  padding: 8rpx 0;
-  line-height: 1.5;
-}
-
-.today-tsb-headline-row {
-  display: flex;
-  align-items: baseline;
-  gap: 16rpx;
-  margin-bottom: 16rpx;
-}
-
-.today-tsb-value {
-  font-size: 56rpx;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.today-tsb-zone {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 1rpx;
-}
-
-.today-tsb-headline {
-  font-size: 26rpx;
-  display: block;
-  margin-bottom: 12rpx;
-}
-
-// (Big bottom Share button removed — replaced with the small FAB on
-// the signal hero card, which is closer to the content people share.)
-
-// --- Weekly Load mini ---
-.today-week-load-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 12rpx;
-}
-
-.today-week-load-week {
-  font-size: 20rpx;
-  text-transform: lowercase;
-  letter-spacing: 0;
-}
-
-.today-week-load-row {
-  display: flex;
-  align-items: baseline;
-  gap: 12rpx;
-  margin-bottom: 16rpx;
-}
-
-.today-week-load-actual {
-  font-size: 44rpx;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.today-week-load-planned {
-  font-size: 24rpx;
-}
-
-.today-week-load-pct {
-  margin-left: auto;
-  font-size: 26rpx;
-  font-weight: 600;
-}
-
-.today-week-load-track {
-  height: 12rpx;
-  border-radius: 6rpx;
-  background-color: var(--border-subtle);
-  overflow: hidden;
-}
-
-.today-week-load-fill {
-  height: 100%;
-  // Round only the right edge so at low fill % the fill reads as a
-  // small pill on the left rather than a square stub butting against
-  // the track's rounded interior. Left edges stay square — the track's
-  // overflow: hidden + 6rpx radius clips the fill's left side to the
-  // same curve as the track. Rounding all 4 corners on the fill itself
-  // produced a visible right-side "bump" inside the track at low %; the
-  // asymmetric treatment avoids that while fixing the square-stub case.
-  border-top-right-radius: 6rpx;
-  border-bottom-right-radius: 6rpx;
-  background-color: var(--primary);
-  // Accent classes on the fill recolor via the helper utilities;
-  // default is --primary (green = on target).
-  &.ts-warning { background-color: var(--warning); }
-  &.ts-destructive { background-color: var(--destructive); }
 }

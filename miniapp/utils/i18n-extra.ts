@@ -195,6 +195,11 @@ const EN_TODAY = {
   'Upcoming workouts': 'Upcoming workouts',
   'Last activity': 'Last activity',
   Close: 'Close',
+  // Today supporting-cell labels — technical handles, identical
+  // across en/zh because they are the canonical short forms (web's
+  // Today.tsx renders these as JSX literals for the same reason).
+  'HRV (ln RMSSD)': 'HRV (ln RMSSD)',
+  TSB: 'TSB',
   // Signal subtitles (Today page)
   'Follow Plan': 'Follow Plan',
   'Go Easy': 'Go Easy',
@@ -455,6 +460,12 @@ const ZH_TODAY = {
   'Upcoming workouts': '计划训练',
   'Last activity': '最近活动',
   Close: '关闭',
+  // Today supporting-cell technical handles — kept untranslated so
+  // the cell label matches what the user reads on the web Today
+  // page. The cell value below the label disambiguates anyway
+  // (today_ln value, signed TSB, etc.).
+  'HRV (ln RMSSD)': 'HRV (ln RMSSD)',
+  TSB: 'TSB',
   // Signal subtitles
   'Follow Plan': '执行计划',
   'Go Easy': '轻松进行',
