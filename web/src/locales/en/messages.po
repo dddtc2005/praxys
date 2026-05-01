@@ -168,7 +168,7 @@ msgid "6M"
 msgstr "6M"
 
 #: src/components/RecoveryPanel.tsx:141
-#: src/pages/Today.tsx:241
+#: src/pages/Today.tsx:242
 msgid "7d Trend"
 msgstr "7d Trend"
 
@@ -540,6 +540,10 @@ msgstr "Currently set to {0}-based training"
 msgid "Cycling"
 msgstr "Cycling"
 
+#: src/pages/Today.tsx:246
+msgid "daily score"
+msgstr "daily score"
+
 #: src/components/AppSidebar.tsx:29
 msgid "Dark"
 msgstr "Dark"
@@ -790,7 +794,7 @@ msgstr "Fatigue"
 msgid "Fatigue is climbing — watch recovery before adding load."
 msgstr "Fatigue is climbing — watch recovery before adding load."
 
-#: src/pages/Today.tsx:210
+#: src/pages/Today.tsx:211
 msgid "fatigued"
 msgstr "fatigued"
 
@@ -1142,7 +1146,7 @@ msgstr "Marathon"
 msgid "Max HR"
 msgstr "Max HR"
 
-#: src/pages/Today.tsx:209
+#: src/pages/Today.tsx:210
 msgid "mild fatigue"
 msgstr "mild fatigue"
 
@@ -1210,9 +1214,9 @@ msgid "No announcements yet"
 msgstr "No announcements yet"
 
 #: src/pages/Today.tsx:200
-#: src/pages/Today.tsx:241
 #: src/pages/Today.tsx:242
 #: src/pages/Today.tsx:243
+#: src/pages/Today.tsx:244
 msgid "no data"
 msgstr "no data"
 
@@ -1306,7 +1310,7 @@ msgstr "Options"
 msgid "Other Signals"
 msgstr "Other Signals"
 
-#: src/pages/Today.tsx:243
+#: src/pages/Today.tsx:244
 msgid "overnight score"
 msgstr "overnight score"
 
@@ -1343,7 +1347,7 @@ msgstr "Plan"
 msgid "Planned"
 msgstr "Planned"
 
-#: src/pages/Today.tsx:246
+#: src/pages/Today.tsx:250
 msgid "Planned · Today"
 msgstr "Planned · Today"
 
@@ -1355,7 +1359,7 @@ msgstr "Planned bars are estimated — your plan has no {label} targets for the 
 msgid "Planned Workout"
 msgstr "Planned Workout"
 
-#: src/pages/Today.tsx:208
+#: src/pages/Today.tsx:209
 msgid "positive"
 msgstr "positive"
 
@@ -1494,6 +1498,10 @@ msgstr "Re-push to Stryd"
 msgid "Read-only accounts that mirror your dashboard data"
 msgstr "Read-only accounts that mirror your dashboard data"
 
+#: src/pages/Today.tsx:246
+msgid "Readiness"
+msgstr "Readiness"
+
 #: src/pages/Goal.tsx:358
 msgid "Realistic alternative targets"
 msgstr "Realistic alternative targets"
@@ -1586,7 +1594,7 @@ msgstr "Rest"
 msgid "REST"
 msgstr "REST"
 
-#: src/pages/Today.tsx:212
+#: src/pages/Today.tsx:213
 msgid "Rest day. No workout scheduled."
 msgstr "Rest day. No workout scheduled."
 
@@ -1615,7 +1623,7 @@ msgstr "Revoke"
 msgid "Revoked"
 msgstr "Revoked"
 
-#: src/pages/Today.tsx:242
+#: src/pages/Today.tsx:243
 msgid "RHR"
 msgstr "RHR"
 
@@ -1718,7 +1726,7 @@ msgid "Skip for now"
 msgstr "Skip for now"
 
 #: src/components/RecoveryPanel.tsx:174
-#: src/pages/Today.tsx:243
+#: src/pages/Today.tsx:244
 msgid "Sleep"
 msgstr "Sleep"
 
@@ -1774,7 +1782,7 @@ msgstr "Strength"
 msgid "Stretch"
 msgstr "Stretch"
 
-#: src/pages/Today.tsx:207
+#: src/pages/Today.tsx:208
 msgid "strongly positive"
 msgstr "strongly positive"
 
@@ -1918,7 +1926,7 @@ msgstr "To target"
 #: src/components/charts/FitnessFatigueChart.tsx:216
 #: src/components/RecoveryPanel.tsx:118
 #: src/pages/Today.tsx:20
-#: src/pages/Today.tsx:224
+#: src/pages/Today.tsx:225
 msgid "Today"
 msgstr "Today"
 
