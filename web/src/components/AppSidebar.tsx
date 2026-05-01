@@ -47,19 +47,26 @@ type NavItem = { to: string; icon: ComponentType<SVGProps<SVGSVGElement>>; label
 // Single-row nav button with the new active-state treatment: 3px primary
 // left edge + bolder weight, no background fill (per DESIGN.md sidebar
 // rule). Overrides shadcn's default data-[active=true]:bg-sidebar-accent.
+//
+// The 3px indicator is anchored to SidebarMenuItem (which has `relative`
+// and no overflow-hidden), not the inner button (which IS overflow-hidden
+// per shadcn's sidebarMenuButtonVariants). Painting the pseudo-element
+// on the button would clip the rounded-r corner.
 function NavItemRow({ item, isActive, tooltip }: { item: NavItem; isActive: boolean; tooltip?: string }) {
   const { icon: Icon, label, to } = item;
   return (
-    <SidebarMenuItem>
+    <SidebarMenuItem
+      className={
+        isActive
+          ? 'before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:bg-primary before:rounded-r-sm'
+          : ''
+      }
+    >
       <SidebarMenuButton
         render={<NavLink to={to} />}
         isActive={isActive}
         tooltip={tooltip ?? label}
-        className={
-          isActive
-            ? '!bg-transparent !text-foreground font-semibold relative before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:bg-primary before:rounded-r-sm'
-            : 'relative'
-        }
+        className={isActive ? '!bg-transparent !text-foreground font-semibold' : ''}
       >
         <Icon />
         <span>{label}</span>
@@ -118,15 +125,18 @@ export default function AppSidebar() {
 
   // Setup is shown as a dashed-border callout row above the active cluster
   // when onboarding is incomplete, instead of replacing the Today slot.
-  // Two-state-in-one-row was the prior pattern; separating them keeps
-  // Today stable as the home anchor.
+  // Routes to /setup (the dedicated wizard page) so the user lands
+  // somewhere different from Today's row directly below — otherwise the
+  // banner would just duplicate Today's link and never reflect "active"
+  // when the user is on /today.
   const setupIncomplete = !setup.allDone && !setup.loading;
   const setupBanner = setupIncomplete ? (
     <SidebarMenuItem>
       <SidebarMenuButton
-        render={<NavLink to="/today" />}
+        render={<NavLink to="/setup" />}
+        isActive={location.pathname.startsWith('/setup')}
         tooltip={`${t`Setup`} (${setup.completed}/${setup.total})`}
-        className="border border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10"
+        className="border border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 data-[active=true]:bg-primary/10"
       >
         <ListChecks />
         <span>{`${t`Setup`} (${setup.completed}/${setup.total})`}</span>
