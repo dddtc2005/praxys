@@ -73,14 +73,16 @@
   line-height: 1;
 }
 
-// Active label uses foreground (not muted, not primary). Bolder
-// weight plus the top-edge indicator above carry the active signal —
-// no full color swap. Keeps the bottom bar calm to match the
-// sidebar treatment on web; outdoor glanceability is preserved by
-// the contrast jump from --text-muted to --text plus the 3rpx
-// indicator above the cell.
+// Active label gets the full primary color swap plus bolder weight.
+// The web sidebar's "neutral text + indicator only" treatment works
+// at desktop scale and ambient-navigation reading distance; at phone
+// tab-bar scale (20rpx labels) under outdoor lighting (PRODUCT.md
+// "Light first, outdoors-aware"), the indicator alone is too small
+// to carry active-state at a glance. Color swap + indicator stack:
+// swap does the functional glanceability job, indicator carries the
+// cross-surface brand fingerprint.
 .tabbar__item--active .tabbar__label {
-  color: var(--text);
+  color: var(--primary);
   font-weight: 600;
 }
 
@@ -98,11 +100,10 @@
           mask-position: center;
 }
 
-// Active icon: same restrained treatment as the label — foreground
-// instead of primary, so the 3rpx top-edge indicator carries the
-// "you are here" signal rather than a full color saturation lift.
+// Active icon mirrors the label: primary color swap, matching the
+// WeChat-native expectation users carry from every other mini program.
 .tabbar__item--active .tabbar__icon {
-  background-color: var(--text);
+  background-color: var(--primary);
 }
 
 // --- Sun (Today) ---
