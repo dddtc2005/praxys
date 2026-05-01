@@ -10,6 +10,7 @@ from uuid import uuid4
 from sqlalchemy import (
     CheckConstraint,
     Column,
+    Index,
     String,
     Float,
     Integer,
@@ -169,6 +170,60 @@ class ActivitySplit(Base):
     avg_pace_sec_km = Column(Float, nullable=True)
     avg_cadence = Column(Float, nullable=True)
     elevation_change_m = Column(Float, nullable=True)
+
+
+class ActivitySample(Base):
+    """Per-second time-series data for an activity.
+
+    One row per second per activity. Columns cover the union of all connector
+    field sets; connector-specific fields are NULL for other sources. The
+    unique constraint on (user_id, activity_id, t_sec) makes re-syncs idempotent —
+    duplicate writes are silently ignored via INSERT OR IGNORE.
+
+    Storage estimate: ~3,600 rows/hour of running. At SQLite scale for
+    personal use this is negligible; multi-user growth is managed by the
+    user_id index enabling efficient per-user pruning.
+    """
+
+    __tablename__ = "activity_samples"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False)
+    activity_id = Column(String(100), nullable=False)
+    source = Column(String(20), nullable=False)  # stryd | garmin | coros | strava
+
+    # Seconds since epoch — the time axis for all other fields
+    t_sec = Column(Integer, nullable=False)
+
+    # Core — present across all connectors
+    power_watts = Column(Float, nullable=True)
+    hr_bpm = Column(Float, nullable=True)
+    speed_ms = Column(Float, nullable=True)
+    pace_sec_km = Column(Float, nullable=True)
+    cadence_spm = Column(Float, nullable=True)
+    altitude_m = Column(Float, nullable=True)
+    distance_m = Column(Float, nullable=True)  # cumulative from activity start
+
+    # GPS — Garmin, Strava, COROS
+    lat = Column(Float, nullable=True)
+    lng = Column(Float, nullable=True)
+    grade_pct = Column(Float, nullable=True)
+    temperature_c = Column(Float, nullable=True)
+
+    # Stryd running dynamics
+    ground_time_ms = Column(Float, nullable=True)
+    oscillation_mm = Column(Float, nullable=True)
+    leg_spring_kn_m = Column(Float, nullable=True)
+    vertical_ratio = Column(Float, nullable=True)
+    form_power_watts = Column(Float, nullable=True)
+
+    # Garmin-specific
+    respiration_rate = Column(Float, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "activity_id", "t_sec", name="uq_sample_user_activity_t"),
+        Index("ix_sample_activity", "activity_id"),
+    )
 
 
 class RecoveryData(Base):
@@ -340,3 +395,25 @@ class TrainingPlan(Base):
             "user_id", "date", "source", "workout_type", name="uq_user_date_plan"
         ),
     )
+
+
+class SystemAnnouncement(Base):
+    """Admin-configurable site-wide notification banners.
+
+    Active announcements are returned by GET /api/announcements to all
+    authenticated users and rendered as dismissible banners in the web UI.
+    Dismissed banner IDs are stored client-side (localStorage) so they
+    don't re-appear after reload without server-side per-user tracking.
+    """
+
+    __tablename__ = "system_announcements"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    title = Column(String(200), nullable=False)
+    body = Column(Text, nullable=False)
+    type = Column(String(20), default="info", nullable=False)  # info | warning | success
+    is_active = Column(Boolean, default=True, nullable=False)
+    link_text = Column(String(100), nullable=True)
+    link_url = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

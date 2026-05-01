@@ -150,6 +150,9 @@ app.include_router(wechat_auth_router, prefix="/api")
 from api.routes.admin import router as admin_router
 app.include_router(admin_router, prefix="/api", tags=["admin"])
 
+from api.routes.announcements import router as announcements_router
+app.include_router(announcements_router, prefix="/api", tags=["announcements"])
+
 # Data routes
 from api.routes import today, training, goal, history, plan, settings, sync, science, insights
 from api.routes import ai as ai_routes

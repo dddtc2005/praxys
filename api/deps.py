@@ -1231,6 +1231,7 @@ def _build_warnings(
 def _compute_diagnosis(
     merged: pd.DataFrame, splits: pd.DataFrame,
     cp_trend_data: dict, config, thresholds, science: dict,
+    samples: pd.DataFrame | None = None,
 ) -> dict:
     """Run zone-aware training diagnosis."""
     if config.training_base == "power":
@@ -1262,6 +1263,7 @@ def _compute_diagnosis(
         zone_names=zone_names_list,
         target_distribution=target_dist,
         theory_name=zone_theory_name,
+        samples=samples,
     )
 
 
@@ -1473,9 +1475,21 @@ def get_dashboard_data(user_id: str = None, db=None) -> dict:
     sleep_perf = _build_sleep_perf(merged, recovery, config.training_base)
     warnings = _build_warnings(recovery_analysis, current_tsb, config, data_dir=data_dir, latest_cp_watts=latest_cp_watts)
 
-    # Diagnosis
+    # Diagnosis — use per-second samples when available for 1s zone resolution
     splits = data["splits"]
-    diagnosis = _compute_diagnosis(merged, splits, cp_trend_data, config, thresholds, science)
+    samples = pd.DataFrame()
+    if user_id and db:
+        from analysis.data_loader import load_activity_samples
+        # Load samples only for recent activities to avoid reading all history
+        _lookback_cutoff = today - timedelta(weeks=8)
+        if not merged.empty and "activity_id" in merged.columns and "date" in merged.columns:
+            _recent_aids = list(
+                merged[pd.to_datetime(merged["date"]).dt.date >= _lookback_cutoff]["activity_id"]
+                .astype(str).unique()
+            )
+            if _recent_aids:
+                samples = load_activity_samples(user_id, db, _recent_aids)
+    diagnosis = _compute_diagnosis(merged, splits, cp_trend_data, config, thresholds, science, samples=samples)
 
     # Activities for history
     activities_list = _build_activities_list(merged, splits)

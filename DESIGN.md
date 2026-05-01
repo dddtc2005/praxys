@@ -156,7 +156,7 @@ A restrained five-color system: warm-paper neutrals plus four named role colors 
 - **Field Green** (`{colors.primary}` — light theme; `{colors.primary-dark}` — dark): the action color. Used for positive signals, active states, follow-the-plan recommendations, positive deltas, the brand wordmark's `x` accent. The single most loaded color in the system; it earns its weight by appearing only where action is implied.
 
 ### Secondary
-- **Cobalt** (`{colors.cobalt}` — light; `{colors.cobalt-dark}` — dark): the reasoning color. Reserved for the `ScienceNote` reasoning rail, "why this recommendation" surfaces, methodology hints, citations. The mark's flag pole is cobalt for this reason — the brand carries reasoning at its base.
+- **Cobalt** (`{colors.cobalt}` — light; `{colors.cobalt-dark}` — dark): the reasoning color. Used wherever the system explains itself — the Praxys Coach receipt's banner and recommendation arrows, the `ScienceNote`'s expand-trigger, citation links, methodology eyebrows. Cobalt encodes reasoning through *color*, not through any specific rail or border geometry. The mark's flag pole is cobalt for this reason — the brand carries reasoning at its base.
 
 ### Tertiary
 - **Amber** (`{colors.amber}`): caution. Threshold zones, warning states, "watch this" callouts.
@@ -244,18 +244,26 @@ The miniapp doubles down on this: WeChat Skyline's shadow rendering is patchy, s
 
 Three semantic variants — positive (green), caution (amber), rest/destructive (rust). Tiny rounded-sm pills with JetBrains Mono uppercase labels. Used for signal indicators ("Go", "Modify", "Rest"), not for decorative tagging.
 
-### The ScienceNote (signature component)
+### The reasoning surfaces
 
-The reasoning surface. The single most distinctive component in the system; it is *the* visual carrier of "show the work."
+Two complementary patterns carry the system's "show the work" commitment. They serve different jobs and shouldn't be conflated.
 
-- **Background**: cobalt-tinted (`color-mix(in oklab, var(--cobalt) 5%, var(--card))`).
-- **Reasoning rail**: solid 3px cobalt left border. This is the *only* place a cobalt left border is permitted. The rail is the brand's commitment to methodology made visible.
-- **Eyebrow label**: cobalt, uppercase, JetBrains Mono, tracking 0.05em — `WHY THIS RECOMMENDATION`, `METHODOLOGY`, `CITATION`.
-- **Body**: `ink-soft` text at body weight.
-- **Citation block**: separated by a dashed `rule-soft` line; citation text in `ink-ghost` with italicized source titles, links underlined on hover.
-- **Pattern**: collapsible by default ("How this is calculated"), expanding to reveal the explanation — methodology earns the user's attention before it earns the screen real estate.
+**1. The `ScienceNote` (inline progressive disclosure).** A small "How this is calculated" affordance that lives at the bottom of metric cards (`RecoveryPanel`, `FitnessFatigueChart`, `FormSparkline`, `Goal` predictions). Default-collapsed; cobalt trigger signals reasoning is available; expanding reveals the methodology paragraph and a citation link.
 
-**The Reasoning Rail Rule.** Only the ScienceNote earns the cobalt left border. Don't tint general callouts with cobalt. Don't use the rail style for tooltips, alerts, or "tip of the day" components. The rail is reserved; that's why it's recognizable.
+- **Trigger**: tiny `text-accent-cobalt` button — the cobalt color is the only signal that this is a reasoning surface.
+- **Body** (when expanded): `text-muted-foreground`, small (10–12px), leading-relaxed.
+- **Citation link**: `text-accent-cobalt` with underline on hover.
+
+The component is deliberately *minimal* — it adds reasoning depth without claiming vertical space. Don't dress it up with eyebrows, banners, or rails; that's a different surface (the receipt).
+
+**2. The `coach-receipt` (narrative reasoning surface).** A standalone block where reasoning *is* the content (Praxys Coach daily brief, currently). Square corners, thin border, flat cobalt banner header with brand attribution + timestamp, body with headline + findings + dashed rule + numbered recommendations, muted footer with theory citations.
+
+- **Banner**: solid `var(--accent-cobalt-val)` background, `var(--card)` text. Mono-caps brand mark on the left, mono timestamp on the right.
+- **Body**: `var(--card)` background, headline + structured lists. Findings get type-coded mono tags (`[+]` positive, `[!]` warning, `[·]` neutral); recommendations get cobalt `→` arrows.
+- **Foot**: `var(--muted)` background, mono small-caps theory attribution, right-aligned.
+- **Pattern**: full-bleed within its grid cell. Reusable on Goal / History / Settings whenever an LLM insight or narrative explanation is the primary content.
+
+**The Reasoning Color Rule.** Cobalt encodes "the system explaining itself" through *color* — banner backgrounds, eyebrow labels, citation links, recommendation arrows, ScienceNote triggers. It does *not* encode reasoning through a 3px-left-rail-on-rounded-card geometry; that specific shape became the AI-generated-UI cliché in 2025–26 and is now retired. If you reach for a thicker-than-1px cobalt left border, you're recreating the exact pattern this rule was built to push back against. Use the receipt's banner header instead, or the ScienceNote's color-only treatment.
 
 ### Navigation
 
@@ -274,7 +282,7 @@ The reasoning surface. The single most distinctive component in the system; it i
 ### Do:
 - **Do** use `oklch()` for color tokens; the project has an OKLCH-only doctrine. Hex appears only where downstream tools require it (chart libraries, miniapp WXSS).
 - **Do** apply `.font-data` to every numeric value, including digits embedded inside body prose ("you ran <span class='font-data'>8.4 km</span>").
-- **Do** reserve the cobalt 3px left border for the `ScienceNote` and nothing else.
+- **Do** encode reasoning through cobalt *color* — banner headers, eyebrow labels, citation links, recommendation arrows, ScienceNote triggers. Use the `coach-receipt` for narrative reasoning, the minimal `ScienceNote` for inline disclosure.
 - **Do** keep one primary green button per surface. Other actions are ghost.
 - **Do** treat the light theme as the default; design for outdoor / sunlight legibility first.
 - **Do** codify bilingual treatment by surface purpose: brand surfaces always-both, product chrome locale-only, marketing primary-with-subtitle. Bake it into component variants.
@@ -282,7 +290,7 @@ The reasoning surface. The single most distinctive component in the system; it i
 
 ### Don't:
 - **Don't** use `#fff` or `#000` anywhere. Surfaces tint toward 85° hue (warm paper); foregrounds tint toward 260° hue (cool ink).
-- **Don't** use `border-left` greater than 1px as a colored accent on cards, list items, callouts, or alerts. The cobalt 3px rail belongs to the `ScienceNote` exclusively. (Impeccable absolute ban; restated here because it's load-bearing for the reasoning palette.)
+- **Don't** use `border-left` greater than 1px as a colored accent on cards, list items, callouts, or alerts. *No exceptions* — the cobalt-3px-rail-on-rounded-card pattern that previously carved out the ScienceNote has been retired. It became the AI-generated-UI cliché. Reasoning is encoded through cobalt *color* (`coach-receipt` banner, ScienceNote trigger), never through rail-card geometry. (Impeccable absolute ban.)
 - **Don't** drift toward the **crypto / wearable neon-on-black** aesthetic. No glassmorphism, no animated gradients, no neon-on-black hero surfaces. Light theme is the default for a reason.
 - **Don't** assemble a **generic SaaS hero-metric template** — big number, small label, four supporting stats, gradient accent. Every metric on Praxys earns its position via interpretation, not by being big.
 - **Don't** ship a **Garmin-Connect data dump** — endless tabs, no narrative, no opinion, no methodology. Charts without a takeaway are failures.
