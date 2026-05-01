@@ -181,7 +181,7 @@ msgstr "Activate"
 msgid "Active"
 msgstr "Active"
 
-#: src/components/AppSidebar.tsx:68
+#: src/components/AppSidebar.tsx:104
 #: src/pages/History.tsx:38
 #: src/pages/Settings.tsx:53
 #: src/pages/Settings.tsx:60
@@ -212,7 +212,7 @@ msgstr "Actual"
 msgid "Adjust Workout"
 msgstr "Adjust Workout"
 
-#: src/components/AppSidebar.tsx:71
+#: src/components/AppSidebar.tsx:113
 #: src/pages/Admin.tsx:233
 #: src/pages/Admin.tsx:280
 msgid "Admin"
@@ -544,7 +544,7 @@ msgstr "Currently set to {0}-based training"
 msgid "Cycling"
 msgstr "Cycling"
 
-#: src/components/AppSidebar.tsx:28
+#: src/components/AppSidebar.tsx:29
 msgid "Dark"
 msgstr "Dark"
 
@@ -912,7 +912,7 @@ msgstr "Go Easy"
 msgid "Go to dashboard"
 msgstr "Go to dashboard"
 
-#: src/components/AppSidebar.tsx:67
+#: src/components/AppSidebar.tsx:103
 #: src/pages/Settings.tsx:1129
 msgid "Goal"
 msgstr "Goal"
@@ -1080,7 +1080,7 @@ msgstr "Leave blank for the first account. Required after that."
 msgid "Leave blank to track predicted time only"
 msgstr "Leave blank to track predicted time only"
 
-#: src/components/AppSidebar.tsx:29
+#: src/components/AppSidebar.tsx:30
 msgid "Light"
 msgstr "Light"
 
@@ -1116,8 +1116,8 @@ msgstr "Load & Fitness"
 msgid "Log in to connect your CLI plugin"
 msgstr "Log in to connect your CLI plugin"
 
-#: src/components/AppSidebar.tsx:145
-#: src/components/AppSidebar.tsx:147
+#: src/components/AppSidebar.tsx:183
+#: src/components/AppSidebar.tsx:185
 msgid "Log out"
 msgstr "Log out"
 
@@ -1676,7 +1676,7 @@ msgstr "Save Goal"
 msgid "Saving..."
 msgstr "Saving..."
 
-#: src/components/AppSidebar.tsx:69
+#: src/components/AppSidebar.tsx:108
 msgid "Science"
 msgstr "Science"
 
@@ -1707,12 +1707,13 @@ msgstr "Set Your Goal"
 msgid "Set your name"
 msgstr "Set your name"
 
-#: src/components/AppSidebar.tsx:70
+#: src/components/AppSidebar.tsx:112
 #: src/pages/Settings.tsx:547
 msgid "Settings"
 msgstr "Settings"
 
-#: src/components/AppSidebar.tsx:62
+#: src/components/AppSidebar.tsx:128
+#: src/components/AppSidebar.tsx:132
 msgid "Setup"
 msgstr "Setup"
 
@@ -1867,7 +1868,7 @@ msgstr "Syncing"
 msgid "Syncing..."
 msgstr "Syncing..."
 
-#: src/components/AppSidebar.tsx:30
+#: src/components/AppSidebar.tsx:31
 msgid "System"
 msgstr "System"
 
@@ -1904,7 +1905,7 @@ msgstr "Target Time"
 msgid "Tempo"
 msgstr "Tempo"
 
-#: src/components/AppSidebar.tsx:139
+#: src/components/AppSidebar.tsx:177
 msgid "Theme"
 msgstr "Theme"
 
@@ -1935,7 +1936,7 @@ msgstr "Thresholds"
 msgid "Title"
 msgstr "Title"
 
-#: src/components/AppSidebar.tsx:61
+#: src/components/AppSidebar.tsx:101
 #: src/components/charts/FitnessFatigueChart.tsx:216
 #: src/components/RecoveryPanel.tsx:118
 #: src/pages/Today.tsx:20
@@ -1955,7 +1956,7 @@ msgstr "Today's recovery hasn't synced yet. Showing the latest reading from {lat
 msgid "Train toward a specific race date"
 msgstr "Train toward a specific race date"
 
-#: src/components/AppSidebar.tsx:66
+#: src/components/AppSidebar.tsx:102
 msgid "Training"
 msgstr "Training"
 
