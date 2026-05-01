@@ -1,8 +1,7 @@
-import json
 from unittest.mock import patch, MagicMock
 from sync.oura_sync import (
-    fetch_sleep_data, fetch_readiness_data,
-    parse_sleep_records, parse_readiness_records,
+    fetch_sleep_data, fetch_daily_sleep_data, fetch_readiness_data,
+    parse_sleep_records, parse_daily_sleep_records, parse_readiness_records,
     select_oura_hrv_per_day,
 )
 
@@ -15,9 +14,35 @@ SAMPLE_SLEEP_RESPONSE = {
             "rem_sleep_duration": 5400,
             "light_sleep_duration": 16200,
             "efficiency": 92,
+            # The /sleep endpoint includes a nested `readiness` block
+            # carrying a per-sleep-period readiness contribution. Older
+            # code surfaced this as `sleep_score`, which is wrong — it's
+            # the readiness number, not a sleep quality score. The fix
+            # drops sleep_score from this parser entirely; the actual
+            # daily sleep score comes from /daily_sleep.
             "readiness": {"score": 85},
             "average_hrv": 45,
             "average_heart_rate": 52,
+        }
+    ],
+    "next_token": None,
+}
+
+SAMPLE_DAILY_SLEEP_RESPONSE = {
+    "data": [
+        {
+            "day": "2026-03-10",
+            "score": 78,
+            "contributors": {
+                "deep_sleep": 80,
+                "efficiency": 92,
+                "latency": 75,
+                "rem_sleep": 70,
+                "restfulness": 82,
+                "timing": 68,
+                "total_sleep": 85,
+            },
+            "timestamp": "2026-03-10T08:00:00+00:00",
         }
     ],
     "next_token": None,
@@ -36,7 +61,11 @@ SAMPLE_READINESS_RESPONSE = {
 }
 
 
-def test_parse_sleep_records():
+def test_parse_sleep_records_no_sleep_score():
+    """The detailed /sleep parser should NOT emit a sleep_score field —
+    that key now belongs to parse_daily_sleep_records, which reads from
+    Oura's daily_sleep endpoint. Encoding the prior bug-by-default
+    behaviour here is what masked the issue for so long."""
     records = parse_sleep_records(SAMPLE_SLEEP_RESPONSE["data"])
     assert len(records) == 1
     r = records[0]
@@ -44,7 +73,21 @@ def test_parse_sleep_records():
     assert r["total_sleep_sec"] == "28800"
     assert r["deep_sleep_sec"] == "7200"
     assert r["efficiency"] == "92"
-    assert r["sleep_score"] == "85"
+    assert "sleep_score" not in r, (
+        "parse_sleep_records must not emit sleep_score — the /sleep "
+        "endpoint's readiness.score is a per-sleep readiness contribution, "
+        "not a sleep quality score."
+    )
+
+
+def test_parse_daily_sleep_records():
+    records = parse_daily_sleep_records(SAMPLE_DAILY_SLEEP_RESPONSE["data"])
+    assert len(records) == 1
+    r = records[0]
+    assert r["date"] == "2026-03-10"
+    # The actual daily sleep score (78), distinct from the readiness
+    # score (82) and from /sleep's nested readiness.score (85).
+    assert r["sleep_score"] == "78"
 
 
 def test_parse_readiness_records():
@@ -68,6 +111,23 @@ def test_fetch_sleep_data(mock_get):
     mock_get.assert_called_once()
     call_url = mock_get.call_args[0][0]
     assert "/sleep" in call_url
+    assert "/daily_sleep" not in call_url, (
+        "fetch_sleep_data must hit /sleep, not /daily_sleep"
+    )
+
+
+@patch("sync.oura_sync.requests.get")
+def test_fetch_daily_sleep_data(mock_get):
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = SAMPLE_DAILY_SLEEP_RESPONSE
+    mock_get.return_value = mock_resp
+
+    data = fetch_daily_sleep_data("fake_token", "2026-03-01", "2026-03-10")
+    assert len(data) == 1
+    mock_get.assert_called_once()
+    call_url = mock_get.call_args[0][0]
+    assert "/daily_sleep" in call_url
 
 
 @patch("sync.oura_sync.requests.get")

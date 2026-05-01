@@ -248,6 +248,11 @@ export interface RecoveryAnalysis {
   status: RecoveryStatus;
   hrv: HrvAnalysis | null;
   sleep_score: number | null;
+  /** Platform-emitted readiness score (Oura, Garmin Body Battery, …)
+   *  on a 0–100 scale. Distinct from sleep_score — Oura users get
+   *  both side-by-side; sources that don't surface readiness leave
+   *  this null. Informational, never combined into a composite. */
+  readiness_score: number | null;
   resting_hr: number | null;
   rhr_trend: 'stable' | 'elevated' | 'low' | null;
   /** ISO date of the most recent recovery reading, or null when no data exists. */

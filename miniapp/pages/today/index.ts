@@ -88,7 +88,10 @@ interface CoachTranslations {
 }
 
 /** A single supporting metric cell — flat 2-col grid mirrors web's
- *  PR #238 layout. Five cells: HRV / 7d Trend / RHR / Sleep / TSB. */
+ *  PR #238 layout. Five cells when readiness is unavailable (HRV /
+ *  7d Trend / RHR / Sleep / TSB); six when an Oura-style readiness
+ *  score is present, inserting Readiness between Sleep and TSB so
+ *  sleep + readiness pair visually. */
 interface SupportingCell {
   /** Stable unique key for `wx:key`. */
   id: string;
@@ -101,6 +104,11 @@ interface SupportingCell {
   /** Optional accent class on `.today-cell-value` — used to tint TSB
    *  green when freshness is positive. Empty string means no accent. */
   valueAccent: string;
+  /** True when this cell should span both columns (the last cell in
+   *  an odd-count layout — currently the 5-cell variant where TSB
+   *  would otherwise strand an empty slot). Set during cell assembly,
+   *  not at the use site, so WXML doesn't have to know the count. */
+  span: boolean;
 }
 
 /**
@@ -180,9 +188,11 @@ function tsbDescriptor(tsb: number): string {
   return t('fatigued');
 }
 
-/** Build the 5-cell supporting metrics row that replaces the prior
- *  Form/TSB sparkline + Recovery card. Order mirrors web's PR #238:
- *  HRV, 7d Trend, RHR, Sleep, TSB. */
+/** Build the supporting metrics row that replaces the prior Form/TSB
+ *  sparkline + Recovery card. Order mirrors web's PR #238: HRV,
+ *  7d Trend, RHR, Sleep, [Readiness when present], TSB. The last
+ *  cell is marked `span` only when the total count is odd, so the
+ *  2-col grid never strands an empty slot. */
 function buildSupportingCells(
   ra: RecoveryAnalysis | null,
   tsb: number,
@@ -217,21 +227,38 @@ function buildSupportingCells(
     rhrSub = 'bpm';
   }
 
-  // Cell 4 — Sleep score (Oura/Garmin overnight score, 0–100).
-  const sleepValue = ra?.sleep_score != null ? `${ra.sleep_score.toFixed(0)}` : '—';
+  // Cell 4 — Sleep score (Oura/Garmin daily sleep score, 0–100).
+  const sleepValue = ra?.sleep_score != null ? `${Math.round(ra.sleep_score)}` : '—';
   const sleepSub = ra?.sleep_score != null ? t('overnight score') : noData;
 
-  // Cell 5 — TSB (signed, 1dp). Tint green when freshness is positive.
+  // Cell 5 (Oura only) — Readiness score (0–100). Distinct from
+  // sleep_score; rendered side-by-side when the source provides both.
+  const hasReadiness = ra?.readiness_score != null;
+  const readinessValue = hasReadiness && ra ? `${Math.round(ra.readiness_score!)}` : '—';
+  const readinessSub = t('daily score');
+
+  // TSB (signed, 1dp). Tint green when freshness is positive.
   const tsbValue = `${tsb >= 0 ? '+' : ''}${tsb.toFixed(1)}`;
   const tsbAccent = tsb > 0 ? 'today-cell-value-positive' : '';
 
-  return [
-    { id: 'hrv', label: t('HRV (ln RMSSD)'), value: hrvValue, sub: hrvSub, valueAccent: '' },
-    { id: 'trend', label: t('7d Trend'), value: trendValue, sub: trendSub, valueAccent: '' },
-    { id: 'rhr', label: t('RHR'), value: rhrValue, sub: rhrSub, valueAccent: '' },
-    { id: 'sleep', label: t('Sleep'), value: sleepValue, sub: sleepSub, valueAccent: '' },
-    { id: 'tsb', label: t('TSB'), value: tsbValue, sub: tsbDescriptor(tsb), valueAccent: tsbAccent },
+  const cells: SupportingCell[] = [
+    { id: 'hrv', label: t('HRV (ln RMSSD)'), value: hrvValue, sub: hrvSub, valueAccent: '', span: false },
+    { id: 'trend', label: t('7d Trend'), value: trendValue, sub: trendSub, valueAccent: '', span: false },
+    { id: 'rhr', label: t('RHR'), value: rhrValue, sub: rhrSub, valueAccent: '', span: false },
+    { id: 'sleep', label: t('Sleep'), value: sleepValue, sub: sleepSub, valueAccent: '', span: false },
   ];
+  if (hasReadiness) {
+    cells.push({ id: 'readiness', label: t('Readiness'), value: readinessValue, sub: readinessSub, valueAccent: '', span: false });
+  }
+  cells.push({ id: 'tsb', label: t('TSB'), value: tsbValue, sub: tsbDescriptor(tsb), valueAccent: tsbAccent, span: false });
+
+  // Span the last cell only when the total count is odd — that's the
+  // 5-cell variant (no readiness). With 6 cells the grid is balanced
+  // and TSB sits in column 2 of the third row.
+  if (cells.length % 2 === 1) {
+    cells[cells.length - 1].span = true;
+  }
+  return cells;
 }
 
 /** Format the planned-workout one-liner. Returns the rest-day fallback

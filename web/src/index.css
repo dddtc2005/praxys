@@ -453,6 +453,9 @@
     border-right: 1px solid var(--border);
     padding-right: 14px;
   }
+  .today-spread > .today-supporting > .today-cell:nth-child(even) {
+    padding-left: 14px;
+  }
   .today-spread > .today-supporting > .today-cell:nth-last-child(-n+2) {
     border-bottom: none;
   }

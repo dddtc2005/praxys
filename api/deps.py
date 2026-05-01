@@ -1090,6 +1090,7 @@ def _compute_recovery_analysis(recovery: pd.DataFrame) -> tuple[dict, float | No
     rhr_series: list[float] = []
     today_hrv = None
     today_sleep = None
+    today_readiness = None
     today_rhr = None
     latest_date: date | None = None
 
@@ -1129,6 +1130,11 @@ def _compute_recovery_analysis(recovery: pd.DataFrame) -> tuple[dict, float | No
         ).iloc[0]
         today_sleep = float(sleep_val) if pd.notna(sleep_val) else None
 
+        readiness_val = pd.to_numeric(
+            pd.Series([latest_row.get("readiness_score")]), errors="coerce"
+        ).iloc[0]
+        today_readiness = float(readiness_val) if pd.notna(readiness_val) else None
+
         rhr_val = pd.to_numeric(
             pd.Series([latest_row.get("resting_hr")]), errors="coerce"
         ).iloc[0]
@@ -1143,6 +1149,7 @@ def _compute_recovery_analysis(recovery: pd.DataFrame) -> tuple[dict, float | No
         today_hrv_ms=today_hrv,
         today_sleep=today_sleep,
         today_rhr=today_rhr,
+        today_readiness=today_readiness,
         rhr_series=rhr_series if rhr_series else None,
     )
 

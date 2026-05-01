@@ -302,12 +302,16 @@
   border-bottom: 1rpx solid var(--border-subtle);
 }
 
-// Vertical hairline only between cells that share a row. Even cells
-// sit flush against the rule so the gap reads as rhythm rather than
-// a gutter; mirrors web's PR #238 mobile breakpoint.
+// Vertical hairline between cells that share a row, with symmetric
+// padding so neither side's content is flush against the rule. The
+// previous "padding only on odd" treatment let the even cell's value
+// (e.g. the 7d Trend arrow + sub line) crowd the rule visually.
 .today-cell:nth-child(odd):not(.today-cell--span) {
   border-right: 1rpx solid var(--border-subtle);
   padding-right: 28rpx;
+}
+.today-cell:nth-child(even) {
+  padding-left: 28rpx;
 }
 
 .today-cell--span {

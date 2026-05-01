@@ -105,7 +105,7 @@
         <view
           wx:for="{{cells}}"
           wx:key="id"
-          class="today-cell {{index === 4 ? 'today-cell--span' : ''}}"
+          class="today-cell {{item.span ? 'today-cell--span' : ''}}"
         >
           <text class="today-cell-label">{{item.label}}</text>
           <text class="today-cell-value ts-value {{item.valueAccent}}">{{item.value}}</text>

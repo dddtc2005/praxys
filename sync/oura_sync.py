@@ -4,12 +4,11 @@ import requests
 OURA_BASE = "https://api.ouraring.com/v2/usercollection"
 
 
-def fetch_sleep_data(token: str, start_date: str, end_date: str) -> list[dict]:
-    """Fetch detailed sleep records from Oura API v2."""
-    url = f"{OURA_BASE}/sleep"
+def _fetch_paginated(url: str, token: str, start_date: str, end_date: str) -> list[dict]:
+    """Pull every page from a date-range Oura collection endpoint."""
     headers = {"Authorization": f"Bearer {token}"}
     params = {"start_date": start_date, "end_date": end_date}
-    all_data = []
+    all_data: list[dict] = []
     while True:
         resp = requests.get(url, headers=headers, params=params)
         resp.raise_for_status()
@@ -20,39 +19,71 @@ def fetch_sleep_data(token: str, start_date: str, end_date: str) -> list[dict]:
             break
         params["next_token"] = next_token
     return all_data
+
+
+def fetch_sleep_data(token: str, start_date: str, end_date: str) -> list[dict]:
+    """Fetch detailed sleep records (one row per sleep period) from Oura API v2.
+
+    Used for HRV / RHR / total-sleep / deep-sleep extraction. Does NOT
+    contain the daily sleep score — that lives at /daily_sleep, which
+    `fetch_daily_sleep_data` handles separately.
+    """
+    return _fetch_paginated(f"{OURA_BASE}/sleep", token, start_date, end_date)
+
+
+def fetch_daily_sleep_data(token: str, start_date: str, end_date: str) -> list[dict]:
+    """Fetch daily sleep score records from Oura API v2.
+
+    Each record represents Oura's once-per-day sleep score (0–100) with
+    contributors. Distinct from `/sleep` (which holds per-sleep-period
+    detail with no top-level score) and from `/daily_readiness` (which
+    holds the readiness score). Without this, the dashboard's "Sleep"
+    cell would conflate readiness with sleep.
+    """
+    return _fetch_paginated(f"{OURA_BASE}/daily_sleep", token, start_date, end_date)
 
 
 def fetch_readiness_data(token: str, start_date: str, end_date: str) -> list[dict]:
     """Fetch daily readiness records from Oura API."""
-    url = f"{OURA_BASE}/daily_readiness"
-    headers = {"Authorization": f"Bearer {token}"}
-    params = {"start_date": start_date, "end_date": end_date}
-    all_data = []
-    while True:
-        resp = requests.get(url, headers=headers, params=params)
-        resp.raise_for_status()
-        body = resp.json()
-        all_data.extend(body.get("data", []))
-        next_token = body.get("next_token")
-        if not next_token:
-            break
-        params["next_token"] = next_token
-    return all_data
+    return _fetch_paginated(f"{OURA_BASE}/daily_readiness", token, start_date, end_date)
 
 
 def parse_sleep_records(raw_records: list[dict]) -> list[dict]:
-    """Transform Oura sleep API response into our CSV schema."""
+    """Transform Oura `/sleep` (detailed) API response into our CSV schema.
+
+    Note: this endpoint does NOT carry a sleep score — the `readiness`
+    sub-object on each record is Oura's per-sleep-period readiness
+    contribution, NOT a sleep quality score. The actual daily sleep
+    score comes from `/daily_sleep` via `parse_daily_sleep_records`.
+    Earlier code put `r.readiness.score` here as `sleep_score`, which
+    surfaced the readiness number in the dashboard's "Sleep" cell.
+    """
     rows = []
     for r in raw_records:
-        readiness = r.get("readiness") or {}
         rows.append({
             "date": r.get("day", ""),
-            "sleep_score": str(readiness.get("score", "")),
             "total_sleep_sec": str(r.get("total_sleep_duration", "")),
             "deep_sleep_sec": str(r.get("deep_sleep_duration", "")),
             "rem_sleep_sec": str(r.get("rem_sleep_duration", "")),
             "light_sleep_sec": str(r.get("light_sleep_duration", "")),
             "efficiency": str(r.get("efficiency", "")),
+        })
+    return rows
+
+
+def parse_daily_sleep_records(raw_records: list[dict]) -> list[dict]:
+    """Transform Oura `/daily_sleep` API response into our CSV schema.
+
+    The `score` field is the daily sleep score (0–100). Joined back to
+    the per-day rows by `date` in the writer so each day gets exactly
+    one sleep_score even when `/sleep` returned multiple sleep periods
+    (long_sleep + naps).
+    """
+    rows = []
+    for r in raw_records:
+        rows.append({
+            "date": r.get("day", ""),
+            "sleep_score": str(r.get("score", "")),
         })
     return rows
 

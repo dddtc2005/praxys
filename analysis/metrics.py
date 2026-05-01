@@ -61,6 +61,12 @@ class RecoveryResult(TypedDict):
     status: Literal["fresh", "normal", "fatigued", "insufficient_data"]
     hrv: HrvAnalysisResult | None
     sleep_score: float | None
+    # Readiness is a separate platform-emitted score (Oura, Garmin
+    # Body Battery, etc.). Conceptually distinct from sleep_score —
+    # the dashboard renders both side-by-side when the source provides
+    # them — but treated identically by this analyzer (informational,
+    # never combined into a weighted composite).
+    readiness_score: float | None
     resting_hr: float | None
     rhr_trend: Literal["stable", "elevated", "low"] | None
 
@@ -71,6 +77,7 @@ def analyze_recovery(
     today_sleep: float | None = None,
     today_rhr: float | None = None,
     *,
+    today_readiness: float | None = None,
     rhr_series: list[float] | None = None,
     rolling_days: int = 7,
     baseline_days: int = 30,
@@ -114,6 +121,7 @@ def analyze_recovery(
         "status": "insufficient_data",
         "hrv": None,
         "sleep_score": None,
+        "readiness_score": None,
         "resting_hr": None,
         "rhr_trend": None,
     }
@@ -232,6 +240,7 @@ def analyze_recovery(
         "status": status,
         "hrv": hrv_result,
         "sleep_score": today_sleep,
+        "readiness_score": today_readiness,
         "resting_hr": today_rhr,
         "rhr_trend": None,
     }
