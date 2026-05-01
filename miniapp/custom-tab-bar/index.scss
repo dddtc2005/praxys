@@ -1,8 +1,10 @@
 /*
  * Custom tab bar — Skyline custom tabBars don't auto-position; we fix
  * to bottom explicitly. Icons are Lucide-style (Sun, TrendingUp, Clock,
- * Target, gear-shaped Settings) rendered via mask-image so we can
- * recolor with a single background-color swap on the active state.
+ * Target, gear-shaped Settings) rendered via mask-image so a single
+ * background-color swap recolors them for both theme (light/dark via
+ * --text-muted on inactive cells) and active state (--primary on the
+ * selected cell), with no per-variant recoloured assets to bundle.
  *
  * Each icon is an inline URL-encoded SVG. Mask-image takes the
  * luminance/alpha of the SVG's strokes; the element's background-color
@@ -53,6 +55,18 @@
   justify-content: center;
   gap: 6rpx;
   padding: 6rpx 0 8rpx;
+  // Top-edge indicator slot. Reserved as transparent on every cell
+  // so the active variant doesn't shift adjacent inactive tabs by
+  // 3rpx when the indicator appears. Active state turns this slot
+  // into a primary-green 3rpx mark — the bottom-bar analogue of
+  // web's sidebar left-edge indicator (DESIGN.md "Active route shown
+  // by primary left-edge indicator and bolder weight, not background
+  // fill"). Same idiom, surface-appropriate edge.
+  border-top: 3rpx solid transparent;
+}
+
+.tabbar__item--active {
+  border-top-color: var(--primary);
 }
 
 .tabbar__label {
@@ -61,6 +75,14 @@
   line-height: 1;
 }
 
+// Active label gets the full primary color swap plus bolder weight.
+// The web sidebar's "neutral text + indicator only" treatment works
+// at desktop scale and ambient-navigation reading distance; at phone
+// tab-bar scale (20rpx labels) under outdoor lighting (PRODUCT.md
+// "Light first, outdoors-aware"), the indicator alone is too small
+// to carry active-state at a glance. Color swap + indicator stack:
+// swap does the functional glanceability job, indicator carries the
+// cross-surface brand fingerprint.
 .tabbar__item--active .tabbar__label {
   color: var(--primary);
   font-weight: 600;
@@ -80,6 +102,8 @@
           mask-position: center;
 }
 
+// Active icon mirrors the label: primary color swap, matching the
+// WeChat-native expectation users carry from every other mini program.
 .tabbar__item--active .tabbar__icon {
   background-color: var(--primary);
 }
