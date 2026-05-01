@@ -41,6 +41,22 @@ if os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING"):
     else:
         configure_azure_monitor()
 
+    # configure_azure_monitor attaches a LoggingHandler to the root logger,
+    # which means anything these libraries log at INFO gets shipped back into
+    # AppTraces — and the exporter / HTTP-policy loggers narrate every
+    # outbound /v2.1/track call ("Request URL ...", "Response status: 200",
+    # "Transmission succeeded: Item received: 3"). At our traffic that was
+    # ~95% of AppTraces volume (≈0.45 GB/wk → near zero after this clamp),
+    # forming a self-amplifying loop where each batch produced more telemetry
+    # to batch. Clamping to WARNING keeps real failures (which the SDK logs
+    # at WARNING+) while dropping the success-path narration.
+    for _noisy in (
+        "azure.core.pipeline.policies.http_logging_policy",
+        "azure.monitor.opentelemetry.exporter",
+        "azure.identity",
+    ):
+        logging.getLogger(_noisy).setLevel(logging.WARNING)
+
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
