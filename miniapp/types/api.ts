@@ -533,3 +533,15 @@ export interface HistoryResponse {
   limit: number;
   offset: number;
 }
+
+export interface SystemAnnouncement {
+  id: number;
+  title: string;
+  body: string;
+  type: 'info' | 'warning' | 'success';
+  is_active: boolean;
+  link_text: string | null;
+  link_url: string | null;
+  created_at: string;
+  updated_at: string;
+}

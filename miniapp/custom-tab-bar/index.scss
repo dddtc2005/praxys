@@ -1,8 +1,9 @@
 /*
  * Custom tab bar — Skyline custom tabBars don't auto-position; we fix
  * to bottom explicitly. Icons are Lucide-style (Sun, TrendingUp, Clock,
- * Target, gear-shaped Settings) rendered via mask-image so we can
- * recolor with a single background-color swap on the active state.
+ * Target, gear-shaped Settings) rendered via mask-image so the icon
+ * silhouette is theme-aware via plain CSS without bundling a separate
+ * recoloured asset per state.
  *
  * Each icon is an inline URL-encoded SVG. Mask-image takes the
  * luminance/alpha of the SVG's strokes; the element's background-color
@@ -53,6 +54,17 @@
   justify-content: center;
   gap: 6rpx;
   padding: 6rpx 0 8rpx;
+  // Top-edge indicator slot. Reserved as transparent on every cell
+  // so the active variant doesn't shift adjacent inactive tabs by
+  // 3rpx when the indicator appears. Active state turns this slot
+  // into a primary-green 3rpx mark — the bottom-bar analogue of
+  // web's sidebar left-edge indicator (DESIGN.md "active route shown
+  // by primary edge indicator and bolder weight, not background fill").
+  border-top: 3rpx solid transparent;
+}
+
+.tabbar__item--active {
+  border-top-color: var(--primary);
 }
 
 .tabbar__label {
@@ -61,8 +73,14 @@
   line-height: 1;
 }
 
+// Active label uses foreground (not muted, not primary). Bolder
+// weight plus the top-edge indicator above carry the active signal —
+// no full color swap. Keeps the bottom bar calm to match the
+// sidebar treatment on web; outdoor glanceability is preserved by
+// the contrast jump from --text-muted to --text plus the 3rpx
+// indicator above the cell.
 .tabbar__item--active .tabbar__label {
-  color: var(--primary);
+  color: var(--text);
   font-weight: 600;
 }
 
@@ -80,8 +98,11 @@
           mask-position: center;
 }
 
+// Active icon: same restrained treatment as the label — foreground
+// instead of primary, so the 3rpx top-edge indicator carries the
+// "you are here" signal rather than a full color saturation lift.
 .tabbar__item--active .tabbar__icon {
-  background-color: var(--primary);
+  background-color: var(--text);
 }
 
 // --- Sun (Today) ---
