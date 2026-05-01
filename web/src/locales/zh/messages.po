@@ -181,7 +181,7 @@ msgstr "激活"
 msgid "Active"
 msgstr "当前使用"
 
-#: src/components/AppSidebar.tsx:104
+#: src/components/AppSidebar.tsx:111
 #: src/pages/History.tsx:38
 #: src/pages/Settings.tsx:53
 #: src/pages/Settings.tsx:60
@@ -212,7 +212,7 @@ msgstr "实际"
 msgid "Adjust Workout"
 msgstr "调整训练"
 
-#: src/components/AppSidebar.tsx:113
+#: src/components/AppSidebar.tsx:120
 #: src/pages/Admin.tsx:233
 #: src/pages/Admin.tsx:280
 msgid "Admin"
@@ -912,7 +912,7 @@ msgstr "轻松进行"
 msgid "Go to dashboard"
 msgstr "前往仪表盘"
 
-#: src/components/AppSidebar.tsx:103
+#: src/components/AppSidebar.tsx:110
 #: src/pages/Settings.tsx:1129
 msgid "Goal"
 msgstr "目标"
@@ -1116,8 +1116,8 @@ msgstr "负荷与体能"
 msgid "Log in to connect your CLI plugin"
 msgstr "登录以连接 CLI 插件"
 
-#: src/components/AppSidebar.tsx:183
-#: src/components/AppSidebar.tsx:185
+#: src/components/AppSidebar.tsx:193
+#: src/components/AppSidebar.tsx:195
 msgid "Log out"
 msgstr "退出登录"
 
@@ -1676,7 +1676,7 @@ msgstr "保存目标"
 msgid "Saving..."
 msgstr "保存中..."
 
-#: src/components/AppSidebar.tsx:108
+#: src/components/AppSidebar.tsx:115
 msgid "Science"
 msgstr "科学"
 
@@ -1707,13 +1707,13 @@ msgstr "设置您的目标"
 msgid "Set your name"
 msgstr "设置您的名字"
 
-#: src/components/AppSidebar.tsx:112
+#: src/components/AppSidebar.tsx:119
 #: src/pages/Settings.tsx:547
 msgid "Settings"
 msgstr "设置"
 
-#: src/components/AppSidebar.tsx:128
-#: src/components/AppSidebar.tsx:132
+#: src/components/AppSidebar.tsx:138
+#: src/components/AppSidebar.tsx:142
 msgid "Setup"
 msgstr "设置向导"
 
@@ -1905,7 +1905,7 @@ msgstr "目标时间"
 msgid "Tempo"
 msgstr "节奏跑"
 
-#: src/components/AppSidebar.tsx:177
+#: src/components/AppSidebar.tsx:187
 msgid "Theme"
 msgstr "主题"
 
@@ -1936,7 +1936,7 @@ msgstr "阈值"
 msgid "Title"
 msgstr "标题"
 
-#: src/components/AppSidebar.tsx:101
+#: src/components/AppSidebar.tsx:108
 #: src/components/charts/FitnessFatigueChart.tsx:216
 #: src/components/RecoveryPanel.tsx:118
 #: src/pages/Today.tsx:20
@@ -1956,7 +1956,7 @@ msgstr "今日的恢复尚未同步。显示 {latestDateLabel} 的最新读数�
 msgid "Train toward a specific race date"
 msgstr "围绕特定比赛日期进行训练"
 
-#: src/components/AppSidebar.tsx:102
+#: src/components/AppSidebar.tsx:109
 msgid "Training"
 msgstr "训练"
 
