@@ -1,9 +1,10 @@
 /*
  * Custom tab bar — Skyline custom tabBars don't auto-position; we fix
  * to bottom explicitly. Icons are Lucide-style (Sun, TrendingUp, Clock,
- * Target, gear-shaped Settings) rendered via mask-image so the icon
- * silhouette is theme-aware via plain CSS without bundling a separate
- * recoloured asset per state.
+ * Target, gear-shaped Settings) rendered via mask-image so a single
+ * background-color swap recolors them for both theme (light/dark via
+ * --text-muted on inactive cells) and active state (--primary on the
+ * selected cell), with no per-variant recoloured assets to bundle.
  *
  * Each icon is an inline URL-encoded SVG. Mask-image takes the
  * luminance/alpha of the SVG's strokes; the element's background-color
@@ -58,8 +59,9 @@
   // so the active variant doesn't shift adjacent inactive tabs by
   // 3rpx when the indicator appears. Active state turns this slot
   // into a primary-green 3rpx mark — the bottom-bar analogue of
-  // web's sidebar left-edge indicator (DESIGN.md "active route shown
-  // by primary edge indicator and bolder weight, not background fill").
+  // web's sidebar left-edge indicator (DESIGN.md "Active route shown
+  // by primary left-edge indicator and bolder weight, not background
+  // fill"). Same idiom, surface-appropriate edge.
   border-top: 3rpx solid transparent;
 }
 
