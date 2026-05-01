@@ -285,11 +285,16 @@
 // Cardless 2-col grid sitting directly on warm-paper bg. Hairline
 // rule-soft separators give the cells their own breathing room
 // without the SaaS-cliché ts-card frame. Field Lab "flat-by-default":
-// no shadows, no nested cards. The fifth cell (TSB, index 4) spans
-// both columns rather than stranding an empty slot.
+// no shadows, no nested cards.
+//
+// Layout note: this uses flex-wrap rather than CSS Grid because
+// Skyline's grid implementation is base-library-version dependent and
+// has been observed falling back to a stacked single-column on real
+// devices. flex + width: 50% wraps reliably in both Skyline and
+// WebView render modes.
 .today-supporting {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-wrap: wrap;
   margin-bottom: 24rpx;
   border-top: 1rpx solid var(--border-subtle);
 }
@@ -299,7 +304,14 @@
   flex-direction: column;
   gap: 6rpx;
   padding: 24rpx 0;
+  width: 50%;
+  // Without box-sizing the right-hand padding pushes width past 50%
+  // and the second cell wraps to its own row.
+  box-sizing: border-box;
   border-bottom: 1rpx solid var(--border-subtle);
+  // Min-width 0 lets long content (e.g. "vs 3.92 baseline") shrink
+  // and wrap rather than forcing the cell wider than 50%.
+  min-width: 0;
 }
 
 // Vertical hairline between cells that share a row, with symmetric
@@ -315,7 +327,7 @@
 }
 
 .today-cell--span {
-  grid-column: 1 / -1;
+  width: 100%;
   // Last row in the supporting block — drop the bottom rule so it
   // doesn't double up against the .today-plan border-top below.
   border-bottom: none;
