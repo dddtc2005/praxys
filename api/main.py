@@ -172,8 +172,9 @@ app.include_router(announcements_router, prefix="/api", tags=["announcements"])
 # Data routes
 from api.routes import today, training, goal, history, plan, settings, sync, science, insights
 from api.routes import ai as ai_routes
+from api.routes import garmin_link
 
-for router_module in [today, training, goal, history, plan, settings, sync, science, ai_routes, insights]:
+for router_module in [today, training, goal, history, plan, settings, sync, science, ai_routes, insights, garmin_link]:
     app.include_router(router_module.router, prefix="/api")
 
 

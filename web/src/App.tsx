@@ -23,6 +23,7 @@ const History = lazy(() => import('./pages/History'));
 const Science = lazy(() => import('./pages/Science'));
 const SettingsPage = lazy(() => import('./pages/Settings'));
 const Admin = lazy(() => import('./pages/Admin'));
+const GarminLink = lazy(() => import('./pages/GarminLink'));
 import { useSetupStatus } from './hooks/useSetupStatus';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -50,6 +51,17 @@ export default function App() {
             <Routes>
               <Route path="/" element={<LandingOrApp />} />
               <Route path="/login" element={<LoginGuard />} />
+              {/* Garmin interactive-login viewport — outside Layout so the
+                  full-screen canvas dominates the viewport. Requires auth
+                  but doesn't need the SettingsProvider / Layout chrome. */}
+              <Route
+                path="/garmin-link"
+                element={
+                  <RequireAuth>
+                    <Suspense fallback={null}><GarminLink /></Suspense>
+                  </RequireAuth>
+                }
+              />
               <Route
                 element={
                   <RequireAuth>

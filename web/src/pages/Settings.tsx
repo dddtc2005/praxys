@@ -494,6 +494,45 @@ export default function Settings() {
     setConnecting(false);
   };
 
+  const handleInteractiveGarminLogin = async () => {
+    if (!connectCreds.email || !connectCreds.password) {
+      setConnectError(t`Email and password are required.`);
+      return;
+    }
+    setConnecting(true);
+    setConnectError('');
+    try {
+      const res = await fetch(`${API_BASE}/api/settings/connections/garmin/interactive`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders() as Record<string, string>, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: connectCreds.email,
+          password: connectCreds.password,
+          is_cn: connectRegion === 'cn',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.session_id) {
+        setConnectError(data.message || data.detail || `Failed to start (HTTP ${res.status})`);
+        setConnecting(false);
+        return;
+      }
+      // Mirror the region into source_options BEFORE leaving this
+      // page so the post-login sync knows which Garmin domain to use.
+      // Same idea as the regular connect path.
+      await updateSettings({
+        source_options: {
+          ...(config?.source_options || {}),
+          garmin_region: connectRegion,
+        },
+      });
+      window.location.href = `/garmin-link?session=${encodeURIComponent(data.session_id)}`;
+    } catch {
+      setConnectError(t`Network error.`);
+      setConnecting(false);
+    }
+  };
+
   const handleDisconnect = async (platform: string) => {
     try {
       await fetch(`${API_BASE}/api/settings/connections/${platform}`, {
@@ -986,6 +1025,34 @@ export default function Settings() {
                   {connecting ? <Trans>Connecting...</Trans> : <Trans>Connect</Trans>}
                 </Button>
               </div>
+              {/* Interactive-login fallback. Garmin's bot model gates fresh
+                  SSO from datacenter IPs behind a CAPTCHA; when the standard
+                  POST flow returns CAPTCHA_REQUIRED there's no headless way
+                  to satisfy it. The interactive flow opens a server-side
+                  Chromium that we relay to the user's screen so they can
+                  solve the challenge in our IP context — see
+                  api/routes/garmin_link.py for the rationale and mechanics. */}
+              {connectPlatform === 'garmin' && (
+                <div className="border-t border-border pt-3 text-xs text-muted-foreground space-y-2">
+                  <p>
+                    <Trans>
+                      Seeing "CAPTCHA required" or repeated login failures?
+                      Garmin sometimes flags datacenter IPs and requires
+                      an interactive challenge. Use the link below to
+                      complete sign-in with our server in the loop.
+                    </Trans>
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleInteractiveGarminLogin()}
+                    disabled={connecting || !connectCreds.email || !connectCreds.password}
+                  >
+                    <Trans>Use interactive login</Trans>
+                  </Button>
+                </div>
+              )}
             </form>
           )}
           {connectPlatform === 'strava' && (
