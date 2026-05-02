@@ -26,6 +26,25 @@ DELAY_BETWEEN_SYNCS_SEC = 5  # Stagger between user/platform syncs
 BACKOFF_BASE_SEC = 3600
 BACKOFF_MAX_SEC = 86400
 
+# Connection-status enums grouped by intent. Two distinct queries hit
+# user_connections.status throughout the app and mean different things,
+# so we name them explicitly to keep them from drifting:
+#
+# * SCHEDULABLE_STATUSES — what _check_and_sync attempts to retry.
+#   ``auth_required`` is intentionally excluded; the user has to
+#   reconnect credentials before we touch the connection again.
+# * ACTIVE_CONNECTION_STATUSES — "the user has a configured connection
+#   for this platform." Used by analysis/config and the connections
+#   listing endpoints to keep an auth-locked user's source preferences
+#   and platform list stable while they're stuck in auth_required.
+#   Without this, a CAPTCHA-locked Garmin user's analysis would
+#   silently fall back to a different (or no) provider on every
+#   request, until they reconnect — invisible to them.
+SCHEDULABLE_STATUSES: tuple[str, ...] = ("connected", "error")
+ACTIVE_CONNECTION_STATUSES: tuple[str, ...] = (
+    "connected", "error", "auth_required",
+)
+
 _scheduler_thread: threading.Thread | None = None
 _stop_event = threading.Event()
 
@@ -234,12 +253,13 @@ def _check_and_sync():
     init_db()
     db = SessionLocal()
     try:
-        # ``auth_required`` is intentionally excluded — those connections
-        # are blocked on user action (re-upload credentials after clearing
-        # whatever account-level gate Garmin / Stryd / etc. flagged) and
-        # silently retrying just escalates the gate further.
+        # SCHEDULABLE_STATUSES intentionally excludes ``auth_required`` —
+        # those connections are blocked on user action (re-upload
+        # credentials after clearing whatever account-level gate Garmin
+        # or Stryd flagged) and silently retrying just escalates the
+        # gate further.
         connections = db.query(UserConnection).filter(
-            UserConnection.status.in_(["connected", "error"]),
+            UserConnection.status.in_(SCHEDULABLE_STATUSES),
         ).all()
 
         now = datetime.utcnow()

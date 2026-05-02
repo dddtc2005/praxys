@@ -129,6 +129,15 @@ export interface PlatformConnection {
   status: string;
   last_sync: string | null;
   has_credentials: boolean;
+  // Scheduler retry-state surfaced for UI: when status is "error", the
+  // connection is in exponential backoff and `next_retry_at` says when
+  // the next attempt fires; when status is "auth_required" the user
+  // must reconnect and `next_retry_at` is null. `last_error` is a short
+  // tag for the failure cause (e.g. "GarminConnectConnectionError:
+  // Portal login failed (non-JSON): HTTP 403"), suitable for a tooltip.
+  next_retry_at?: string | null;
+  consecutive_failures?: number;
+  last_error?: string | null;
 }
 
 export interface ConnectionsResponse {
@@ -138,6 +147,8 @@ export interface ConnectionsResponse {
 export interface StravaOAuthStartRequest {
   web_origin: string;
   return_to: string;
+  client_id?: string;
+  client_secret?: string;
 }
 
 export interface StravaOAuthStartResponse {

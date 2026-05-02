@@ -338,6 +338,63 @@ def test_check_and_sync_skips_auth_required_connections(db_setup, monkeypatch) -
     )
 
 
+def test_check_and_sync_routes_failure_through_record_sync_failure(
+    db_setup, monkeypatch,
+) -> None:
+    """When _sync_connection raises, the scheduler must route the exception
+    into _record_sync_failure and persist the new state.
+
+    This is the actual production code path that fires every 10 min — the
+    individual unit tests don't cover it together. A regression here
+    (e.g., a future refactor that drops the except-clause call to
+    _record_sync_failure) wouldn't be caught by the per-helper tests
+    above, but would silently restore the retry storm this PR exists
+    to prevent.
+    """
+    from db import session as db_session
+    from db import sync_scheduler
+    from db.models import UserConnection, UserConfig
+
+    user_id, _ = db_setup
+    db = db_session.SessionLocal()
+    try:
+        conn = _make_connection(db, user_id)
+        # Stale last_sync so freshness gate doesn't skip us.
+        conn.last_sync = datetime.utcnow() - timedelta(days=1)
+        db.add(UserConfig(user_id=user_id))
+        db.commit()
+        conn_id = conn.id
+    finally:
+        db.close()
+
+    def _raise_captcha(uid, platform, db):
+        raise RuntimeError(
+            "All login strategies exhausted: Portal web login failed: "
+            "{'responseStatus': {'type': 'CAPTCHA_REQUIRED'}}"
+        )
+
+    monkeypatch.setattr(sync_scheduler, "_sync_connection", _raise_captcha)
+
+    sync_scheduler._check_and_sync()
+
+    db = db_session.SessionLocal()
+    try:
+        fresh = db.query(UserConnection).filter(
+            UserConnection.id == conn_id,
+        ).first()
+        assert fresh.status == "auth_required", (
+            f"CAPTCHA error from _sync_connection must route to "
+            f"auth_required via _record_sync_failure; got {fresh.status!r}"
+        )
+        assert fresh.next_retry_at is None, (
+            "Terminal classification must clear next_retry_at"
+        )
+        assert fresh.consecutive_failures == 1
+        assert "CAPTCHA_REQUIRED" in (fresh.last_error or "")
+    finally:
+        db.close()
+
+
 def test_check_and_sync_runs_once_window_has_passed(db_setup, monkeypatch) -> None:
     """When next_retry_at is in the past, the scheduler tries again."""
     from db import session as db_session

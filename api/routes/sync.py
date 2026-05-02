@@ -1152,6 +1152,7 @@ def get_sync_status(
 ) -> dict:
     """Return current sync status for this user's connected platforms."""
     from db.models import UserConnection
+    from db.sync_scheduler import ACTIVE_CONNECTION_STATUSES
 
     # Snapshot runtime status under lock to avoid reading partial updates.
     # _get_user_status acquires _sync_lock internally, so call it outside
@@ -1172,7 +1173,7 @@ def get_sync_status(
             "status": runtime.get("status", "idle"),
             "last_sync": utc_isoformat(conn.last_sync) or runtime.get("last_sync"),
             "error": runtime.get("error"),
-            "connected": conn.status in ("connected", "error"),
+            "connected": conn.status in ACTIVE_CONNECTION_STATUSES,
             "progress": runtime.get("progress"),
         }
 

@@ -840,6 +840,7 @@ def get_sync_status() -> str:
             db = _local_db()
             try:
                 from db.models import UserConnection
+                from db.sync_scheduler import ACTIVE_CONNECTION_STATUSES
                 connections = db.query(UserConnection).filter(
                     UserConnection.user_id == _local_user_id()
                 ).all()
@@ -848,7 +849,7 @@ def get_sync_status() -> str:
                     data[conn.platform] = {
                         "status": "idle",
                         "last_sync": conn.last_sync.isoformat() if conn.last_sync else None,
-                        "connected": conn.status in ("connected", "error"),
+                        "connected": conn.status in ACTIVE_CONNECTION_STATUSES,
                     }
             finally:
                 db.close()
