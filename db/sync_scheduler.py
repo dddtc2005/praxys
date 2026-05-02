@@ -212,3 +212,13 @@ def _sync_connection(user_id: str, platform: str, db):
     conn.status = "connected"
     db.commit()
     logger.info("Sync complete: user=%s platform=%s counts=%s", user_id, platform, counts)
+
+    # Post-sync LLM insight generation. Best-effort; never raises.
+    try:
+        from api.insights_runner import run_insights_for_user
+        insight_results = run_insights_for_user(user_id, db, counts)
+        logger.info("Insight generation for user=%s: %s", user_id, insight_results)
+    except Exception:
+        # No rollback: the runner uses its own session, and the caller's
+        # session has nothing pending past the prior db.commit().
+        logger.exception("Insight generation failed for user=%s", user_id)

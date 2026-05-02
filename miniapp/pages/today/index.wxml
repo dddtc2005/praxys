@@ -38,94 +38,92 @@
           <text class="signal-label signal-label--{{signalColor}}">{{signalLabel}}</text>
         </view>
         <text class="signal-subtitle signal-subtitle--{{signalColor}}">{{signalSubtitle}}</text>
-        <text class="signal-reason">{{signalReason}}</text>
+        <text wx:if="{{signalReason}}" class="signal-reason">{{signalReason}}</text>
       </view>
 
-      <view wx:if="{{hasSparkline}}" class="ts-card">
-        <text class="ts-section-label">{{tr.formTsb}}</text>
-        <view wx:if="{{formTsbHasValue}}" class="today-tsb-headline-row">
-          <text class="today-tsb-value ts-value">{{formTsbValue}}</text>
-          <text class="today-tsb-zone {{formTsbZoneAccent}}">{{formTsbZone}}</text>
+      <!--
+        Praxys Coach receipt — the LLM-generated daily brief. Sits
+        between the rule-based signal hero and the supporting cells so
+        the coach narrative is the first interpretive layer the athlete
+        sees. Renders nothing when no AiInsight row exists (LLM
+        disabled, generation cap hit, transient error). Visual treatment
+        is a flat cobalt-banner block so it reads as a separate
+        interpretive voice rather than another metric tile.
+      -->
+      <view wx:if="{{hasCoach}}" class="coach-receipt" aria-label="{{coachTr.aria}}">
+        <view class="coach-banner">
+          <text class="coach-mark">{{coachTr.mark}}</text>
+          <text wx:if="{{coach.stamp}}" class="coach-stamp ts-value">{{coach.stamp}}</text>
         </view>
-        <text wx:else class="today-tsb-headline ts-muted">{{tr.noTsbData}}</text>
-        <line-chart
-          canvas-id="today-sparkline"
-          height="{{200}}"
-          show-legend="{{false}}"
-          show-zero-line="{{true}}"
-          dates="{{sparklineDates}}"
-          series="{{sparklineSeries}}"
-          theme="{{chartTheme}}"
-        />
-      </view>
+        <view class="coach-body">
+          <text class="coach-headline">{{coach.headline}}</text>
 
-      <view class="ts-card">
-        <text class="ts-section-label">{{tr.recovery}}</text>
-        <view class="today-recovery-row">
-          <text class="today-recovery-label ts-muted">{{tr.status}}</text>
-          <text class="today-recovery-value ts-value">{{recoveryStatus}}</text>
-        </view>
-        <view class="today-recovery-row">
-          <text class="today-recovery-label ts-muted">{{tr.hrv}}</text>
-          <text class="today-recovery-value ts-value">{{recoveryHrv}}</text>
-        </view>
-        <view class="today-recovery-row">
-          <text class="today-recovery-label ts-muted">{{tr.restingHr}}</text>
-          <text class="today-recovery-value ts-value">{{recoveryRhr}}</text>
-        </view>
-        <view class="today-recovery-row">
-          <text class="today-recovery-label ts-muted">{{tr.sleep}}</text>
-          <text class="today-recovery-value ts-value">{{recoverySleep}}</text>
-        </view>
-      </view>
+          <block wx:if="{{coach.hasFindings}}">
+            <text class="coach-label">{{coachTr.findings}}</text>
+            <view
+              wx:for="{{coach.findings}}"
+              wx:key="id"
+              class="coach-row coach-row--{{item.tone}}"
+            >
+              <text class="coach-tag">{{item.marker}}</text>
+              <text class="coach-text">{{item.text}}</text>
+            </view>
+          </block>
 
-      <view wx:if="{{hasWeekLoad}}" class="ts-card today-week-load">
-        <view class="today-week-load-head">
-          <text class="ts-section-label">{{tr.weeklyLoad}}</text>
-          <text wx:if="{{weekLoadLabel}}" class="today-week-load-week ts-muted">{{weekLoadLabel}}</text>
-        </view>
-        <view class="today-week-load-row">
-          <text class="today-week-load-actual ts-value">{{weekLoadActual}}</text>
-          <text class="today-week-load-planned ts-muted">{{weekLoadPlannedSuffix}}</text>
-          <text wx:if="{{weekLoadHasPct}}" class="today-week-load-pct ts-value {{weekLoadPctAccent}}">{{weekLoadPct}}</text>
-        </view>
-        <view wx:if="{{weekLoadHasPct}}" class="today-week-load-track">
           <view
-            class="today-week-load-fill {{weekLoadBarAccent}}"
-            style="width: {{weekLoadBarPct}}%;"
+            wx:if="{{coach.hasFindings && coach.hasRecommendations}}"
+            class="coach-rule"
           ></view>
+
+          <block wx:if="{{coach.hasRecommendations}}">
+            <text class="coach-label">{{coachTr.recommendations}}</text>
+            <view
+              wx:for="{{coach.recommendations}}"
+              wx:key="index"
+              class="coach-row"
+            >
+              <text class="coach-tag coach-tag--rec">{{item.index}}.</text>
+              <text class="coach-text">{{item.text}}</text>
+            </view>
+          </block>
+        </view>
+        <view wx:if="{{coach.attribution}}" class="coach-foot">
+          <text class="coach-foot-text">{{coach.attribution}}</text>
         </view>
       </view>
 
-      <view wx:if="{{hasUpcoming}}" class="ts-card">
-        <text class="ts-section-label">{{tr.upcomingWorkouts}}</text>
+      <!--
+        Supporting cells: a flat 2-col grid mirroring web's PR #238
+        layout. Five cells in source order — HRV, 7d Trend, RHR, Sleep,
+        TSB. Cardless on warm paper with hairline separators between
+        cells; the last cell (TSB, index 4) spans both columns to avoid
+        a stranded empty slot. Pure data-driven; the cells array is
+        always present once `hasResponse` is true, so no `wx:if` guard
+        wraps the block.
+      -->
+      <view class="today-supporting">
         <view
-          wx:for="{{upcomingRows}}"
-          wx:key="date"
-          class="today-upcoming-row"
+          wx:for="{{cells}}"
+          wx:key="id"
+          class="today-cell {{item.span ? 'today-cell--span' : ''}}"
         >
-          <text class="today-upcoming-date">{{item.date}}</text>
-          <text class="today-upcoming-name">{{item.name}}</text>
-          <text wx:if="{{item.hasMeta}}" class="today-upcoming-meta">{{item.meta}}</text>
+          <text class="today-cell-label">{{item.label}}</text>
+          <text class="today-cell-value ts-value {{item.valueAccent}}">{{item.value}}</text>
+          <text class="today-cell-sub ts-value">{{item.sub}}</text>
         </view>
       </view>
 
-      <view wx:if="{{hasLastActivity}}" class="ts-card">
-        <text class="ts-section-label">{{tr.lastActivity}}</text>
-        <text class="today-last-date">{{lastDate}}</text>
-        <view class="today-last-metrics">
-          <view
-            wx:for="{{lastMetrics}}"
-            wx:key="label"
-            class="today-metric"
-          >
-            <text class="today-metric-label ts-muted">{{item.label}}</text>
-            <text class="today-metric-value ts-value">{{item.value}}</text>
-          </view>
-        </view>
+      <!--
+        Plan one-liner: the day's planned workout, eyebrow + body in a
+        single baseline-aligned row. Replaces the prior Upcoming
+        Workouts list and full WorkoutCard.
+      -->
+      <view class="today-plan">
+        <text class="today-plan-eyebrow">{{planEyebrow}}</text>
+        <text class="today-plan-text">{{planText}}</text>
       </view>
 
-      <view wx:if="{{hasWarnings}}" class="ts-card today-warnings">
+      <view wx:if="{{hasWarnings}}" class="today-warnings">
         <text class="ts-section-label">{{tr.warnings}}</text>
         <text
           wx:for="{{warnings}}"

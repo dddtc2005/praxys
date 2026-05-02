@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSettings } from '@/contexts/SettingsContext';
 import { API_BASE, getAuthHeaders, extractErrorMessage } from '@/hooks/useApi';
-import type { TrainingBase, SyncStatusResponse } from '@/types/api';
+import type { TrainingBase, SyncStatusResponse, VersionResponse } from '@/types/api';
 import {
   buildStravaReturnTo,
   getStravaOAuthMessage,
@@ -25,6 +25,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Link2, Gauge, SlidersHorizontal, Target, Activity, User, Check, Clock } from 'lucide-react';
 import GoalEditor from '@/components/GoalEditor';
 import { formatTime, formatPace } from '@/lib/format';
+import { WEB_VERSION } from '@/lib/version';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocale } from '@/contexts/LocaleContext';
 import { detectBrowserLocale } from '@/lib/locale-detect';
@@ -217,6 +218,10 @@ export default function Settings() {
   const [goalEditorOpen, setGoalEditorOpen] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
+  // Live API build, mirrored next to the bundled web version at the
+  // page footer. Empty string while loading or if the call fails — we
+  // still render the web version so the footer never blanks out.
+  const [apiVersion, setApiVersion] = useState('');
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -247,6 +252,19 @@ export default function Settings() {
       .then((r) => r.json())
       .then((data: SyncStatusResponse) => setSyncStatus(data))
       .catch(() => {});
+  }, []);
+
+  // /api/version is public (no auth) and cheap; fetch once per Settings
+  // mount so the footer shows the live API build alongside WEB_VERSION.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_BASE}/api/version`)
+      .then((r) => (r.ok ? (r.json() as Promise<VersionResponse>) : null))
+      .then((data) => {
+        if (!cancelled && data?.version) setApiVersion(data.version);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -412,8 +430,14 @@ export default function Settings() {
     setStravaNotice('');
 
     if (connectPlatform === 'strava') {
+      const cid = (connectCreds as Record<string, string>).client_id?.trim();
+      const csec = (connectCreds as Record<string, string>).client_secret?.trim();
+      const clientCreds = cid && csec ? { client_id: cid, client_secret: csec } : undefined;
       try {
-        await startStravaOAuth(buildStravaReturnTo(location.pathname, location.search, location.hash));
+        await startStravaOAuth(
+          buildStravaReturnTo(location.pathname, location.search, location.hash),
+          clientCreds,
+        );
       } catch (err) {
         setConnectError(err instanceof Error ? err.message : 'Network error');
         setConnecting(false);
@@ -972,11 +996,34 @@ export default function Settings() {
                   <Trans>Continue in your browser to authorize Strava. Praxys imports activities from Strava, while recovery, fitness, and plans come from your other connected platforms.</Trans>
                 </p>
               </div>
+              <div className="space-y-2">
+                <label className="text-xs text-muted-foreground"><Trans>Strava Client ID</Trans></label>
+                <Input
+                  placeholder={t`Your Strava API Client ID`}
+                  value={(connectCreds as Record<string, string>).client_id || ''}
+                  onChange={(e) => setConnectCreds((prev) => ({ ...prev, client_id: e.target.value }))}
+                  className="font-data"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs text-muted-foreground"><Trans>Strava Client Secret</Trans></label>
+                <Input
+                  type="password"
+                  placeholder={t`Your Strava API Client Secret`}
+                  value={(connectCreds as Record<string, string>).client_secret || ''}
+                  onChange={(e) => setConnectCreds((prev) => ({ ...prev, client_secret: e.target.value }))}
+                  className="font-data"
+                />
+              </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="ghost" onClick={() => setConnectPlatform(null)} disabled={connecting}>
                   <Trans>Cancel</Trans>
                 </Button>
-                <Button type="button" onClick={() => void handleConnect()} disabled={connecting}>
+                <Button
+                  type="button"
+                  onClick={() => void handleConnect()}
+                  disabled={connecting || !(connectCreds as Record<string, string>).client_id?.trim() || !(connectCreds as Record<string, string>).client_secret?.trim()}
+                >
                   {connecting ? <Trans>Redirecting...</Trans> : <Trans>Continue to Strava</Trans>}
                 </Button>
               </div>
@@ -1259,6 +1306,23 @@ export default function Settings() {
       </Card>
 
       </div>{/* end read-only overlay */}
+
+      {/* Build footer — mirrors the mini program's ``Praxys <version>``
+          line. Web and API ship from the same commit but different
+          App Service sites, so a partial deploy can leave them at
+          different versions; we surface both when they diverge so the
+          drift is legible without spelunking the Network tab. Brand
+          name and ``API`` label stay untranslated for parity with
+          ``miniapp/pages/settings/index.wxml``. */}
+      <p
+        className="mt-12 text-center text-[11px] font-data text-muted-foreground/60"
+        title={apiVersion ? `web ${WEB_VERSION} · api ${apiVersion}` : `web ${WEB_VERSION}`}
+      >
+        Praxys {WEB_VERSION}
+        {apiVersion && apiVersion !== WEB_VERSION && (
+          <> <span aria-hidden>·</span> API {apiVersion}</>
+        )}
+      </p>
     </div>
   );
 }

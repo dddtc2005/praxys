@@ -73,18 +73,19 @@ Detection: `LocaleContext` + `detectBrowserLocale`. Stored preference overrides 
 | Progress bars | `Progress` |
 | Navigation | `Sidebar` (collapsible, sheet drawer on mobile) |
 
-### The Science Note
+### Reasoning surfaces
 
-The reasoning surface. Used by the `ScienceNote` component to answer "why did the system recommend this?" — plan rationale, metric explanations, citation of the underlying theory.
+Two patterns. Different jobs.
 
-Visual spec (brand guide § V):
-- Cobalt tint background: `bg-[color-mix(in_oklab,var(--accent-cobalt)_5%,var(--card))]` (or the semantic class once tokenized).
-- Cobalt-tinted border; solid cobalt 3px left border (the "reasoning rail").
-- Eyebrow label in cobalt, uppercase, JetBrains Mono, wide tracking: *WHY THIS RECOMMENDATION* / *METHODOLOGY* / *CITATION*.
-- Body in `foreground` text at normal weight.
-- Dashed border separator above the citation block; citation in `muted-foreground` with italicized source titles.
+**`ScienceNote` — inline progressive disclosure.** Lives at the bottom of metric cards (`RecoveryPanel`, `FitnessFatigueChart`, `FormSparkline`, `Goal` predictions). Default-collapsed; cobalt-colored "How this is calculated" trigger signals reasoning is available; expanding reveals a paragraph + cobalt citation link. Deliberately minimal — adds depth without claiming vertical space.
 
-Never use the cobalt-bordered note style for anything that isn't reasoning / methodology / citation. Don't tint user-actionable surfaces with cobalt.
+- Trigger: `text-accent-cobalt` button, ~10px caret + label.
+- Expanded body: `text-muted-foreground`, small, leading-relaxed.
+- Citation link: `text-accent-cobalt` with underline on hover.
+
+**`coach-receipt` — narrative reasoning surface.** A standalone block where reasoning *is* the content (currently the Praxys Coach daily brief). Square-cornered, thin border, flat cobalt banner header with brand mark + timestamp, body with headline + findings + dashed rule + numbered recommendations, muted footer with theory attribution. Defined globally in `web/src/index.css` under `.coach-receipt`; reusable on any page. CSS classes: `coach-receipt`, `coach-banner`, `coach-mark`, `coach-stamp`, `coach-body`, `coach-headline`, `coach-rule`, `coach-label`, `coach-list`, `coach-row`, `coach-tag`, `coach-tag-rec`, `coach-text`, `coach-foot`.
+
+**The retired rail-card pattern.** An earlier iteration of these docs prescribed a cobalt 3px left-border + cobalt-tinted card for the ScienceNote. That pattern became the AI-generated-UI cliché in 2025–26; the receipt's flat-banner geometry replaced it. **Don't reach for a >1px cobalt left border** — it's an absolute ban now (see DESIGN.md "Don't" list). Reasoning is encoded by cobalt *color* (banner backgrounds, eyebrow labels, citation links, recommendation arrows, ScienceNote triggers), not by rail-card shape.
 
 ## Chart conventions
 
@@ -110,4 +111,4 @@ Tracked here so they don't get lost. When picking up any of these, update this s
 - [ ] Rename `--accent-red-val` → `--accent-rust-val` (and the semantic class) to match brand naming, or accept the rename as alias only.
 - [ ] Remove `--accent-blue-val` / `--accent-purple-val` usages: migrate TSB/form displays to cobalt (if reasoning) or primary (if positive), move sleep/recovery off purple.
 - [ ] Add the `.font-serif-sc` utility class for Chinese display/quote contexts.
-- [ ] Verify all existing `ScienceNote` callers render with the cobalt-rail treatment from brand § V.
+- [ ] Update `docs/brand/index.html` § V (the Reasoning Note section) to reflect the receipt + minimal-ScienceNote split. The brand guide still describes the retired rail-card pattern.

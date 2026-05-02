@@ -251,7 +251,14 @@ def write_recovery(user_id: str, readiness_rows: list[dict],
             if (existing.resting_hr is None or existing.resting_hr <= 0) and resting_hr and resting_hr > 0:
                 existing.resting_hr = resting_hr
                 updated = True
-            if existing.sleep_score is None and sleep_score is not None:
+            # Sleep score: overwrite on difference, not just on null.
+            # Self-heals rows from before the daily_sleep fix where
+            # parse_sleep_records put readiness.score into sleep_score —
+            # the canonical daily_sleep value should win every time it
+            # disagrees with what's stored. Skipping the update when
+            # values match preserves write-amplification benefits of
+            # the dedup branch.
+            if sleep_score is not None and existing.sleep_score != sleep_score:
                 existing.sleep_score = sleep_score
                 updated = True
             if existing.readiness_score is None and readiness_score is not None:

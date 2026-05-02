@@ -8,6 +8,19 @@ from datetime import date, datetime, timezone
 import pandas as pd
 
 
+def require_admin(user_id: str, db) -> None:
+    """Raise HTTP 403 if the user is not a superuser.
+
+    Shared guard used by admin-only routes in api/routes/admin.py and
+    api/routes/announcements.py. Lives here per the shared-helpers convention.
+    """
+    from fastapi import HTTPException
+    from db.models import User
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or not user.is_superuser:
+        raise HTTPException(403, "Admin access required")
+
+
 def utc_isoformat(dt: datetime | None) -> str | None:
     """Serialize a UTC datetime as an ISO-8601 string with a UTC offset.
 

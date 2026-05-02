@@ -12,7 +12,7 @@ from datetime import date, datetime, timedelta
 
 import pandas as pd
 
-from analysis.config import load_config
+from analysis.config import load_config, load_config_from_db
 
 
 # ---------------------------------------------------------------------------
@@ -20,15 +20,23 @@ from analysis.config import load_config
 # ---------------------------------------------------------------------------
 
 
-def _build_context_from_data(data: dict) -> dict:
+def _build_context_from_data(data: dict, *, user_id: str | None = None, db=None) -> dict:
     """Reshape pre-computed dashboard data into AI training context.
 
     Accepts the dict returned by ``get_dashboard_data()`` and produces the
     structured context used by LLM plan generation. This avoids calling
     ``get_dashboard_data()`` a second time when the caller already has the data
     (e.g. the ``/api/ai/context`` route).
+
+    Pass ``user_id`` + ``db`` for multi-user mode (the post-sync insight
+    runner) so that ``athlete_profile`` reflects the per-user config (zones,
+    training base, goal). Without them the legacy single-user
+    ``load_config()`` is used.
     """
-    config = load_config()
+    if user_id is not None and db is not None:
+        config = load_config_from_db(user_id, db)
+    else:
+        config = load_config()
     today = date.today()
 
     # -- Science framework --
@@ -152,17 +160,19 @@ def _build_context_from_data(data: dict) -> dict:
     }
 
 
-def build_training_context() -> dict:
+def build_training_context(user_id: str | None = None, db=None) -> dict:
     """Build a structured training context dict for LLM plan generation.
 
     Calls ``get_dashboard_data()`` and reshapes the result into sections:
     athlete_profile, current_fitness, recent_training (with individual
     sessions + splits), recovery_state, and current_plan.
+
+    Pass ``user_id`` + ``db`` for multi-user mode (post-sync insight runner).
     """
     from api.deps import get_dashboard_data
 
-    data = get_dashboard_data()
-    return _build_context_from_data(data)
+    data = get_dashboard_data(user_id=user_id, db=db)
+    return _build_context_from_data(data, user_id=user_id, db=db)
 
 
 # ---------------------------------------------------------------------------

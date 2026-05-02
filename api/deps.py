@@ -1001,14 +1001,29 @@ def _compute_threshold_data(
     )
     cp_values = cp_values[cp_values > 0].dropna()
 
-    # Supplement with fitness_data CP estimates (includes profile CP from Stryd sync)
+    # Supplement with fitness_data CP estimates (includes profile CP from Stryd sync).
+    # Honor the user's source preference (Settings → threshold sources). Without
+    # this filter, a FitnessData row with source='activities' (our own
+    # rolling-window write-back from sync_writer.py) routinely outdates and
+    # overrides Stryd's profile CP, since the user-facing "latest_cp" then picks
+    # the more recent date regardless of source.
     if user_id and db:
         from db.models import FitnessData as FDModel
-        fd_rows = db.query(FDModel.date, FDModel.value).filter(
+        threshold_sources = config.preferences.get("threshold_sources") or {}
+        activity_source = config.preferences.get("activities") or None
+        preferred_source = threshold_sources.get("cp_estimate") or activity_source
+        fd_q = db.query(FDModel.date, FDModel.value, FDModel.source).filter(
             FDModel.user_id == user_id,
             FDModel.metric_type == "cp_estimate",
             FDModel.value.isnot(None),
-        ).all()
+        )
+        fd_rows = fd_q.all()
+        # Prefer rows matching the user's source choice; fall back to all rows
+        # only when the preferred source has nothing to say.
+        if preferred_source:
+            preferred_rows = [r for r in fd_rows if r.source == preferred_source]
+            if preferred_rows:
+                fd_rows = preferred_rows
         if fd_rows:
             fd_series = pd.Series(
                 {r.date: r.value for r in fd_rows if r.value and r.value > 0}
@@ -1029,7 +1044,25 @@ def _compute_threshold_data(
     power_pace_pairs = _get_power_pace_pairs(merged)
 
     if config.training_base == "power":
-        latest = float(cp_values.iloc[-1]) if not cp_values.empty else None
+        # Latest CP shown to the user must match what the chart displays
+        # (most recent per-activity cp_estimate). Pulling the latest from the
+        # combined series can pick a stale FitnessData write-back from a
+        # different source than the user's preference, so take it directly
+        # from per-activity data when present and only fall back to combined
+        # when activities have nothing to offer (e.g. brand-new user whose
+        # only CP value is a synced Stryd profile row).
+        activity_cp_values = (
+            pd.to_numeric(merged["cp_estimate"], errors="coerce")
+            if "cp_estimate" in merged.columns
+            else pd.Series(dtype=float)
+        )
+        activity_cp_values = activity_cp_values[activity_cp_values > 0].dropna()
+        if not activity_cp_values.empty:
+            latest = float(activity_cp_values.iloc[-1])
+        elif not cp_values.empty:
+            latest = float(cp_values.iloc[-1])
+        else:
+            latest = None
         trend = (
             compute_cp_trend(
                 [float(v) for v in cp_values.values],
@@ -1090,6 +1123,7 @@ def _compute_recovery_analysis(recovery: pd.DataFrame) -> tuple[dict, float | No
     rhr_series: list[float] = []
     today_hrv = None
     today_sleep = None
+    today_readiness = None
     today_rhr = None
     latest_date: date | None = None
 
@@ -1129,6 +1163,11 @@ def _compute_recovery_analysis(recovery: pd.DataFrame) -> tuple[dict, float | No
         ).iloc[0]
         today_sleep = float(sleep_val) if pd.notna(sleep_val) else None
 
+        readiness_val = pd.to_numeric(
+            pd.Series([latest_row.get("readiness_score")]), errors="coerce"
+        ).iloc[0]
+        today_readiness = float(readiness_val) if pd.notna(readiness_val) else None
+
         rhr_val = pd.to_numeric(
             pd.Series([latest_row.get("resting_hr")]), errors="coerce"
         ).iloc[0]
@@ -1143,6 +1182,7 @@ def _compute_recovery_analysis(recovery: pd.DataFrame) -> tuple[dict, float | No
         today_hrv_ms=today_hrv,
         today_sleep=today_sleep,
         today_rhr=today_rhr,
+        today_readiness=today_readiness,
         rhr_series=rhr_series if rhr_series else None,
     )
 
@@ -1224,6 +1264,7 @@ def _build_warnings(
 def _compute_diagnosis(
     merged: pd.DataFrame, splits: pd.DataFrame,
     cp_trend_data: dict, config, thresholds, science: dict,
+    samples: pd.DataFrame | None = None,
 ) -> dict:
     """Run zone-aware training diagnosis."""
     if config.training_base == "power":
@@ -1255,6 +1296,7 @@ def _compute_diagnosis(
         zone_names=zone_names_list,
         target_distribution=target_dist,
         theory_name=zone_theory_name,
+        samples=samples,
     )
 
 
@@ -1466,9 +1508,21 @@ def get_dashboard_data(user_id: str = None, db=None) -> dict:
     sleep_perf = _build_sleep_perf(merged, recovery, config.training_base)
     warnings = _build_warnings(recovery_analysis, current_tsb, config, data_dir=data_dir, latest_cp_watts=latest_cp_watts)
 
-    # Diagnosis
+    # Diagnosis — use per-second samples when available for 1s zone resolution
     splits = data["splits"]
-    diagnosis = _compute_diagnosis(merged, splits, cp_trend_data, config, thresholds, science)
+    samples = pd.DataFrame()
+    if user_id and db:
+        from analysis.data_loader import load_activity_samples
+        # Load samples only for recent activities to avoid reading all history
+        _lookback_cutoff = today - timedelta(weeks=8)
+        if not merged.empty and "activity_id" in merged.columns and "date" in merged.columns:
+            _recent_aids = list(
+                merged[pd.to_datetime(merged["date"]).dt.date >= _lookback_cutoff]["activity_id"]
+                .astype(str).unique()
+            )
+            if _recent_aids:
+                samples = load_activity_samples(user_id, db, _recent_aids)
+    diagnosis = _compute_diagnosis(merged, splits, cp_trend_data, config, thresholds, science, samples=samples)
 
     # Activities for history
     activities_list = _build_activities_list(merged, splits)

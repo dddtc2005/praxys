@@ -3,10 +3,16 @@ import type { IAppOption } from '../../app';
 import { apiGet } from '../../utils/api-client';
 import { generateShareCard } from '../../utils/share-image';
 import type { ApiError } from '../../utils/api-client';
-import type { TodayResponse } from '../../types/api';
-import { formatDistance, formatTime } from '../../utils/format';
+import type {
+  AiInsight,
+  AiInsightFinding,
+  PlanData,
+  RecoveryAnalysis,
+  TodayResponse,
+} from '../../types/api';
 import { applyThemeChrome, themeClassName } from '../../utils/theme';
-import { t, detectLocale } from '../../utils/i18n';
+import { t, tFmt, detectLocale } from '../../utils/i18n';
+import { fetchInsight, localizedInsight } from '../../utils/insights';
 import {
   buildShareMessage,
   buildTimelineMessage,
@@ -35,43 +41,243 @@ function signalMeta(): Record<string, SignalMeta> {
   };
 }
 
-/**
- * Map a TSB value to a textual zone name + accent class. Banister-style
- * bands; the science page is authoritative on exact zone boundaries for
- * whichever load theory is active. The web app's FormSparkline uses the
- * same buckets so this stays in sync.
- */
-function tsbZone(tsb: number): { label: string; accent: string } {
-  if (tsb > 25) return { label: t('Peaked'), accent: 'ts-warning' };
-  if (tsb >= 5) return { label: t('Fresh'), accent: 'ts-primary' };
-  if (tsb >= -10) return { label: t('Neutral'), accent: '' };
-  if (tsb >= -30) return { label: t('Fatigued'), accent: 'ts-warning' };
-  return { label: t('Over-fatigued'), accent: 'ts-destructive' };
+type CoachMarker = '[+]' | '[!]' | '[·]';
+
+interface CoachFindingRow {
+  /** Stable unique key for `wx:key` — array position is sufficient since
+   *  findings are consumed read-only. Plain `text` is unsafe because two
+   *  findings can share copy (e.g. repeated neutral notes across days),
+   *  which would collide and confuse Skyline's reconciler. */
+  id: string;
+  /** Glyph derived from `tone`; same convention as web's coach-receipt. */
+  marker: CoachMarker;
+  /** Tone class suffix used for `coach-row--{{tone}}` styling. */
+  tone: AiInsightFinding['type'];
+  text: string;
 }
 
-interface UpcomingRow {
-  date: string;
-  name: string;
-  meta: string;
-  hasMeta: boolean;
+interface CoachRecRow {
+  /** 1-based ordinal as a string for WXML rendering. Doubles as the
+   *  `wx:key` since recommendations are presented in a stable order. */
+  index: string;
+  text: string;
 }
 
-interface MetricRow {
+interface CoachReceipt {
+  /** Time-since-generated, e.g. "2h ago" / "5分钟前". Empty when no
+   *  generated_at on the row (legacy inserts). */
+  stamp: string;
+  headline: string;
+  hasFindings: boolean;
+  findings: CoachFindingRow[];
+  hasRecommendations: boolean;
+  recommendations: CoachRecRow[];
+  /** Active recovery + load theory names joined with ` · `. Empty when
+   *  the API didn't surface science_notes (e.g. fresh user before
+   *  first sync). */
+  attribution: string;
+}
+
+/** Pre-translated coach-receipt copy. Captured in render state so WXML
+ *  stays stringless and `check-i18n.cjs` doesn't flag the template. */
+interface CoachTranslations {
+  mark: string;
+  findings: string;
+  recommendations: string;
+  aria: string;
+}
+
+/** A single supporting metric cell — flat 2-col grid mirrors web's
+ *  PR #238 layout. Five cells when readiness is unavailable (HRV /
+ *  7d Trend / RHR / Sleep / TSB); six when an Oura-style readiness
+ *  score is present, inserting Readiness between Sleep and TSB so
+ *  sleep + readiness pair visually. */
+interface SupportingCell {
+  /** Stable unique key for `wx:key`. */
+  id: string;
+  /** Mono uppercase eyebrow above the value. */
   label: string;
+  /** Large mono value (or `—` when no data). */
   value: string;
+  /** Mono muted caption below the value. */
+  sub: string;
+  /** Optional accent class on `.today-cell-value` — used to tint TSB
+   *  green when freshness is positive. Empty string means no accent. */
+  valueAccent: string;
+  /** True when this cell should span both columns (the last cell in
+   *  an odd-count layout — currently the 5-cell variant where TSB
+   *  would otherwise strand an empty slot). Set during cell assembly,
+   *  not at the use site, so WXML doesn't have to know the count. */
+  span: boolean;
 }
 
-interface SparklineSeries {
-  label: string;
-  color: string;
-  values: (number | null)[];
-  fill: boolean;
+/**
+ * Format a relative-time stamp ("2h ago" / "5分钟前") for the coach
+ * receipt header. Buckets into minute / hour / day via
+ * `Intl.RelativeTimeFormat` — Skyline's Intl support is base-library
+ * dependent, and an older runtime that lacks `RelativeTimeFormat`, or
+ * a malformed ISO date, falls back to an empty string (the headline
+ * and body still read; the `wx:if="{{coach.stamp}}"` gate hides the
+ * empty chip cleanly).
+ */
+function timeAgo(isoDate: string, locale: 'en' | 'zh'): string {
+  try {
+    const diff = Date.now() - new Date(isoDate).getTime();
+    const rtf = new Intl.RelativeTimeFormat(locale === 'zh' ? 'zh-CN' : 'en-US', { style: 'short' });
+    const mins = Math.floor(diff / 60_000);
+    if (mins < 60) return rtf.format(-mins, 'minute');
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return rtf.format(-hours, 'hour');
+    const days = Math.floor(hours / 24);
+    return rtf.format(-days, 'day');
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn('[today] timeAgo failed; dropping stamp:', isoDate, e);
+    return '';
+  }
+}
+
+function buildCoachReceipt(
+  insight: AiInsight,
+  locale: 'en' | 'zh',
+  recoveryName: string | undefined,
+  loadName: string | undefined,
+): CoachReceipt {
+  const view = localizedInsight(insight, locale);
+  const findings: CoachFindingRow[] = view.findings.map((f, i) => ({
+    id: `${i}`,
+    marker: f.type === 'positive' ? '[+]' : f.type === 'warning' ? '[!]' : '[·]',
+    tone: f.type,
+    text: f.text,
+  }));
+  const recommendations: CoachRecRow[] = view.recommendations.map((r, i) => ({
+    index: `${i + 1}`,
+    text: r,
+  }));
+  const attribution = [recoveryName, loadName].filter((s): s is string => !!s).join(' · ');
+  return {
+    stamp: insight.generated_at ? timeAgo(insight.generated_at, locale) : '',
+    headline: view.headline,
+    hasFindings: findings.length > 0,
+    findings,
+    hasRecommendations: recommendations.length > 0,
+    recommendations,
+    attribution,
+  };
+}
+
+const TREND_ARROW: Record<'stable' | 'improving' | 'declining', string> = {
+  stable: '→',
+  improving: '↑',
+  declining: '↓',
+};
+
+// Banister PMC interpretation of training stress balance (TSB):
+//   ≥ +10  strongly positive — peaked freshness, primed to perform
+//   0..10  positive — freshness, training adapted
+//   -10..0 mild fatigue — adaptation in progress
+//   < -10  fatigued — accumulated fatigue, recovery prioritized
+// Source: Banister, E.W. (1991). Modeling elite athletic performance.
+const TSB_STRONGLY_POSITIVE = 10;
+const TSB_MILD_FATIGUE = -10;
+
+function tsbDescriptor(tsb: number): string {
+  if (tsb >= TSB_STRONGLY_POSITIVE) return t('strongly positive');
+  if (tsb > 0) return t('positive');
+  if (tsb > TSB_MILD_FATIGUE) return t('mild fatigue');
+  return t('fatigued');
+}
+
+/** Build the supporting metrics row that replaces the prior Form/TSB
+ *  sparkline + Recovery card. Order mirrors web's PR #238: HRV,
+ *  7d Trend, RHR, Sleep, [Readiness when present], TSB. The last
+ *  cell is marked `span` only when the total count is odd, so the
+ *  2-col grid never strands an empty slot. */
+function buildSupportingCells(
+  ra: RecoveryAnalysis | null,
+  tsb: number,
+): SupportingCell[] {
+  const noData = t('no data');
+  const hrv = ra?.hrv ?? null;
+
+  // Cell 1 — HRV (today's ln RMSSD).
+  const hrvValue = hrv ? hrv.today_ln.toFixed(2) : '—';
+  const hrvSub = hrv
+    ? (hrv.today_ms != null ? `${hrv.today_ms} ms · ` : '') +
+      tFmt('vs {0} baseline', hrv.baseline_mean_ln.toFixed(2))
+    : noData;
+
+  // Cell 2 — 7d Trend (arrow + label + rolling CV%).
+  const trendValue = hrv ? TREND_ARROW[hrv.trend] : '—';
+  const trendSub = hrv
+    ? `${t(hrv.trend)} · CV ${hrv.rolling_cv.toFixed(1)}%`
+    : noData;
+
+  // Cell 3 — Resting HR. Round the 7-day mean float; only show the
+  // trend chip when the API actually emits one (the API returns null
+  // for "no signal" — falling back to a literal "normal" would assert
+  // information that isn't there).
+  const rhrValue = ra?.resting_hr != null ? `${Math.round(ra.resting_hr)}` : '—';
+  let rhrSub: string;
+  if (ra?.resting_hr == null) {
+    rhrSub = noData;
+  } else if (ra.rhr_trend) {
+    rhrSub = `bpm · ${t(ra.rhr_trend)}`;
+  } else {
+    rhrSub = 'bpm';
+  }
+
+  // Cell 4 — Sleep score (Oura/Garmin daily sleep score, 0–100).
+  const sleepValue = ra?.sleep_score != null ? `${Math.round(ra.sleep_score)}` : '—';
+  const sleepSub = ra?.sleep_score != null ? t('overnight score') : noData;
+
+  // Cell 5 (Oura only) — Readiness score (0–100). Distinct from
+  // sleep_score; rendered side-by-side when the source provides both.
+  const hasReadiness = ra?.readiness_score != null;
+  const readinessValue = hasReadiness && ra ? `${Math.round(ra.readiness_score!)}` : '—';
+  const readinessSub = t('daily score');
+
+  // TSB (signed, 1dp). Tint green when freshness is positive.
+  const tsbValue = `${tsb >= 0 ? '+' : ''}${tsb.toFixed(1)}`;
+  const tsbAccent = tsb > 0 ? 'today-cell-value-positive' : '';
+
+  const cells: SupportingCell[] = [
+    { id: 'hrv', label: t('HRV (ln RMSSD)'), value: hrvValue, sub: hrvSub, valueAccent: '', span: false },
+    { id: 'trend', label: t('7d Trend'), value: trendValue, sub: trendSub, valueAccent: '', span: false },
+    { id: 'rhr', label: t('RHR'), value: rhrValue, sub: rhrSub, valueAccent: '', span: false },
+    { id: 'sleep', label: t('Sleep'), value: sleepValue, sub: sleepSub, valueAccent: '', span: false },
+  ];
+  if (hasReadiness) {
+    cells.push({ id: 'readiness', label: t('Readiness'), value: readinessValue, sub: readinessSub, valueAccent: '', span: false });
+  }
+  cells.push({ id: 'tsb', label: t('TSB'), value: tsbValue, sub: tsbDescriptor(tsb), valueAccent: tsbAccent, span: false });
+
+  // Span the last cell only when the total count is odd — that's the
+  // 5-cell variant (no readiness). With 6 cells the grid is balanced
+  // and TSB sits in column 2 of the third row.
+  if (cells.length % 2 === 1) {
+    cells[cells.length - 1].span = true;
+  }
+  return cells;
+}
+
+/** Format the planned-workout one-liner. Returns the rest-day fallback
+ *  when no workout is scheduled. Mirrors web/src/pages/Today.tsx. */
+function formatPlan(plan: PlanData | null | undefined): string {
+  if (!plan?.workout_type) return t('Rest day. No workout scheduled.');
+  const parts: string[] = [plan.workout_type];
+  if (plan.distance_km != null) parts.push(`${plan.distance_km.toFixed(1)} km`);
+  if (plan.duration_min != null) parts.push(`${plan.duration_min} min`);
+  if (plan.power_min != null && plan.power_max != null) {
+    parts.push(`${plan.power_min}–${plan.power_max} W`);
+  }
+  return parts.join(' · ');
 }
 
 interface RenderState {
   themeClass: string;
-  /** 'light' | 'dark' — narrow form passed to chart components. Derived
-   *  from `themeClass` once on onLoad and updated whenever it changes. */
+  /** 'light' | 'dark' — narrow form retained because the share-card
+   *  generator and theme-toggle path still consume it. */
   chartTheme: 'light' | 'dark';
   today: string;
   loading: boolean;
@@ -81,109 +287,76 @@ interface RenderState {
   signalLabel: string;
   signalSubtitle: string;
   signalColor: 'green' | 'amber' | 'red';
+  /** Rule-based reason text. Invariant: empty string iff `hasCoach`
+   *  is true — the Coach receipt below covers the same ground in a
+   *  more specific voice, so we render only one. WXML's
+   *  `wx:if="{{signalReason}}"` treats `''` as falsy and skips the
+   *  block. Rule-based prose is the deterministic fallback when the
+   *  brief is missing (LLM disabled, transient endpoint failure). */
   signalReason: string;
+  hasCoach: boolean;
+  coach: CoachReceipt | null;
+  coachTr: CoachTranslations | null;
 
-  hasSparkline: boolean;
-  sparklineDates: string[];
-  sparklineSeries: SparklineSeries[];
-  formTsbHasValue: boolean;
-  formTsbValue: string;
-  formTsbZone: string;
-  formTsbZoneAccent: string;
+  /** Five supporting metrics in source order: HRV, 7d Trend, RHR,
+   *  Sleep, TSB. Always present once `hasResponse` is true; cells
+   *  show `—` for absent data with a `no data` sub. */
+  cells: SupportingCell[];
 
-  recoveryStatus: string;
-  recoveryHrv: string;
-  recoveryRhr: string;
-  recoverySleep: string;
-
-  hasUpcoming: boolean;
-  upcomingRows: UpcomingRow[];
-
-  hasLastActivity: boolean;
-  lastDate: string;
-  lastMetrics: MetricRow[];
-
-  // Weekly Load mini-card (web parity, issue #76).
-  hasWeekLoad: boolean;
-  weekLoadLabel: string;
-  weekLoadActual: string;
-  weekLoadPlannedSuffix: string;
-  weekLoadHasPlanned: boolean;
-  weekLoadHasPct: boolean;
-  weekLoadPct: string;
-  weekLoadPctAccent: string;
-  weekLoadBarPct: number;
-  weekLoadBarAccent: string;
+  planEyebrow: string;
+  planText: string;
 
   hasWarnings: boolean;
   warnings: string[];
 }
 
-function buildRenderState(response: TodayResponse | null, themeClass: string, today: string): Partial<RenderState> {
+function buildRenderState(
+  response: TodayResponse | null,
+  themeClass: string,
+  today: string,
+  insight: AiInsight | null,
+): Partial<RenderState> {
   if (!response) {
     return {};
   }
 
   const meta = signalMeta()[response.signal.recommendation] ?? signalMeta().follow_plan;
 
-  const sparkline = response.tsb_sparkline;
-  const hasSparkline = sparkline != null && sparkline.values.length >= 2;
-  const sparklineSeries: SparklineSeries[] = hasSparkline
-    ? [
-        {
-          label: 'TSB',
-          color: '#3b82f6',
-          values: sparkline.values,
-          fill: true,
-        },
-      ]
-    : [];
-  const tsbForHeadline =
-    response.signal?.recovery?.tsb ??
-    (hasSparkline ? sparkline.values[sparkline.values.length - 1] ?? null : null);
-  const tsbZoneInfo = tsbForHeadline != null ? tsbZone(tsbForHeadline) : null;
-
-  const rec = response.recovery_analysis;
-  const recoveryStatus = rec ? t(rec.status) : '—';
-  const recoveryHrv = rec?.hrv?.today_ms != null ? `${rec.hrv.today_ms.toFixed(0)} ms` : '—';
-  const recoveryRhr = rec?.resting_hr != null ? `${rec.resting_hr.toFixed(0)} bpm` : '—';
-  const recoverySleep = rec?.sleep_score != null ? `${rec.sleep_score.toFixed(0)}/100` : '—';
-
-  const upcomingRows: UpcomingRow[] = (response.upcoming ?? []).slice(0, 3).map((w) => ({
-    date: w.date,
-    name: w.workout_type,
-    meta: w.duration_min != null ? `${w.duration_min} min` : '',
-    hasMeta: w.duration_min != null,
-  }));
-
-  const last = response.last_activity;
-  const lastMetrics: MetricRow[] = [];
-  if (last?.distance_km != null) {
-    lastMetrics.push({ label: t('Distance'), value: formatDistance(last.distance_km) });
+  // Coach receipt: the LLM-generated daily brief, rendered between the
+  // signal hero and the supporting cells. When present, suppresses the
+  // rule-based signal.reason above so the user doesn't read the same
+  // idea twice in two voices. A throw inside buildCoachReceipt (e.g.
+  // a future schema change yields an unexpected finding shape) must
+  // not blank the whole page — degrade to "no receipt" and let the
+  // rule-based prose re-appear.
+  const locale = detectLocale();
+  const recoveryNoteName = response.science_notes?.recovery?.name;
+  const loadNoteName = response.science_notes?.load?.name;
+  let coach: CoachReceipt | null = null;
+  if (insight) {
+    try {
+      coach = buildCoachReceipt(insight, locale, recoveryNoteName, loadNoteName);
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('[today] coach receipt build failed; suppressing receipt:', e);
+    }
   }
-  if (last?.duration_sec != null) {
-    lastMetrics.push({ label: t('Duration'), value: formatTime(last.duration_sec) });
-  }
-  if (last?.avg_power != null) {
-    lastMetrics.push({ label: t('Avg power'), value: `${last.avg_power.toFixed(0)} W` });
-  }
+  const hasCoach = coach != null;
+  const coachTr: CoachTranslations | null = hasCoach
+    ? {
+        mark: t('Praxys Coach'),
+        findings: t('Findings'),
+        recommendations: t('Recommendations'),
+        aria: t('Praxys Coach insight'),
+      }
+    : null;
+
+  const cells = buildSupportingCells(
+    response.recovery_analysis ?? null,
+    response.signal.recovery.tsb,
+  );
 
   const warnings = response.warnings ?? [];
-
-  // Weekly Load mini — mirrors web/src/components/WeeklyLoadMini.tsx.
-  // Compliance bands: <70% under, >120% over, else on target. Color
-  // applies to both the percentage label and the progress bar fill.
-  const weekLoad = response.week_load;
-  const hasWeekLoad = weekLoad != null;
-  const wlActual = weekLoad ? Math.round(weekLoad.actual) : 0;
-  const wlPlanned = weekLoad?.planned;
-  const wlPct =
-    wlPlanned != null && wlPlanned > 0 ? Math.round((wlActual / wlPlanned) * 100) : null;
-  let wlAccent = 'ts-primary';
-  if (wlPct != null) {
-    if (wlPct > 120) wlAccent = 'ts-destructive';
-    else if (wlPct < 70) wlAccent = 'ts-warning';
-  }
 
   return {
     themeClass,
@@ -195,42 +368,15 @@ function buildRenderState(response: TodayResponse | null, themeClass: string, to
     signalLabel: meta.label,
     signalSubtitle: meta.subtitle,
     signalColor: meta.color,
-    signalReason: response.signal.reason,
+    signalReason: hasCoach ? '' : response.signal.reason,
+    hasCoach,
+    coach,
+    coachTr,
 
-    hasSparkline,
-    sparklineDates: hasSparkline ? sparkline.dates : [],
-    sparklineSeries,
-    formTsbHasValue: tsbForHeadline != null,
-    formTsbValue:
-      tsbForHeadline != null
-        ? `${tsbForHeadline >= 0 ? '+' : ''}${tsbForHeadline.toFixed(1)}`
-        : '',
-    formTsbZone: tsbZoneInfo?.label ?? '',
-    formTsbZoneAccent: tsbZoneInfo?.accent ?? '',
+    cells,
 
-    recoveryStatus,
-    recoveryHrv,
-    recoveryRhr,
-    recoverySleep,
-
-    hasUpcoming: upcomingRows.length > 0,
-    upcomingRows,
-
-    hasLastActivity: last != null,
-    lastDate: last?.date ?? '',
-    lastMetrics,
-
-    hasWeekLoad,
-    weekLoadLabel: weekLoad?.week_label ?? '',
-    weekLoadActual: `${wlActual}`,
-    weekLoadHasPlanned: wlPlanned != null,
-    weekLoadPlannedSuffix:
-      wlPlanned != null ? `/ ${Math.round(wlPlanned)} RSS` : t('No planned load this week'),
-    weekLoadHasPct: wlPct != null,
-    weekLoadPct: wlPct != null ? `${wlPct}%` : '',
-    weekLoadPctAccent: wlAccent,
-    weekLoadBarPct: wlPct != null ? Math.min(wlPct, 100) : 0,
-    weekLoadBarAccent: wlAccent,
+    planEyebrow: t('Planned · Today'),
+    planText: formatPlan(response.signal.plan),
 
     hasWarnings: warnings.length > 0,
     warnings,
@@ -258,20 +404,6 @@ function buildTranslations() {
     failedToLoad: t('Failed to load'),
     retry: t('Retry'),
     noDataYet: t('No data available yet.'),
-    formTsb: t('Form (TSB)'),
-    noTsbData: t('No TSB data yet'),
-    recovery: t('Recovery'),
-    status: t('Status'),
-    hrv: t('HRV'),
-    restingHr: t('Resting HR'),
-    sleep: t('Sleep'),
-    weeklyLoad: t('Weekly Load'),
-    noPlannedLoad: t('No planned load this week'),
-    upcomingWorkouts: t('Upcoming workouts'),
-    lastActivity: t('Last activity'),
-    distance: t('Distance'),
-    duration: t('Duration'),
-    avgPower: t('Avg power'),
     warnings: t('Warnings'),
     close: t('Close'),
   };
@@ -301,37 +433,14 @@ const initialData: RenderState & RefreshState = {
   signalSubtitle: '',
   signalColor: 'green',
   signalReason: '',
+  hasCoach: false,
+  coach: null,
+  coachTr: null,
 
-  hasSparkline: false,
-  sparklineDates: [],
-  sparklineSeries: [],
-  formTsbHasValue: false,
-  formTsbValue: '',
-  formTsbZone: '',
-  formTsbZoneAccent: '',
+  cells: [],
 
-  recoveryStatus: '—',
-  recoveryHrv: '—',
-  recoveryRhr: '—',
-  recoverySleep: '—',
-
-  hasUpcoming: false,
-  upcomingRows: [],
-
-  hasLastActivity: false,
-  lastDate: '',
-  lastMetrics: [],
-
-  hasWeekLoad: false,
-  weekLoadLabel: '',
-  weekLoadActual: '',
-  weekLoadPlannedSuffix: '',
-  weekLoadHasPlanned: false,
-  weekLoadHasPct: false,
-  weekLoadPct: '',
-  weekLoadPctAccent: '',
-  weekLoadBarPct: 0,
-  weekLoadBarAccent: '',
+  planEyebrow: '',
+  planText: '',
 
   hasWarnings: false,
   warnings: [],
@@ -465,11 +574,17 @@ Page({
     if (!response) return;
     const theme = this.data.chartTheme;
     const meta = signalMeta()[response.signal?.recommendation] ?? signalMeta().follow_plan;
+    // Prefer the Coach headline when a receipt is rendering — otherwise
+    // the on-screen narrative and the screenshot would carry different
+    // sentences for the same signal. Falls through to the rule-based
+    // reason when no receipt (LLM disabled, transient failure).
+    const coach = this.data.coach;
+    const shareReason = coach?.headline || response.signal?.reason || '';
     try {
       const path = await generateShareCard({
         label: meta.label,
         subtitle: meta.subtitle,
-        reason: response.signal?.reason ?? '',
+        reason: shareReason,
         color: meta.color,
         locale: detectShareLocale(),
         theme,
@@ -485,12 +600,25 @@ Page({
   async refetch() {
     this.setData({ loading: true, errorMessage: '' });
     try {
-      const response = await apiGet<TodayResponse>('/api/today');
+      // The brief endpoint normally returns `{ insight: null }` when
+      // LLM is disabled — `.catch` here protects against a real
+      // transport / 5xx failure (which the rule-based signal.reason
+      // covers as deterministic fallback). Logged so a broken
+      // /api/insights/daily_brief is observable in WeChat DevTools
+      // and 实时日志 instead of silently regressing the receipt.
+      const [response, insight] = await Promise.all([
+        apiGet<TodayResponse>('/api/today'),
+        fetchInsight('daily_brief').catch((e) => {
+          // eslint-disable-next-line no-console
+          console.warn('[today] daily brief fetch failed; falling back to rule-based reason:', e);
+          return null;
+        }),
+      ]);
       // Cache raw response so renderShareCard can access it on first FAB tap.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (this as unknown as Record<string, any>)._todayResponse = response;
       this.setData(
-        buildRenderState(response, this.data.themeClass, this.data.today) as Record<string, unknown>,
+        buildRenderState(response, this.data.themeClass, this.data.today, insight) as Record<string, unknown>,
       );
       // Share card is rendered lazily on first FAB tap. Clear any stale
       // path so the old signal's card doesn't show for the new signal.

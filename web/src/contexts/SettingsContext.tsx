@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import type { DisplayConfig, SettingsConfig, SettingsResponse, TrainingBase, ThresholdValue, DetectedThreshold } from '../types/api';
 import { API_BASE, getAuthHeaders } from '../hooks/useApi';
@@ -56,7 +56,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    // Only show loading skeleton on initial fetch, not on refetches,
+    // to avoid unmounting/remounting the Settings page.
+    if (fetchKey === 0) setLoading(true);
     fetch(`${API_BASE}/api/settings`, { headers: getAuthHeaders() })
       .then((r) => {
         if (r.status === 401) {
@@ -112,7 +114,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setDisplay(data.display);
   };
 
-  const refetch = () => setFetchKey((k) => k + 1);
+  const refetch = useCallback(() => setFetchKey((k) => k + 1), []);
 
   return (
     <SettingsContext.Provider

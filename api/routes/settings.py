@@ -361,6 +361,8 @@ class StravaOAuthStartRequest(BaseModel):
 
     web_origin: str | None = None
     return_to: str = "/settings"
+    client_id: str | None = None
+    client_secret: str | None = None
 
 
 def _jwt_secret() -> str:
@@ -391,17 +393,81 @@ def _validate_return_to(return_to: str | None) -> str:
     return value
 
 
-def _strava_client_config() -> tuple[str, str]:
-    """Load Strava OAuth client credentials from environment."""
+def _strava_client_config(user_id: str | None = None, db: Session | None = None) -> tuple[str, str]:
+    """Load Strava OAuth client credentials from user's stored connection or env vars."""
+
+    if user_id and db:
+        creds = _get_strava_creds(user_id, db)
+        if creds:
+            cid = creds.get("client_id")
+            csec = creds.get("client_secret")
+            if cid and csec:
+                return cid, csec
 
     client_id = getenv_compat("STRAVA_CLIENT_ID")
     client_secret = getenv_compat("STRAVA_CLIENT_SECRET")
     if not client_id or not client_secret:
         raise HTTPException(
             status_code=503,
-            detail="Strava OAuth is not configured. Set PRAXYS_STRAVA_CLIENT_ID and PRAXYS_STRAVA_CLIENT_SECRET.",
+            detail="Strava OAuth is not configured. Provide your Strava Client ID and Client Secret when connecting.",
         )
     return client_id, client_secret
+
+
+def _get_strava_creds(user_id: str, db: Session) -> dict | None:
+    """Return decrypted Strava credentials for a user, or None."""
+    import json as json_mod
+    from db.crypto import get_vault
+    from db.models import UserConnection
+
+    conn = db.query(UserConnection).filter(
+        UserConnection.user_id == user_id,
+        UserConnection.platform == "strava",
+    ).first()
+    if not conn or not conn.encrypted_credentials or not conn.wrapped_dek:
+        return None
+    vault = get_vault()
+    return json_mod.loads(vault.decrypt(conn.encrypted_credentials, conn.wrapped_dek))
+
+
+def _store_strava_client_creds(user_id: str, client_id: str, client_secret: str, db: Session) -> None:
+    """Store (or update) Strava client_id/client_secret in the user's connection.
+
+    If a connection already exists, the client credentials are merged into the
+    existing encrypted payload so OAuth tokens aren't lost. The connection
+    status is NOT set to "connected" — that only happens after the OAuth
+    callback successfully exchanges the authorization code for tokens.
+    """
+    import json as json_mod
+    from db.crypto import get_vault
+    from db.models import UserConnection
+
+    existing = _get_strava_creds(user_id, db) or {}
+    existing["client_id"] = client_id
+    existing["client_secret"] = client_secret
+
+    vault = get_vault()
+    encrypted_data, wrapped_dek = vault.encrypt(json_mod.dumps(existing))
+
+    conn = db.query(UserConnection).filter(
+        UserConnection.user_id == user_id,
+        UserConnection.platform == "strava",
+    ).first()
+
+    if conn:
+        conn.encrypted_credentials = encrypted_data
+        conn.wrapped_dek = wrapped_dek
+        # Keep existing status — don't flip to "connected" yet
+    else:
+        conn = UserConnection(
+            user_id=user_id,
+            platform="strava",
+            encrypted_credentials=encrypted_data,
+            wrapped_dek=wrapped_dek,
+            status="disconnected",
+        )
+        db.add(conn)
+    db.commit()
 
 
 def _strava_redirect_uri(request: Request) -> str:
@@ -524,12 +590,18 @@ def start_strava_oauth(
     body: StravaOAuthStartRequest,
     request: Request,
     user_id: str = Depends(require_write_access),
+    db: Session = Depends(get_db),
 ) -> dict:
     """Return the Strava OAuth authorize URL for the current user."""
 
     from sync.strava_sync import DEFAULT_SCOPE, build_authorize_url
 
-    client_id, _client_secret = _strava_client_config()
+    # If the user supplied client credentials, persist them now so the
+    # callback (and future token refreshes) can read them back.
+    if body.client_id and body.client_secret:
+        _store_strava_client_creds(user_id, body.client_id, body.client_secret, db)
+
+    client_id, _client_secret = _strava_client_config(user_id, db)
     web_origin = _validate_web_origin(body.web_origin or request.headers.get("origin"))
     return_to = _validate_return_to(body.return_to)
     state = _encode_strava_state(user_id, web_origin, return_to)
@@ -570,7 +642,8 @@ def strava_oauth_callback(
 
     from sync.strava_sync import DEFAULT_SCOPE, exchange_code_for_token, fetch_athlete_api
 
-    client_id, client_secret = _strava_client_config()
+    user_id_from_state = str(payload["sub"])
+    client_id, client_secret = _strava_client_config(user_id_from_state, db)
     try:
         token_payload = exchange_code_for_token(code, client_id, client_secret)
         athlete = token_payload.get("athlete") or {}
@@ -590,15 +663,18 @@ def strava_oauth_callback(
             )
         )
 
-    creds = {
+    # Merge OAuth tokens into existing credentials so client_id/client_secret
+    # (stored during /start) are preserved.
+    existing = _get_strava_creds(user_id_from_state, db) or {}
+    existing.update({
         "access_token": token_payload.get("access_token"),
         "refresh_token": token_payload.get("refresh_token"),
         "expires_at": int(token_payload.get("expires_at") or 0),
         "expires_in": int(token_payload.get("expires_in") or 0),
         "scope": scope or DEFAULT_SCOPE,
         "athlete": athlete,
-    }
-    _upsert_connection_credentials(str(payload["sub"]), "strava", creds, db)
+    })
+    _upsert_connection_credentials(user_id_from_state, "strava", existing, db)
     db.commit()
 
     return RedirectResponse(

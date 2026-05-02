@@ -41,6 +41,22 @@ if os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING"):
     else:
         configure_azure_monitor()
 
+    # configure_azure_monitor attaches a LoggingHandler to the root logger,
+    # which means anything these libraries log at INFO gets shipped back into
+    # AppTraces — and the exporter / HTTP-policy loggers narrate every
+    # outbound /v2.1/track call ("Request URL ...", "Response status: 200",
+    # "Transmission succeeded: Item received: 3"). At our traffic that was
+    # ~95% of AppTraces volume (≈0.45 GB/wk → near zero after this clamp),
+    # forming a self-amplifying loop where each batch produced more telemetry
+    # to batch. Clamping to WARNING keeps real failures (which the SDK logs
+    # at WARNING+) while dropping the success-path narration.
+    for _noisy in (
+        "azure.core.pipeline.policies.http_logging_policy",
+        "azure.monitor.opentelemetry.exporter",
+        "azure.identity",
+    ):
+        logging.getLogger(_noisy).setLevel(logging.WARNING)
+
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -48,6 +64,7 @@ from sqlalchemy.orm import Session
 
 from api.auth import get_current_user_id
 from api.env_compat import getenv_compat
+from api.version import get_api_version
 from api.views import utc_isoformat
 from db.session import get_db
 
@@ -90,7 +107,7 @@ async def lifespan(app: FastAPI):
                 logger.exception("Failed to stop sync scheduler cleanly")
 
 
-app = FastAPI(title="Praxys API", version="2.0.0", lifespan=lifespan)
+app = FastAPI(title="Praxys API", version=get_api_version(), lifespan=lifespan)
 
 # GZip API responses. Linux App Service's nginx proxy doesn't compress
 # dynamic upstream responses by default, so without this, JSON payloads
@@ -149,6 +166,9 @@ app.include_router(wechat_auth_router, prefix="/api")
 from api.routes.admin import router as admin_router
 app.include_router(admin_router, prefix="/api", tags=["admin"])
 
+from api.routes.announcements import router as announcements_router
+app.include_router(announcements_router, prefix="/api", tags=["announcements"])
+
 # Data routes
 from api.routes import today, training, goal, history, plan, settings, sync, science, insights
 from api.routes import ai as ai_routes
@@ -160,6 +180,14 @@ for router_module in [today, training, goal, history, plan, settings, sync, scie
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/api/version")
+def version() -> dict:
+    """Public — frontend Settings page reads this to surface the live
+    API build alongside the bundled web version, mirroring the mini
+    program's ``Praxys <version>`` line."""
+    return {"version": get_api_version()}
 
 
 @app.get("/api/auth/me")

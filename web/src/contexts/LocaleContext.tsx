@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { activateLocale, isSupportedLocale, type SupportedLocale } from '../i18n/init';
 import { detectBrowserLocale } from '../lib/locale-detect';
 import { KEYS, getCompatItem, setCompatItem, removeCompatItem } from '../lib/storage-compat';
@@ -30,6 +31,7 @@ function initialLocale(): SupportedLocale {
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<SupportedLocale>(initialLocale);
+  const queryClient = useQueryClient();
 
   // Apply locale on mount and whenever it changes: update Lingui catalog +
   // reflect on <html lang> for a11y and CSS locale-aware selectors.
@@ -46,7 +48,11 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     await activateLocale(next);
     writeStoredLocale(next);
     setLocaleState(next);
-  }, []);
+    // Issue #103: refetch locale-sensitive payloads (science YAML labels,
+    // bilingual AI insights) so the UI doesn't render stale prior-language
+    // strings until the next page load.
+    queryClient.invalidateQueries();
+  }, [queryClient]);
 
   const value = useMemo(() => ({ locale, setLocale }), [locale, setLocale]);
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;

@@ -23,7 +23,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Users, Ticket, Copy, Check, Trash2, Plus, ShieldCheck, ChevronUp, ChevronDown, Eye } from 'lucide-react';
+import { Users, Ticket, Copy, Check, Trash2, Plus, ShieldCheck, ChevronUp, ChevronDown, Eye, Megaphone } from 'lucide-react';
+import type { SystemAnnouncement } from '@/types/api';
 import { Trans, useLingui } from '@lingui/react/macro';
 
 interface UserInfo {
@@ -65,18 +66,75 @@ export default function Admin() {
   const [creatingDemo, setCreatingDemo] = useState(false);
   const [demoError, setDemoError] = useState<string | null>(null);
 
+  // Announcements
+  const [announcements, setAnnouncements] = useState<SystemAnnouncement[]>([]);
+  const [newTitle, setNewTitle] = useState('');
+  const [newBody, setNewBody] = useState('');
+  const [newType, setNewType] = useState<'info' | 'warning' | 'success'>('info');
+  const [newLinkText, setNewLinkText] = useState('');
+  const [newLinkUrl, setNewLinkUrl] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
   const fetchData = () => {
     setLoading(true);
     Promise.all([
       fetch(`${API_BASE}/api/admin/users`, { headers: getAuthHeaders() }).then((r) => r.json()),
       fetch(`${API_BASE}/api/admin/invitations`, { headers: getAuthHeaders() }).then((r) => r.json()),
+      fetch(`${API_BASE}/api/announcements`, { headers: getAuthHeaders() }).then((r) => r.ok ? r.json() : []),
     ])
-      .then(([u, i]) => {
+      .then(([u, i, a]) => {
         setUsers(u.users || []);
         setInvitations(i.invitations || []);
+        setAnnouncements(Array.isArray(a) ? a : []);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+  };
+
+  const handleCreateAnnouncement = async () => {
+    if (!newTitle.trim()) return;
+    setCreating(true);
+    setCreateError(null);
+    const res = await fetch(`${API_BASE}/api/admin/announcements`, {
+      method: 'POST',
+      headers: { ...getAuthHeaders() as Record<string, string>, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: newTitle.trim(),
+        body: newBody.trim(),
+        type: newType,
+        link_text: newLinkText.trim() || null,
+        link_url: newLinkUrl.trim() || null,
+      }),
+    });
+    setCreating(false);
+    if (res.ok) {
+      const created = await res.json();
+      setAnnouncements((prev) => [created, ...prev]);
+      setNewTitle(''); setNewBody(''); setNewType('info'); setNewLinkText(''); setNewLinkUrl('');
+    } else {
+      setCreateError('Failed to create announcement');
+    }
+  };
+
+  const handleToggleAnnouncement = async (ann: SystemAnnouncement) => {
+    const res = await fetch(`${API_BASE}/api/admin/announcements/${ann.id}`, {
+      method: 'PATCH',
+      headers: { ...getAuthHeaders() as Record<string, string>, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: !ann.is_active }),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setAnnouncements((prev) => prev.map((a) => a.id === ann.id ? updated : a));
+    }
+  };
+
+  const handleDeleteAnnouncement = async (id: number) => {
+    const res = await fetch(`${API_BASE}/api/admin/announcements/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (res.ok) setAnnouncements((prev) => prev.filter((a) => a.id !== id));
   };
 
   useEffect(() => { fetchData(); }, []);
@@ -481,6 +539,98 @@ export default function Admin() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* System Announcements */}
+      <Card className="mt-8">
+        <CardHeader>
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+              <Megaphone className="h-4 w-4" />
+            </div>
+            <div>
+              <CardTitle className="text-base"><Trans>System Announcements</Trans></CardTitle>
+              <CardDescription className="text-xs"><Trans>Dismissible banners shown to all users</Trans></CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Create form */}
+          <div className="rounded-lg border border-dashed border-border p-4 space-y-3">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide"><Trans>New announcement</Trans></p>
+            <Input
+              placeholder={t`Title`}
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+            />
+            <Input
+              placeholder={t`Body (optional)`}
+              value={newBody}
+              onChange={(e) => setNewBody(e.target.value)}
+            />
+            <div className="flex gap-2">
+              <select
+                value={newType}
+                onChange={(e) => setNewType(e.target.value as 'info' | 'warning' | 'success')}
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="info">info</option>
+                <option value="warning">warning</option>
+                <option value="success">success</option>
+              </select>
+              <Input
+                placeholder={t`Link text (optional)`}
+                value={newLinkText}
+                onChange={(e) => setNewLinkText(e.target.value)}
+              />
+              <Input
+                placeholder={t`Link URL (optional)`}
+                value={newLinkUrl}
+                onChange={(e) => setNewLinkUrl(e.target.value)}
+              />
+            </div>
+            {createError && <p className="text-xs text-destructive">{createError}</p>}
+            <Button size="sm" onClick={handleCreateAnnouncement} disabled={creating || !newTitle.trim()}>
+              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              {creating ? <Trans>Creating...</Trans> : <Trans>Create</Trans>}
+            </Button>
+          </div>
+
+          {/* Existing announcements */}
+          {announcements.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4"><Trans>No announcements yet</Trans></p>
+          ) : (
+            <div className="space-y-2">
+              {announcements.map((ann) => (
+                <div key={ann.id} className={`flex items-start gap-3 rounded-lg border p-3 text-sm ${ann.is_active ? '' : 'opacity-50'}`}>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs shrink-0">{ann.type}</Badge>
+                      <span className="font-medium truncate">{ann.title}</span>
+                    </div>
+                    {ann.body && <p className="text-xs text-muted-foreground mt-0.5 truncate">{ann.body}</p>}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      variant="ghost" size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => handleToggleAnnouncement(ann)}
+                    >
+                      {ann.is_active ? <Trans>Deactivate</Trans> : <Trans>Activate</Trans>}
+                    </Button>
+                    <Button
+                      variant="ghost" size="sm"
+                      className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                      onClick={() => handleDeleteAnnouncement(ann.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

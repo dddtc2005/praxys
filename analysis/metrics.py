@@ -61,6 +61,12 @@ class RecoveryResult(TypedDict):
     status: Literal["fresh", "normal", "fatigued", "insufficient_data"]
     hrv: HrvAnalysisResult | None
     sleep_score: float | None
+    # Readiness is a separate platform-emitted score (Oura, Garmin
+    # Body Battery, etc.). Conceptually distinct from sleep_score —
+    # the dashboard renders both side-by-side when the source provides
+    # them — but treated identically by this analyzer (informational,
+    # never combined into a weighted composite).
+    readiness_score: float | None
     resting_hr: float | None
     rhr_trend: Literal["stable", "elevated", "low"] | None
 
@@ -71,6 +77,7 @@ def analyze_recovery(
     today_sleep: float | None = None,
     today_rhr: float | None = None,
     *,
+    today_readiness: float | None = None,
     rhr_series: list[float] | None = None,
     rolling_days: int = 7,
     baseline_days: int = 30,
@@ -114,6 +121,7 @@ def analyze_recovery(
         "status": "insufficient_data",
         "hrv": None,
         "sleep_score": None,
+        "readiness_score": None,
         "resting_hr": None,
         "rhr_trend": None,
     }
@@ -232,6 +240,7 @@ def analyze_recovery(
         "status": status,
         "hrv": hrv_result,
         "sleep_score": today_sleep,
+        "readiness_score": today_readiness,
         "resting_hr": today_rhr,
         "rhr_trend": None,
     }
@@ -920,10 +929,13 @@ def diagnose_training(
     zone_names: list[str] | None = None,
     target_distribution: list[float] | None = None,
     theory_name: str | None = None,
+    samples: pd.DataFrame | None = None,
 ) -> dict:
     """Analyze recent training and diagnose issues holding back threshold progression.
 
-    Uses split-level data for accurate intensity analysis. Supports power, HR, and pace bases.
+    Uses per-second stream samples when available for 1-second zone resolution;
+    falls back to split-level duration weighting for activities without samples.
+    Supports power, HR, and pace bases.
 
     Args:
         merged_activities: merged activity data
@@ -937,6 +949,8 @@ def diagnose_training(
         zone_names: names for each zone (must be len(boundaries)+1); defaults per base
         target_distribution: target fraction for each zone (must sum to ~1.0); optional
         theory_name: name of the zone theory (e.g. "Seiler Polarized 3-Zone"); optional
+        samples: per-second stream DataFrame with columns activity_id, power_watts,
+            hr_bpm, pace_sec_km (from activity_samples table); optional
     """
     today = current_date or date.today()
     cutoff = today - timedelta(weeks=lookback_weeks)
@@ -1090,6 +1104,7 @@ def diagnose_training(
     splits_copy[metric_col] = pd.to_numeric(splits_copy[metric_col], errors="coerce")
     splits_copy["duration_sec"] = pd.to_numeric(splits_copy["duration_sec"], errors="coerce")
 
+    recent_ids: set[str] = set()
     if "activity_id" in splits_copy.columns and "activity_id" in recent.columns:
         recent_ids = set(recent["activity_id"].astype(str).values)
         splits_copy["_aid"] = splits_copy["activity_id"].astype(str)
@@ -1182,20 +1197,56 @@ def diagnose_training(
                 return i + 1
         return 0
 
-    # Time-in-zone from split durations. Target distributions (Coggan /
-    # Seiler 2006 / Filipas 2022) are defined as fraction of training TIME
-    # in each zone. Classifying each activity by its peak split and then
-    # counting activities per zone inflates higher zones whenever the
-    # athlete does any short stride or interval, which made the displayed
-    # distribution nonsensical for mixed easy + interval weeks.
+    # Time-in-zone computation. Target distributions (Coggan / Seiler 2006 /
+    # Filipas 2022) are fractions of training TIME per zone.
     #
-    # metric_col / duration_sec were coerced to numeric on splits_copy above
-    # before recent_splits was sliced out, so values read back as floats or
-    # NaN without re-coercing here.
+    # When per-second samples are available (activity_samples table), each row
+    # contributes 1 second to the zone it falls in — giving true 1-second
+    # resolution. For activities without samples, the split-duration fallback
+    # is used: each split's average metric is classified and its full duration
+    # added to that zone. The two paths are mixed per-activity so newly synced
+    # activities get full resolution immediately while historical ones still
+    # contribute via splits.
+
+    # Column names in the samples DataFrame per training base
+    _SAMPLE_COL = {"power": "power_watts", "hr": "hr_bpm", "pace": "pace_sec_km"}
+    sample_col = _SAMPLE_COL.get(base, "power_watts")
+
+    # Determine which recent activities have samples available
+    aids_with_samples: set[str] = set()
+    recent_samples_filtered = pd.DataFrame()
+    if (
+        samples is not None
+        and not samples.empty
+        and sample_col in samples.columns
+        and "activity_id" in samples.columns
+    ):
+        s = samples.copy()
+        s[sample_col] = pd.to_numeric(s[sample_col], errors="coerce")
+        s = s[s["activity_id"].astype(str).isin(recent_ids)]
+        s = s[s[sample_col].notna() & (s[sample_col] > 0)]
+        if not s.empty:
+            recent_samples_filtered = s
+            aids_with_samples = set(s["activity_id"].astype(str).unique())
+
     zone_time = [0.0] * n_zones
     total_time = 0.0
+
+    # Per-second path: 1 second per sample row
+    if not recent_samples_filtered.empty:
+        for _, srow in recent_samples_filtered.iterrows():
+            val = float(srow[sample_col])
+            aid = str(srow.get("activity_id", ""))
+            act_cp = _cp_by_aid.get(aid, current_cp)
+            zone_time[_classify(val, act_cp)] += 1
+            total_time += 1
+
+    # Split-duration fallback for activities that have no samples
     if not recent_splits.empty:
-        for _, srow in recent_splits.iterrows():
+        fallback_splits = recent_splits[
+            ~recent_splits["activity_id"].astype(str).isin(aids_with_samples)
+        ] if aids_with_samples else recent_splits
+        for _, srow in fallback_splits.iterrows():
             val = srow.get(metric_col)
             dur = srow.get("duration_sec")
             if pd.isna(val) or pd.isna(dur) or val <= 0 or dur <= 0:
@@ -1204,6 +1255,8 @@ def diagnose_training(
             act_cp = _cp_by_aid.get(aid, current_cp)
             zone_time[_classify(float(val), act_cp)] += float(dur)
             total_time += float(dur)
+
+    resolution = "samples" if aids_with_samples else "splits"
 
     if total_time > 0:
         result["distribution"] = [
@@ -1220,6 +1273,7 @@ def diagnose_training(
             for i in range(n_zones)
         ]
 
+    result["data_meta"] = {"distribution_resolution": resolution}
     result["zone_ranges"] = compute_zones(base, current_cp, bounds, names if zone_names else None)
     result["theory_name"] = theory_name or ("Coggan 5-Zone" if len(bounds) == 4 else f"{n_zones}-Zone")
 

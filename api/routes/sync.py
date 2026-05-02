@@ -150,14 +150,20 @@ def _persist_credentials(user_id: str, platform: str, creds: dict, db: Session) 
     conn.wrapped_dek = wrapped_dek
 
 
-def _get_strava_client_config() -> tuple[str, str]:
-    """Load Strava OAuth client credentials from environment."""
+def _get_strava_client_config(creds: dict | None = None) -> tuple[str, str]:
+    """Load Strava OAuth client credentials from user's stored credentials or environment."""
+
+    if creds:
+        client_id = creds.get("client_id")
+        client_secret = creds.get("client_secret")
+        if client_id and client_secret:
+            return client_id, client_secret
 
     client_id = getenv_compat("STRAVA_CLIENT_ID")
     client_secret = getenv_compat("STRAVA_CLIENT_SECRET")
     if not client_id or not client_secret:
         raise RuntimeError(
-            "Strava OAuth is not configured. Set PRAXYS_STRAVA_CLIENT_ID and PRAXYS_STRAVA_CLIENT_SECRET."
+            "Strava OAuth is not configured. Provide your Strava Client ID and Client Secret when connecting."
         )
     return client_id, client_secret
 
@@ -241,6 +247,19 @@ def _run_sync(user_id: str, source: str, creds: dict,
             db.commit()
 
         logger.info("Sync %s for user %s: %s", source, user_id, counts)
+
+        # Post-sync LLM insight generation. Best-effort: failures here must
+        # never break the sync. The runner is content-addressable (skips when
+        # the dataset hash is unchanged) and self-throttling (per-user daily
+        # cap), so calling it on every sync is safe.
+        try:
+            from api.insights_runner import run_insights_for_user
+            insight_results = run_insights_for_user(user_id, db, counts)
+            logger.info("Insight generation for user %s: %s", user_id, insight_results)
+        except Exception:
+            # No rollback: the runner uses its own session, and the caller's
+            # session has nothing pending past the prior db.commit().
+            logger.exception("Insight generation failed for user %s", user_id)
 
         with _sync_lock:
             status[source] = {
@@ -866,7 +885,7 @@ def _sync_strava(user_id: str, creds: dict, from_date: str | None, db) -> dict:
         refresh_access_token_if_needed,
     )
 
-    client_id, client_secret = _get_strava_client_config()
+    client_id, client_secret = _get_strava_client_config(creds)
     creds, changed = refresh_access_token_if_needed(creds, client_id, client_secret)
     if changed:
         _persist_credentials(user_id, "strava", creds, db)
@@ -912,18 +931,24 @@ def _sync_oura(user_id: str, creds: dict, from_date: str | None,
     """Fetch Oura data and write directly to DB."""
     from db import sync_writer
     from sync.oura_sync import (
-        fetch_sleep_data, fetch_readiness_data,
-        parse_sleep_records, parse_readiness_records,
-        select_oura_hrv_per_day,
+        fetch_sleep_data, fetch_daily_sleep_data, fetch_readiness_data,
+        parse_sleep_records, parse_daily_sleep_records, parse_readiness_records,
+        merge_daily_sleep_score, select_oura_hrv_per_day,
     )
 
     token = creds["token"]
     end = date.today().isoformat()
     start = from_date or (date.today() - timedelta(days=7)).isoformat()
 
-    # Fetch raw data
+    # /sleep gives per-sleep-period detail (HRV, RHR, total/deep/REM,
+    # efficiency); /daily_sleep gives the once-per-day sleep score
+    # (0–100) that the dashboard renders. Merge by date so each day's
+    # detail row carries the canonical sleep_score.
     sleep_raw = fetch_sleep_data(token, start, end)
     sleep_rows = parse_sleep_records(sleep_raw)
+    daily_sleep_raw = fetch_daily_sleep_data(token, start, end)
+    daily_sleep_rows = parse_daily_sleep_records(daily_sleep_raw)
+    sleep_rows = merge_daily_sleep_score(sleep_rows, daily_sleep_rows)
 
     hrv_by_date = select_oura_hrv_per_day(sleep_raw)
 

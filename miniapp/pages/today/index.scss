@@ -158,7 +158,252 @@
   word-break: break-word;
 }
 
-// Share card overlay — fixed above everything, backdrop + centered card.
+// --- Praxys Coach receipt (Skyline-adapted) ---
+//
+// Mirrors the data shape of web's coach-receipt block but uses a
+// flat full-width strip suited to mobile: a cobalt banner header,
+// sentence-cased section labels, and no extra card frame around the
+// banner. Cobalt is the brand's reasoning colour (DESIGN.md Two-Track
+// Rule). Light theme adds a hairline rule-soft border on all four
+// sides for separation against warm-paper bg; dark theme relies on
+// the card-vs-paper lightness gap. The previous treatment combined a
+// 4rpx cobalt top-border with a 3-sides-only light-theme rule, which
+// produced a visible step where the banner met the body — dropped
+// in favour of a uniform hairline.
+.coach-receipt {
+  background-color: var(--surface);
+  border-radius: 16rpx;
+  margin-bottom: 24rpx;
+  overflow: hidden;
+}
+
+.theme-light .coach-receipt {
+  border: 1rpx solid var(--border-subtle);
+}
+
+.coach-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx 32rpx;
+  background-color: var(--accent-cobalt);
+}
+
+.coach-mark {
+  font-size: 22rpx;
+  font-weight: 700;
+  letter-spacing: 2rpx;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+
+.coach-stamp {
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.coach-body {
+  padding: 24rpx 32rpx 28rpx;
+}
+
+.coach-headline {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
+  margin-bottom: 16rpx;
+}
+
+.coach-label {
+  display: block;
+  font-size: 20rpx;
+  font-weight: 700;
+  letter-spacing: 1rpx;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 12rpx 0 8rpx;
+}
+
+.coach-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  padding: 6rpx 0;
+}
+
+.coach-tag {
+  flex-shrink: 0;
+  font-family: 'SF Mono', Menlo, Monaco, 'Courier New', monospace;
+  font-size: 24rpx;
+  font-weight: 700;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.coach-tag--rec {
+  color: var(--accent-cobalt);
+}
+
+.coach-row--positive .coach-tag {
+  color: var(--primary);
+}
+.coach-row--warning .coach-tag {
+  color: var(--warning);
+}
+.coach-row--warning .coach-text {
+  color: var(--text);
+}
+
+.coach-text {
+  flex: 1;
+  font-size: 26rpx;
+  line-height: 1.5;
+  color: var(--text-muted);
+  word-break: break-word;
+}
+
+.coach-rule {
+  margin: 16rpx 0 8rpx;
+  border-top: 1rpx dashed var(--border);
+}
+
+.coach-foot {
+  padding: 12rpx 32rpx 16rpx;
+  border-top: 1rpx solid var(--border-subtle);
+  background-color: var(--surface-subtle);
+}
+
+.coach-foot-text {
+  font-size: 20rpx;
+  color: var(--text-muted);
+  letter-spacing: 1rpx;
+}
+
+// --- Supporting cells (Today, simplified per PR #238) ---
+//
+// Cardless 2-col grid sitting directly on warm-paper bg. Hairline
+// rule-soft separators give the cells their own breathing room
+// without the SaaS-cliché ts-card frame. Field Lab "flat-by-default":
+// no shadows, no nested cards.
+//
+// Layout note: this uses flex-wrap rather than CSS Grid because
+// Skyline's grid implementation is base-library-version dependent and
+// has been observed falling back to a stacked single-column on real
+// devices. flex + width: 50% wraps reliably in both Skyline and
+// WebView render modes.
+.today-supporting {
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 24rpx;
+  border-top: 1rpx solid var(--border-subtle);
+}
+
+.today-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+  padding: 24rpx 0;
+  width: 50%;
+  // Without box-sizing the right-hand padding pushes width past 50%
+  // and the second cell wraps to its own row.
+  box-sizing: border-box;
+  border-bottom: 1rpx solid var(--border-subtle);
+  // Min-width 0 lets long content (e.g. "vs 3.92 baseline") shrink
+  // and wrap rather than forcing the cell wider than 50%.
+  min-width: 0;
+}
+
+// Vertical hairline between cells that share a row, with symmetric
+// padding so neither side's content is flush against the rule. The
+// previous "padding only on odd" treatment let the even cell's value
+// (e.g. the 7d Trend arrow + sub line) crowd the rule visually.
+.today-cell:nth-child(odd):not(.today-cell--span) {
+  border-right: 1rpx solid var(--border-subtle);
+  padding-right: 28rpx;
+}
+.today-cell:nth-child(even) {
+  padding-left: 28rpx;
+}
+
+.today-cell--span {
+  width: 100%;
+  // Last row in the supporting block — drop the bottom rule so it
+  // doesn't double up against the .today-plan border-top below.
+  border-bottom: none;
+}
+
+.today-cell-label {
+  font-family: 'SF Mono', Menlo, Monaco, 'Courier New', monospace;
+  font-size: 20rpx;
+  font-weight: 600;
+  letter-spacing: 1rpx;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.today-cell-value {
+  font-size: 52rpx;
+  font-weight: 500;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.today-cell-value-positive {
+  color: var(--primary);
+}
+
+.today-cell-sub {
+  font-size: 22rpx;
+  color: var(--text-muted);
+}
+
+// --- Plan one-liner ---
+//
+// Single baseline-aligned row: mono uppercase eyebrow + body text.
+// No card frame. Long workout strings wrap below the eyebrow rather
+// than truncating, so power ranges stay legible.
+.today-plan {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 16rpx;
+  padding: 16rpx 0;
+  margin-bottom: 24rpx;
+  border-top: 1rpx solid var(--border-subtle);
+  border-bottom: 1rpx solid var(--border-subtle);
+}
+
+.today-plan-eyebrow {
+  font-family: 'SF Mono', Menlo, Monaco, 'Courier New', monospace;
+  font-size: 20rpx;
+  font-weight: 600;
+  letter-spacing: 1rpx;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.today-plan-text {
+  font-size: 28rpx;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+}
+
+// --- Warnings ---
+.today-warnings {
+  margin-top: 24rpx;
+}
+
+.today-warnings .today-warning-item {
+  font-size: 26rpx;
+  display: block;
+  padding: 8rpx 0;
+  line-height: 1.5;
+}
+
+// --- Share card overlay — fixed above everything, backdrop + centered card.
 .share-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -207,181 +452,4 @@
   display: block;
   text-align: center;
   margin-top: 8rpx;
-}
-
-.today-recovery-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16rpx 0;
-  border-bottom: 1rpx solid var(--border-subtle);
-}
-
-.today-recovery-row:last-child {
-  border-bottom: none;
-}
-
-.today-recovery-label,
-.today-recovery-value {
-  font-size: 28rpx;
-}
-
-.today-upcoming-row {
-  display: flex;
-  align-items: center;
-  padding: 16rpx 0;
-  border-bottom: 1rpx solid var(--border-subtle);
-}
-
-.today-upcoming-row:last-child {
-  border-bottom: none;
-}
-
-.today-upcoming-date {
-  font-size: 24rpx;
-  color: var(--text-muted);
-  width: 160rpx;
-  font-variant-numeric: tabular-nums;
-}
-
-.today-upcoming-name {
-  font-size: 28rpx;
-  color: var(--text);
-  flex: 1;
-}
-
-.today-upcoming-meta {
-  font-size: 24rpx;
-  color: var(--text-muted);
-}
-
-.today-last-date {
-  font-size: 28rpx;
-  color: var(--text);
-  display: block;
-  margin-bottom: 16rpx;
-}
-
-.today-last-metrics {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 32rpx;
-}
-
-.today-metric {
-  min-width: 160rpx;
-}
-
-.today-metric-label {
-  font-size: 22rpx;
-  text-transform: uppercase;
-  letter-spacing: 1rpx;
-  display: block;
-  margin-bottom: 4rpx;
-}
-
-.today-metric-value {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: var(--text);
-  display: block;
-}
-
-.today-warnings .today-warning-item {
-  font-size: 26rpx;
-  display: block;
-  padding: 8rpx 0;
-  line-height: 1.5;
-}
-
-.today-tsb-headline-row {
-  display: flex;
-  align-items: baseline;
-  gap: 16rpx;
-  margin-bottom: 16rpx;
-}
-
-.today-tsb-value {
-  font-size: 56rpx;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.today-tsb-zone {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 1rpx;
-}
-
-.today-tsb-headline {
-  font-size: 26rpx;
-  display: block;
-  margin-bottom: 12rpx;
-}
-
-// (Big bottom Share button removed — replaced with the small FAB on
-// the signal hero card, which is closer to the content people share.)
-
-// --- Weekly Load mini ---
-.today-week-load-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 12rpx;
-}
-
-.today-week-load-week {
-  font-size: 20rpx;
-  text-transform: lowercase;
-  letter-spacing: 0;
-}
-
-.today-week-load-row {
-  display: flex;
-  align-items: baseline;
-  gap: 12rpx;
-  margin-bottom: 16rpx;
-}
-
-.today-week-load-actual {
-  font-size: 44rpx;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.today-week-load-planned {
-  font-size: 24rpx;
-}
-
-.today-week-load-pct {
-  margin-left: auto;
-  font-size: 26rpx;
-  font-weight: 600;
-}
-
-.today-week-load-track {
-  height: 12rpx;
-  border-radius: 6rpx;
-  background-color: var(--border-subtle);
-  overflow: hidden;
-}
-
-.today-week-load-fill {
-  height: 100%;
-  // Round only the right edge so at low fill % the fill reads as a
-  // small pill on the left rather than a square stub butting against
-  // the track's rounded interior. Left edges stay square — the track's
-  // overflow: hidden + 6rpx radius clips the fill's left side to the
-  // same curve as the track. Rounding all 4 corners on the fill itself
-  // produced a visible right-side "bump" inside the track at low %; the
-  // asymmetric treatment avoids that while fixing the square-stub case.
-  border-top-right-radius: 6rpx;
-  border-bottom-right-radius: 6rpx;
-  background-color: var(--primary);
-  // Accent classes on the fill recolor via the helper utilities;
-  // default is --primary (green = on target).
-  &.ts-warning { background-color: var(--warning); }
-  &.ts-destructive { background-color: var(--destructive); }
 }

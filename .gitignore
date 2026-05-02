@@ -25,6 +25,11 @@ __pycache__/
 .garmin_tokens/
 .pytest_cache/
 
+# Build version stamp written by deploy-backend.yml — read by
+# api.version.get_api_version(). Source of truth is the workflow,
+# never the working tree.
+api/_build_version.txt
+
 # Node
 web/node_modules/
 web/dist/
