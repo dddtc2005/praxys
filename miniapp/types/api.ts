@@ -138,6 +138,8 @@ export interface ConnectionsResponse {
 export interface StravaOAuthStartRequest {
   web_origin: string;
   return_to: string;
+  client_id?: string;
+  client_secret?: string;
 }
 
 export interface StravaOAuthStartResponse {
