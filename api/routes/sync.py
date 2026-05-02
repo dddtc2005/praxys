@@ -292,111 +292,27 @@ def _run_sync(user_id: str, source: str, creds: dict,
         db.close()
 
 
-_CN_DI_TOKEN_URL = "https://diauth.garmin.cn/di-oauth2-service/oauth/token"  # noqa: S105
-
-# Serializes any in-flight DI_TOKEN_URL rebind. Concurrent international
-# logins in the same process would otherwise race on the module-level
-# constant — see _patch_cn_di_exchange's docstring.
-_di_token_url_lock = threading.Lock()
-
-
-def _patch_cn_di_exchange(inner_client) -> None:
-    """Re-target DI Bearer token exchange to ``diauth.garmin.cn``.
-
-    ``garminconnect`` 0.3.x hardcodes ``DI_TOKEN_URL`` at
-    ``diauth.garmin.com``. Garmin's CN infrastructure has a parallel
-    service at ``diauth.garmin.cn`` that accepts the same client IDs and
-    the same (``.com``-shaped) ``grant_type`` identifier — verified via
-    ``scripts/garmin_diagnose.py grants``. Pointing the exchange at the
-    CN host is enough to make it issue real DI tokens for CN accounts;
-    after that, ``connectapi.garmin.cn`` accepts Bearer auth normally.
-
-    The method *bindings* are instance-scoped (``types.MethodType`` on
-    this ``Client`` only). The library resolves ``DI_TOKEN_URL`` from its
-    module globals at call time, so the override has to transiently
-    rebind the module constant during the call and restore it in
-    ``finally``. That window IS process-global, so we serialize all CN
-    swaps with ``_di_token_url_lock`` — a concurrent international login
-    whose own exchange call overlaps the window would otherwise read the
-    CN URL and fail.
-
-    Both exchange sites need the patch:
-    * ``_exchange_service_ticket`` — called during initial login, after
-      a CAS service ticket is issued.
-    * ``_refresh_di_token`` — called by ``_refresh_session`` when a
-      persisted DI token is close to expiry. Without this, a long backfill
-      that crosses the token TTL would refresh against ``.com``, fail, and
-      silently stall on 401 cascades.
-
-    Coupled to garminconnect 0.3.x internals (``DI_TOKEN_URL`` module name,
-    ``_exchange_service_ticket`` / ``_refresh_di_token`` method names).
-    Re-validate with ``scripts/garmin_diagnose.py grants`` after any
-    upstream bump — none of these symbols are part of the library's
-    public contract.
-    """
-    import types
-    from garminconnect import client as _gc_client
-
-    orig_exchange = inner_client._exchange_service_ticket
-    orig_refresh = inner_client._refresh_di_token
-
-    def _cn_exchange(self, ticket, service_url=None):
-        with _di_token_url_lock:
-            prev = _gc_client.DI_TOKEN_URL
-            _gc_client.DI_TOKEN_URL = _CN_DI_TOKEN_URL
-            try:
-                return orig_exchange.__func__(
-                    self, ticket, service_url=service_url,
-                )
-            finally:
-                _gc_client.DI_TOKEN_URL = prev
-
-    def _cn_refresh(self):
-        with _di_token_url_lock:
-            prev = _gc_client.DI_TOKEN_URL
-            _gc_client.DI_TOKEN_URL = _CN_DI_TOKEN_URL
-            try:
-                return orig_refresh.__func__(self)
-            finally:
-                _gc_client.DI_TOKEN_URL = prev
-
-    inner_client._exchange_service_ticket = types.MethodType(
-        _cn_exchange, inner_client,
-    )
-    inner_client._refresh_di_token = types.MethodType(
-        _cn_refresh, inner_client,
-    )
-
-
 def _login_garmin_with_cn_fallback(client, creds: dict, token_dir: str) -> None:
-    """Log in the Garmin client, handling the 0.3.x library's CN blind spots.
+    """Log in the Garmin client, working around the 0.3.x JWT_WEB CN bug.
 
-    Two upstream problems overlap here:
+    **Mobile/widget strategies' JWT_WEB fallback is ``.com``-only.** The
+    first four login strategies can reach a point where the CAS ticket is
+    consumed against ``mobile.integration.garmin.com`` /
+    ``sso.garmin.com/sso/embed`` — for CN the DNS fails or no ``JWT_WEB``
+    cookie is set. The library re-raises that as an auth error and aborts
+    the chain *before* reaching the portal strategies (which do use the
+    domain-aware ``_portal_service_url``). When we see that specific
+    message we retry ``_portal_web_login_cffi`` directly. The message
+    match keeps real credential failures
+    (``"Invalid Username or Password"``) bubbling up.
 
-    1. **DI Bearer exchange target is ``.com`` only.** The module-level
-       ``DI_TOKEN_URL`` points at ``diauth.garmin.com``, which has no
-       record of CN accounts (always 400/401). Without a DI token,
-       ``connectapi.garmin.cn`` rejects every API call with 403 — JWT_WEB
-       cookie auth isn't accepted on the API gateway. Pointing the
-       exchange at ``diauth.garmin.cn`` produces real Bearer tokens that
-       authenticate both regions. See ``_patch_cn_di_exchange``.
-
-    2. **Mobile/widget strategies' JWT_WEB fallback is ``.com``-only.**
-       The first four login strategies can reach a point where the CAS
-       ticket is consumed against ``mobile.integration.garmin.com`` /
-       ``sso.garmin.com/sso/embed`` — for CN the DNS fails or no
-       ``JWT_WEB`` cookie is set. The library re-raises that as an auth
-       error and aborts the chain *before* reaching the portal strategies
-       (which do use the domain-aware ``_portal_service_url``). When we
-       see that specific message we retry ``_portal_web_login_cffi``
-       directly. The message match keeps real credential failures
-       (``"Invalid Username or Password"``) bubbling up.
+    The sibling DI Bearer token bug (``DI_TOKEN_URL`` hardcoded to
+    ``.com``) was fixed upstream in garminconnect 0.3.4 (PR #360 —
+    ``_di_token_url`` is now a domain-aware instance attribute), so no
+    DI patching is needed here.
     """
     import contextlib
     from garminconnect import GarminConnectAuthenticationError
-
-    if getattr(client, "is_cn", False):
-        _patch_cn_di_exchange(client.client)
 
     try:
         client.login(token_dir)
@@ -411,9 +327,8 @@ def _login_garmin_with_cn_fallback(client, creds: dict, token_dir: str) -> None:
 
     inner = client.client
     inner._portal_web_login_cffi(creds["email"], creds["password"])
-    # With the CN DI patch in place this now produces real Bearer tokens
-    # for CN accounts; ``Client.dump`` serializes only DI state, so this
-    # persistence attempt is meaningful for both regions.
+    # ``Client.dump`` serializes DI state; persisting after the portal
+    # fallback lets subsequent syncs skip SSO entirely.
     with contextlib.suppress(Exception):
         inner.dump(token_dir)
 
