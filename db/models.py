@@ -110,7 +110,19 @@ class UserConnection(Base):
     last_sync = Column(DateTime, nullable=True)
     status = Column(
         String(20), default="disconnected"
-    )  # connected, error, expired, disconnected
+    )  # connected, error, auth_required, expired, disconnected
+
+    # Scheduler backoff state. Without this, a stuck connection (expired
+    # token, account-locked, CAPTCHA-gated) made the scheduler retry every
+    # 10 min indefinitely, which on 2026-04-25 escalated Garmin's bot
+    # mitigation from transient 429s to a persistent CAPTCHA flag against
+    # the App Service outbound IP. consecutive_failures drives exponential
+    # backoff; next_retry_at gates the scheduler (skip while in future);
+    # last_error captures a short tag for the UI. All three reset on
+    # successful sync or when the user reconnects credentials.
+    consecutive_failures = Column(Integer, nullable=False, default=0)
+    next_retry_at = Column(DateTime, nullable=True)
+    last_error = Column(String(500), nullable=True)
 
     user = relationship("User", back_populates="connections")
     __table_args__ = (

@@ -236,7 +236,11 @@ def _run_sync(user_id: str, source: str, creds: dict,
                 logger.exception("Activity-derived CP refresh failed for user %s", user_id)
                 db.rollback()
 
-        # Update last_sync on the connection record
+        # Update last_sync on the connection record. Clear any prior
+        # backoff state so a previously-failed connection that the user
+        # successfully synced manually (or that recovered on its own)
+        # rejoins the regular schedule immediately.
+        from db.sync_scheduler import reset_connection_backoff
         conn = db.query(UserConnection).filter(
             UserConnection.user_id == user_id,
             UserConnection.platform == source,
@@ -244,6 +248,7 @@ def _run_sync(user_id: str, source: str, creds: dict,
         if conn:
             conn.last_sync = datetime.now(timezone.utc).replace(tzinfo=None)
             conn.status = "connected"
+            reset_connection_backoff(conn)
             db.commit()
 
         logger.info("Sync %s for user %s: %s", source, user_id, counts)
@@ -277,15 +282,17 @@ def _run_sync(user_id: str, source: str, creds: dict,
                 "last_sync": None,
                 "error": str(e),
             }
-        # Update connection status to error
+        # Update connection status with classification + backoff so the
+        # background scheduler stops hammering a stuck connection.
+        # ``_record_sync_failure`` handles its own rollback and commit.
         try:
+            from db.sync_scheduler import _record_sync_failure
             conn = db.query(UserConnection).filter(
                 UserConnection.user_id == user_id,
                 UserConnection.platform == source,
             ).first()
             if conn:
-                conn.status = "error"
-                db.commit()
+                _record_sync_failure(conn, e, db)
         except Exception:
             pass
     finally:
