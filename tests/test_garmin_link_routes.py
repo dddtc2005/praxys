@@ -180,7 +180,7 @@ def test_start_interactive_creates_session_and_skips_chromium_in_test(
     payload = res.json()
     assert payload["session_id"] == sid
     assert payload["state"] in ("starting", "ready", "failed", "closed")
-    assert payload["viewport"] == {"width": 1024, "height": 768}
+    assert payload["viewport"] == {"width": 1280, "height": 800}
 
 
 # ---------------------------------------------------------------------------

@@ -543,11 +543,22 @@ export default function Settings() {
       // from the /portal/api/login POST body for storage). Region is
       // the only thing we need up-front so Playwright knows which
       // Garmin SSO domain to navigate to.
+      //
+      // Viewport sizing: estimate the canvas area the GarminLink page
+      // will render in (page width minus padding, capped at the wider
+      // browser bound) and tell the backend to launch Playwright at
+      // that exact resolution. Avoids the 1280×800 → 1920×1080 stretch
+      // blur on big screens and the wasted bandwidth on small ones.
+      // Backend clamps to safe bounds so we don't OOM the worker.
+      const vw = Math.round(Math.min(window.innerWidth - 64, 1920));
+      const vh = Math.round(Math.min(window.innerHeight - 220, 1200));
       const res = await fetch(`${API_BASE}/api/settings/connections/garmin/interactive`, {
         method: 'POST',
         headers: { ...getAuthHeaders() as Record<string, string>, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           is_cn: connectRegion === 'cn',
+          viewport_width: vw,
+          viewport_height: vh,
         }),
       });
       const data = await res.json();

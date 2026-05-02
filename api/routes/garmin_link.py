@@ -94,15 +94,28 @@ MAX_CONCURRENT_SESSIONS = 3
 # down. Generous because some users take time on CAPTCHA + MFA.
 SESSION_TTL_SECONDS = 600  # 10 minutes
 
-# Viewport size to drive Playwright at. Garmin's responsive design works
-# at desktop widths; mobile layouts add complexity for click coordinates.
-VIEWPORT_WIDTH = 1024
-VIEWPORT_HEIGHT = 768
+# Default viewport bounds. The actual launch viewport is sized per
+# session from the user's browser (passed in the POST body) so a
+# 1920×1080 desktop gets a crisp full-resolution Garmin login form
+# without CSS upscaling artifacts, while a smaller browser doesn't
+# pay the bandwidth + capture-time cost of an oversized viewport.
+# Bounds keep this from OOM-ing App Service B-tier.
+VIEWPORT_WIDTH_DEFAULT = 1280
+VIEWPORT_HEIGHT_DEFAULT = 800
+VIEWPORT_WIDTH_MIN = 1024
+VIEWPORT_WIDTH_MAX = 1920
+VIEWPORT_HEIGHT_MIN = 600
+VIEWPORT_HEIGHT_MAX = 1200
 
-# Frame rate / quality for the relay. 5 fps is plenty for filling a form;
-# JPEG 65% balances size against legibility of CAPTCHA images.
-RELAY_FPS = 5
-JPEG_QUALITY = 65
+# Frame rate / quality for the relay. Bumped from 5 fps to 12 because
+# typing feels laggy at 5 fps — each keystroke takes one frame to be
+# visually acknowledged, so a fast typer outruns the screen at 200ms
+# per character. 12 fps puts feedback under 100ms which feels native;
+# bandwidth is bounded by the queue size + the JPEG quality knob.
+# JPEG 78 is enough to keep CAPTCHA imagery legible without the file
+# size of higher settings (each frame is ~30-60 KB).
+RELAY_FPS = 12
+JPEG_QUALITY = 78
 
 
 # ---------------------------------------------------------------------------
@@ -211,6 +224,11 @@ class _Session:
     email: str
     password: str
     is_cn: bool
+    # Per-session viewport sized to fit the user's actual browser
+    # canvas — the frontend measures and sends. Bounded by
+    # VIEWPORT_*_MIN/MAX in the start endpoint.
+    viewport_width: int = VIEWPORT_WIDTH_DEFAULT
+    viewport_height: int = VIEWPORT_HEIGHT_DEFAULT
     created_at: datetime = field(default_factory=datetime.utcnow)
     state: str = "starting"  # starting | ready | succeeded | failed | closed
     error_message: str | None = None
@@ -313,13 +331,45 @@ def _run_browser_session(session: _Session) -> None:
                 ],
             )
             context = browser.new_context(
-                viewport={"width": VIEWPORT_WIDTH, "height": VIEWPORT_HEIGHT},
+                viewport={"width": session.viewport_width, "height": session.viewport_height},
                 user_agent=(
                     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                     "AppleWebKit/537.36 (KHTML, like Gecko) "
                     "Chrome/131.0.0.0 Safari/537.36"
                 ),
                 locale="en-US",
+            )
+
+            # Defeat the most common headless-Chromium fingerprints. Garmin's
+            # SSO frontend showed a generic "an unexpected error has
+            # occurred" instead of accepting credentials in user testing —
+            # almost certainly because their bot model checks the same
+            # signals every other anti-bot does:
+            #   - ``navigator.webdriver`` → true under Playwright
+            #   - ``navigator.plugins`` is empty
+            #   - ``navigator.languages`` is empty
+            #   - ``window.chrome`` is undefined (real Chrome has a stub)
+            # Patching all four via ``add_init_script`` runs the JS
+            # *before* any page script, so by the time Garmin's frontend
+            # samples them they look like a normal browser. This is the
+            # delta that ``playwright-extra`` + the stealth plugin would
+            # apply; we inline the common patches to avoid pulling in
+            # another dependency for one feature.
+            context.add_init_script(
+                """
+                Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+                Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+                Object.defineProperty(navigator, 'plugins', {
+                    get: () => [
+                        { name: 'PDF Viewer' },
+                        { name: 'Chrome PDF Viewer' },
+                        { name: 'Chromium PDF Viewer' },
+                    ],
+                });
+                if (!window.chrome) {
+                    window.chrome = { runtime: {}, app: {} };
+                }
+                """
             )
 
             # Hook the DI Bearer / refresh exchange. After the user
@@ -511,6 +561,12 @@ def _apply_input_event(page, evt: dict) -> None:
 
 class StartInteractiveLoginRequest(BaseModel):
     is_cn: bool = False
+    # Optional viewport sizing — frontend measures the canvas it's
+    # going to display the relayed page in and sends the dimensions
+    # so the server-side Chromium renders at native resolution.
+    # Falls back to defaults if absent or out-of-bounds.
+    viewport_width: int | None = None
+    viewport_height: int | None = None
 
 
 @router.post("/settings/connections/garmin/interactive")
@@ -551,6 +607,16 @@ def start_interactive_login(
                 "Interactive-login slots are full. Please retry in a minute.",
             )
 
+        # Clamp the requested viewport to sane bounds. Anything below
+        # min reads as a misconfigured client (mobile portrait that
+        # squeezes the form past usable); anything above max risks
+        # OOM on B-tier App Service. Falls back to defaults when the
+        # client doesn't send dimensions.
+        vw = body.viewport_width or VIEWPORT_WIDTH_DEFAULT
+        vh = body.viewport_height or VIEWPORT_HEIGHT_DEFAULT
+        vw = max(VIEWPORT_WIDTH_MIN, min(VIEWPORT_WIDTH_MAX, int(vw)))
+        vh = max(VIEWPORT_HEIGHT_MIN, min(VIEWPORT_HEIGHT_MAX, int(vh)))
+
         session_id = uuid.uuid4().hex
         sess = _Session(
             id=session_id,
@@ -558,6 +624,8 @@ def start_interactive_login(
             email="",
             password="",
             is_cn=body.is_cn,
+            viewport_width=vw,
+            viewport_height=vh,
         )
         _sessions[session_id] = sess
 
@@ -846,5 +914,5 @@ def get_interactive_session(
         "session_id": sess.id,
         "state": sess.state,
         "error_message": sess.error_message,
-        "viewport": {"width": VIEWPORT_WIDTH, "height": VIEWPORT_HEIGHT},
+        "viewport": {"width": sess.viewport_width, "height": sess.viewport_height},
     }
