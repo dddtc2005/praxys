@@ -94,13 +94,6 @@ const EN_GOAL = {
   'Leave blank to track predicted time only': 'Leave blank to track predicted time only',
   'What time are you working toward? Leave blank to track trend only':
     'What time are you working toward? Leave blank to track trend only',
-  'Reality Check': 'Reality Check',
-  'Fitness Trend': 'Fitness Trend',
-  'Current Fitness': 'Current Fitness',
-  Trend: 'Trend',
-  Milestones: 'Milestones',
-  Assessment: 'Assessment',
-  'Estimated time to target': 'Estimated time to target',
   Comfortable: 'Comfortable',
   Stretch: 'Stretch',
   'Realistic targets': 'Realistic targets',
@@ -108,12 +101,9 @@ const EN_GOAL = {
   'Off target': 'Off target',
   'No plan': 'No plan',
   'How this is calculated': 'How this is calculated',
-  current: 'current',
   Predicted: 'Predicted',
   Target: 'Target',
   '+ Set target': '+ Set target',
-  Countdown: 'Countdown',
-  'days until': 'days until',
   'CP trend': 'CP trend',
   Needed: 'Needed',
   Gap: 'Gap',
@@ -131,10 +121,6 @@ const EN_GOAL = {
   'Your goal edits will be lost.': 'Your goal edits will be lost.',
   Discard: 'Discard',
   'Keep editing': 'Keep editing',
-  // CP-milestone mode interpolated copy
-  'Building toward {0} {1}': 'Building toward {0} {1}',
-  '{0} Progress': '{0} Progress',
-  '{0} months': '{0} months',
   // Goal page science notes (default fallback when backend gives none)
   'Predicted using Stryd race power model (5K at 103.8% CP, marathon at 89.9% CP).':
     'Predicted using Stryd race power model (5K at 103.8% CP, marathon at 89.9% CP).',
@@ -142,7 +128,28 @@ const EN_GOAL = {
     "Predicted using Riegel's formula (T₂ = T₁ × (D₂/D₁)^1.06), treating threshold pace as ~10K effort.",
   "Ultra distance power fractions (50K+) are estimates with limited research backing. Riegel's exponent is validated only up to marathon distance. Predictions beyond marathon carry significantly higher uncertainty due to factors like fueling, terrain, heat, and pacing strategy that dominate ultra performance but are not captured by power/pace models.":
     "Ultra distance power fractions (50K+) are estimates with limited research backing. Riegel's exponent is validated only up to marathon distance. Predictions beyond marathon carry significantly higher uncertainty due to factors like fueling, terrain, heat, and pacing strategy that dominate ultra performance but are not captured by power/pace models.",
-  'race day': 'race day',
+  // Unified goal headline — one-sentence verdict rendered as plain text.
+  // Web uses JSX <Trans> with <strong> spans; miniapp builds a plain string.
+  '{0} days to race day. Today\'s prediction is {1} against a target of {2}.':
+    '{0} days to race day. Today\'s prediction is {1} against a target of {2}.',
+  '{0} days to race day. Today\'s prediction is {1}.':
+    '{0} days to race day. Today\'s prediction is {1}.',
+  'Building toward {0} {1}. Current {2} {3}{4}, need {5}{4}.':
+    'Building toward {0} {1}. Current {2} {3}{4}, need {5}{4}.',
+  'Building toward {0}. Current {1} {2}{3}, need {4}{3}.':
+    'Building toward {0}. Current {1} {2}{3}, need {4}{3}.',
+  'Today\'s {0} prediction is {1}. {2} is {3} at {4}.':
+    'Today\'s {0} prediction is {1}. {2} is {3} at {4}.',
+  'Today\'s {0} prediction is {1}. {2} is {3}.':
+    'Today\'s {0} prediction is {1}. {2} is {3}.',
+  '{0} is {1}. Add more activities for a race-time prediction.':
+    '{0} is {1}. Add more activities for a race-time prediction.',
+  // Strip cell labels — also in web zh catalog but mirrored here for EN completeness
+  'Days left': 'Days left',
+  'To target': 'To target',
+  Direction: 'Direction',
+  // Used as prefix in "current CP / current LTHR" strip labels
+  current: 'current',
 };
 
 const EN_TODAY = {
@@ -369,13 +376,6 @@ const ZH_GOAL = {
   'Leave blank to track predicted time only': '留空仅显示预测完赛时间',
   'What time are you working toward? Leave blank to track trend only':
     '您的目标时间是？留空仅追踪趋势',
-  'Reality Check': '现实检验',
-  'Fitness Trend': '体能趋势',
-  'Current Fitness': '当前体能',
-  Trend: '趋势',
-  Milestones: '里程碑',
-  Assessment: '评估',
-  'Estimated time to target': '达成目标预计时间',
   Comfortable: '稳健',
   Stretch: '冲击',
   'Realistic targets': '可行的目标',
@@ -383,12 +383,9 @@ const ZH_GOAL = {
   'Off target': '偏离目标',
   'No plan': '无计划',
   'How this is calculated': '计算方式说明',
-  current: '当前',
   Predicted: '预测',
   Target: '目标',
   '+ Set target': '+ 设置目标',
-  Countdown: '倒计时',
-  'days until': '天后',
   'CP trend': 'CP 趋势',
   Needed: '所需',
   Gap: '差距',
@@ -406,10 +403,6 @@ const ZH_GOAL = {
   'Your goal edits will be lost.': '您当前的目标修改将丢失。',
   Discard: '放弃',
   'Keep editing': '继续编辑',
-  // CP-milestone interpolated copy
-  'Building toward {0} {1}': '冲刺 {1} {0}',
-  '{0} Progress': '{0} 进度',
-  '{0} months': '{0} 个月',
   // Science notes
   'Predicted using Stryd race power model (5K at 103.8% CP, marathon at 89.9% CP).':
     '依据 Stryd 比赛功率模型预测 (5K 为阈值功率的 103.8%，全程马拉松为 89.9%)。',
@@ -417,7 +410,25 @@ const ZH_GOAL = {
     '依据 Riegel 公式预测 (T₂ = T₁ × (D₂/D₁)^1.06)，将阈值配速视为约 10K 强度。',
   "Ultra distance power fractions (50K+) are estimates with limited research backing. Riegel's exponent is validated only up to marathon distance. Predictions beyond marathon carry significantly higher uncertainty due to factors like fueling, terrain, heat, and pacing strategy that dominate ultra performance but are not captured by power/pace models.":
     '超长距离 (50K 及以上) 的功率分配比例为估算值，研究数据有限。Riegel 公式的指数仅在全程马拉松以内得到验证。马拉松以上距离的预测不确定性显著上升，因为补给、地形、温度和配速策略等主导超长距离表现的因素无法被功率/配速模型完全捕捉。',
-  'race day': '比赛日',
+  // Unified goal headline zh translations
+  '{0} days to race day. Today\'s prediction is {1} against a target of {2}.':
+    '距比赛日还有 {0} 天。今日预测 {1}，目标 {2}。',
+  '{0} days to race day. Today\'s prediction is {1}.':
+    '距比赛日还有 {0} 天。今日预测 {1}。',
+  'Building toward {0} {1}. Current {2} {3}{4}, need {5}{4}.':
+    '冲刺 {1} {0}。当前{2} {3}{4}，目标 {5}{4}。',
+  'Building toward {0}. Current {1} {2}{3}, need {4}{3}.':
+    '冲刺 {0}。当前{1} {2}{3}，目标 {4}{3}。',
+  'Today\'s {0} prediction is {1}. {2} is {3} at {4}.':
+    '今日{0}预测 {1}。{2}趋势{3}，速率{4}。',
+  'Today\'s {0} prediction is {1}. {2} is {3}.':
+    '今日{0}预测 {1}。{2}趋势{3}。',
+  '{0} is {1}. Add more activities for a race-time prediction.':
+    '{0}趋势{1}。积累更多训练数据以获取比赛预测成绩。',
+  'Days left': '剩余天数',
+  'To target': '距目标',
+  Direction: '趋势方向',
+  current: '当前',
 };
 
 const ZH_TODAY = {
