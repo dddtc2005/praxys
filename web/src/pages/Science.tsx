@@ -42,6 +42,7 @@ export default function Science() {
   const { i18n } = useLingui();
 
   const [focused, setFocused] = useState<SciencePillar>(() => {
+    if (typeof window === 'undefined') return 'load';
     const hash = window.location.hash.replace('#', '');
     return isPillarKey(hash) ? hash : 'load';
   });
@@ -205,11 +206,11 @@ function PillarRail({
   science: ScienceResponse;
   i18n: I18n;
 }) {
+  const recAvailableAria = i18n._(msg`Recommendation available`);
   return (
     <nav
-      aria-label="Science pillars"
+      aria-label={i18n._(msg`Science pillars`)}
       className={cn(
-        // Mobile: horizontal scroll strip.
         '-mx-4 flex gap-2 overflow-x-auto px-4 pb-3 border-b border-border',
         // Desktop: vertical rail with right border.
         'lg:mx-0 lg:px-0 lg:pb-0 lg:border-b-0 lg:flex-col lg:gap-0 lg:overflow-visible lg:border-r lg:pr-6 lg:sticky lg:top-6 lg:self-start',
@@ -226,6 +227,7 @@ function PillarRail({
             label={i18n._(p.label)}
             theoryName={active?.name}
             recAvailable={recAvailable}
+            recAvailableAria={recAvailableAria}
             isFocused={p.key === focused}
             onClick={() => onSelect(p.key)}
           />
@@ -240,6 +242,7 @@ function PillarRailItem({
   label,
   theoryName,
   recAvailable,
+  recAvailableAria,
   isFocused,
   onClick,
 }: {
@@ -247,6 +250,7 @@ function PillarRailItem({
   label: string;
   theoryName?: string;
   recAvailable: boolean;
+  recAvailableAria: string;
   isFocused: boolean;
   onClick: () => void;
 }) {
@@ -284,7 +288,7 @@ function PillarRailItem({
         </span>
         {recAvailable && (
           <span
-            aria-label="Recommendation available"
+            aria-label={recAvailableAria}
             className="ml-auto inline-block size-1.5 rounded-full bg-[var(--accent-amber-val)]"
           />
         )}
@@ -341,7 +345,6 @@ function PillarDetail({
 
   return (
     <article className="min-w-0">
-      {/* Eyebrow + title */}
       <div className="mb-7">
         <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
           <span className="font-data">{meta.num}</span>
@@ -353,7 +356,6 @@ function PillarDetail({
         </h2>
       </div>
 
-      {/* Chiclet switcher */}
       <div className="mb-6 flex flex-wrap gap-2">
         {alternatives.map((t) => (
           <Chiclet
@@ -367,7 +369,9 @@ function PillarDetail({
         ))}
       </div>
 
-      {/* Recommendation hint (only when recommended != active and not actively previewing it) */}
+      {/* Hide the rec hint once the user starts previewing the recommended theory — the
+       * chiclet's amber halo plus the body's "Previewing" tag carry the message; a third
+       * surface would double-emphasize and crowd the staged Switch CTA below. */}
       {recommendedDifferent && recommendedTheory && previewId !== recommendation!.recommended_id && (
         <p className="mb-6 text-xs leading-relaxed text-muted-foreground">
           <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--accent-amber-val)] mr-2">
@@ -379,9 +383,7 @@ function PillarDetail({
         </p>
       )}
 
-      {/* Body — methodology */}
       <div className="space-y-2">
-        {/* Author + status line */}
         <div className="flex items-baseline gap-3 text-xs text-muted-foreground">
           {shown.author && shown.author !== 'system' && (
             <span>
@@ -400,13 +402,11 @@ function PillarDetail({
           )}
         </div>
 
-        {/* Description */}
         <p className="max-w-prose text-[15px] leading-relaxed text-foreground/85">
           {shown.simple_description || shown.description}
         </p>
       </div>
 
-      {/* Switch / cancel CTAs (only in preview mode) */}
       {isPreviewMode && previewedTheory && (
         <div className="mt-6 flex items-center gap-3">
           <Button
@@ -432,7 +432,6 @@ function PillarDetail({
         </div>
       )}
 
-      {/* Advanced disclosure */}
       <div className="mt-8 border-t border-border pt-6">
         <button
           type="button"
@@ -541,17 +540,17 @@ function Chiclet({
       <span>{theory.name}</span>
       {isActive && (
         <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--accent-cobalt-val)]">
-          ·&nbsp;active
+          ·&nbsp;<Trans>Active</Trans>
         </span>
       )}
       {isPreviewing && (
         <span className="font-mono text-[9px] uppercase tracking-[0.14em]">
-          ·&nbsp;previewing
+          ·&nbsp;<Trans>Previewing</Trans>
         </span>
       )}
       {isRecommended && !isPreviewing && (
         <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--accent-amber-val)]">
-          ·&nbsp;recommended
+          ·&nbsp;<Trans>Recommended</Trans>
         </span>
       )}
     </button>
