@@ -581,7 +581,18 @@ export default function Settings() {
           garmin_region: connectRegion,
         },
       });
-      window.location.href = `/garmin-link?session=${encodeURIComponent(data.session_id)}`;
+      // Pass the (server-clamped) viewport in the URL so /garmin-link
+      // sizes its canvas buffer correctly before any frames arrive.
+      // Without this, the first ~1.5s draws JPEGs at the actual
+      // Playwright resolution into a default 1280×800 canvas, which
+      // both squishes the image and breaks click-coordinate math.
+      const vp = data.viewport || { width: vw, height: vh };
+      const params = new URLSearchParams({
+        session: data.session_id,
+        w: String(vp.width),
+        h: String(vp.height),
+      });
+      window.location.href = `/garmin-link?${params.toString()}`;
     } catch {
       setConnectError(t`Network error.`);
       setConnecting(false);

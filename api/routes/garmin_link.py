@@ -637,7 +637,16 @@ def start_interactive_login(
     )
     thread.start()
 
-    return {"session_id": session_id}
+    # Echo the (clamped) viewport in the response so the frontend can
+    # size the canvas buffer correctly *before* the first frame
+    # arrives — otherwise it draws the JPEG into a default-sized
+    # 1280×800 buffer for the first ~1.5s while the GET status
+    # endpoint poll runs, which both stretches the image and offsets
+    # every click coordinate.
+    return {
+        "session_id": session_id,
+        "viewport": {"width": vw, "height": vh},
+    }
 
 
 # ---------------------------------------------------------------------------

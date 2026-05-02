@@ -94,8 +94,17 @@ export default function GarminLink() {
   const wsRef = useRef<WebSocket | null>(null);
   const [phase, setPhase] = useState<LinkPhase>('connecting');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Read viewport from URL params (set by Settings.handleInteractiveGarminLogin
+  // from the POST response). Falls back to defaults only if missing —
+  // bookmarking /garmin-link standalone wouldn't carry a session
+  // anyway, so this primarily covers the redirect path. Avoids the
+  // 1.5s window where the GET-poll hadn't yet reported the real
+  // viewport but frames were arriving and the canvas buffer was the
+  // wrong size.
+  const initialW = Number(params.get('w')) || VIEWPORT_W_DEFAULT;
+  const initialH = Number(params.get('h')) || VIEWPORT_H_DEFAULT;
   const [viewport, setViewport] = useState<{ w: number; h: number }>({
-    w: VIEWPORT_W_DEFAULT, h: VIEWPORT_H_DEFAULT,
+    w: initialW, h: initialH,
   });
   const { i18n } = useLingui();
 
@@ -148,9 +157,23 @@ export default function GarminLink() {
         setErrorMsg(m.message || 'Login failed');
       }
     };
+    // Browser ``onerror`` fires for *anything* the WebSocket subsystem
+    // dislikes — including transient blips during otherwise-successful
+    // sessions. If we set ``phase = "error"`` here unconditionally, a
+    // single dropped frame buffer flashes "Connection error" in the UI
+    // before the next ``onmessage`` restores ``live`` (because the
+    // error alert only renders while ``phase === "error"``). So:
+    // pre-live, treat ``onerror`` as terminal; post-live, log it and
+    // let ``onclose`` decide whether the session ended.
     ws.onerror = () => {
-      setPhase('error');
-      setErrorMsg('Connection error — try again.');
+      setPhase((p) => {
+        if (p === 'live' || p === 'complete') {
+          // Already had at least one good frame — keep going.
+          return p;
+        }
+        setErrorMsg('Connection error — try again.');
+        return 'error';
+      });
     };
     ws.onclose = () => {
       setPhase((p) => (p === 'complete' || p === 'error' ? p : 'closed'));
