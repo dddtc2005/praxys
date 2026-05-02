@@ -183,6 +183,38 @@ const DISTANCE_LABELS: Record<string, MessageDescriptor> = {
   '100mi': msg`100 Mile`,
 };
 
+/**
+ * Coerce a JSON error body into a flat string for an Alert/text node.
+ *
+ * FastAPI returns 422 validation errors as
+ * ``{"detail": [{type, loc, msg, input}, ...]}`` — passing that array
+ * directly into a React child throws "Objects are not valid as a React
+ * child" and crashes the page. This helper picks ``message``, then a
+ * string ``detail``, then formats array-shaped detail compactly, then
+ * falls back to ``HTTP {status}``.
+ */
+function formatApiError(
+  data: unknown, status: number, fallback: string,
+): string {
+  if (data && typeof data === 'object') {
+    const obj = data as { message?: unknown; detail?: unknown };
+    if (typeof obj.message === 'string') return obj.message;
+    if (typeof obj.detail === 'string') return obj.detail;
+    if (Array.isArray(obj.detail)) {
+      return obj.detail
+        .map((d) => {
+          if (typeof d === 'string') return d;
+          if (d && typeof d === 'object' && 'msg' in d) {
+            return String((d as { msg: unknown }).msg);
+          }
+          return JSON.stringify(d);
+        })
+        .join('; ');
+    }
+  }
+  return `${fallback} (HTTP ${status}).`;
+}
+
 // --- Component ---
 
 export default function Settings() {
@@ -520,7 +552,12 @@ export default function Settings() {
       });
       const data = await res.json();
       if (!res.ok || !data.session_id) {
-        setConnectError(data.message || data.detail || `Failed to start (HTTP ${res.status})`);
+        // FastAPI/Pydantic 422s come back as
+        // ``{"detail":[{type,loc,msg,input}]}`` — passing that array into
+        // a JSX child crashes the React tree with "Objects are not valid
+        // as a React child", which is what produced the blank-screen
+        // bug locally. Stringify everything that isn't already a primitive.
+        setConnectError(formatApiError(data, res.status, 'Failed to start'));
         setConnecting(false);
         return;
       }
