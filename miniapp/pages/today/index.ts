@@ -342,44 +342,23 @@ function formatIsoDateShort(isoDate: string, locale: 'en' | 'zh'): string {
   );
 }
 
-// Device-local calendar date as ISO `YYYY-MM-DD`. Used to detect when
-// the device's clock disagrees with the server's `as_of_date` — flags a
-// likely timezone change so the user understands why the page may
-// appear off-by-one. `toISOString()` would emit UTC and lose the day.
-function localIsoDate(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-// Build the staleness/timezone advisory string, or '' to hide it.
+// Build the staleness advisory string, or '' to hide the banner.
 // Mirrors web/src/pages/Today.tsx — same conditions, same wording so a
-// user moving between surfaces gets a consistent message. Stale takes
-// precedence over a bare TZ mismatch; both are appended when both fire.
+// user moving between surfaces gets a consistent message. Note we
+// deliberately don't flag client-vs-server-date divergence as a
+// "timezone changed" signal: the server runs in a single fixed tz
+// (UTC on Azure), so a 1-day offset is the steady state for half the
+// world. The eyebrow renders `as_of_date` honestly, which is enough.
 function buildStalenessText(
   ra: RecoveryAnalysis | null,
-  asOfDate: string,
   locale: 'en' | 'zh',
 ): string {
   const recoveryStale = ra?.is_stale === true && !!ra?.latest_date;
-  const tzMismatch = localIsoDate() !== asOfDate;
-  if (!recoveryStale && !tzMismatch) return '';
-
-  let text: string;
-  if (recoveryStale && ra?.latest_date) {
-    text = tFmt(
-      "Recovery data hasn't synced yet. Showing the latest reading from {0}.",
-      formatIsoDateShort(ra.latest_date, locale),
-    );
-  } else {
-    text = tFmt('Showing data as of {0}.', formatIsoDateLong(asOfDate, locale));
-  }
-  if (tzMismatch) {
-    text += ' ' + t('Server date may differ from your device — recently changed timezones?');
-  }
-  return text;
+  if (!recoveryStale || !ra?.latest_date) return '';
+  return tFmt(
+    "Recovery data hasn't synced yet. Showing the latest reading from {0}.",
+    formatIsoDateShort(ra.latest_date, locale),
+  );
 }
 
 function buildRenderState(
@@ -402,7 +381,6 @@ function buildRenderState(
   const eyebrowDate = formatIsoDateLong(response.as_of_date, localeForDate);
   const stalenessText = buildStalenessText(
     response.recovery_analysis ?? null,
-    response.as_of_date,
     localeForDate,
   );
 
