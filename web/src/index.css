@@ -355,6 +355,13 @@
   color: var(--muted-foreground);
   margin: 0;
 }
+/* Staleness / timezone advisory — sits between the date eyebrow and the
+ * verdict circle, full row width. Tailwind utilities on the element
+ * supply the dashed amber chrome; this rule only handles grid placement
+ * so it lines up with the other today-spread children. */
+.today-spread > .today-staleness-banner {
+  grid-column: 1 / -1;
+}
 .today-spread > .today-verdict {
   grid-column: 1 / 2;
   align-self: start;

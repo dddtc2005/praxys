@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { useApi } from '@/hooks/useApi';
 import type { AiInsight, TodayResponse, TrainingSignal } from '@/types/api';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -135,6 +134,32 @@ const RHR_TREND_LABEL: Record<'stable' | 'elevated' | 'low' | 'normal', MessageD
 const TSB_STRONGLY_POSITIVE = 10;
 const TSB_MILD_FATIGUE = -10;
 
+// Format an ISO `YYYY-MM-DD` as a localized long-form date string. Parses
+// the date as a local calendar date (not UTC midnight) so a server-emitted
+// "2026-05-02" doesn't shift backward for users in negative-offset timezones
+// — `new Date("2026-05-02")` would be UTC and render as May 1 in the
+// Americas. Falls back to the raw ISO string if the parse fails.
+function formatIsoDateLong(isoDate: string, locale: string): string {
+  const [y, m, day] = isoDate.split('-').map(Number);
+  if (!y || !m || !day) return isoDate;
+  return new Date(y, m - 1, day).toLocaleDateString(
+    locale === 'zh' ? 'zh-CN' : 'en-US',
+    { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' },
+  );
+}
+
+// Short ("Apr 24" / "4月24日") variant for the staleness banner so the
+// reading-date chip sits inline cleanly. Same local-calendar parse as
+// formatIsoDateLong — keep the two in sync.
+function formatIsoDateShort(isoDate: string, locale: string): string {
+  const [y, m, day] = isoDate.split('-').map(Number);
+  if (!y || !m || !day) return isoDate;
+  return new Date(y, m - 1, day).toLocaleDateString(
+    locale === 'zh' ? 'zh-CN' : 'en-US',
+    { month: 'short', day: 'numeric' },
+  );
+}
+
 function formatPlan(plan: TrainingSignal['plan']): string | null {
   if (!plan?.workout_type) return null;
   const parts: string[] = [plan.workout_type];
@@ -153,17 +178,6 @@ export default function Today() {
   const { locale } = useLocale();
   const { i18n } = useLingui();
 
-  const dateStr = useMemo(
-    () =>
-      new Date().toLocaleDateString(locale === 'zh' ? 'zh-CN' : 'en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      }),
-    [locale],
-  );
-
   if (loading) return <TodaySkeleton />;
 
   if (error) {
@@ -181,6 +195,29 @@ export default function Today() {
   if (!data) return null;
 
   const { signal, recovery_analysis: ra } = data;
+
+  // Eyebrow date is sourced from the server's `as_of_date` rather than
+  // `new Date()` — the page asserts what date the *data* was computed
+  // for, not what the device's clock currently reads. A traveler whose
+  // device crossed midnight before sync caught up would otherwise see
+  // "May 2" on a payload the server still treats as May 1.
+  const dateStr = formatIsoDateLong(data.as_of_date, locale);
+
+  // Recovery staleness: the latest HRV/sleep row may be older than the
+  // server's `as_of_date` when sync hasn't run yet today. The server
+  // already applies a 1-day grace (sleep is recorded under the prior
+  // night), so `is_stale` only fires when the gap is ≥ 2 days. We
+  // intentionally don't try to detect "client local date != server
+  // date" as a separate timezone-jump signal — the server runs in a
+  // single fixed tz (UTC on Azure), so a 1-day offset is the steady
+  // state for half the world. Letting the eyebrow render `as_of_date`
+  // honestly is enough; speculating about timezones would lie to most
+  // users every day during the hours their local rollover lags UTC.
+  const recoveryStale = ra?.is_stale === true && !!ra.latest_date;
+  const recoveryLatestLabel = recoveryStale && ra?.latest_date
+    ? formatIsoDateShort(ra.latest_date, locale)
+    : null;
+
   const verdictText = i18n._(VERDICT_LABEL[signal.recommendation] ?? VERDICT_LABEL.follow_plan);
   const verdictSubtitle = i18n._(VERDICT_SUBTITLE[signal.recommendation] ?? VERDICT_SUBTITLE.follow_plan);
   const tone = TONE_CLASSES[VERDICT_TONE[signal.recommendation] ?? 'amber'];
@@ -223,6 +260,16 @@ export default function Today() {
   return (
     <div className="today-spread">
       <h1 className="today-eyebrow font-data"><Trans>Today</Trans> · {dateStr}</h1>
+      {recoveryStale && recoveryLatestLabel && (
+        <div
+          role="status"
+          className="today-staleness-banner rounded-lg border border-dashed border-accent-amber/40 bg-accent-amber/5 px-3 py-2 text-xs text-accent-amber"
+        >
+          <Trans>
+            Recovery data hasn't synced yet. Showing the latest reading from {recoveryLatestLabel}.
+          </Trans>
+        </div>
+      )}
       <div className="today-verdict">
         <div
           className={`relative flex h-44 w-44 sm:h-56 sm:w-56 items-center justify-center rounded-full ring-4 ${tone.ring} ${tone.shadow}`}

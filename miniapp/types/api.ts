@@ -284,6 +284,14 @@ export interface UpcomingWorkout {
 }
 
 export interface TodayResponse {
+  /** ISO `YYYY-MM-DD` — server-local calendar date the response was
+   *  computed for. Clients should render the eyebrow against this rather
+   *  than `new Date()` so a traveler whose device crossed midnight before
+   *  sync caught up doesn't see "today" assert a date the server hasn't
+   *  reached yet (and vice versa). Pair with
+   *  `recovery_analysis.is_stale` / `latest_date` to label the actual
+   *  reading date when sync lags. */
+  as_of_date: string;
   signal: TrainingSignal;
   tsb_sparkline: TsbSparkline;
   warnings: string[];

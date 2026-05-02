@@ -35,6 +35,13 @@ def _build_today_payload(user_id: str, db: Session) -> dict:
     signal = get_signal_pack(ctx)
     widgets = get_today_widgets(ctx)
     return {
+        # Server-local calendar date the response was computed for. Clients
+        # render the eyebrow against this rather than `new Date()` so a
+        # traveler whose device time crossed midnight before sync caught up
+        # doesn't see "today" assert a date the server hasn't reached yet
+        # (and vice versa). Pair with `recovery_analysis.is_stale` /
+        # `latest_date` to label the actual reading date when sync lags.
+        "as_of_date": ctx.today.isoformat(),
         "signal": signal["signal"],
         "tsb_sparkline": signal["tsb_sparkline"],
         "warnings": signal["warnings"],

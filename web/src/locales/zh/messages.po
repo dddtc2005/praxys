@@ -168,7 +168,7 @@ msgid "6M"
 msgstr "6月"
 
 #: src/components/RecoveryPanel.tsx:141
-#: src/pages/Today.tsx:242
+#: src/pages/Today.tsx:289
 msgid "7d Trend"
 msgstr "7天趋势"
 
@@ -219,7 +219,7 @@ msgid "Actual"
 msgstr "实际"
 
 #: src/components/SignalHero.tsx:22
-#: src/pages/Today.tsx:69
+#: src/pages/Today.tsx:68
 msgid "Adjust Workout"
 msgstr "调整训练"
 
@@ -340,7 +340,7 @@ msgid "Cancel"
 msgstr "取消"
 
 #: src/components/SignalHero.tsx:23
-#: src/pages/Today.tsx:59
+#: src/pages/Today.tsx:58
 msgid "CAUTION"
 msgstr "注意"
 
@@ -540,7 +540,7 @@ msgstr "当前设置为基于 {0} 的训练"
 msgid "Cycling"
 msgstr "骑行"
 
-#: src/pages/Today.tsx:246
+#: src/pages/Today.tsx:293
 msgid "daily score"
 msgstr "每日评分"
 
@@ -568,7 +568,7 @@ msgstr "剩余天数"
 msgid "Deactivate"
 msgstr "停用"
 
-#: src/pages/Today.tsx:113
+#: src/pages/Today.tsx:112
 msgid "declining"
 msgstr "下降"
 
@@ -687,7 +687,7 @@ msgid "e.g. 8:00:00"
 msgstr "例如 8:00:00"
 
 #: src/components/SignalHero.tsx:21
-#: src/pages/Today.tsx:57
+#: src/pages/Today.tsx:56
 msgid "EASY"
 msgstr "轻松"
 
@@ -704,7 +704,7 @@ msgstr "编辑"
 msgid "Elev"
 msgstr "爬升"
 
-#: src/pages/Today.tsx:123
+#: src/pages/Today.tsx:122
 msgid "elevated"
 msgstr "偏高"
 
@@ -750,7 +750,7 @@ msgstr "长时间休息期。体能在下降。"
 msgid "Failed (HTTP {0})"
 msgstr "失败（HTTP {0}）"
 
-#: src/pages/Today.tsx:172
+#: src/pages/Today.tsx:186
 msgid "Failed to load"
 msgstr "加载失败"
 
@@ -794,7 +794,7 @@ msgstr "疲劳"
 msgid "Fatigue is climbing — watch recovery before adding load."
 msgstr "疲劳正在上升——在增加负荷前先关注恢复。"
 
-#: src/pages/Today.tsx:211
+#: src/pages/Today.tsx:248
 msgid "fatigued"
 msgstr "疲劳"
 
@@ -826,7 +826,7 @@ msgid "Flat"
 msgstr "持平"
 
 #: src/components/SignalHero.tsx:20
-#: src/pages/Today.tsx:67
+#: src/pages/Today.tsx:66
 msgid "Follow Plan"
 msgstr "按计划进行"
 
@@ -884,12 +884,12 @@ msgid "Get started with Praxys"
 msgstr "开始使用 Praxys"
 
 #: src/components/SignalHero.tsx:20
-#: src/pages/Today.tsx:56
+#: src/pages/Today.tsx:55
 msgid "GO"
 msgstr "开练"
 
 #: src/components/SignalHero.tsx:21
-#: src/pages/Today.tsx:68
+#: src/pages/Today.tsx:67
 msgid "Go Easy"
 msgstr "轻松进行"
 
@@ -1003,7 +1003,7 @@ msgstr "HRV 低于阈值（Kiviniemi）"
 msgid "HRV within normal range"
 msgstr "HRV 处于正常范围内"
 
-#: src/pages/Today.tsx:112
+#: src/pages/Today.tsx:111
 msgid "improving"
 msgstr "改善"
 
@@ -1111,7 +1111,7 @@ msgstr "退出登录"
 msgid "Login"
 msgstr "登录"
 
-#: src/pages/Today.tsx:124
+#: src/pages/Today.tsx:123
 msgid "low"
 msgstr "偏低"
 
@@ -1146,7 +1146,7 @@ msgstr "马拉松"
 msgid "Max HR"
 msgstr "最大心率"
 
-#: src/pages/Today.tsx:210
+#: src/pages/Today.tsx:247
 msgid "mild fatigue"
 msgstr "轻度疲劳"
 
@@ -1160,7 +1160,7 @@ msgid "Mode"
 msgstr "模式"
 
 #: src/components/SignalHero.tsx:22
-#: src/pages/Today.tsx:58
+#: src/pages/Today.tsx:57
 msgid "MODIFY"
 msgstr "调整"
 
@@ -1213,10 +1213,10 @@ msgstr "未找到活动。"
 msgid "No announcements yet"
 msgstr "还没有公告"
 
-#: src/pages/Today.tsx:200
-#: src/pages/Today.tsx:242
-#: src/pages/Today.tsx:243
-#: src/pages/Today.tsx:244
+#: src/pages/Today.tsx:237
+#: src/pages/Today.tsx:289
+#: src/pages/Today.tsx:290
+#: src/pages/Today.tsx:291
 msgid "no data"
 msgstr "无数据"
 
@@ -1244,7 +1244,7 @@ msgstr "没有可用的分段数据。"
 msgid "No Workout"
 msgstr "无训练"
 
-#: src/pages/Today.tsx:125
+#: src/pages/Today.tsx:124
 msgid "normal"
 msgstr "正常"
 
@@ -1310,7 +1310,7 @@ msgstr "选项"
 msgid "Other Signals"
 msgstr "其他信号"
 
-#: src/pages/Today.tsx:244
+#: src/pages/Today.tsx:291
 msgid "overnight score"
 msgstr "夜间评分"
 
@@ -1347,7 +1347,7 @@ msgstr "计划"
 msgid "Planned"
 msgstr "计划"
 
-#: src/pages/Today.tsx:250
+#: src/pages/Today.tsx:297
 msgid "Planned · Today"
 msgstr "今日计划"
 
@@ -1359,7 +1359,7 @@ msgstr "计划中的条形为估算值 — 您的计划在当前训练基础下�
 msgid "Planned Workout"
 msgstr "计划训练"
 
-#: src/pages/Today.tsx:209
+#: src/pages/Today.tsx:246
 msgid "positive"
 msgstr "状态良好"
 
@@ -1498,7 +1498,7 @@ msgstr "重新推送到 Stryd"
 msgid "Read-only accounts that mirror your dashboard data"
 msgstr "镜像您仪表盘数据的只读账号"
 
-#: src/pages/Today.tsx:246
+#: src/pages/Today.tsx:293
 msgid "Readiness"
 msgstr "准备度"
 
@@ -1530,8 +1530,12 @@ msgstr "推荐"
 msgid "Recovery"
 msgstr "恢复"
 
+#: src/pages/Today.tsx:268
+msgid "Recovery data hasn't synced yet. Showing the latest reading from {recoveryLatestLabel}."
+msgstr "今日恢复数据尚未同步，显示的是 {recoveryLatestLabel} 的最近读数。"
+
 #: src/components/SignalHero.tsx:24
-#: src/pages/Today.tsx:71
+#: src/pages/Today.tsx:70
 msgid "Recovery Day"
 msgstr "恢复日"
 
@@ -1553,7 +1557,7 @@ msgid "Redirecting..."
 msgstr "正在重定向..."
 
 #: src/components/SignalHero.tsx:23
-#: src/pages/Today.tsx:70
+#: src/pages/Today.tsx:69
 msgid "Reduce Intensity"
 msgstr "降低强度"
 
@@ -1590,11 +1594,11 @@ msgid "Rest"
 msgstr "休息"
 
 #: src/components/SignalHero.tsx:24
-#: src/pages/Today.tsx:60
+#: src/pages/Today.tsx:59
 msgid "REST"
 msgstr "休息"
 
-#: src/pages/Today.tsx:213
+#: src/pages/Today.tsx:250
 msgid "Rest day. No workout scheduled."
 msgstr "休息日。今日无训练安排。"
 
@@ -1606,7 +1610,7 @@ msgstr "静息心率"
 #: src/pages/Goal.tsx:442
 #: src/pages/History.tsx:53
 #: src/pages/Settings.tsx:316
-#: src/pages/Today.tsx:175
+#: src/pages/Today.tsx:189
 #: src/pages/Training.tsx:54
 msgid "Retry"
 msgstr "重试"
@@ -1623,7 +1627,7 @@ msgstr "撤销"
 msgid "Revoked"
 msgstr "已撤销"
 
-#: src/pages/Today.tsx:243
+#: src/pages/Today.tsx:290
 msgid "RHR"
 msgstr "静息心率"
 
@@ -1726,7 +1730,7 @@ msgid "Skip for now"
 msgstr "暂时跳过"
 
 #: src/components/RecoveryPanel.tsx:174
-#: src/pages/Today.tsx:244
+#: src/pages/Today.tsx:291
 msgid "Sleep"
 msgstr "睡眠"
 
@@ -1753,8 +1757,8 @@ msgstr "睡眠、HRV、恢复度"
 msgid "Source"
 msgstr "来源"
 
-#: src/pages/Today.tsx:111
-#: src/pages/Today.tsx:122
+#: src/pages/Today.tsx:110
+#: src/pages/Today.tsx:121
 msgid "stable"
 msgstr "稳定"
 
@@ -1790,7 +1794,7 @@ msgstr "力量训练"
 msgid "Stretch"
 msgstr "挑战目标"
 
-#: src/pages/Today.tsx:208
+#: src/pages/Today.tsx:245
 msgid "strongly positive"
 msgstr "状态极佳"
 
@@ -1933,8 +1937,8 @@ msgstr "距目标"
 #: src/components/AppSidebar.tsx:108
 #: src/components/charts/FitnessFatigueChart.tsx:216
 #: src/components/RecoveryPanel.tsx:118
-#: src/pages/Today.tsx:20
-#: src/pages/Today.tsx:225
+#: src/pages/Today.tsx:19
+#: src/pages/Today.tsx:262
 msgid "Today"
 msgstr "今日"
 
@@ -2059,7 +2063,7 @@ msgid "VO2max, CP, LTHR, training status"
 msgstr "VO2max、CP、LTHR、训练状态"
 
 #. placeholder {0}: hrv.baseline_mean_ln.toFixed(2)
-#: src/pages/Today.tsx:200
+#: src/pages/Today.tsx:237
 msgid "vs {0} baseline"
 msgstr "对比基准 {0}"
 

@@ -279,7 +279,15 @@ interface RenderState {
   /** 'light' | 'dark' — narrow form retained because the share-card
    *  generator and theme-toggle path still consume it. */
   chartTheme: 'light' | 'dark';
+  /** Localized long-form date for the page eyebrow. Sourced from the
+   *  server's `as_of_date` once a response arrives — falls back to the
+   *  device's local date for the loading skeleton (so the skeleton
+   *  renders something reasonable rather than blank). */
   today: string;
+  /** Stale-data / timezone-mismatch advisory shown above the signal
+   *  hero. Empty string means hide the banner. The string already
+   *  carries the localized reading-date when relevant. */
+  stalenessText: string;
   loading: boolean;
   errorMessage: string;
   hasResponse: boolean;
@@ -310,6 +318,49 @@ interface RenderState {
   warnings: string[];
 }
 
+// Format an ISO `YYYY-MM-DD` as a long-form localized date, parsing as a
+// local calendar date (not UTC midnight) so server-emitted "2026-05-02"
+// doesn't shift backward in negative-offset timezones. Falls back to the
+// raw string on parse failure so the eyebrow is never blank.
+function formatIsoDateLong(isoDate: string, locale: 'en' | 'zh'): string {
+  const [y, m, day] = isoDate.split('-').map(Number);
+  if (!y || !m || !day) return isoDate;
+  return new Date(y, m - 1, day).toLocaleDateString(
+    locale === 'zh' ? 'zh-CN' : 'en-US',
+    { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' },
+  );
+}
+
+// Short ("Apr 24" / "4月24日") variant used inside the staleness banner
+// so the latest-reading-date chip reads compactly inline.
+function formatIsoDateShort(isoDate: string, locale: 'en' | 'zh'): string {
+  const [y, m, day] = isoDate.split('-').map(Number);
+  if (!y || !m || !day) return isoDate;
+  return new Date(y, m - 1, day).toLocaleDateString(
+    locale === 'zh' ? 'zh-CN' : 'en-US',
+    { month: 'short', day: 'numeric' },
+  );
+}
+
+// Build the staleness advisory string, or '' to hide the banner.
+// Mirrors web/src/pages/Today.tsx — same conditions, same wording so a
+// user moving between surfaces gets a consistent message. Note we
+// deliberately don't flag client-vs-server-date divergence as a
+// "timezone changed" signal: the server runs in a single fixed tz
+// (UTC on Azure), so a 1-day offset is the steady state for half the
+// world. The eyebrow renders `as_of_date` honestly, which is enough.
+function buildStalenessText(
+  ra: RecoveryAnalysis | null,
+  locale: 'en' | 'zh',
+): string {
+  const recoveryStale = ra?.is_stale === true && !!ra?.latest_date;
+  if (!recoveryStale || !ra?.latest_date) return '';
+  return tFmt(
+    "Recovery data hasn't synced yet. Showing the latest reading from {0}.",
+    formatIsoDateShort(ra.latest_date, locale),
+  );
+}
+
 function buildRenderState(
   response: TodayResponse | null,
   themeClass: string,
@@ -321,6 +372,17 @@ function buildRenderState(
   }
 
   const meta = signalMeta()[response.signal.recommendation] ?? signalMeta().follow_plan;
+
+  // Eyebrow date now comes from the server's `as_of_date` (parsed as
+  // local-calendar) rather than `new Date()` — see buildStalenessText
+  // for the reasoning. The fall-back local date the page set on first
+  // load is replaced once the response arrives.
+  const localeForDate = detectLocale();
+  const eyebrowDate = formatIsoDateLong(response.as_of_date, localeForDate);
+  const stalenessText = buildStalenessText(
+    response.recovery_analysis ?? null,
+    localeForDate,
+  );
 
   // Coach receipt: the LLM-generated daily brief, rendered between the
   // signal hero and the supporting cells. When present, suppresses the
@@ -360,7 +422,8 @@ function buildRenderState(
 
   return {
     themeClass,
-    today,
+    today: eyebrowDate,
+    stalenessText,
     loading: false,
     errorMessage: '',
     hasResponse: true,
@@ -424,6 +487,7 @@ const initialData: RenderState & RefreshState = {
   themeClass: getApp<IAppOption>().globalData.themeClass,
   chartTheme: 'light',
   today: '',
+  stalenessText: '',
   loading: true,
   errorMessage: '',
   hasResponse: false,
