@@ -975,8 +975,8 @@ def _sync_coros(user_id: str, creds: dict, from_date: str | None,
         fetch_daily_metrics,
         fetch_fitness_summary,
         parse_activities,
-        parse_splits,
-        parse_activity_stream as parse_coros_stream,
+        parse_fit_laps,
+        parse_fit_stream,
         parse_daily_metrics as parse_daily,
         parse_fitness_summary as parse_fitness,
         mobile_login,
@@ -1046,9 +1046,11 @@ def _sync_coros(user_id: str, creds: dict, from_date: str | None,
         with _sync_lock:
             status.setdefault("coros", {})["progress"] = f"Fetching splits: {idx + 1}/{total}"
         try:
-            detail = fetch_activity_detail(access_token, region, act_id)
-            all_splits.extend(parse_splits(act_id, detail))
-            all_samples.extend(parse_coros_stream(act_id, detail))
+            sport_type = raw_act.get("sportType")
+            fit_bytes = fetch_activity_detail(access_token, region, act_id, sport_type)
+            if fit_bytes:
+                all_splits.extend(parse_fit_laps(act_id, fit_bytes))
+                all_samples.extend(parse_fit_stream(act_id, fit_bytes))
             time_mod.sleep(0.3)
         except Exception as e:
             logger.debug("COROS splits for %s: skipped (%s)", act_id, e)
