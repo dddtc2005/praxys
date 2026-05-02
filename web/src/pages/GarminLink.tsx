@@ -166,11 +166,11 @@ export default function GarminLink() {
 
       <p className="text-sm text-muted-foreground max-w-3xl">
         <Trans>
-          We've started a browser session on our server and pre-filled your
-          Garmin credentials. Solve any CAPTCHA or MFA challenge in the
-          window below to complete sign-in. We capture the resulting tokens
-          automatically — you won't need to do this again unless they expire
-          (~30 days).
+          We've started a browser session on our server. Type your Garmin
+          credentials in the window below and complete any CAPTCHA or MFA
+          challenge — that lets the challenge resolve against our IP. We
+          capture the resulting tokens automatically; you won't need to
+          do this again unless they expire (~30 days).
         </Trans>
       </p>
 

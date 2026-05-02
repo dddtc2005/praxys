@@ -129,21 +129,16 @@ def test_get_session_403_when_session_belongs_to_other_user(app_with_user):
 # Session validation
 # ---------------------------------------------------------------------------
 
-def test_start_interactive_rejects_empty_credentials(app_with_user):
-    client, _, token, _ = app_with_user
-    res = client.post(
-        "/api/settings/connections/garmin/interactive",
-        json={"email": "", "password": "p", "is_cn": False},
-        headers={"Authorization": f"Bearer {token}"},
-    )
-    assert res.status_code == 400
-
-
 def test_start_interactive_creates_session_and_skips_chromium_in_test(
     app_with_user, monkeypatch,
 ):
     """Don't launch Chromium during tests — we just verify the API stub
-    that creates the session, queues the worker, and returns the id."""
+    that creates the session, queues the worker, and returns the id.
+
+    The request body is region-only — credentials get typed directly
+    into the relayed Garmin login form, captured server-side by the
+    Playwright request listener.
+    """
     client, user_id, token, _ = app_with_user
 
     # Skip the real install + worker; the latter would launch Playwright
@@ -161,7 +156,7 @@ def test_start_interactive_creates_session_and_skips_chromium_in_test(
 
     res = client.post(
         "/api/settings/connections/garmin/interactive",
-        json={"email": "user@example.com", "password": "secret", "is_cn": False},
+        json={"is_cn": False},
         headers={"Authorization": f"Bearer {token}"},
     )
     assert res.status_code == 200, res.text

@@ -203,6 +203,14 @@ export default function Settings() {
   const [backfillDate, setBackfillDate] = useState('');
   const [showBackfill, setShowBackfill] = useState(false);
   const [connectPlatform, setConnectPlatform] = useState<string | null>(null);
+  // When ``true`` the connect dialog is acting as a re-authentication
+  // flow for an already-connected Garmin user — they specifically came
+  // here for the interactive path because the headless one isn't
+  // working, so we drop the redundant "Connect" button and surface
+  // "Use interactive login" as the primary action. Reset whenever the
+  // dialog closes so a subsequent fresh-connect attempt sees the full
+  // form.
+  const [isReauth, setIsReauth] = useState(false);
   const [connectCreds, setConnectCreds] = useState<Record<string, string>>({});
   const [connectError, setConnectError] = useState('');
   const [connecting, setConnecting] = useState(false);
@@ -495,19 +503,18 @@ export default function Settings() {
   };
 
   const handleInteractiveGarminLogin = async () => {
-    if (!connectCreds.email || !connectCreds.password) {
-      setConnectError(t`Email and password are required.`);
-      return;
-    }
     setConnecting(true);
     setConnectError('');
     try {
+      // Email/password aren't sent — the user types them directly into
+      // the relayed Garmin login form (and our backend captures them
+      // from the /portal/api/login POST body for storage). Region is
+      // the only thing we need up-front so Playwright knows which
+      // Garmin SSO domain to navigate to.
       const res = await fetch(`${API_BASE}/api/settings/connections/garmin/interactive`, {
         method: 'POST',
         headers: { ...getAuthHeaders() as Record<string, string>, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: connectCreds.email,
-          password: connectCreds.password,
           is_cn: connectRegion === 'cn',
         }),
       });
@@ -915,45 +922,43 @@ export default function Settings() {
                     </>
                   )}
 
-                  {/* Garmin-only recovery shortcut. When the per-(IP, account)
-                      CAPTCHA gate locks our headless flow out, the user
-                      shouldn't have to disconnect first to find the
-                      interactive-login CTA — opening the connect dialog
-                      directly preserves the existing tokens until the
-                      new ones are captured. See api/routes/garmin_link.py
-                      for the rationale. */}
-                  {isConnected && platform === 'garmin' && (
-                    <>
-                      <Separator />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-xs self-start"
-                        onClick={() => {
-                          setConnectPlatform('garmin');
-                          setConnectCreds({});
-                          setConnectError('');
-                          setConnectRegion(
-                            String(config?.source_options?.garmin_region) === 'cn' ? 'cn' : 'international'
-                          );
-                        }}
-                      >
-                        <Trans>Re-authenticate (interactive)</Trans>
-                      </Button>
-                    </>
-                  )}
-
                   {isConnected && (
                     <>
                       <Separator />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-xs text-muted-foreground hover:text-destructive self-start"
-                        onClick={() => handleDisconnect(platform)}
-                      >
-                        <Trans>Disconnect</Trans>
-                      </Button>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs text-muted-foreground hover:text-destructive"
+                          onClick={() => handleDisconnect(platform)}
+                        >
+                          <Trans>Disconnect</Trans>
+                        </Button>
+                        {/* Garmin-only recovery shortcut. When the per-(IP,
+                            account) CAPTCHA gate locks our headless flow
+                            out, the user shouldn't have to disconnect
+                            first to reach the interactive-login dialog —
+                            keeps the existing tokens around until fresh
+                            ones are captured. */}
+                        {platform === 'garmin' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs text-muted-foreground hover:text-foreground"
+                            onClick={() => {
+                              setConnectPlatform('garmin');
+                              setConnectCreds({});
+                              setConnectError('');
+                              setIsReauth(true);
+                              setConnectRegion(
+                                String(config?.source_options?.garmin_region) === 'cn' ? 'cn' : 'international'
+                              );
+                            }}
+                          >
+                            <Trans>Re-authenticate</Trans>
+                          </Button>
+                        )}
+                      </div>
                     </>
                   )}
                 </CardContent>
@@ -964,12 +969,26 @@ export default function Settings() {
       </div>
 
       {/* Connect Platform Dialog */}
-      <Dialog open={!!connectPlatform} onOpenChange={(open) => { if (!open) setConnectPlatform(null); }}>
+      <Dialog
+        open={!!connectPlatform}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConnectPlatform(null);
+            setIsReauth(false);
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle><Trans>Connect {connectPlatform ? (PLATFORM_META[connectPlatform]?.label || connectPlatform) : ''}</Trans></DialogTitle>
+            <DialogTitle>
+              {isReauth ? (
+                <Trans>Re-authenticate Garmin</Trans>
+              ) : (
+                <Trans>Connect {connectPlatform ? (PLATFORM_META[connectPlatform]?.label || connectPlatform) : ''}</Trans>
+              )}
+            </DialogTitle>
             <DialogDescription>
-              {connectPlatform && PLATFORM_CRED_FIELDS[connectPlatform]?.help}
+              {!isReauth && connectPlatform && PLATFORM_CRED_FIELDS[connectPlatform]?.help}
             </DialogDescription>
           </DialogHeader>
           {connectError && (
@@ -982,19 +1001,25 @@ export default function Settings() {
               onSubmit={(e) => { e.preventDefault(); handleConnect(); }}
               className="space-y-4"
             >
-              {PLATFORM_CRED_FIELDS[connectPlatform].fields.map((field) => (
-                <div key={field.key} className="space-y-2">
-                  <Label htmlFor={`connect-${field.key}`}>{field.label}</Label>
-                  <Input
-                    id={`connect-${field.key}`}
-                    type={field.type}
-                    value={connectCreds[field.key] || ''}
-                    onChange={(e) => setConnectCreds({ ...connectCreds, [field.key]: e.target.value })}
-                    disabled={connecting}
-                    autoComplete={field.key.includes('token') ? 'off' : field.type === 'password' ? 'current-password' : field.type}
-                  />
-                </div>
-              ))}
+              {/* Credential inputs hidden in Garmin re-auth mode — the
+                  user types the creds directly in the Playwright-relayed
+                  Garmin login page (see api/routes/garmin_link.py). This
+                  also prevents the browser's saved-Praxys-credential
+                  autofill from clobbering whatever the user typed here. */}
+              {!(isReauth && connectPlatform === 'garmin') &&
+                PLATFORM_CRED_FIELDS[connectPlatform].fields.map((field) => (
+                  <div key={field.key} className="space-y-2">
+                    <Label htmlFor={`connect-${field.key}`}>{field.label}</Label>
+                    <Input
+                      id={`connect-${field.key}`}
+                      type={field.type}
+                      value={connectCreds[field.key] || ''}
+                      onChange={(e) => setConnectCreds({ ...connectCreds, [field.key]: e.target.value })}
+                      disabled={connecting}
+                      autoComplete={field.key.includes('token') ? 'off' : field.type === 'password' ? 'current-password' : field.type}
+                    />
+                  </div>
+                ))}
               {connectPlatform === 'garmin' && (
                 <div className="space-y-2">
                   <Label><Trans>Region</Trans></Label>
@@ -1045,41 +1070,79 @@ export default function Settings() {
                   </p>
                 </div>
               )}
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="ghost" onClick={() => setConnectPlatform(null)} disabled={connecting}>
-                  <Trans>Cancel</Trans>
-                </Button>
-                <Button type="submit" disabled={connecting}>
-                  {connecting ? <Trans>Connecting...</Trans> : <Trans>Connect</Trans>}
-                </Button>
-              </div>
-              {/* Interactive-login fallback. Garmin's bot model gates fresh
-                  SSO from datacenter IPs behind a CAPTCHA; when the standard
-                  POST flow returns CAPTCHA_REQUIRED there's no headless way
-                  to satisfy it. The interactive flow opens a server-side
-                  Chromium that we relay to the user's screen so they can
-                  solve the challenge in our IP context — see
-                  api/routes/garmin_link.py for the rationale and mechanics. */}
-              {connectPlatform === 'garmin' && (
-                <div className="border-t border-border pt-3 text-xs text-muted-foreground space-y-2">
-                  <p>
+              {/* Action layout differs by mode. Re-auth users came here
+                  *because* the headless Connect path failed for them, so
+                  showing it again as the primary CTA is misleading — we
+                  promote "Use interactive login" instead. Initial-connect
+                  users get the regular Connect button, with interactive
+                  available as a small fallback link below. */}
+              {connectPlatform === 'garmin' && isReauth ? (
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs text-muted-foreground">
                     <Trans>
-                      Seeing "CAPTCHA required" or repeated login failures?
-                      Garmin sometimes flags datacenter IPs and requires
-                      an interactive challenge. Use the link below to
-                      complete sign-in with our server in the loop.
+                      We'll open a Garmin sign-in page on our server. Type
+                      your credentials there and complete any CAPTCHA or
+                      MFA — that lets the challenge resolve against our
+                      IP. Your existing connection stays in place until
+                      new tokens are captured.
                     </Trans>
                   </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleInteractiveGarminLogin()}
-                    disabled={connecting || !connectCreds.email || !connectCreds.password}
-                  >
-                    <Trans>Use interactive login</Trans>
-                  </Button>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => { setConnectPlatform(null); setIsReauth(false); }}
+                      disabled={connecting}
+                    >
+                      <Trans>Cancel</Trans>
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => handleInteractiveGarminLogin()}
+                      disabled={connecting}
+                    >
+                      {connecting ? <Trans>Starting…</Trans> : <Trans>Continue</Trans>}
+                    </Button>
+                  </div>
                 </div>
+              ) : (
+                <>
+                  <div className="flex justify-end gap-2">
+                    <Button type="button" variant="ghost" onClick={() => setConnectPlatform(null)} disabled={connecting}>
+                      <Trans>Cancel</Trans>
+                    </Button>
+                    <Button type="submit" disabled={connecting}>
+                      {connecting ? <Trans>Connecting...</Trans> : <Trans>Connect</Trans>}
+                    </Button>
+                  </div>
+                  {/* Interactive-login fallback for the initial-connect
+                      flow. Garmin's bot model gates fresh SSO from
+                      datacenter IPs behind a CAPTCHA; when the standard
+                      POST flow returns CAPTCHA_REQUIRED there's no
+                      headless way to satisfy it. */}
+                  {connectPlatform === 'garmin' && (
+                    <div className="border-t border-border pt-3 text-xs text-muted-foreground space-y-2">
+                      <p>
+                        <Trans>
+                          Seeing "CAPTCHA required" or repeated login
+                          failures? Garmin sometimes flags datacenter IPs
+                          and requires an interactive challenge. Use the
+                          link below to complete sign-in with our server
+                          in the loop.
+                        </Trans>
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleInteractiveGarminLogin()}
+                        disabled={connecting}
+                      >
+                        <Trans>Use interactive login</Trans>
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </form>
           )}

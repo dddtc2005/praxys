@@ -112,14 +112,28 @@ JPEG_QUALITY = 65
 def _browsers_path() -> Path:
     """Where Playwright's Chromium binaries live.
 
-    Default Playwright location is ``~/.cache/ms-playwright``; on Azure
-    App Service ``$HOME`` resolves to ``/home``, which IS persisted
-    across restarts (it's the shared Azure Files mount), so the install
-    survives. We make it explicit so dev-mode and prod agree.
+    Matches Playwright's own per-platform defaults so that an install
+    triggered outside our subprocess (e.g. a developer running
+    ``playwright install chromium`` manually) is detected on the next
+    startup and we don't wastefully reinstall — and conversely, a fresh
+    install we kick off lands where Playwright will look for it.
+
+    * macOS: ``~/Library/Caches/ms-playwright``
+    * Windows: ``%LOCALAPPDATA%/ms-playwright``
+    * Linux (incl. Azure App Service): ``~/.cache/ms-playwright``
+
+    Honors ``PLAYWRIGHT_BROWSERS_PATH`` as the explicit override
+    Playwright itself respects.
     """
     override = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
     if override:
         return Path(override)
+    if sys.platform == "win32":
+        local = os.environ.get("LOCALAPPDATA")
+        if local:
+            return Path(local) / "ms-playwright"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Caches" / "ms-playwright"
     return Path.home() / ".cache" / "ms-playwright"
 
 
@@ -372,20 +386,13 @@ def _run_browser_session(session: _Session) -> None:
             page.goto(_portal_signin_url(session.is_cn), wait_until="domcontentloaded")
             session.state = "ready"
 
-            # Pre-fill credentials so the user only has to solve CAPTCHA
-            # / MFA. The actual selectors come from Garmin's portal SSO
-            # markup; if they change, the autotype quietly fails and the
-            # user can still type manually in the relayed view.
-            try:
-                page.wait_for_selector("input#email", timeout=10_000)
-                page.fill("input#email", session.email)
-                page.fill("input#password", session.password)
-            except Exception as exc:
-                logger.info(
-                    "Autotype failed for session %s (selectors changed?): %s — "
-                    "user can still type manually.",
-                    session.id, exc,
-                )
+            # The user types credentials directly in the relayed viewport.
+            # We don't autotype because (a) browser-saved Praxys credentials
+            # were autofilling our dialog inputs and silently overwriting
+            # what we'd POST to Playwright, breaking the Garmin login; and
+            # (b) ``page.fill()`` bypasses keystroke-based event handlers
+            # that some Garmin form variants rely on. Captured creds still
+            # get persisted via the request listener on /portal/api/login.
 
             last_frame_at = 0.0
             frame_interval = 1.0 / RELAY_FPS
@@ -503,8 +510,6 @@ def _apply_input_event(page, evt: dict) -> None:
 # ---------------------------------------------------------------------------
 
 class StartInteractiveLoginRequest(BaseModel):
-    email: str
-    password: str
     is_cn: bool = False
 
 
@@ -515,13 +520,13 @@ def start_interactive_login(
 ) -> dict:
     """Start a Playwright session for the caller and return its id.
 
-    Doesn't store credentials yet — that happens after the WS flow
-    captures tokens and we know the login worked. If the user closes
-    the page mid-flow, nothing persists.
+    Credentials aren't passed in — the user types them directly into
+    the relayed Garmin login form. Our request listener on
+    ``/portal/api/login`` captures the actually-submitted email and
+    password, so we still persist them in the encrypted creds blob
+    after a successful login. Region (``is_cn``) is the only thing we
+    need up-front to know which Garmin SSO domain to navigate to.
     """
-    if not body.email or not body.password:
-        raise HTTPException(400, "email and password required")
-
     _gc_sessions()
 
     # Install Chromium *before* taking the session-table lock — the
@@ -550,8 +555,8 @@ def start_interactive_login(
         sess = _Session(
             id=session_id,
             user_id=user_id,
-            email=body.email,
-            password=body.password,
+            email="",
+            password="",
             is_cn=body.is_cn,
         )
         _sessions[session_id] = sess
