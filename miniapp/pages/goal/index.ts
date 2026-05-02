@@ -2,7 +2,7 @@ import { setTabBarSelected } from '../../utils/tabbar';
 import type { IAppOption } from '../../app';
 import { apiGet, apiPut } from '../../utils/api-client';
 import type { ApiError } from '../../utils/api-client';
-import type { GoalResponse, Milestone } from '../../types/api';
+import type { GoalResponse, AiInsight, AiInsightFinding } from '../../types/api';
 import { formatTime, formatPace } from '../../utils/format';
 import { applyThemeChrome, themeClassName } from '../../utils/theme';
 import {
@@ -13,9 +13,9 @@ import {
 } from '../../utils/share';
 import { copyUrlToClipboard } from '../../utils/markdown';
 import { t, tFmt } from '../../utils/i18n';
+import { fetchInsight, localizedInsight } from '../../utils/insights';
 
-// Editor distance choices mirror web/src/components/GoalEditor.tsx so the
-// two clients save the same shape to /api/settings.
+// ---- Editor distance choices (unchanged) ----
 type DistanceKey = '5k' | '10k' | 'half' | 'marathon' | '50k' | '50mi' | '100k' | '100mi';
 
 interface DistanceChoice {
@@ -24,25 +24,83 @@ interface DistanceChoice {
   placeholder: string;
 }
 
+// ---- Coach receipt types (mirrors today page local types) ----
+interface CoachFindingRow {
+  id: string;
+  marker: string;
+  tone: AiInsightFinding['type'];
+  text: string;
+}
+
+interface CoachRecRow {
+  index: string;
+  text: string;
+}
+
+interface CoachReceipt {
+  stamp: string;
+  headline: string;
+  hasFindings: boolean;
+  findings: CoachFindingRow[];
+  hasRecommendations: boolean;
+  recommendations: CoachRecRow[];
+  attribution: string;
+}
+
+interface CoachTranslations {
+  mark: string;
+  aria: string;
+  findings: string;
+  recommendations: string;
+}
+
+// ---- Strip cell ----
+interface StripCell {
+  id: string;
+  label: string;
+  value: string;
+  sub: string;
+  accent: string;
+}
+
+// ---- Series payload for CP trend chart ----
+interface SeriesPayload {
+  label: string;
+  color: string;
+  values: (number | null)[];
+  fill?: boolean;
+}
+
+// ---- Editor snapshot ----
+interface EditorSnapshot {
+  type: 'race' | 'continuous';
+  distanceIndex: number;
+  raceDate: string;
+  targetTimeSec: number;
+}
+
+// ---- Science-note URL constants ----
+const SCIENCE_POWER_URL = 'https://help.stryd.com/en/articles/6879547-race-power-calculator';
+const SCIENCE_PACE_URL =
+  'https://runningwritings.com/2024/01/critical-speed-guide-for-runners.html';
+const SCIENCE_ULTRA_URL =
+  'https://runningwritings.com/2024/01/critical-speed-guide-for-runners.html';
+const ULTRA_DISTANCES = new Set(['50k', '50mi', '100k', '100mi']);
+
+// ---- Translations ----
+
 function buildGoalTr() {
   return {
-    // Page-level chrome
     navTitle: t('Goal'),
     failedToLoad: t('Failed to load'),
-    retry: t('Retry'),
-    realityCheck: t('Reality Check'),
-    fitnessTrend: t('Fitness Trend'),
-    currentFitness: t('Current Fitness'),
-    trend: t('Trend'),
-    milestones: t('Milestones'),
-    realisticTargets: t('Realistic targets'),
-    assessment: t('Assessment'),
-    estimatedTime: t('Estimated time to target'),
+    howCalculated: t('How this is calculated'),
+    ultraCaveat: t('Ultra distance caveat'),
+    sourceTapCopy: t('Source — tap to copy URL'),
+    discussionTapCopy: t('Discussion — tap to copy URL'),
+    cpTrend: t('CP trend'),
+    realisticTargets: t('Realistic alternative targets'),
     comfortable: t('Comfortable'),
     stretch: t('Stretch'),
-    howCalculated: t('How this is calculated'),
-    current: t('current'),
-    // Goal editor
     changeGoal: t('Change Goal'),
     editorTitle: t('Set Your Goal'),
     goalType: t('Goal type'),
@@ -61,33 +119,97 @@ function buildGoalTr() {
     raceDateRequired: t('Race date is required'),
     failedToSave: t('Failed to save goal'),
     targetTimeHint: t('0:00:00 = no target time'),
-    predicted: t('Predicted'),
-    target: t('Target'),
-    setTarget: t('+ Set target'),
-    countdown: t('Countdown'),
-    daysUntil: t('days until'),
-    cpTrend: t('CP trend'),
-    trendRising: t('Rising'),
-    trendFalling: t('Falling'),
-    trendFlat: t('Flat'),
-    needed: t('Needed'),
-    gap: t('Gap'),
-    sourceTapCopy: t('Source — tap to copy URL'),
-    discussionTapCopy: t('Discussion — tap to copy URL'),
-    ultraCaveat: t('Ultra distance caveat'),
-    // Inline discard-confirmation row (replaces wx.showModal which renders
-    // behind position:fixed z-index overlays in Skyline/glass-easel).
     discardConfirm: t('Discard'),
     keepEditing: t('Keep editing'),
     discardPrompt: t('Discard changes?'),
   };
 }
 
-interface EditorSnapshot {
-  type: 'race' | 'continuous';
-  distanceIndex: number;
-  raceDate: string;
-  targetTimeSec: number;
+function buildCoachTr(): CoachTranslations {
+  return {
+    mark: 'PRAXYS COACH',
+    aria: t('Praxys Coach insight'),
+    findings: t('Findings'),
+    recommendations: t('Recommendations'),
+  };
+}
+
+// ---- GoalState ----
+
+interface GoalState {
+  themeClass: string;
+  chartTheme: 'light' | 'dark';
+  loading: boolean;
+  errorMessage: string;
+  hasResponse: boolean;
+  refreshing: boolean;
+  mode: GoalResponse['race_countdown']['mode'];
+
+  goalEyebrow: string;
+  goalHeadline: string;
+  showStatusBadge: boolean;
+  statusText: string;
+  statusAccent: string;
+  stripCells: StripCell[];
+  showRealisticTargets: boolean;
+  rdComfortable: string;
+  rdStretch: string;
+  hasRationale: boolean;
+  rationaleText: string;
+
+  hasCoach: boolean;
+  coach: CoachReceipt | null;
+  coachTr: CoachTranslations | null;
+
+  hasCpTrend: boolean;
+  cpTrendDates: string[];
+  cpTrendSeries: SeriesPayload[];
+  cpTrendReferenceY: number | null;
+  cpTrendUnit: string;
+
+  notePredictionText: string;
+  notePredictionUrl: string;
+  notePredictionExpanded: boolean;
+  hasUltraNote: boolean;
+  noteUltraText: string;
+  noteUltraUrl: string;
+  noteUltraExpanded: boolean;
+
+  editorOpen: boolean;
+  editorType: 'race' | 'continuous';
+  editorDistanceLabels: string[];
+  editorDistanceIndex: number;
+  editorRaceDate: string;
+  editorTodayIso: string;
+  editorTimeRange: string[][];
+  editorTimeParts: number[];
+  editorTargetDisplay: string;
+  editorError: string;
+  editorSaving: boolean;
+  editorDirty: boolean;
+  editorConfirmDiscard: boolean;
+}
+
+// ---- Distance helpers ----
+
+function buildDistanceChoices(): DistanceChoice[] {
+  return [
+    { key: '5k', label: t('5K'), placeholder: 'e.g. 20:00' },
+    { key: '10k', label: t('10K'), placeholder: 'e.g. 42:00' },
+    { key: 'half', label: t('Half'), placeholder: 'e.g. 1:30:00' },
+    { key: 'marathon', label: t('Marathon'), placeholder: 'e.g. 3:00:00' },
+    { key: '50k', label: t('50K'), placeholder: 'e.g. 4:30:00' },
+    { key: '50mi', label: t('50 Mi'), placeholder: 'e.g. 8:00:00' },
+    { key: '100k', label: t('100K'), placeholder: 'e.g. 12:00:00' },
+    { key: '100mi', label: t('100 Mi'), placeholder: 'e.g. 24:00:00' },
+  ];
+}
+
+function todayIso(): string {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
 }
 
 function buildTimeRange(): string[][] {
@@ -116,43 +238,34 @@ function timePartsToDisplay(parts: number[]): string {
   return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-function buildDistanceChoices(): DistanceChoice[] {
-  return [
-    { key: '5k', label: t('5K'), placeholder: 'e.g. 20:00' },
-    { key: '10k', label: t('10K'), placeholder: 'e.g. 42:00' },
-    { key: 'half', label: t('Half'), placeholder: 'e.g. 1:30:00' },
-    { key: 'marathon', label: t('Marathon'), placeholder: 'e.g. 3:00:00' },
-    { key: '50k', label: t('50K'), placeholder: 'e.g. 4:30:00' },
-    { key: '50mi', label: t('50 Mi'), placeholder: 'e.g. 8:00:00' },
-    { key: '100k', label: t('100K'), placeholder: 'e.g. 12:00:00' },
-    { key: '100mi', label: t('100 Mi'), placeholder: 'e.g. 24:00:00' },
-  ];
+// ---- Formatting / severity ----
+
+function formatThreshold(value: number, unit: string): string {
+  if (unit === '/km') return formatPace(value);
+  return `${Math.round(value)}`;
 }
 
-function todayIso(): string {
-  const d = new Date();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${m}-${day}`;
+function severityAccent(severity: string): string {
+  switch (severity) {
+    case 'on_track': return 'ts-primary';
+    case 'close': return 'ts-warning';
+    case 'behind':
+    case 'unlikely': return 'ts-destructive';
+    default: return '';
+  }
 }
 
-// Default science-note copy + sources, mirroring web/src/pages/Goal.tsx.
-// Used as fallback when the backend doesn't provide a science_notes.prediction
-// override. URLs are stable (Stryd / runningwritings.com).
-const SCIENCE_POWER_URL = 'https://help.stryd.com/en/articles/6879547-race-power-calculator';
-const SCIENCE_PACE_URL =
-  'https://runningwritings.com/2024/01/critical-speed-guide-for-runners.html';
-const SCIENCE_ULTRA_URL =
-  'https://runningwritings.com/2024/01/critical-speed-guide-for-runners.html';
-const ULTRA_DISTANCES = new Set(['50k', '50mi', '100k', '100mi']);
+function statusBadgeText(status: string): string {
+  return t(status).toUpperCase();
+}
 
-// Defaults are functions so the active locale resolves at call time, not
-// module load (locale changes don't reload the JS, only rebuild tr tables).
+// ---- Science note helpers ----
+
 const defaultPowerNote = () =>
   t('Predicted using Stryd race power model (5K at 103.8% CP, marathon at 89.9% CP).');
 const defaultPaceNote = () =>
   t("Predicted using Riegel's formula (T₂ = T₁ × (D₂/D₁)^1.06), treating threshold pace as ~10K effort.");
-const ultraNote = () =>
+const ultraNoteText = () =>
   t(
     "Ultra distance power fractions (50K+) are estimates with limited research backing. " +
       "Riegel's exponent is validated only up to marathon distance. Predictions beyond marathon " +
@@ -160,10 +273,7 @@ const ultraNote = () =>
       'strategy that dominate ultra performance but are not captured by power/pace models.',
   );
 
-interface PredictionNote {
-  text: string;
-  url: string;
-}
+interface PredictionNote { text: string; url: string; }
 
 function predictionNote(response: GoalResponse): PredictionNote {
   const pred = response.science_notes?.prediction;
@@ -180,156 +290,340 @@ function predictionNote(response: GoalResponse): PredictionNote {
   return { text: defaultPaceNote(), url: SCIENCE_PACE_URL };
 }
 
-function isUltraDistance(distance?: string): boolean {
-  return !!distance && ULTRA_DISTANCES.has(distance);
+// ---- Coach receipt builder ----
+
+function timeAgo(isoDate: string, locale: string): string {
+  const diffMs = Date.now() - new Date(isoDate).getTime();
+  if (Number.isNaN(diffMs)) return '';
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 60) return locale === 'zh' ? `${diffMin}分钟前` : `${diffMin}m ago`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return locale === 'zh' ? `${diffH}小时前` : `${diffH}h ago`;
+  const diffD = Math.floor(diffH / 24);
+  return locale === 'zh' ? `${diffD}天前` : `${diffD}d ago`;
 }
 
-/**
- * Mirrors web/src/pages/Goal.tsx — three modes of goal tracking that
- * render very different layouts:
- *
- *   race_date    — race countdown hero + reality check + CP trend
- *   cp_milestone — target CP progress hero + milestone checklist + CP trend
- *   continuous   — current threshold + trend direction + CP trend
- *   none         — empty state ("set a goal on web")
- *
- * Backend `mode` drives the dispatch. All formatting respects
- * `display.threshold_unit` so HR-base and pace-base users get sensible
- * units (bpm / min/km) rather than power's W default.
- */
-
-interface SeriesPayload {
-  label: string;
-  color: string;
-  values: (number | null)[];
-  fill?: boolean;
+function buildCoachReceipt(insight: AiInsight, locale: 'en' | 'zh'): CoachReceipt {
+  const view = localizedInsight(insight, locale);
+  const findings: CoachFindingRow[] = view.findings.map((f, i) => ({
+    id: `${i}`,
+    marker: f.type === 'positive' ? '[+]' : f.type === 'warning' ? '[!]' : '[·]',
+    tone: f.type,
+    text: f.text,
+  }));
+  const recommendations: CoachRecRow[] = view.recommendations.map((r, i) => ({
+    index: `${i + 1}`,
+    text: r,
+  }));
+  return {
+    stamp: insight.generated_at ? timeAgo(insight.generated_at, locale) : '',
+    headline: view.headline,
+    hasFindings: findings.length > 0,
+    findings,
+    hasRecommendations: recommendations.length > 0,
+    recommendations,
+    attribution: '',
+  };
 }
 
-interface MilestoneRow {
-  cp: number;
-  cpDisplay: string;
-  marathon: string;
-  reached: boolean;
-  isCurrent: boolean;
-  iconClass: string;
-  rowClass: string;
+// ---- Eyebrow builder ----
+
+function buildGoalEyebrow(
+  rc: GoalResponse['race_countdown'],
+  mode: string,
+  distLabel: string,
+  hasTimeTarget: boolean,
+): string {
+  const modeLabel =
+    mode === 'race_date' ? t('Race') : mode === 'cp_milestone' ? t('Goal') : t('Tracking');
+
+  if (mode === 'race_date') {
+    const parts = [modeLabel];
+    if (rc.race_date) parts.push(rc.race_date);
+    if (hasTimeTarget && rc.target_time_sec) parts.push(formatTime(rc.target_time_sec));
+    return parts.join(' · ');
+  }
+  if (mode === 'cp_milestone') {
+    const goalLabel =
+      hasTimeTarget && rc.target_time_sec
+        ? `${formatTime(rc.target_time_sec)} ${distLabel}`
+        : distLabel;
+    return `${modeLabel} · ${goalLabel}`;
+  }
+  return `${modeLabel} · ${distLabel}`;
 }
 
-interface GoalState {
-  themeClass: string;
-  chartTheme: 'light' | 'dark';
-  loading: boolean;
-  errorMessage: string;
-  hasResponse: boolean;
+// ---- Headline builder ----
 
-  // --- Goal editor (modal state) ---
-  editorOpen: boolean;
-  editorType: 'race' | 'continuous';
-  editorDistanceLabels: string[];
-  editorDistanceIndex: number;
-  editorRaceDate: string;
-  editorTodayIso: string;
-  editorTimeRange: string[][];
-  editorTimeParts: number[];
-  editorTargetDisplay: string;
-  editorError: string;
-  editorSaving: boolean;
-  editorDirty: boolean;
-  editorConfirmDiscard: boolean;
-  mode: GoalResponse['race_countdown']['mode'];
+function buildGoalHeadline(
+  rc: GoalResponse['race_countdown'],
+  mode: string,
+  currentCp: number | null,
+  targetCp: number | null,
+  unit: string,
+  abbrev: string,
+  isPace: boolean,
+  distLabel: string,
+): string {
+  if (mode === 'race_date') {
+    const days = rc.days_left ?? 0;
+    const predicted =
+      rc.predicted_time_sec != null ? formatTime(rc.predicted_time_sec) : '—';
+    const hasTimeTarget = rc.target_time_sec != null && rc.target_time_sec > 0;
+    if (hasTimeTarget) {
+      return tFmt(
+        '{0} days to race day. Today\'s prediction is {1} against a target of {2}.',
+        `${days}`, predicted, formatTime(rc.target_time_sec as number),
+      );
+    }
+    return tFmt('{0} days to race day. Today\'s prediction is {1}.', `${days}`, predicted);
+  }
 
-  // Common (CP trend chart shared by all modes that have data).
-  hasCpTrend: boolean;
-  cpTrendDates: string[];
-  cpTrendSeries: SeriesPayload[];
-  cpTrendReferenceY: number | null;
-  cpTrendUnit: string;
+  if (mode === 'cp_milestone') {
+    const currentStr = currentCp != null ? formatThreshold(currentCp, unit) : '—';
+    const targetStr = targetCp != null ? formatThreshold(targetCp, unit) : '—';
+    const hasTimeTarget = rc.target_time_sec != null && rc.target_time_sec > 0;
+    if (hasTimeTarget) {
+      return tFmt(
+        'Building toward {0} {1}. Current {2} {3}{4}, need {5}{4}.',
+        formatTime(rc.target_time_sec as number), distLabel, abbrev, currentStr, unit, targetStr,
+      );
+    }
+    return tFmt(
+      'Building toward {0}. Current {1} {2}{3}, need {4}{3}.',
+      distLabel, abbrev, currentStr, unit, targetStr,
+    );
+  }
 
-  refreshing: boolean;
+  // continuous / none
+  const predicted = rc.predicted_time_sec != null ? formatTime(rc.predicted_time_sec) : null;
+  const trend = rc.cp_trend_summary;
+  const dirLabel = trend
+    ? trend.direction === 'rising'
+      ? t('Rising').toLowerCase()
+      : trend.direction === 'falling'
+        ? t('Falling').toLowerCase()
+        : t('Flat').toLowerCase()
+    : t('Flat').toLowerCase();
 
-  // ScienceNote-equivalent: an expandable "How this is calculated"
-  // section that shows prediction methodology + tappable source link.
-  // Driven by GoalResponse.science_notes.prediction with sensible
-  // defaults per training_base. Also a separate ultra-distance caveat
-  // when rc.distance is in ULTRA_DISTANCES.
-  notePredictionText: string;
-  notePredictionUrl: string;
-  notePredictionExpanded: boolean;
-  hasUltraNote: boolean;
-  noteUltraText: string;
-  noteUltraUrl: string;
-  noteUltraExpanded: boolean;
+  let slopeStr: string | null = null;
+  if (trend && trend.slope_per_month !== 0) {
+    const sign = trend.slope_per_month > 0 ? '+' : '';
+    const formatted = isPace
+      ? formatPace(Math.abs(trend.slope_per_month))
+      : trend.slope_per_month.toFixed(1);
+    slopeStr = `${sign}${formatted}${unit}/mo`;
+  }
 
-  // --- race_date mode ---
-  rdDistLabel: string;
-  rdHasDays: boolean;
-  rdDaysLeft: string;
-  rdRaceDate: string;
-  rdStatusText: string;
-  rdStatusAccent: string;
-  rdHasPredicted: boolean;
-  rdPredictedTime: string;
-  rdHasTarget: boolean;
-  rdTargetTime: string;
-  rdShowReality: boolean;
-  rdAssessment: string;
-  rdAssessmentAccent: string;
-  rdHasGapRow: boolean;
-  rdCurrentCp: string;
-  rdNeededCp: string;
-  rdAbbrev: string;
-  rdHasGapValue: boolean;
-  rdGapValue: string;
-  rdHasTrendNote: boolean;
-  rdTrendNote: string;
-  rdHasRealistic: boolean;
-  rdComfortable: string;
-  rdStretch: string;
-  rdShowTrendOnly: boolean; // no target → simpler trend card
-
-  // --- cp_milestone mode ---
-  cmDistLabel: string;
-  cmHero: string; // headline like "Building toward 3:30:00 Marathon"
-  cmHasPredicted: boolean;
-  cmPredictedTime: string;
-  cmHasTarget: boolean;
-  cmTargetTime: string;
-  cmHasCpProgress: boolean;
-  cmCurrentCp: string;
-  cmTargetCp: string;
-  cmThresholdUnit: string;
-  cmProgressPctLabel: string;
-  cmProgressBarPct: number;
-  cmStatusText: string;
-  cmStatusAccent: string;
-  cmHasMilestones: boolean;
-  cmMilestones: MilestoneRow[];
-  cmHasAssessment: boolean;
-  cmAssessment: string;
-  cmAssessmentAccent: string;
-  cmHasEstimatedMonths: boolean;
-  cmEstimatedMonths: string;
-  cmHasTrendNote: boolean;
-  cmTrendNote: string;
-
-  // --- continuous mode ---
-  ctCurrentCp: string;
-  ctHasCurrentCp: boolean;
-  ctThresholdUnit: string;
-  ctHasTrend: boolean;
-  ctTrendDirection: string;
-  ctTrendAccent: string;
-  ctHasSlope: boolean;
-  ctSlopeText: string;
-  ctHasPredicted: boolean;
-  ctPredictedTime: string;
-  ctDistLabel: string;
-  ctHasAssessment: boolean;
-  ctAssessment: string;
-  ctAssessmentAccent: string;
-  ctHasTrendNote: boolean;
-  ctTrendNote: string;
+  if (predicted && slopeStr) {
+    return tFmt(
+      'Today\'s {0} prediction is {1}. {2} is {3} at {4}.',
+      distLabel, predicted, abbrev, dirLabel, slopeStr,
+    );
+  }
+  if (predicted) {
+    return tFmt(
+      'Today\'s {0} prediction is {1}. {2} is {3}.',
+      distLabel, predicted, abbrev, dirLabel,
+    );
+  }
+  return tFmt('{0} is {1}. Add more activities for a race-time prediction.', abbrev, dirLabel);
 }
+
+// ---- Strip cells builder ----
+
+function buildStripCells(
+  rc: GoalResponse['race_countdown'],
+  mode: string,
+  currentCp: number | null,
+  unit: string,
+  abbrev: string,
+  isPace: boolean,
+  distLabel: string,
+): StripCell[] {
+  const cells: StripCell[] = [];
+  const rCheck = rc.reality_check;
+  const targetCp = rc.target_cp ?? null;
+  const hasTimeTarget = rc.target_time_sec != null && rc.target_time_sec > 0;
+
+  if (mode === 'race_date') {
+    cells.push({
+      id: 'days', label: t('Days left'),
+      value: rc.days_left != null ? `${rc.days_left}` : '—', sub: '', accent: '',
+    });
+    cells.push({
+      id: 'predicted', label: t('Predicted'),
+      value: rc.predicted_time_sec != null ? formatTime(rc.predicted_time_sec) : '—',
+      sub: distLabel, accent: '',
+    });
+    if (hasTimeTarget) {
+      cells.push({
+        id: 'target', label: t('Target'),
+        value: formatTime(rc.target_time_sec as number), sub: distLabel, accent: '',
+      });
+    }
+    cells.push({
+      id: 'current_cp', label: `${t('current')} ${abbrev}`,
+      value: currentCp != null ? formatThreshold(currentCp, unit) : '—', sub: unit, accent: '',
+    });
+    if (rCheck.needed_cp != null) {
+      cells.push({
+        id: 'needed_cp', label: `${t('Needed')} ${abbrev}`,
+        value: formatThreshold(rCheck.needed_cp, unit), sub: unit, accent: '',
+      });
+    }
+    if (rCheck.cp_gap_watts != null) {
+      cells.push({
+        id: 'gap', label: t('Gap'),
+        value: `${rCheck.cp_gap_watts > 0 ? '+' : ''}${
+          isPace
+            ? formatPace(Math.abs(rCheck.cp_gap_watts))
+            : Math.round(rCheck.cp_gap_watts)
+        }`,
+        sub: unit, accent: severityAccent(rCheck.severity),
+      });
+    }
+  } else if (mode === 'cp_milestone') {
+    const gap = currentCp != null && targetCp != null ? targetCp - currentCp : null;
+    cells.push({
+      id: 'gap', label: t('Gap'),
+      value: gap != null
+        ? `${gap > 0 ? '+' : ''}${formatThreshold(Math.abs(gap), unit)}`
+        : '—',
+      sub: unit,
+      accent: gap == null ? '' : gap > 0 ? 'ts-warning' : 'ts-primary',
+    });
+    cells.push({
+      id: 'predicted', label: t('Predicted'),
+      value: rc.predicted_time_sec != null ? formatTime(rc.predicted_time_sec) : '—',
+      sub: distLabel, accent: '',
+    });
+    cells.push({
+      id: 'to_target', label: t('To target'),
+      value: rc.estimated_months != null ? rc.estimated_months.toFixed(1) : '—',
+      sub: rc.estimated_months != null ? t('months') : '',
+      accent: '',
+    });
+  } else {
+    // continuous / none
+    const trend = rc.cp_trend_summary;
+    cells.push({
+      id: 'current_cp', label: `${t('current')} ${abbrev}`,
+      value: currentCp != null ? formatThreshold(currentCp, unit) : '—', sub: unit, accent: '',
+    });
+    const dirLabel = trend
+      ? trend.direction === 'rising' ? t('Rising')
+        : trend.direction === 'falling' ? t('Falling') : t('Flat')
+      : t('Flat');
+    let slopeSub = '';
+    if (trend && trend.slope_per_month !== 0) {
+      const sign = trend.slope_per_month > 0 ? '+' : '';
+      const formatted = isPace
+        ? formatPace(Math.abs(trend.slope_per_month))
+        : trend.slope_per_month.toFixed(1);
+      slopeSub = `${sign}${formatted}${unit}/mo`;
+    }
+    cells.push({
+      id: 'direction', label: t('Direction'),
+      value: dirLabel, sub: slopeSub, accent: severityAccent(rCheck.severity),
+    });
+    if (rc.predicted_time_sec != null) {
+      cells.push({
+        id: 'predicted_cont', label: t('Predicted'),
+        value: formatTime(rc.predicted_time_sec), sub: distLabel, accent: '',
+      });
+    }
+  }
+  return cells;
+}
+
+// ---- Full render state builder ----
+
+function buildGoalState(
+  response: GoalResponse,
+  insight: AiInsight | null,
+  locale: 'en' | 'zh',
+  themeClass: string,
+): Partial<GoalState> {
+  const rc = response.race_countdown;
+  const rCheck = rc.reality_check;
+  const display = response.display;
+  const unit = display?.threshold_unit ?? 'W';
+  const abbrev = display?.threshold_abbrev ?? 'CP';
+  const isPace = unit === '/km';
+  const currentCp = response.latest_cp;
+  const targetCp = rc.target_cp ?? null;
+  const distLabel = t(rc.distance_label ?? 'Marathon');
+  const hasTimeTarget = rc.target_time_sec != null && rc.target_time_sec > 0;
+  const mode = rc.mode;
+
+  const trend = response.cp_trend;
+  const hasCpTrend = !!trend && trend.values.length >= 2;
+
+  const note = predictionNote(response);
+  const isUltra = !!rc.distance && ULTRA_DISTANCES.has(rc.distance);
+
+  let coach: CoachReceipt | null = null;
+  try {
+    if (insight) coach = buildCoachReceipt(insight, locale);
+  } catch (e) {
+    console.warn('[goal] coach receipt build failed; suppressing:', e);
+  }
+  const hasCoach = coach != null;
+
+  const severity = rCheck.severity;
+  const showStatusBadge = severity !== 'unknown';
+
+  const goalEyebrow = buildGoalEyebrow(rc, mode, distLabel, hasTimeTarget);
+  const goalHeadline = buildGoalHeadline(rc, mode, currentCp, targetCp, unit, abbrev, isPace, distLabel);
+  const stripCells = buildStripCells(rc, mode, currentCp, unit, abbrev, isPace, distLabel);
+
+  const showRealisticTargets =
+    mode === 'race_date' &&
+    !!rCheck.realistic_targets &&
+    (severity === 'behind' || severity === 'unlikely');
+
+  return {
+    themeClass,
+    loading: false,
+    errorMessage: '',
+    hasResponse: true,
+    mode,
+
+    goalEyebrow,
+    goalHeadline,
+    showStatusBadge,
+    statusText: statusBadgeText(severity),
+    statusAccent: severityAccent(severity),
+    stripCells,
+    showRealisticTargets,
+    rdComfortable: rCheck.realistic_targets
+      ? formatTime(rCheck.realistic_targets.comfortable)
+      : '',
+    rdStretch: rCheck.realistic_targets ? formatTime(rCheck.realistic_targets.stretch) : '',
+    hasRationale: !hasCoach && !!rCheck.trend_note,
+    rationaleText: rCheck.trend_note ?? '',
+
+    hasCoach,
+    coach,
+    coachTr: hasCoach ? buildCoachTr() : null,
+
+    hasCpTrend,
+    cpTrendDates: hasCpTrend ? trend.dates : [],
+    cpTrendSeries: hasCpTrend
+      ? [{ label: abbrev, color: '#00ff87', values: trend.values, fill: true }]
+      : [],
+    cpTrendReferenceY: targetCp,
+    cpTrendUnit: isPace ? '' : unit,
+
+    notePredictionText: note.text,
+    notePredictionUrl: note.url,
+    hasUltraNote: isUltra,
+    noteUltraText: isUltra ? ultraNoteText() : '',
+  };
+}
+
+// ---- Initial page data ----
 
 const DISTANCE_CHOICES = buildDistanceChoices();
 
@@ -339,12 +633,43 @@ const initialData: GoalState = {
   loading: true,
   errorMessage: '',
   hasResponse: false,
+  refreshing: false,
   mode: 'none',
+
+  goalEyebrow: '',
+  goalHeadline: '',
+  showStatusBadge: false,
+  statusText: '',
+  statusAccent: '',
+  stripCells: [],
+  showRealisticTargets: false,
+  rdComfortable: '',
+  rdStretch: '',
+  hasRationale: false,
+  rationaleText: '',
+
+  hasCoach: false,
+  coach: null,
+  coachTr: null,
+
+  hasCpTrend: false,
+  cpTrendDates: [],
+  cpTrendSeries: [],
+  cpTrendReferenceY: null,
+  cpTrendUnit: '',
+
+  notePredictionText: '',
+  notePredictionUrl: '',
+  notePredictionExpanded: false,
+  hasUltraNote: false,
+  noteUltraText: '',
+  noteUltraUrl: SCIENCE_ULTRA_URL,
+  noteUltraExpanded: false,
 
   editorOpen: false,
   editorType: 'race',
   editorDistanceLabels: DISTANCE_CHOICES.map((d) => d.label),
-  editorDistanceIndex: 3, // marathon default
+  editorDistanceIndex: 3,
   editorRaceDate: '',
   editorTodayIso: todayIso(),
   editorTimeRange: buildTimeRange(),
@@ -354,350 +679,9 @@ const initialData: GoalState = {
   editorSaving: false,
   editorDirty: false,
   editorConfirmDiscard: false,
-
-  hasCpTrend: false,
-  cpTrendDates: [],
-  cpTrendSeries: [],
-  cpTrendReferenceY: null,
-  cpTrendUnit: '',
-
-  refreshing: false,
-
-  notePredictionText: '',
-  notePredictionUrl: '',
-  notePredictionExpanded: false,
-  hasUltraNote: false,
-  // Resolved per-refetch in buildState so locale switches don't leave a
-  // stale English copy behind. Initial value is empty string — the WXML
-  // gates the note card behind hasUltraNote, which only flips true after
-  // the first refetch has run.
-  noteUltraText: '',
-  noteUltraUrl: SCIENCE_ULTRA_URL,
-  noteUltraExpanded: false,
-
-  rdDistLabel: 'Race',
-  rdHasDays: false,
-  rdDaysLeft: '',
-  rdRaceDate: '',
-  rdStatusText: '',
-  rdStatusAccent: '',
-  rdHasPredicted: false,
-  rdPredictedTime: '',
-  rdHasTarget: false,
-  rdTargetTime: '',
-  rdShowReality: false,
-  rdAssessment: '',
-  rdAssessmentAccent: '',
-  rdHasGapRow: false,
-  rdCurrentCp: '',
-  rdNeededCp: '',
-  rdAbbrev: 'CP',
-  rdHasGapValue: false,
-  rdGapValue: '',
-  rdHasTrendNote: false,
-  rdTrendNote: '',
-  rdHasRealistic: false,
-  rdComfortable: '',
-  rdStretch: '',
-  rdShowTrendOnly: false,
-
-  cmDistLabel: 'Race',
-  cmHero: '',
-  cmHasPredicted: false,
-  cmPredictedTime: '',
-  cmHasTarget: false,
-  cmTargetTime: '',
-  cmHasCpProgress: false,
-  cmCurrentCp: '',
-  cmTargetCp: '',
-  cmThresholdUnit: '',
-  cmProgressPctLabel: '',
-  cmProgressBarPct: 0,
-  cmStatusText: '',
-  cmStatusAccent: '',
-  cmHasMilestones: false,
-  cmMilestones: [],
-  cmHasAssessment: false,
-  cmAssessment: '',
-  cmAssessmentAccent: '',
-  cmHasEstimatedMonths: false,
-  cmEstimatedMonths: '',
-  cmHasTrendNote: false,
-  cmTrendNote: '',
-
-  ctCurrentCp: '',
-  ctHasCurrentCp: false,
-  ctThresholdUnit: 'W',
-  ctHasTrend: false,
-  ctTrendDirection: 'Flat',
-  ctTrendAccent: '',
-  ctHasSlope: false,
-  ctSlopeText: '',
-  ctHasPredicted: false,
-  ctPredictedTime: '',
-  ctDistLabel: 'Marathon',
-  ctHasAssessment: false,
-  ctAssessment: '',
-  ctAssessmentAccent: '',
-  ctHasTrendNote: false,
-  ctTrendNote: '',
 };
 
-function severityAccent(severity: string): string {
-  switch (severity) {
-    case 'on_track':
-      return 'ts-primary';
-    case 'close':
-      return 'ts-warning';
-    case 'behind':
-    case 'unlikely':
-      return 'ts-destructive';
-    default:
-      return 'ts-muted';
-  }
-}
-
-function trendDirectionLabel(direction: string): string {
-  if (direction === 'rising') return t('Rising');
-  if (direction === 'falling') return t('Falling');
-  return t('Flat');
-}
-
-function formatThreshold(value: number, unit: string): string {
-  if (unit === '/km') return formatPace(value);
-  return `${Math.round(value)}`;
-}
-
-function statusBadgeText(status: string): string {
-  // Badge displays ALL CAPS for en (e.g. 'On track' → 'ON TRACK').
-  // toUpperCase is a no-op on CJK characters so zh translations ('达标')
-  // are unaffected and render as-is.
-  return t(status).toUpperCase();
-}
-
-function buildState(response: GoalResponse, themeClass: string): Partial<GoalState> {
-  const rc = response.race_countdown;
-  const display = response.display;
-  const unit = display?.threshold_unit ?? 'W';
-  const abbrev = display?.threshold_abbrev ?? 'CP';
-  const isPace = unit === '/km';
-  const trend = response.cp_trend;
-  const hasCpTrend = !!trend && trend.values.length >= 2;
-
-  const note = predictionNote(response);
-  const ultra = isUltraDistance(rc.distance);
-
-  const result: Partial<GoalState> = {
-    themeClass,
-    loading: false,
-    errorMessage: '',
-    hasResponse: true,
-    mode: rc.mode,
-
-    hasCpTrend,
-    cpTrendDates: hasCpTrend ? trend.dates : [],
-    cpTrendSeries: hasCpTrend
-      ? [{ label: abbrev, color: '#00ff87', values: trend.values, fill: true }]
-      : [],
-    // Target reference line shown when the active mode tracks toward
-    // a specific CP target — race_date AND cp_milestone both expose
-    // rc.target_cp; continuous mode does not (target_cp is null).
-    cpTrendReferenceY: rc.target_cp ?? null,
-    // CP trend is always W or bpm — never pace, since pace is for race
-    // times not threshold values. The '/km' unit on display.threshold
-    // refers to other surfaces (target time previews); for the chart's
-    // y-axis it would be misleading, so swap to empty.
-    cpTrendUnit: isPace ? '' : unit,
-
-    notePredictionText: note.text,
-    notePredictionUrl: note.url,
-    // Don't reset expand state on refetch — UX courtesy so a refresh
-    // doesn't collapse a note the user opened. This is initialized to
-    // false in initialData and toggled by the user only.
-    hasUltraNote: ultra,
-    // Resolved at refetch time (not module load) so switching language
-    // and revisiting the page picks up the new locale.
-    noteUltraText: ultra ? ultraNote() : '',
-  };
-
-  if (rc.mode === 'race_date') {
-    return { ...result, ...buildRaceDateState(response, unit, abbrev, isPace) };
-  }
-  if (rc.mode === 'cp_milestone') {
-    return { ...result, ...buildCpMilestoneState(response, unit, isPace) };
-  }
-  if (rc.mode === 'continuous' || rc.mode === 'none') {
-    return { ...result, ...buildContinuousState(response, unit, isPace) };
-  }
-  return result;
-}
-
-function buildRaceDateState(
-  response: GoalResponse,
-  unit: string,
-  abbrev: string,
-  isPace: boolean,
-): Partial<GoalState> {
-  const rc = response.race_countdown;
-  const rCheck = rc.reality_check;
-  const hasTarget = rc.target_time_sec != null && rc.target_time_sec > 0;
-  const distLabel = t(rc.distance_label ?? 'Race');
-  const severityClass = severityAccent(rCheck.severity);
-  const showReality = hasTarget && rCheck.severity !== 'unknown';
-
-  return {
-    rdDistLabel: distLabel,
-    rdHasDays: rc.days_left != null,
-    rdDaysLeft: rc.days_left != null ? `${rc.days_left}` : '—',
-    rdRaceDate: rc.race_date ?? 'race day',
-    rdStatusText: statusBadgeText(rc.status),
-    rdStatusAccent: severityClass,
-    rdHasPredicted: rc.predicted_time_sec != null,
-    rdPredictedTime: rc.predicted_time_sec != null ? formatTime(rc.predicted_time_sec) : '—',
-    rdHasTarget: hasTarget,
-    rdTargetTime: hasTarget ? formatTime(rc.target_time_sec as number) : '',
-    rdAbbrev: abbrev,
-
-    rdShowReality: showReality,
-    rdAssessment: rCheck.assessment ?? '',
-    rdAssessmentAccent: severityClass,
-    rdHasGapRow: rCheck.current_cp != null && rCheck.needed_cp != null,
-    rdCurrentCp:
-      rCheck.current_cp != null ? `${formatThreshold(rCheck.current_cp, unit)}${unit}` : '',
-    rdNeededCp:
-      rCheck.needed_cp != null ? `${formatThreshold(rCheck.needed_cp, unit)}${unit}` : '',
-    rdHasGapValue: rCheck.cp_gap_watts != null,
-    rdGapValue:
-      rCheck.cp_gap_watts != null
-        ? `${rCheck.cp_gap_watts > 0 ? '+' : ''}${
-            isPace
-              ? formatPace(Math.abs(rCheck.cp_gap_watts))
-              : Math.round(rCheck.cp_gap_watts)
-          }${unit}`
-        : '',
-    rdHasTrendNote: !!rCheck.trend_note,
-    rdTrendNote: rCheck.trend_note ?? '',
-    rdHasRealistic:
-      !!rCheck.realistic_targets &&
-      (rCheck.severity === 'behind' || rCheck.severity === 'unlikely'),
-    rdComfortable: rCheck.realistic_targets
-      ? formatTime(rCheck.realistic_targets.comfortable)
-      : '',
-    rdStretch: rCheck.realistic_targets ? formatTime(rCheck.realistic_targets.stretch) : '',
-
-    // No-target trend card (only renders when hasTarget is false).
-    rdShowTrendOnly: !hasTarget && !!rCheck.trend_note,
-  };
-}
-
-function buildCpMilestoneState(
-  response: GoalResponse,
-  unit: string,
-  isPace: boolean,
-): Partial<GoalState> {
-  const rc = response.race_countdown;
-  const rCheck = rc.reality_check;
-  const currentCp = response.latest_cp;
-  const targetCp = rc.target_cp ?? null;
-  const distLabel = t(rc.distance_label ?? 'Race');
-  const hasTimeTarget = rc.target_time_sec != null && rc.target_time_sec > 0;
-  const severityClass = severityAccent(rCheck.severity);
-
-  // Pace progress is inverted: lower pace = faster, so "progress" toward
-  // a faster target is target/current, not current/target.
-  let progressPct = 0;
-  if (currentCp != null && targetCp != null && targetCp > 0 && currentCp > 0) {
-    progressPct = isPace
-      ? Math.min(100, Math.max(0, (targetCp / currentCp) * 100))
-      : Math.min(100, Math.max(0, (currentCp / targetCp) * 100));
-  }
-
-  const milestoneSrc: Milestone[] = rc.milestones ?? [];
-  const milestones: MilestoneRow[] = milestoneSrc.map((m) => {
-    const isCurrent = currentCp != null && m.cp === currentCp;
-    return {
-      cp: m.cp,
-      cpDisplay: `${m.cp}${unit}`,
-      marathon: m.marathon,
-      reached: m.reached,
-      isCurrent,
-      iconClass: m.reached ? 'goal-ms-icon goal-ms-icon--reached' : 'goal-ms-icon',
-      rowClass: isCurrent ? 'goal-ms-row goal-ms-row--current' : 'goal-ms-row',
-    };
-  });
-
-  return {
-    cmDistLabel: distLabel,
-    cmHero: hasTimeTarget
-      ? tFmt('Building toward {0} {1}', formatTime(rc.target_time_sec as number), distLabel)
-      : tFmt('{0} Progress', distLabel),
-    cmHasPredicted: rc.predicted_time_sec != null,
-    cmPredictedTime: rc.predicted_time_sec != null ? formatTime(rc.predicted_time_sec) : '—',
-    cmHasTarget: hasTimeTarget,
-    cmTargetTime: hasTimeTarget ? formatTime(rc.target_time_sec as number) : '',
-    cmHasCpProgress: targetCp != null,
-    cmCurrentCp: currentCp != null ? formatThreshold(currentCp, unit) : '—',
-    cmTargetCp: targetCp != null ? formatThreshold(targetCp, unit) : '',
-    cmThresholdUnit: unit,
-    cmProgressPctLabel: `${progressPct.toFixed(0)}%`,
-    cmProgressBarPct: progressPct,
-    cmStatusText: statusBadgeText(rc.status),
-    cmStatusAccent: severityClass,
-    cmHasMilestones: milestones.length > 0,
-    cmMilestones: milestones,
-    cmHasAssessment: !!rCheck.assessment,
-    cmAssessment: rCheck.assessment ?? '',
-    cmAssessmentAccent: severityClass,
-    cmHasEstimatedMonths: rc.estimated_months != null,
-    cmEstimatedMonths:
-      rc.estimated_months != null
-        ? tFmt('{0} months', rc.estimated_months.toFixed(1))
-        : '',
-    cmHasTrendNote: !!rCheck.trend_note,
-    cmTrendNote: rCheck.trend_note ?? '',
-  };
-}
-
-function buildContinuousState(
-  response: GoalResponse,
-  unit: string,
-  isPace: boolean,
-): Partial<GoalState> {
-  const rc = response.race_countdown;
-  const rCheck = rc.reality_check;
-  const currentCp = response.latest_cp;
-  const trend = rc.cp_trend_summary;
-  const distLabel = t(rc.distance_label ?? 'Marathon');
-  const severityClass = severityAccent(rCheck.severity);
-
-  let slopeText = '';
-  if (trend && trend.slope_per_month !== 0) {
-    const sign = trend.slope_per_month > 0 ? '+' : '';
-    const formatted = isPace
-      ? formatPace(Math.abs(trend.slope_per_month))
-      : trend.slope_per_month.toFixed(1);
-    slopeText = `(${sign}${formatted}${unit}/mo)`;
-  }
-
-  return {
-    ctCurrentCp: currentCp != null ? formatThreshold(currentCp, unit) : '—',
-    ctHasCurrentCp: currentCp != null,
-    ctThresholdUnit: unit,
-    ctHasTrend: trend != null,
-    ctTrendDirection: trend ? trendDirectionLabel(trend.direction) : 'Flat',
-    ctTrendAccent: severityClass,
-    ctHasSlope: !!slopeText,
-    ctSlopeText: slopeText,
-    ctHasPredicted: rc.predicted_time_sec != null,
-    ctPredictedTime: rc.predicted_time_sec != null ? formatTime(rc.predicted_time_sec) : '—',
-    ctDistLabel: distLabel,
-    ctHasAssessment: !!rCheck.assessment && !!rCheck.trend_note,
-    ctAssessment: rCheck.assessment ?? '',
-    ctAssessmentAccent: severityClass,
-    ctHasTrendNote: !!rCheck.trend_note,
-    ctTrendNote: rCheck.trend_note ?? '',
-  };
-}
+// ---- Page ----
 
 Page({
   data: { ...initialData, tr: buildGoalTr() },
@@ -709,17 +693,10 @@ Page({
   },
 
   onShow() {
-    // Guarded theme update: other tabs can't be reached by getCurrentPages()
-    // from Settings, so if the user changed theme while on another tab,
-    // this is the first chance to apply it. Equality check prevents
-    // re-renders on normal tab switches where nothing changed.
     const tc = themeClassName();
     if (tc !== this.data.themeClass) {
       this.setData({ themeClass: tc, chartTheme: tc === 'theme-light' ? 'light' : 'dark' });
     }
-    // Locale guard: rebuilds tr when language changed while this tab
-    // was not active (same pattern as theme — globalData stores the
-    // active locale so we detect drift without a storage read).
     const curLocale = getApp<IAppOption>().globalData.locale;
     const pgMut = this as unknown as Record<string, unknown>;
     if (curLocale !== pgMut._locale) {
@@ -732,58 +709,20 @@ Page({
   },
 
   onShareAppMessage() {
-    // Dynamic per-mode share so friends see the actual countdown / target.
-    // Each branch is fully localized — no Chinese-mixed-into-English copy.
-    const mode = this.data.mode as string;
     const locale = detectShareLocale();
-    const days = (this.data.rdDaysLeft as string) || '';
-    const dist = (this.data.rdDistLabel as string) || '';
-    const predicted = (this.data.rdPredictedTime as string) || '';
-    if (mode === 'race_date' && days && dist) {
-      const hasPred = predicted && predicted !== '—';
-      const title =
-        locale === 'zh'
-          ? `距离比赛: ${days} 天 · ${dist}${hasPred ? ` · 预计 ${predicted}` : ''}`
-          : `Race countdown: ${days} days · ${dist}${hasPred ? ` · predicted ${predicted}` : ''}`;
-      return buildShareMessage(title, '/pages/goal/index');
-    }
-    if (mode === 'cp_milestone') {
-      const cur = this.data.cmCurrentCp as string;
-      const target = this.data.cmTargetCp as string;
-      const unit = this.data.cmThresholdUnit as string;
-      if (cur && target) {
-        const title =
-          locale === 'zh'
-            ? `冲击目标 ${target}${unit} (当前 ${cur}${unit})`
-            : `Targeting ${target}${unit} (${cur}${unit} now)`;
-        return buildShareMessage(title, '/pages/goal/index');
-      }
-    }
-    if (mode === 'continuous') {
-      const cur = this.data.ctCurrentCp as string;
-      const unit = this.data.ctThresholdUnit as string;
-      if (cur) {
-        const title =
-          locale === 'zh' ? `当前体能: ${cur}${unit}` : `Current fitness: ${cur}${unit}`;
-        return buildShareMessage(title, '/pages/goal/index');
-      }
-    }
+    const eyebrow = (this.data.goalEyebrow as string) || '';
+    const headline = (this.data.goalHeadline as string) || '';
+    const title = eyebrow && headline ? `${eyebrow} — ${headline}` : headline || eyebrow;
+    if (title) return buildShareMessage(title.slice(0, 100), '/pages/goal/index');
     return getShareMessage(locale, '/pages/goal/index');
   },
 
   onShareTimeline() {
     const locale = detectShareLocale();
+    const eyebrow = (this.data.goalEyebrow as string) || '';
     const fallback =
       locale === 'zh' ? '像专业选手一样训练，无论水平高低。' : 'Train like a pro. Whatever your level.';
-    const days = (this.data.rdDaysLeft as string) || '';
-    const dist = (this.data.rdDistLabel as string) || '';
-    const hasRace = this.data.mode === 'race_date' && days && dist;
-    const title = hasRace
-      ? locale === 'zh'
-        ? `${days} 天 · ${dist}`
-        : `${days} days · ${dist}`
-      : fallback;
-    return buildTimelineMessage(title);
+    return buildTimelineMessage(eyebrow || fallback);
   },
 
   onScrollRefresh() {
@@ -791,9 +730,7 @@ Page({
     void this.refetch().finally(() => this.setData({ refreshing: false }));
   },
 
-  onRetry() {
-    void this.refetch();
-  },
+  onRetry() { void this.refetch(); },
 
   toggleNotePrediction() {
     this.setData({ notePredictionExpanded: !this.data.notePredictionExpanded });
@@ -804,68 +741,38 @@ Page({
   },
 
   onTapPredictionSource() {
-    if (this.data.notePredictionUrl) copyUrlToClipboard(this.data.notePredictionUrl);
+    if (this.data.notePredictionUrl) copyUrlToClipboard(this.data.notePredictionUrl as string);
   },
 
   onTapUltraSource() {
-    if (this.data.noteUltraUrl) copyUrlToClipboard(this.data.noteUltraUrl);
+    if (this.data.noteUltraUrl) copyUrlToClipboard(this.data.noteUltraUrl as string);
   },
 
-  /**
-   * Open the goal-edit overlay, prefilling fields from the most recent
-   * GoalResponse cached on `_response`. Mirrors web/src/pages/Goal.tsx
-   * → handleSaveGoal: the same payload shape goes to PUT /api/settings.
-   *
-   * Also takes a snapshot of the initial editor values on `_editorInitial`
-   * so we can compute `editorDirty` and warn before discarding edits.
-   */
   onOpenEditor() {
-    // Rebuild tr so the editor labels always reflect the current locale,
-    // even if the module was loaded with a different locale set.
     const freshTr = buildGoalTr();
     this.setData({ tr: freshTr });
     const cached = (this.data as { _response?: GoalResponse })._response;
-    const tr = freshTr;
     const goal = (cached?.race_countdown ?? null) as
       | { distance?: string | null; race_date?: string | null; target_time_sec?: number | null }
       | null;
     const distanceKey = (goal?.distance as DistanceKey | undefined) ?? 'marathon';
-    const idx = Math.max(
-      0,
-      DISTANCE_CHOICES.findIndex((d) => d.key === distanceKey),
-    );
+    const idx = Math.max(0, DISTANCE_CHOICES.findIndex((d) => d.key === distanceKey));
     const editorType: 'race' | 'continuous' = goal?.race_date ? 'race' : 'continuous';
     const targetTimeSec =
       goal?.target_time_sec && goal.target_time_sec > 0 ? goal.target_time_sec : 0;
     const timeParts = secondsToTimeParts(targetTimeSec);
     const editorRaceDate = goal?.race_date ?? '';
     (this.data as { _editorInitial?: EditorSnapshot })._editorInitial = {
-      type: editorType,
-      distanceIndex: idx,
-      raceDate: editorRaceDate,
-      targetTimeSec,
+      type: editorType, distanceIndex: idx, raceDate: editorRaceDate, targetTimeSec,
     };
     this.setData({
-      editorOpen: true,
-      editorType,
-      editorDistanceIndex: idx,
-      editorRaceDate,
-      editorTodayIso: todayIso(),
-      editorTimeParts: timeParts,
+      editorOpen: true, editorType, editorDistanceIndex: idx, editorRaceDate,
+      editorTodayIso: todayIso(), editorTimeParts: timeParts,
       editorTargetDisplay: timePartsToDisplay(timeParts),
-      editorError: '',
-      editorSaving: false,
-      editorDirty: false,
-      editorConfirmDiscard: false,
+      editorError: '', editorSaving: false, editorDirty: false, editorConfirmDiscard: false,
     });
   },
 
-  /**
-   * Cancel tapped. If dirty, show the inline discard-confirmation row
-   * instead of wx.showModal — Skyline renders wx.showModal behind the
-   * position:fixed overlay (z-index 200), making it invisible and causing
-   * the dialog to intercept all subsequent taps silently.
-   */
   onCloseEditor() {
     if (this.data.editorSaving) return;
     if (!this.data.editorDirty) {
@@ -879,9 +786,7 @@ Page({
     this.setData({ editorOpen: false, editorError: '', editorConfirmDiscard: false });
   },
 
-  onDiscardKeep() {
-    this.setData({ editorConfirmDiscard: false });
-  },
+  onDiscardKeep() { this.setData({ editorConfirmDiscard: false }); },
 
   onPickEditorType(e: WechatMiniprogram.TouchEvent) {
     const type = e.currentTarget.dataset.type as 'race' | 'continuous' | undefined;
@@ -907,10 +812,7 @@ Page({
 
   onPickEditorTargetTime(e: WechatMiniprogram.PickerChange) {
     const parts = (e.detail.value as number[]) || [0, 0, 0];
-    this.setData({
-      editorTimeParts: parts,
-      editorTargetDisplay: timePartsToDisplay(parts),
-    });
+    this.setData({ editorTimeParts: parts, editorTargetDisplay: timePartsToDisplay(parts) });
     this.recomputeEditorDirty();
   },
 
@@ -922,71 +824,57 @@ Page({
       (this.data.editorDistanceIndex as number) !== snap.distanceIndex ||
       (this.data.editorRaceDate as string) !== snap.raceDate ||
       timePartsToSeconds(this.data.editorTimeParts as number[]) !== snap.targetTimeSec;
-    if (dirty !== this.data.editorDirty) {
-      this.setData({ editorDirty: dirty });
-    }
+    if (dirty !== this.data.editorDirty) this.setData({ editorDirty: dirty });
   },
 
   async onSaveEditor() {
-    // Header Save is visually disabled when !editorDirty || editorSaving,
-    // but the tap still fires (Skyline doesn't gate disabled states on
-    // plain views), so guard explicitly here.
     if (!this.data.editorDirty || this.data.editorSaving) return;
     const tr = this.data.tr as ReturnType<typeof buildGoalTr>;
     const editorType = this.data.editorType as 'race' | 'continuous';
     const editorDistanceIndex = this.data.editorDistanceIndex as number;
     const editorRaceDate = this.data.editorRaceDate as string;
-
     if (editorType === 'race' && !editorRaceDate) {
       this.setData({ editorError: tr.raceDateRequired });
       return;
     }
     const targetTimeSec = timePartsToSeconds(this.data.editorTimeParts as number[]);
-
     this.setData({ editorSaving: true, editorError: '' });
     const distance = DISTANCE_CHOICES[editorDistanceIndex]?.key ?? 'marathon';
     try {
-      // PUT /api/settings is the same endpoint web hits via updateSettings({goal}).
-      // race_date='' on continuous mode tells the backend to clear it.
       await apiPut('/api/settings', {
-        goal: {
-          race_date: editorType === 'race' ? editorRaceDate : '',
-          distance,
-          target_time_sec: targetTimeSec,
-        },
+        goal: { race_date: editorType === 'race' ? editorRaceDate : '', distance, target_time_sec: targetTimeSec },
       });
       this.setData({ editorOpen: false, editorSaving: false });
       void this.refetch();
     } catch (e) {
       const err = e as Partial<ApiError>;
       if (err?.code === 'UNAUTHENTICATED') return;
-      this.setData({
-        editorSaving: false,
-        editorError: err?.detail ?? tr.failedToSave,
-      });
+      this.setData({ editorSaving: false, editorError: err?.detail ?? tr.failedToSave });
     }
   },
 
   async refetch() {
     this.setData({ loading: true, errorMessage: '' });
     try {
-      const response = await apiGet<GoalResponse>('/api/goal');
+      const locale = (getApp<IAppOption>().globalData.locale ?? 'en') as 'en' | 'zh';
+      const [response, insight] = await Promise.all([
+        apiGet<GoalResponse>('/api/goal'),
+        fetchInsight('race_forecast').catch((e) => {
+          console.warn('[goal] race_forecast fetch failed; suppressing coach receipt:', e);
+          return null;
+        }),
+      ]);
       this.setData({
-        ...(buildState(response, this.data.themeClass) as Record<string, unknown>),
-        // Cache so the editor can prefill from the latest response.
+        ...(buildGoalState(response, insight, locale, this.data.themeClass) as Record<string, unknown>),
         _response: response,
       } as Record<string, unknown>);
     } catch (e) {
       const err = e as Partial<ApiError>;
-      // The api-client throws UNAUTHENTICATED *and* schedules a reLaunch.
-      // Skip the error UI so the page doesn't flash the raw code before
-      // it's unmounted; the toast in api-client already explains.
       if (err?.code === 'UNAUTHENTICATED') {
         this.setData({ loading: false });
         return;
       }
-      const detail = err?.detail ?? String(e);
-      this.setData({ loading: false, errorMessage: detail, hasResponse: false });
+      this.setData({ loading: false, errorMessage: err?.detail ?? String(e), hasResponse: false });
     }
   },
 });
