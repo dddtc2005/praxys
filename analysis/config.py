@@ -241,14 +241,21 @@ def load_config_from_db(user_id: str, db) -> UserConfig:
 
 
 def _get_connections_from_db(user_id: str, db) -> list[str]:
-    """Get connected platform names from user_connections table."""
+    """Get connected platform names from user_connections table.
+
+    Includes ``auth_required`` so a CAPTCHA-locked Garmin user keeps
+    being treated as a Garmin user for analysis purposes — otherwise
+    their preferred provider would silently flip every request until
+    they reconnect.
+    """
     from db.models import UserConnection
+    from db.sync_scheduler import ACTIVE_CONNECTION_STATUSES
 
     rows = (
         db.query(UserConnection.platform)
         .filter(
             UserConnection.user_id == user_id,
-            UserConnection.status.in_(["connected", "error"]),
+            UserConnection.status.in_(ACTIVE_CONNECTION_STATUSES),
         )
         .all()
     )
@@ -259,15 +266,20 @@ def _get_preferences_from_db(user_id: str, db) -> dict:
     """Derive preferences from user_connections.
 
     Builds a category -> platform mapping from connection preferences.
+    Same status filter as ``_get_connections_from_db`` so an
+    auth_required connection's stored preferences (which provider the
+    user picked for activities / power / recovery) survive a temporary
+    auth gate.
     """
     from db.models import UserConnection
+    from db.sync_scheduler import ACTIVE_CONNECTION_STATUSES
 
     prefs = {}
     rows = (
         db.query(UserConnection)
         .filter(
             UserConnection.user_id == user_id,
-            UserConnection.status.in_(["connected", "error"]),
+            UserConnection.status.in_(ACTIVE_CONNECTION_STATUSES),
         )
         .all()
     )

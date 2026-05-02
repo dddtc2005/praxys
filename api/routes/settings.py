@@ -529,10 +529,17 @@ def _upsert_connection_credentials(
     prefs = {k: v for k, v in caps.items() if v}
 
     if conn:
+        # Re-uploading credentials is the user's "I fixed it" signal —
+        # reset scheduler-backoff state so an auth_required connection
+        # rejoins the regular schedule once the user clears whatever
+        # gate (CAPTCHA, password change, MFA) blocked it.
+        from db.sync_scheduler import reset_connection_backoff
+
         conn.encrypted_credentials = encrypted_data
         conn.wrapped_dek = wrapped_dek
         conn.status = "connected"
         conn.preferences = prefs
+        reset_connection_backoff(conn)
     else:
         conn = UserConnection(
             user_id=user_id,
@@ -581,6 +588,13 @@ def get_connections(
             "status": conn.status,
             "last_sync": utc_isoformat(conn.last_sync),
             "has_credentials": conn.encrypted_credentials is not None,
+            # Surfaced so the UI can show "Reconnect required" instead of
+            # "Sync" when status is auth_required, and so it can show
+            # "Next retry in 4h" while a transient backoff is in effect.
+            # Both are read-only — the user clears them by reconnecting.
+            "next_retry_at": utc_isoformat(conn.next_retry_at),
+            "consecutive_failures": conn.consecutive_failures or 0,
+            "last_error": conn.last_error,
         }
     return {"connections": result}
 

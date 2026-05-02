@@ -18,8 +18,156 @@ DEFAULT_SYNC_INTERVAL_HOURS = 6
 ALLOWED_SYNC_INTERVAL_HOURS = (6, 12, 24)
 DELAY_BETWEEN_SYNCS_SEC = 5  # Stagger between user/platform syncs
 
+# Exponential backoff for failed connections: 1h, 2h, 4h, 8h, 16h, then
+# capped at 24h. Without backoff, a stuck Garmin connection retried every
+# 10 min triggered Garmin's bot mitigation to escalate from transient
+# 429s to a persistent CAPTCHA flag against our outbound IP — see the
+# 2026-04-25 lockout postmortem.
+BACKOFF_BASE_SEC = 3600
+BACKOFF_MAX_SEC = 86400
+
+# Connection-status enums grouped by intent. Two distinct queries hit
+# user_connections.status throughout the app and mean different things,
+# so we name them explicitly to keep them from drifting:
+#
+# * SCHEDULABLE_STATUSES — what _check_and_sync attempts to retry.
+#   ``auth_required`` is intentionally excluded; the user has to
+#   reconnect credentials before we touch the connection again.
+# * ACTIVE_CONNECTION_STATUSES — "the user has a configured connection
+#   for this platform." Used by analysis/config and the connections
+#   listing endpoints to keep an auth-locked user's source preferences
+#   and platform list stable while they're stuck in auth_required.
+#   Without this, a CAPTCHA-locked Garmin user's analysis would
+#   silently fall back to a different (or no) provider on every
+#   request, until they reconnect — invisible to them.
+SCHEDULABLE_STATUSES: tuple[str, ...] = ("connected", "error")
+ACTIVE_CONNECTION_STATUSES: tuple[str, ...] = (
+    "connected", "error", "auth_required",
+)
+
 _scheduler_thread: threading.Thread | None = None
 _stop_event = threading.Event()
+
+
+def backoff_seconds(consecutive_failures: int) -> int:
+    """Return the retry delay (seconds) after N consecutive failures.
+
+    1h, 2h, 4h, 8h, 16h, 24h, 24h, … — doubles up to BACKOFF_MAX_SEC.
+    consecutive_failures is the count *including* the current failure
+    (so 1 means "first failure, wait 1h"; 0 is treated as 1).
+    """
+    n = max(consecutive_failures, 1)
+    return min(BACKOFF_BASE_SEC * (2 ** (n - 1)), BACKOFF_MAX_SEC)
+
+
+def classify_sync_failure(exc: BaseException) -> tuple[str, bool]:
+    """Map a sync exception to (connection_status, terminal).
+
+    ``terminal=True`` means we should not auto-retry — only the user
+    re-uploading credentials clears it. We use this for two cases:
+
+    * ``GarminConnectAuthenticationError`` — wrong password, or the CN
+      "JWT_WEB cookie not set" path that already gets a portal-fallback
+      retry inside ``_login_garmin_with_cn_fallback``; if it still
+      bubbles up to here, no amount of waiting fixes it.
+    * ``CAPTCHA_REQUIRED`` — Garmin's portal login returns this in JSON
+      when an account/IP has been flagged for human verification. Our
+      headless login has no way to satisfy a CAPTCHA, so we have to
+      stop retrying and tell the user to clear the flag in a real
+      browser before reconnecting. The marker survives the library's
+      "All login strategies exhausted: …" wrapping because the wrapped
+      response dict is preserved in the message.
+
+    Anything else is treated as transient — the caller applies exponential
+    backoff and tries again later.
+    """
+    cls_name = type(exc).__name__
+    msg = str(exc) or ""
+
+    if cls_name == "GarminConnectAuthenticationError":
+        return ("auth_required", True)
+    if "CAPTCHA_REQUIRED" in msg:
+        return ("auth_required", True)
+    return ("error", False)
+
+
+def _short_error(exc: BaseException) -> str:
+    """Compact "<ClassName>: <truncated message>" tag for the connection row.
+
+    Stored on the connection so the UI can show why a sync stopped without
+    leaking a full stack trace. Capped well under the column's 500 chars.
+    """
+    msg = (str(exc) or "").strip()
+    if len(msg) > 400:
+        msg = msg[:400] + "…"
+    return f"{type(exc).__name__}: {msg}" if msg else type(exc).__name__
+
+
+def _record_sync_failure(conn, exc: BaseException, db) -> None:
+    """Update a connection row after a sync failure with classification + backoff.
+
+    Rolls back any pending state from the failed sync, then writes the
+    new status, ``consecutive_failures``, ``next_retry_at`` and
+    ``last_error`` in a fresh transaction. Best-effort: a write failure
+    here just drops the bookkeeping — the next tick will re-classify.
+    """
+    try:
+        db.rollback()
+    except Exception:
+        pass
+
+    try:
+        # Re-fetch in case rollback detached state from the prior session.
+        from db.models import UserConnection
+
+        fresh = db.query(UserConnection).filter(
+            UserConnection.id == conn.id,
+        ).first()
+        if fresh is None:
+            return
+
+        new_failures = (fresh.consecutive_failures or 0) + 1
+        status, terminal = classify_sync_failure(exc)
+
+        fresh.consecutive_failures = new_failures
+        fresh.status = status
+        fresh.last_error = _short_error(exc)
+        if terminal:
+            # Auth_required: stop scheduling entirely until reconnect clears
+            # the gate. next_retry_at stays NULL; the scheduler skips on
+            # status alone.
+            fresh.next_retry_at = None
+        else:
+            delay = backoff_seconds(new_failures)
+            fresh.next_retry_at = datetime.utcnow() + timedelta(seconds=delay)
+        db.commit()
+        logger.info(
+            "Sync failure recorded: user=%s platform=%s status=%s "
+            "consecutive=%d next_retry_at=%s",
+            fresh.user_id, fresh.platform, status, new_failures,
+            fresh.next_retry_at,
+        )
+    except Exception:
+        logger.exception(
+            "Failed to record sync failure metadata for user=%s platform=%s",
+            getattr(conn, "user_id", "?"), getattr(conn, "platform", "?"),
+        )
+        try:
+            db.rollback()
+        except Exception:
+            pass
+
+
+def reset_connection_backoff(conn) -> None:
+    """Reset all retry-state fields on a connection row.
+
+    Called when the user re-uploads credentials (the explicit "I fixed it,
+    try again" signal) and after every successful sync. Does not commit —
+    the caller commits as part of a larger transaction.
+    """
+    conn.consecutive_failures = 0
+    conn.next_retry_at = None
+    conn.last_error = None
 
 
 def normalize_sync_interval_hours(value: object) -> int:
@@ -105,13 +253,24 @@ def _check_and_sync():
     init_db()
     db = SessionLocal()
     try:
+        # SCHEDULABLE_STATUSES intentionally excludes ``auth_required`` —
+        # those connections are blocked on user action (re-upload
+        # credentials after clearing whatever account-level gate Garmin
+        # or Stryd flagged) and silently retrying just escalates the
+        # gate further.
         connections = db.query(UserConnection).filter(
-            UserConnection.status.in_(["connected", "error"]),
+            UserConnection.status.in_(SCHEDULABLE_STATUSES),
         ).all()
 
         now = datetime.utcnow()
         sync_intervals_by_user: dict[str, int] = {}
         for conn in connections:
+            # Skip connections still in their backoff window. ``next_retry_at``
+            # is bumped after every transient failure (see _record_sync_failure)
+            # and cleared on success or reconnect (reset_connection_backoff).
+            if conn.next_retry_at and conn.next_retry_at > now:
+                continue
+
             if conn.user_id not in sync_intervals_by_user:
                 # Isolate per-user config lookup so one bad row can't skip every
                 # remaining user this tick.
@@ -137,17 +296,20 @@ def _check_and_sync():
                 continue  # Not stale yet
 
             logger.info(
-                "Scheduled sync: user=%s platform=%s (last=%s interval=%sh)",
+                "Scheduled sync: user=%s platform=%s (last=%s interval=%sh "
+                "consecutive_failures=%d)",
                 conn.user_id, conn.platform, last, interval_hours,
+                conn.consecutive_failures or 0,
             )
             try:
                 _sync_connection(conn.user_id, conn.platform, db)
                 time.sleep(DELAY_BETWEEN_SYNCS_SEC)
-            except Exception:
+            except Exception as exc:
                 logger.exception(
                     "Scheduled sync failed: user=%s platform=%s",
                     conn.user_id, conn.platform,
                 )
+                _record_sync_failure(conn, exc, db)
     finally:
         db.close()
 
@@ -207,9 +369,11 @@ def _sync_connection(user_id: str, platform: str, db):
             logger.exception("Activity-derived CP refresh failed: user=%s", user_id)
             db.rollback()
 
-    # Update last_sync
+    # Update last_sync and clear any prior backoff state — a successful
+    # sync is the strongest possible signal that the connection is healthy.
     conn.last_sync = datetime.utcnow()
     conn.status = "connected"
+    reset_connection_backoff(conn)
     db.commit()
     logger.info("Sync complete: user=%s platform=%s counts=%s", user_id, platform, counts)
 
