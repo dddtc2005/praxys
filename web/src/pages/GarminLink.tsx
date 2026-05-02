@@ -136,6 +136,12 @@ export default function GarminLink() {
     const ws = new WebSocket(url);
     wsRef.current = ws;
 
+    // Track whether any frame ever arrived. ``onclose`` uses this to
+    // decide whether the close was a session ending normally (frames
+    // were received → it's just over, not an error to surface) or a
+    // failure-to-start (no frames → genuine connect failure to flag).
+    let everConnected = false;
+
     ws.onopen = () => setPhase((p) => (p === 'connecting' ? 'launching' : p));
     ws.onmessage = (ev) => {
       let m: { type?: string; b64?: string; success?: boolean; message?: string };
@@ -145,8 +151,7 @@ export default function GarminLink() {
         return;
       }
       if (m.type === 'frame' && m.b64) {
-        // First frame is the signal that everything's ready end-to-end.
-        // Subsequent frames just render; the phase stays ``live``.
+        everConnected = true;
         setPhase((p) => (p === 'live' || p === 'complete' ? p : 'live'));
         drawFrame(canvasRef.current, m.b64);
       } else if (m.type === 'complete' && m.success) {
@@ -157,26 +162,33 @@ export default function GarminLink() {
         setErrorMsg(m.message || 'Login failed');
       }
     };
-    // Browser ``onerror`` fires for *anything* the WebSocket subsystem
-    // dislikes — including transient blips during otherwise-successful
-    // sessions. If we set ``phase = "error"`` here unconditionally, a
-    // single dropped frame buffer flashes "Connection error" in the UI
-    // before the next ``onmessage`` restores ``live`` (because the
-    // error alert only renders while ``phase === "error"``). So:
-    // pre-live, treat ``onerror`` as terminal; post-live, log it and
-    // let ``onclose`` decide whether the session ended.
-    ws.onerror = () => {
-      setPhase((p) => {
-        if (p === 'live' || p === 'complete') {
-          // Already had at least one good frame — keep going.
-          return p;
-        }
-        setErrorMsg('Connection error — try again.');
-        return 'error';
-      });
+    // Browser ``onerror`` fires for *anything* the WS subsystem
+    // dislikes — transient blips, pre-handshake noise, even cases
+    // where the connection itself succeeds afterward. The WS API
+    // guarantees ``onclose`` follows any *real* failure, so we use
+    // that as the only terminal signal and keep ``onerror`` to
+    // console-debug only. This eliminates the brief "Connection
+    // error" flash users saw immediately before the page came up.
+    ws.onerror = (ev) => {
+      // eslint-disable-next-line no-console
+      console.warn('[GarminLink] WS error event (onclose decides terminal):', ev);
     };
-    ws.onclose = () => {
-      setPhase((p) => (p === 'complete' || p === 'error' ? p : 'closed'));
+    ws.onclose = (ev) => {
+      setPhase((p) => {
+        if (p === 'complete' || p === 'error') return p;
+        // Application-layer rejections from our backend (e.g. 4401
+        // auth, 4404 not found, 4403 forbidden) come back with codes
+        // in the 4xxx range, and our error-frame handler usually
+        // sets ``errorMsg`` first — but we surface a generic close
+        // reason here as a fallback for the "no frames at all" case.
+        if (!everConnected) {
+          setErrorMsg(
+            `Connection closed before the browser session became live (code ${ev.code}). Please try again.`,
+          );
+          return 'error';
+        }
+        return 'closed';
+      });
     };
 
     return () => {

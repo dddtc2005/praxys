@@ -340,34 +340,88 @@ def _run_browser_session(session: _Session) -> None:
                 locale="en-US",
             )
 
-            # Defeat the most common headless-Chromium fingerprints. Garmin's
-            # SSO frontend showed a generic "an unexpected error has
-            # occurred" instead of accepting credentials in user testing —
-            # almost certainly because their bot model checks the same
-            # signals every other anti-bot does:
-            #   - ``navigator.webdriver`` → true under Playwright
-            #   - ``navigator.plugins`` is empty
-            #   - ``navigator.languages`` is empty
-            #   - ``window.chrome`` is undefined (real Chrome has a stub)
-            # Patching all four via ``add_init_script`` runs the JS
-            # *before* any page script, so by the time Garmin's frontend
-            # samples them they look like a normal browser. This is the
-            # delta that ``playwright-extra`` + the stealth plugin would
-            # apply; we inline the common patches to avoid pulling in
-            # another dependency for one feature.
+            # Defeat headless-Chromium fingerprinting. Garmin's SSO
+            # showed a generic "an unexpected error has occurred"
+            # instead of accepting credentials — bot detection
+            # rejecting the login because Playwright leaks a few
+            # well-known signals that real browsers don't.
+            #
+            # The set below is the standard stealth pack (the same
+            # signals ``playwright-stealth`` patches): webdriver,
+            # plugins-as-PluginArray, languages, full chrome stub
+            # with csi/loadTimes, WebGL vendor/renderer, and the
+            # Permissions.query notifications-state mismatch. We
+            # inline rather than depend on the package because it's
+            # one feature and the patches are stable. If detection
+            # tightens beyond these signals, ``camoufox`` (Firefox-
+            # based stealth, ~95% effective vs Cloudflare Turnstile)
+            # is the next escalation.
             context.add_init_script(
                 """
-                Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-                Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
-                Object.defineProperty(navigator, 'plugins', {
-                    get: () => [
-                        { name: 'PDF Viewer' },
-                        { name: 'Chrome PDF Viewer' },
-                        { name: 'Chromium PDF Viewer' },
-                    ],
+                // 1. Hide webdriver.
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined, configurable: true,
                 });
-                if (!window.chrome) {
-                    window.chrome = { runtime: {}, app: {} };
+
+                // 2. Languages — empty array is a dead giveaway.
+                Object.defineProperty(navigator, 'languages', {
+                    get: () => ['en-US', 'en'], configurable: true,
+                });
+
+                // 3. Plugins — must look like a real PluginArray, not
+                // a plain JS array. ``length``, indexed access, and
+                // the .item/.namedItem methods are checked.
+                Object.defineProperty(navigator, 'plugins', {
+                    get: () => {
+                        const fake = [
+                            { name: 'PDF Viewer', description: 'Portable Document Format', filename: 'internal-pdf-viewer' },
+                            { name: 'Chrome PDF Viewer', description: '', filename: 'internal-pdf-viewer' },
+                            { name: 'Chromium PDF Viewer', description: '', filename: 'internal-pdf-viewer' },
+                            { name: 'Microsoft Edge PDF Viewer', description: '', filename: 'internal-pdf-viewer' },
+                            { name: 'WebKit built-in PDF', description: '', filename: 'internal-pdf-viewer' },
+                        ];
+                        fake.item = (i) => fake[i];
+                        fake.namedItem = (n) => fake.find((p) => p.name === n) || null;
+                        fake.refresh = () => {};
+                        return fake;
+                    },
+                    configurable: true,
+                });
+
+                // 4. Chrome stub — a missing ``window.chrome`` is
+                // pathognomonic for headless. Real Chrome exposes
+                // runtime/app/csi/loadTimes; the latter two are
+                // legacy but still inspected by detection scripts.
+                if (!window.chrome) { window.chrome = {}; }
+                window.chrome.runtime = window.chrome.runtime || {};
+                window.chrome.app = window.chrome.app || { isInstalled: false };
+                window.chrome.csi = window.chrome.csi || function () { return {}; };
+                window.chrome.loadTimes = window.chrome.loadTimes || function () { return {}; };
+
+                // 5. WebGL vendor/renderer — ``Google Inc.`` /
+                // ``ANGLE …`` strings flag swiftshader. Replace with
+                // realistic Intel iGPU values.
+                try {
+                    const getParameter = WebGLRenderingContext.prototype.getParameter;
+                    WebGLRenderingContext.prototype.getParameter = function (parameter) {
+                        if (parameter === 37445) { return 'Google Inc. (Intel)'; }
+                        if (parameter === 37446) {
+                            return 'ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11 vs_5_0 ps_5_0, D3D11)';
+                        }
+                        return getParameter.call(this, parameter);
+                    };
+                } catch (e) { /* WebGL not available — fine */ }
+
+                // 6. Permissions.query — headless reports notifications
+                // as ``denied`` while ``Notification.permission`` says
+                // ``default``; that mismatch is a known signal. Patch
+                // the query to align.
+                if (window.navigator.permissions && window.navigator.permissions.query) {
+                    const orig = window.navigator.permissions.query.bind(window.navigator.permissions);
+                    window.navigator.permissions.query = (params) =>
+                        params && params.name === 'notifications'
+                            ? Promise.resolve({ state: Notification.permission })
+                            : orig(params);
                 }
                 """
             )
