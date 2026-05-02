@@ -915,6 +915,34 @@ export default function Settings() {
                     </>
                   )}
 
+                  {/* Garmin-only recovery shortcut. When the per-(IP, account)
+                      CAPTCHA gate locks our headless flow out, the user
+                      shouldn't have to disconnect first to find the
+                      interactive-login CTA — opening the connect dialog
+                      directly preserves the existing tokens until the
+                      new ones are captured. See api/routes/garmin_link.py
+                      for the rationale. */}
+                  {isConnected && platform === 'garmin' && (
+                    <>
+                      <Separator />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs self-start"
+                        onClick={() => {
+                          setConnectPlatform('garmin');
+                          setConnectCreds({});
+                          setConnectError('');
+                          setConnectRegion(
+                            String(config?.source_options?.garmin_region) === 'cn' ? 'cn' : 'international'
+                          );
+                        }}
+                      >
+                        <Trans>Re-authenticate (interactive)</Trans>
+                      </Button>
+                    </>
+                  )}
+
                   {isConnected && (
                     <>
                       <Separator />
