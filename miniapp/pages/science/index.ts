@@ -354,7 +354,11 @@ Page({
   },
 
   /** Commit the previewed theory: PUT /api/science, then refetch so
-   * `active[pillar]` flips. Mirrors web's preview-then-commit flow. */
+   * `active[pillar]` flips. Mirrors web's preview-then-commit flow.
+   * `refetch()` catches its own errors and surfaces them via the page-
+   * level error state, so a refetch failure after a successful PUT
+   * doesn't fall into this catch block (which would mislabel a saved
+   * write as "Failed to switch theory"). */
   async onSwitchTheory() {
     const focused = this.data.focused as SciencePillar;
     const previewing = this.data.previewing as Partial<Record<SciencePillar, string>>;
