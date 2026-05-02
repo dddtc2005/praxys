@@ -188,7 +188,8 @@ msgstr "Actions"
 msgid "Activate"
 msgstr "Activate"
 
-#: src/pages/Science.tsx:144
+#: src/pages/Science.tsx:395
+#: src/pages/Science.tsx:543
 msgid "Active"
 msgstr "Active"
 
@@ -230,8 +231,8 @@ msgid "Admin"
 msgstr "Admin"
 
 #: src/pages/Science.tsx:133
-msgid "Advanced"
-msgstr "Advanced"
+#~ msgid "Advanced"
+#~ msgstr "Advanced"
 
 #: src/lib/phase-label.ts:13
 msgid "Aerobic"
@@ -294,11 +295,15 @@ msgstr "Backfill All"
 msgid "Backfill..."
 msgstr "Backfill..."
 
-#. placeholder {0}: alternatives.find((t) => t.id === recommendation.recommended_id)?.name
-#. placeholder {1}: recommendation.reason
+#. placeholder {0}: recommendedTheory.name
+#. placeholder {1}: recommendation!.reason
+#: src/pages/Science.tsx:380
+msgid "Based on your training, <0>{0}</0> may fit better — {1}"
+msgstr "Based on your training, <0>{0}</0> may fit better — {1}"
+
 #: src/pages/Science.tsx:156
-msgid "Based on your training, we suggest <0>{0}</0> — {1}"
-msgstr "Based on your training, we suggest <0>{0}</0> — {1}"
+#~ msgid "Based on your training, we suggest <0>{0}</0> — {1}"
+#~ msgstr "Based on your training, we suggest <0>{0}</0> — {1}"
 
 #: src/components/RecoveryPanel.tsx:131
 msgid "Baseline"
@@ -329,6 +334,10 @@ msgstr "Building toward {distLabel}. Current {abbrev} <0>{currentStr}{unit}</0>,
 msgid "Building toward <0>{0}</0> {distLabel}. Current {abbrev} <1>{currentStr}{unit}</1>, need <2>{targetStr}{unit}</2>."
 msgstr "Building toward <0>{0}</0> {distLabel}. Current {abbrev} <1>{currentStr}{unit}</1>, need <2>{targetStr}{unit}</2>."
 
+#: src/pages/Science.tsx:390
+msgid "by"
+msgstr "by"
+
 #: src/components/GoalEditor.tsx:174
 #: src/pages/Admin.tsx:511
 #: src/pages/Admin.tsx:534
@@ -338,6 +347,10 @@ msgstr "Building toward <0>{0}</0> {distLabel}. Current {abbrev} <1>{currentStr}
 #: src/pages/Setup.tsx:948
 msgid "Cancel"
 msgstr "Cancel"
+
+#: src/pages/Science.tsx:425
+msgid "Cancel preview"
+msgstr "Cancel preview"
 
 #: src/components/SignalHero.tsx:23
 #: src/pages/Today.tsx:58
@@ -479,8 +492,8 @@ msgid "Cooldown"
 msgstr "Cooldown"
 
 #: src/pages/Science.tsx:255
-msgid "Cosmetic — changes names and colors without affecting calculations"
-msgstr "Cosmetic — changes names and colors without affecting calculations"
+#~ msgid "Cosmetic — changes names and colors without affecting calculations"
+#~ msgstr "Cosmetic — changes names and colors without affecting calculations"
 
 #: src/components/charts/CpTrendChart.tsx:59
 #: src/lib/display-labels.ts:56
@@ -576,6 +589,10 @@ msgstr "declining"
 msgid "Declining"
 msgstr "Declining"
 
+#: src/pages/Science.tsx:28
+msgid "Defines what counts as easy, threshold, hard."
+msgstr "Defines what counts as easy, threshold, hard."
+
 #: src/pages/Admin.tsx:524
 #: src/pages/Admin.tsx:537
 msgid "Delete User"
@@ -592,6 +609,10 @@ msgstr "Demo"
 #: src/pages/Admin.tsx:440
 msgid "Demo Accounts"
 msgstr "Demo Accounts"
+
+#: src/pages/Science.tsx:429
+msgid "Demo mode — read only"
+msgstr "Demo mode — read only"
 
 #: src/pages/Admin.tsx:482
 msgid "Demo users can browse your dashboard (Today, Training, Goal, History) but cannot change settings, sync data, or modify plans. Share the email and password with anyone you want to demo to."
@@ -686,6 +707,10 @@ msgstr "e.g. 42:00"
 msgid "e.g. 8:00:00"
 msgstr "e.g. 8:00:00"
 
+#: src/pages/Science.tsx:165
+msgid "Each pillar runs a published theory you can read, verify, and swap. Praxys interprets your data through whichever framework you choose."
+msgstr "Each pillar runs a published theory you can read, verify, and swap. Praxys interprets your data through whichever framework you choose."
+
 #: src/components/SignalHero.tsx:21
 #: src/pages/Today.tsx:56
 msgid "EASY"
@@ -732,6 +757,10 @@ msgstr "Endurance"
 msgid "Error"
 msgstr "Error"
 
+#: src/pages/Science.tsx:27
+msgid "Estimates race performance from current fitness."
+msgstr "Estimates race performance from current fitness."
+
 #: src/pages/Settings.tsx:960
 msgid "EU"
 msgstr "EU"
@@ -763,8 +792,12 @@ msgid "Failed to load goal data"
 msgstr "Failed to load goal data"
 
 #: src/pages/Science.tsx:216
-msgid "Failed to load science data"
-msgstr "Failed to load science data"
+#~ msgid "Failed to load science data"
+#~ msgstr "Failed to load science data"
+
+#: src/pages/Science.tsx:72
+msgid "Failed to load science data."
+msgstr "Failed to load science data."
 
 #: src/pages/Settings.tsx:314
 msgid "Failed to load settings"
@@ -839,8 +872,12 @@ msgid "Form (TSB)"
 msgstr "Form (TSB)"
 
 #: src/pages/Science.tsx:229
-msgid "Four pillars power your analysis. Each uses a published theory you can understand, verify, and change."
-msgstr "Four pillars power your analysis. Each uses a published theory you can understand, verify, and change."
+#~ msgid "Four pillars power your analysis. Each uses a published theory you can understand, verify, and change."
+#~ msgstr "Four pillars power your analysis. Each uses a published theory you can understand, verify, and change."
+
+#: src/pages/Science.tsx:159
+msgid "Four-pillar framework"
+msgstr "Four-pillar framework"
 
 #: src/components/RecoveryPanel.tsx:18
 msgid "Fresh"
@@ -934,6 +971,10 @@ msgstr "Hide backfill"
 msgid "Hide details"
 msgstr "Hide details"
 
+#: src/pages/Science.tsx:452
+msgid "Hide methodology details"
+msgstr "Hide methodology details"
+
 #: src/components/charts/FormSparkline.tsx:31
 msgid "High fatigue accumulation. Prioritize recovery."
 msgstr "High fatigue accumulation. Prioritize recovery."
@@ -951,20 +992,20 @@ msgid "Historical sync may take several minutes"
 msgstr "Historical sync may take several minutes"
 
 #: src/pages/Science.tsx:26
-msgid "How do we assess readiness to train?"
-msgstr "How do we assess readiness to train?"
+#~ msgid "How do we assess readiness to train?"
+#~ msgstr "How do we assess readiness to train?"
 
 #: src/pages/Science.tsx:27
-msgid "How do we estimate race potential?"
-msgstr "How do we estimate race potential?"
+#~ msgid "How do we estimate race potential?"
+#~ msgstr "How do we estimate race potential?"
 
 #: src/pages/Science.tsx:25
-msgid "How does training stress become fitness?"
-msgstr "How does training stress become fitness?"
+#~ msgid "How does training stress become fitness?"
+#~ msgstr "How does training stress become fitness?"
 
 #: src/pages/Science.tsx:28
-msgid "How is intensity classified?"
-msgstr "How is intensity classified?"
+#~ msgid "How is intensity classified?"
+#~ msgstr "How is intensity classified?"
 
 #: src/pages/Settings.tsx:724
 msgid "How often Praxys pulls new data in the background. Lower frequency uses less network and respects platform rate limits."
@@ -1400,6 +1441,11 @@ msgstr "Predicted using Riegel's formula (T₂ = T₁ × (D₂/D₁)^1.06), trea
 msgid "Predicted using Stryd race power model (5K at 103.8% CP, marathon at 89.9% CP)."
 msgstr "Predicted using Stryd race power model (5K at 103.8% CP, marathon at 89.9% CP)."
 
+#: src/pages/Science.tsx:400
+#: src/pages/Science.tsx:548
+msgid "Previewing"
+msgstr "Previewing"
+
 #: src/pages/History.tsx:80
 msgid "Previous"
 msgstr "Previous"
@@ -1502,9 +1548,17 @@ msgstr "Read-only accounts that mirror your dashboard data"
 msgid "Readiness"
 msgstr "Readiness"
 
+#: src/pages/Science.tsx:26
+msgid "Reads readiness from the body's signals."
+msgstr "Reads readiness from the body's signals."
+
 #: src/pages/Goal.tsx:358
 msgid "Realistic alternative targets"
 msgstr "Realistic alternative targets"
+
+#: src/pages/Science.tsx:209
+msgid "Recommendation available"
+msgstr "Recommendation available"
 
 #: src/components/AiInsightsCard.tsx:138
 msgid "Recommendations"
@@ -1514,6 +1568,8 @@ msgstr "Recommendations"
 msgid "recommended"
 msgstr "recommended"
 
+#: src/pages/Science.tsx:378
+#: src/pages/Science.tsx:553
 #: src/pages/Setup.tsx:595
 #: src/pages/Setup.tsx:731
 msgid "Recommended"
@@ -1561,7 +1617,7 @@ msgstr "Redirecting..."
 msgid "Reduce Intensity"
 msgstr "Reduce Intensity"
 
-#: src/pages/Science.tsx:69
+#: src/pages/Science.tsx:472
 msgid "References"
 msgstr "References"
 
@@ -1663,6 +1719,10 @@ msgstr "Saving..."
 msgid "Science"
 msgstr "Science"
 
+#: src/pages/Science.tsx:212
+msgid "Science pillars"
+msgstr "Science pillars"
+
 #: src/pages/Settings.tsx:977
 msgid "Select the region matching your COROS account."
 msgstr "Select the region matching your COROS account."
@@ -1709,6 +1769,10 @@ msgstr "Show {0} more workouts"
 msgid "Show less"
 msgstr "Show less"
 
+#: src/pages/Science.tsx:454
+msgid "Show methodology details"
+msgstr "Show methodology details"
+
 #: src/pages/History.tsx:84
 msgid "Showing"
 msgstr "Showing"
@@ -1722,8 +1786,8 @@ msgid "Signing in..."
 msgstr "Signing in..."
 
 #: src/pages/Science.tsx:132
-msgid "Simple"
-msgstr "Simple"
+#~ msgid "Simple"
+#~ msgstr "Simple"
 
 #: src/pages/Setup.tsx:779
 msgid "Skip for now"
@@ -1805,6 +1869,11 @@ msgstr "Suggestions"
 #: src/pages/Setup.tsx:160
 msgid "Swimming"
 msgstr "Swimming"
+
+#. placeholder {0}: previewedTheory.name
+#: src/pages/Science.tsx:417
+msgid "Switch to {0}"
+msgstr "Switch to {0}"
 
 #: src/components/SetupChecklist.tsx:59
 #: src/pages/Settings.tsx:809
@@ -1986,13 +2055,17 @@ msgstr "Training Insights"
 msgid "Training plan & targets"
 msgstr "Training plan & targets"
 
-#: src/pages/Science.tsx:227
+#: src/pages/Science.tsx:162
 msgid "Training Science"
 msgstr "Training Science"
 
 #: src/pages/Science.tsx:28
 msgid "Training Zones"
 msgstr "Training Zones"
+
+#: src/pages/Science.tsx:25
+msgid "Translates training stress into fitness."
+msgstr "Translates training stress into fitness."
 
 #: src/components/charts/FitnessFatigueChart.tsx:243
 msgid "TSB (Form)"
@@ -2019,8 +2092,8 @@ msgid "US"
 msgstr "US"
 
 #: src/pages/Science.tsx:175
-msgid "Use this"
-msgstr "Use this"
+#~ msgid "Use this"
+#~ msgstr "Use this"
 
 #: src/pages/Setup.tsx:197
 msgid "Use your Garmin Connect credentials."
@@ -2046,7 +2119,7 @@ msgstr "User"
 msgid "Users"
 msgstr "Users"
 
-#: src/pages/Science.tsx:85
+#: src/pages/Science.tsx:494
 msgid "view"
 msgstr "view"
 
@@ -2132,9 +2205,13 @@ msgstr "Zone"
 msgid "Zone Analysis"
 msgstr "Zone Analysis"
 
+#: src/pages/Science.tsx:175
+msgid "Zone labels"
+msgstr "Zone labels"
+
 #: src/pages/Science.tsx:253
-msgid "Zone Labels"
-msgstr "Zone Labels"
+#~ msgid "Zone Labels"
+#~ msgstr "Zone Labels"
 
 #: src/pages/Settings.tsx:68
 msgid "Zones & load from Critical Power"

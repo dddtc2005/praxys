@@ -259,6 +259,17 @@ const EN_HISTORY_SCIENCE = {
   'No active theory configured.': 'No active theory configured.',
   '{0} label sets available — switch on the web.':
     '{0} label sets available — switch on the web.',
+  // Transitional fallbacks: web's Science page redesign (PR #259) replaced
+  // these strings with new copy. The miniapp Science page will be
+  // redesigned for parity in a follow-up PR; until then these keep
+  // pages/science/index.ts rendering rather than falling through to the
+  // raw English. Remove when miniapp parity ships.
+  Simple: 'Simple',
+  Advanced: 'Advanced',
+  'How does training stress become fitness?': 'How does training stress become fitness?',
+  'How do we assess readiness to train?': 'How do we assess readiness to train?',
+  'How do we estimate race potential?': 'How do we estimate race potential?',
+  'How is intensity classified?': 'How is intensity classified?',
 };
 
 const EN_SETTINGS = {
@@ -529,6 +540,13 @@ const ZH_HISTORY_SCIENCE = {
   'No active theory configured.': '尚未配置启用的理论。',
   '{0} label sets available — switch on the web.':
     '可选的区间标签集共 {0} 套——请在网页端切换。',
+  // Transitional fallbacks — see EN_HISTORY_SCIENCE comment above.
+  Simple: '简要',
+  Advanced: '详细',
+  'How does training stress become fitness?': '训练应激如何转化为体能？',
+  'How do we assess readiness to train?': '如何评估训练准备度？',
+  'How do we estimate race potential?': '如何估算比赛潜力？',
+  'How is intensity classified?': '如何分类训练强度？',
 };
 
 const ZH_SETTINGS = {
