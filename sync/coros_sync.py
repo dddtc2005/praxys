@@ -39,18 +39,21 @@ MOBILE_BASE_URLS = {
 _MOBILE_IV = b"weloop3_2015_03#"
 
 _SPORT_TYPE_MAP = {
-    1: "running",
-    2: "cycling",
-    3: "swimming",
-    4: "trail_running",
-    5: "skiing",
-    6: "hiking",
-    7: "walking",
-    8: "strength",
-    9: "other",
-    10: "triathlon",
-    100: "running",       # indoor run
-    101: "cycling",       # indoor cycling
+    100: "running",       # outdoor run
+    101: "treadmill",     # indoor run / treadmill
+    102: "trail_running",
+    103: "running",       # track run
+    104: "hiking",
+    200: "cycling",       # outdoor cycling
+    201: "cycling",       # indoor cycling
+    300: "swimming",      # pool swim
+    301: "swimming",      # open water
+    400: "cardio",        # indoor cardio / gym
+    402: "strength",
+    500: "skiing",
+    900: "walking",
+    1000: "badminton",
+    10000: "triathlon",
 }
 
 TOKEN_TTL_SECONDS = 23 * 3600  # conservative: treat as expired after 23h
@@ -364,31 +367,43 @@ def fetch_activities(
     *,
     page_size: int = 100,
 ) -> list[dict]:
-    """Fetch activity list via POST /activity/query with pagination."""
+    """Fetch activity list via GET /activity/query with pagination."""
     url = f"{_base_url(region)}/activity/query"
     all_activities: list[dict] = []
     page = 1
 
     while True:
-        resp = requests.post(
+        params: dict = {"size": page_size, "pageNumber": page}
+        if from_date:
+            params["startDay"] = from_date.replace("-", "")
+        if to_date:
+            params["endDay"] = to_date.replace("-", "")
+
+        resp = requests.get(
             url,
-            json={
-                "size": page_size,
-                "pageNumber": page,
-                "startDay": from_date.replace("-", ""),
-                "endDay": to_date.replace("-", ""),
-            },
+            params=params,
             headers=_headers(access_token),
             timeout=30,
         )
         resp.raise_for_status()
-        data = resp.json().get("data", {})
+        body = resp.json()
+
+        result_code = str(body.get("result", ""))
+        if result_code not in ("0000", "0"):
+            msg = body.get("message", result_code)
+            if "token" in str(msg).lower() or "auth" in str(msg).lower():
+                raise RuntimeError(f"COROS auth error: {msg}")
+            logger.warning("COROS activity query error: %s", msg)
+            return []
+
+        data = body.get("data", {})
         activities = data.get("dataList") or data.get("activities") or []
         if not activities:
             break
         all_activities.extend(activities)
-        total_count = data.get("totalCount") or data.get("count") or 0
-        if len(all_activities) >= total_count or len(activities) < page_size:
+
+        total_pages = data.get("totalPage") or 0
+        if page >= total_pages:
             break
         page += 1
 
@@ -407,7 +422,16 @@ def fetch_activity_detail(
         timeout=30,
     )
     resp.raise_for_status()
-    return resp.json().get("data", {})
+    body = resp.json()
+
+    if str(body.get("result")) not in ("0000", "0"):
+        msg = body.get("message", body.get("result"))
+        if "token" in str(msg).lower() or "auth" in str(msg).lower():
+            raise RuntimeError(f"COROS auth error: {msg}")
+        logger.warning("COROS activity detail error for %s: %s", activity_id, msg)
+        return {}
+
+    return body.get("data", {})
 
 
 def fetch_daily_metrics(
@@ -442,7 +466,10 @@ def fetch_daily_metrics(
             logger.debug("COROS dayDetail: %d items", len(items))
             all_items.extend(items)
         else:
-            logger.warning("COROS dayDetail error: %s", raw.get("message", raw.get("result")))
+            msg = raw.get("message", raw.get("result"))
+            if "token" in str(msg).lower() or "auth" in str(msg).lower():
+                raise RuntimeError(f"COROS auth error: {msg}")
+            logger.warning("COROS dayDetail error: %s", msg)
     except Exception as e:
         logger.warning("COROS dayDetail fetch failed: %s", e)
 
@@ -515,6 +542,8 @@ def parse_activities(raw_activities: list[dict]) -> list[dict]:
     """Convert COROS activity list to canonical activity rows."""
     rows = []
     for a in raw_activities:
+        logger.debug("COROS raw activity: sportType=%s name=%s date=%s",
+                     a.get("sportType"), a.get("name"), a.get("date") or a.get("day"))
         distance_m = float(a.get("distance") or a.get("totalDistance") or 0)
         duration_sec = float(a.get("duration") or a.get("totalTime") or 0)
         distance_km = distance_m / 1000 if distance_m > 0 else 0
