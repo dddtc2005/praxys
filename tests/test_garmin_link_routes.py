@@ -192,6 +192,65 @@ def test_start_interactive_creates_session_and_skips_chromium_in_test(
 # Token persistence
 # ---------------------------------------------------------------------------
 
+def test_persist_uses_submitted_credentials_over_original_post(
+    app_with_user, monkeypatch,
+):
+    """When the user corrects a typo in the relayed viewport, the
+    final password is what Garmin actually accepts. The Playwright
+    request listener captures it into ``submitted_email`` /
+    ``submitted_password``, and persistence must prefer those over
+    the original /interactive POST values — otherwise we'd encrypt a
+    known-stale password and silently break refresh-expiry password
+    auth ~30 days later.
+    """
+    client, user_id, _, _ = app_with_user
+    from api.routes.garmin_link import _Session, _persist_captured_tokens
+    from api.routes.sync import _garmin_token_dir
+    from db import session as db_session
+    from db.models import UserConnection
+    from db.crypto import get_vault
+
+    sess = _Session(
+        id="typo-corrected",
+        user_id=user_id,
+        email="user@old-typo.com",
+        password="WRONG_PASSWORD",
+        is_cn=False,
+    )
+    sess.captured_tokens = {
+        "di_token": "fake.di",
+        "di_refresh_token": "fake.refresh",
+        "di_client_id": "GARMIN_CONNECT_MOBILE_ANDROID_DI_2025Q2",
+    }
+    # The Playwright request listener saw the user submit the corrected
+    # values, which are what Garmin's auth backend accepted.
+    sess.submitted_email = "user@correct.com"
+    sess.submitted_password = "RIGHT_PASSWORD"
+
+    _persist_captured_tokens(sess)
+
+    db = db_session.SessionLocal()
+    try:
+        conn = db.query(UserConnection).filter(
+            UserConnection.user_id == user_id,
+            UserConnection.platform == "garmin",
+        ).first()
+        decrypted = get_vault().decrypt(
+            conn.encrypted_credentials, conn.wrapped_dek,
+        )
+        creds = json.loads(decrypted)
+        assert creds["email"] == "user@correct.com", (
+            "Submitted email must override the /interactive POST value"
+        )
+        assert creds["password"] == "RIGHT_PASSWORD", (
+            "Submitted password must override the /interactive POST value — "
+            "otherwise refresh-expiry password auth would loop on the wrong "
+            "password until the user reconnects again."
+        )
+    finally:
+        db.close()
+
+
 def test_persist_captured_tokens_writes_tokenstore_and_resets_backoff(
     app_with_user, monkeypatch,
 ):

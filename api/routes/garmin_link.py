@@ -202,6 +202,16 @@ class _Session:
     error_message: str | None = None
     captured_tokens: dict | None = None
 
+    # Email/password actually submitted to ``sso.garmin.com/portal/api/login``,
+    # captured via Playwright's request listener. May differ from the
+    # email/password the user POSTed to ``/interactive`` if they edited
+    # the inputs in the relayed viewport (e.g. fixed a typo). Empty
+    # until the form is submitted; ``_persist_captured_tokens`` prefers
+    # this over ``email``/``password`` so the encrypted creds blob
+    # always reflects what Garmin actually accepted.
+    submitted_email: str | None = None
+    submitted_password: str | None = None
+
     # Cross-thread channels — both threadsafe ``queue.Queue`` so the
     # Playwright owner thread (sync) and the WS coroutine (async) can
     # produce/consume on opposite ends without an event loop binding.
@@ -333,6 +343,30 @@ def _run_browser_session(session: _Session) -> None:
                     )
 
             context.on("response", _on_response)
+
+            # Capture the credentials *actually* submitted to Garmin so a
+            # user who corrects a typo in the relayed viewport doesn't
+            # leave us persisting their original (rejected) password —
+            # which would silently break refresh-token-expiry password
+            # auth ~30 days later. The portal form POSTs to
+            # /portal/api/login with {"username", "password", ...} JSON.
+            def _on_request(request):
+                if "/portal/api/login" not in request.url:
+                    return
+                if request.method != "POST":
+                    return
+                try:
+                    body = json_mod.loads(request.post_data or "{}")
+                except Exception:
+                    return
+                username = body.get("username") or ""
+                password = body.get("password") or ""
+                if username:
+                    session.submitted_email = username
+                if password:
+                    session.submitted_password = password
+
+            context.on("request", _on_request)
             page = context.new_page()
 
             page.goto(_portal_signin_url(session.is_cn), wait_until="domcontentloaded")
@@ -490,6 +524,17 @@ def start_interactive_login(
 
     _gc_sessions()
 
+    # Install Chromium *before* taking the session-table lock — the
+    # subprocess can run for up to 5 min on first deploy, and any code
+    # path that needs ``_sessions_lock`` (the WS handler, GC, the GET
+    # status endpoint, even another start_interactive_login call) would
+    # otherwise serialize behind the install. ``_ensure_chromium_installed``
+    # has its own lock so concurrent first-runs don't double-install.
+    try:
+        _ensure_chromium_installed()
+    except Exception as exc:
+        raise HTTPException(503, f"Browser unavailable: {exc}") from exc
+
     with _sessions_lock:
         live = sum(
             1 for s in _sessions.values()
@@ -500,11 +545,6 @@ def start_interactive_login(
                 503,
                 "Interactive-login slots are full. Please retry in a minute.",
             )
-
-        try:
-            _ensure_chromium_installed()
-        except Exception as exc:
-            raise HTTPException(503, f"Browser unavailable: {exc}") from exc
 
         session_id = uuid.uuid4().hex
         sess = _Session(
@@ -566,7 +606,12 @@ async def interactive_login_ws(websocket: WebSocket, session_id: str) -> None:
 
     # The session's queues are sync ``queue.Queue``s shared with the
     # Playwright owner thread (see _Session). To bridge to async, we
-    # delegate the blocking ``get`` to a thread executor.
+    # delegate the blocking ``get`` to a thread executor. Both sides
+    # log their unexpected exceptions before returning so production
+    # has a trail when "the page just went black" — the bare ``except``
+    # in the original silently dropped diagnosable errors and the
+    # outer ``finally`` only sent an error frame on ``state=='failed'``,
+    # leaving the user staring at a blank canvas with nothing to act on.
     async def _send_frames():
         loop = asyncio.get_running_loop()
         while True:
@@ -575,6 +620,16 @@ async def interactive_login_ws(websocket: WebSocket, session_id: str) -> None:
                     None, _blocking_queue_get, sess.frame_queue, 0.5,
                 )
             except Exception:
+                logger.exception(
+                    "WS frame-pump executor error for session %s", sess.id,
+                )
+                try:
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": "Frame relay interrupted — please retry.",
+                    })
+                except Exception:
+                    pass
                 return
             if msg is None:
                 # Timeout — check for terminal state to avoid spinning
@@ -586,6 +641,12 @@ async def interactive_login_ws(websocket: WebSocket, session_id: str) -> None:
             try:
                 await websocket.send_json(msg)
             except Exception:
+                # Client disconnected or send failed — quietly stop the
+                # pump. No error frame because the socket is gone.
+                logger.debug(
+                    "WS send failed for session %s; stopping frame pump.",
+                    sess.id,
+                )
                 return
             if msg.get("type") == "complete":
                 return
@@ -597,6 +658,10 @@ async def interactive_login_ws(websocket: WebSocket, session_id: str) -> None:
             except WebSocketDisconnect:
                 return
             except Exception:
+                logger.debug(
+                    "WS recv failed for session %s; stopping input pump.",
+                    sess.id,
+                )
                 return
             try:
                 sess.input_queue.put_nowait(msg)
@@ -726,11 +791,17 @@ def _persist_captured_tokens(sess: _Session) -> None:
         sess.user_id, len(json_mod.dumps(sess.captured_tokens)),
     )
 
+    # Prefer the credentials Garmin actually accepted (captured from the
+    # /portal/api/login POST body) over what the user originally POSTed
+    # to /interactive. They differ when the user corrects a typo in the
+    # relayed viewport. Fall back to the originals only if the request
+    # listener never fired — e.g., the user completed login from a still-
+    # valid cookie session and never re-submitted the form.
     db = db_session.SessionLocal()
     try:
         creds = {
-            "email": sess.email,
-            "password": sess.password,
+            "email": sess.submitted_email or sess.email,
+            "password": sess.submitted_password or sess.password,
             "is_cn": sess.is_cn,
         }
         _upsert_connection_credentials(sess.user_id, "garmin", creds, db)
