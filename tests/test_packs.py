@@ -256,6 +256,24 @@ def test_packs_share_cache_across_calls(db_with_seeded_user, monkeypatch):
     )
 
 
+def test_today_route_payload_includes_as_of_date(db_with_seeded_user):
+    """The /api/today payload must carry the server-local calendar date.
+
+    Clients render the eyebrow against this rather than `new Date()` so a
+    traveler whose device clock crossed midnight before sync caught up
+    doesn't see the page assert a date the server hasn't reached. The
+    field must be an ISO `YYYY-MM-DD` string equal to the server's
+    current `date.today()`.
+    """
+    from api.routes.today import _build_today_payload
+
+    db, user_id = db_with_seeded_user
+    payload = _build_today_payload(user_id, db)
+
+    assert "as_of_date" in payload
+    assert payload["as_of_date"] == date.today().isoformat()
+
+
 def test_dashboard_data_and_packs_agree_on_signal(db_with_seeded_user):
     """Behavioral equivalence: signal_pack output equals dashboard_data['signal'].
 

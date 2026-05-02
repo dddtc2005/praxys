@@ -25,6 +25,16 @@
     </block>
 
     <block wx:else>
+      <!--
+        Stale-data / timezone advisory. Empty `stalenessText` hides the
+        block (Skyline's wx:if treats `''` as falsy). Sits between the
+        date eyebrow and the signal hero so the user reads the caveat
+        before interpreting the verdict. Same wording as
+        web/src/pages/Today.tsx for cross-surface consistency.
+      -->
+      <view wx:if="{{stalenessText}}" class="today-staleness-banner">
+        <text class="today-staleness-text">{{stalenessText}}</text>
+      </view>
       <view class="ts-card signal-hero">
         <view
           class="signal-share-fab"

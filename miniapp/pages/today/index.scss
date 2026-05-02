@@ -37,6 +37,24 @@
   margin-bottom: 32rpx;
 }
 
+// Stale-data / timezone advisory. Sits between the date eyebrow and the
+// signal hero. Dashed amber chrome mirrors the web banner so the
+// surfaces read consistently.
+.today-staleness-banner {
+  border: 1rpx dashed var(--accent-amber, #b45309);
+  background-color: rgba(245, 158, 11, 0.06);
+  border-radius: 12rpx;
+  padding: 16rpx 20rpx;
+  margin-bottom: 24rpx;
+}
+
+.today-staleness-text {
+  display: block;
+  font-size: 24rpx;
+  line-height: 1.4;
+  color: var(--accent-amber, #b45309);
+}
+
 // --- SignalHero (round, pulsing status indicator — mirrors web) ---
 .signal-hero {
   position: relative;

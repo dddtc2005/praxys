@@ -206,6 +206,13 @@ const EN_TODAY = {
   'Adjust Workout': 'Adjust Workout',
   'Reduce Intensity': 'Reduce Intensity',
   'Recovery Day': 'Recovery Day',
+  // Stale-data / timezone advisory. Mini program uses positional `{0}`
+  // placeholders (tFmt) so the key string differs from the web `{name}`
+  // form in messages.po — these are the mini-only English passthroughs
+  // that match the strings in pages/today/index.ts:buildStalenessText.
+  "Recovery data hasn't synced yet. Showing the latest reading from {0}.":
+    "Recovery data hasn't synced yet. Showing the latest reading from {0}.",
+  'Showing data as of {0}.': 'Showing data as of {0}.',
 };
 
 const EN_TRAINING = {
@@ -472,6 +479,11 @@ const ZH_TODAY = {
   'Adjust Workout': '调整训练',
   'Reduce Intensity': '降低强度',
   'Recovery Day': '恢复日',
+  // Stale-data / timezone advisory. `{0}` is the localized reading-date
+  // chip ("Apr 24" / "4月24日") supplied by tFmt.
+  "Recovery data hasn't synced yet. Showing the latest reading from {0}.":
+    '今日恢复数据尚未同步，显示的是 {0} 的最近读数。',
+  'Showing data as of {0}.': '显示截至 {0} 的数据。',
 };
 
 const ZH_TRAINING = {

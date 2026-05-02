@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { useApi } from '@/hooks/useApi';
 import type { AiInsight, TodayResponse, TrainingSignal } from '@/types/api';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -135,6 +134,45 @@ const RHR_TREND_LABEL: Record<'stable' | 'elevated' | 'low' | 'normal', MessageD
 const TSB_STRONGLY_POSITIVE = 10;
 const TSB_MILD_FATIGUE = -10;
 
+// Format an ISO `YYYY-MM-DD` as a localized long-form date string. Parses
+// the date as a local calendar date (not UTC midnight) so a server-emitted
+// "2026-05-02" doesn't shift backward for users in negative-offset timezones
+// — `new Date("2026-05-02")` would be UTC and render as May 1 in the
+// Americas. Falls back to the raw ISO string if the parse fails.
+function formatIsoDateLong(isoDate: string, locale: string): string {
+  const [y, m, day] = isoDate.split('-').map(Number);
+  if (!y || !m || !day) return isoDate;
+  return new Date(y, m - 1, day).toLocaleDateString(
+    locale === 'zh' ? 'zh-CN' : 'en-US',
+    { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' },
+  );
+}
+
+// Short ("Apr 24" / "4月24日") variant for the staleness banner so the
+// reading-date chip sits inline cleanly. Same local-calendar parse as
+// formatIsoDateLong — keep the two in sync.
+function formatIsoDateShort(isoDate: string, locale: string): string {
+  const [y, m, day] = isoDate.split('-').map(Number);
+  if (!y || !m || !day) return isoDate;
+  return new Date(y, m - 1, day).toLocaleDateString(
+    locale === 'zh' ? 'zh-CN' : 'en-US',
+    { month: 'short', day: 'numeric' },
+  );
+}
+
+// Returns the device's local calendar date as ISO `YYYY-MM-DD`. Used to
+// detect when the user's device crossed midnight before the server
+// (recently-changed timezones) so we can flag the divergence on the
+// stale-data banner. Doesn't use `toISOString()` because that would
+// emit UTC and lose the device-local day.
+function localIsoDate(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function formatPlan(plan: TrainingSignal['plan']): string | null {
   if (!plan?.workout_type) return null;
   const parts: string[] = [plan.workout_type];
@@ -153,17 +191,6 @@ export default function Today() {
   const { locale } = useLocale();
   const { i18n } = useLingui();
 
-  const dateStr = useMemo(
-    () =>
-      new Date().toLocaleDateString(locale === 'zh' ? 'zh-CN' : 'en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      }),
-    [locale],
-  );
-
   if (loading) return <TodaySkeleton />;
 
   if (error) {
@@ -181,6 +208,29 @@ export default function Today() {
   if (!data) return null;
 
   const { signal, recovery_analysis: ra } = data;
+
+  // Eyebrow date is sourced from the server's `as_of_date` rather than
+  // `new Date()` — the page asserts what date the *data* was computed
+  // for, not what the device's clock currently reads. A traveler whose
+  // device crossed midnight before sync caught up would otherwise see
+  // "May 2" on a payload the server still treats as May 1.
+  const dateStr = formatIsoDateLong(data.as_of_date, locale);
+
+  // Recovery staleness: the latest HRV/sleep row may be older than the
+  // server's `as_of_date` when sync hasn't run yet today. The server
+  // already applies a 1-day grace (sleep is recorded under the prior
+  // night), so `is_stale` only fires when the gap is ≥ 2 days.
+  const recoveryStale = ra?.is_stale === true && !!ra.latest_date;
+  const recoveryLatestLabel = recoveryStale && ra?.latest_date
+    ? formatIsoDateShort(ra.latest_date, locale)
+    : null;
+
+  // Timezone divergence: if the device's local calendar date doesn't
+  // match the server's, the user is likely in a different timezone than
+  // the server (or just crossed midnight before the server did). Flag
+  // the mismatch so they understand why the page may "feel" off-by-one.
+  const tzMismatch = localIsoDate() !== data.as_of_date;
+
   const verdictText = i18n._(VERDICT_LABEL[signal.recommendation] ?? VERDICT_LABEL.follow_plan);
   const verdictSubtitle = i18n._(VERDICT_SUBTITLE[signal.recommendation] ?? VERDICT_SUBTITLE.follow_plan);
   const tone = TONE_CLASSES[VERDICT_TONE[signal.recommendation] ?? 'amber'];
@@ -223,6 +273,30 @@ export default function Today() {
   return (
     <div className="today-spread">
       <h1 className="today-eyebrow font-data"><Trans>Today</Trans> · {dateStr}</h1>
+      {(recoveryStale || tzMismatch) && (
+        <div
+          role="status"
+          className="today-staleness-banner rounded-lg border border-dashed border-accent-amber/40 bg-accent-amber/5 px-3 py-2 text-xs text-accent-amber"
+        >
+          {recoveryStale && recoveryLatestLabel ? (
+            <Trans>
+              Recovery data hasn't synced yet. Showing the latest reading from {recoveryLatestLabel}.
+            </Trans>
+          ) : (
+            <Trans>
+              Showing data as of {dateStr}.
+            </Trans>
+          )}
+          {tzMismatch && (
+            <>
+              {' '}
+              <Trans>
+                Server date may differ from your device — recently changed timezones?
+              </Trans>
+            </>
+          )}
+        </div>
+      )}
       <div className="today-verdict">
         <div
           className={`relative flex h-44 w-44 sm:h-56 sm:w-56 items-center justify-center rounded-full ring-4 ${tone.ring} ${tone.shadow}`}
