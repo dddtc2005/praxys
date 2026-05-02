@@ -44,7 +44,6 @@ interface CoachReceipt {
   findings: CoachFindingRow[];
   hasRecommendations: boolean;
   recommendations: CoachRecRow[];
-  attribution: string;
 }
 
 interface CoachTranslations {
@@ -143,7 +142,6 @@ interface GoalState {
   errorMessage: string;
   hasResponse: boolean;
   refreshing: boolean;
-  mode: GoalResponse['race_countdown']['mode'];
 
   goalEyebrow: string;
   goalHeadline: string;
@@ -322,7 +320,6 @@ function buildCoachReceipt(insight: AiInsight, locale: 'en' | 'zh'): CoachReceip
     findings,
     hasRecommendations: recommendations.length > 0,
     recommendations,
-    attribution: '',
   };
 }
 
@@ -588,7 +585,6 @@ function buildGoalState(
     loading: false,
     errorMessage: '',
     hasResponse: true,
-    mode,
 
     goalEyebrow,
     goalHeadline,
@@ -634,7 +630,6 @@ const initialData: GoalState = {
   errorMessage: '',
   hasResponse: false,
   refreshing: false,
-  mode: 'none',
 
   goalEyebrow: '',
   goalHeadline: '',
@@ -798,10 +793,7 @@ Page({
   onPickEditorDistance(e: WechatMiniprogram.PickerChange) {
     const idx = Number(e.detail.value);
     if (Number.isNaN(idx)) return;
-    this.setData({
-      editorDistanceIndex: idx,
-      editorTargetPlaceholder: DISTANCE_CHOICES[idx]?.placeholder ?? '',
-    });
+    this.setData({ editorDistanceIndex: idx });
     this.recomputeEditorDirty();
   },
 
@@ -848,7 +840,10 @@ Page({
       void this.refetch();
     } catch (e) {
       const err = e as Partial<ApiError>;
-      if (err?.code === 'UNAUTHENTICATED') return;
+      if (err?.code === 'UNAUTHENTICATED') {
+        this.setData({ editorSaving: false });
+        return;
+      }
       this.setData({ editorSaving: false, editorError: err?.detail ?? tr.failedToSave });
     }
   },
@@ -860,6 +855,8 @@ Page({
       const [response, insight] = await Promise.all([
         apiGet<GoalResponse>('/api/goal'),
         fetchInsight('race_forecast').catch((e) => {
+          const fe = e as Partial<ApiError>;
+          if (fe?.code === 'UNAUTHENTICATED') throw e;
           console.warn('[goal] race_forecast fetch failed; suppressing coach receipt:', e);
           return null;
         }),
@@ -874,7 +871,8 @@ Page({
         this.setData({ loading: false });
         return;
       }
-      this.setData({ loading: false, errorMessage: err?.detail ?? String(e), hasResponse: false });
+      const tr = this.data.tr as ReturnType<typeof buildGoalTr>;
+      this.setData({ loading: false, errorMessage: err?.detail ?? tr.failedToLoad, hasResponse: false });
     }
   },
 });

@@ -85,9 +85,6 @@
               </view>
             </block>
           </view>
-          <view wx:if="{{coach.attribution}}" class="coach-foot">
-            <text class="coach-foot-text">{{coach.attribution}}</text>
-          </view>
         </view>
 
         <!-- Stats strip — mode-specific cells with key metrics. -->

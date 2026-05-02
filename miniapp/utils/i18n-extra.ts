@@ -128,7 +128,6 @@ const EN_GOAL = {
     "Predicted using Riegel's formula (T₂ = T₁ × (D₂/D₁)^1.06), treating threshold pace as ~10K effort.",
   "Ultra distance power fractions (50K+) are estimates with limited research backing. Riegel's exponent is validated only up to marathon distance. Predictions beyond marathon carry significantly higher uncertainty due to factors like fueling, terrain, heat, and pacing strategy that dominate ultra performance but are not captured by power/pace models.":
     "Ultra distance power fractions (50K+) are estimates with limited research backing. Riegel's exponent is validated only up to marathon distance. Predictions beyond marathon carry significantly higher uncertainty due to factors like fueling, terrain, heat, and pacing strategy that dominate ultra performance but are not captured by power/pace models.",
-  'race day': 'race day',
   // Unified goal headline — one-sentence verdict rendered as plain text.
   // Web uses JSX <Trans> with <strong> spans; miniapp builds a plain string.
   '{0} days to race day. Today\'s prediction is {1} against a target of {2}.':
@@ -405,7 +404,6 @@ const ZH_GOAL = {
     '依据 Riegel 公式预测 (T₂ = T₁ × (D₂/D₁)^1.06)，将阈值配速视为约 10K 强度。',
   "Ultra distance power fractions (50K+) are estimates with limited research backing. Riegel's exponent is validated only up to marathon distance. Predictions beyond marathon carry significantly higher uncertainty due to factors like fueling, terrain, heat, and pacing strategy that dominate ultra performance but are not captured by power/pace models.":
     '超长距离 (50K 及以上) 的功率分配比例为估算值，研究数据有限。Riegel 公式的指数仅在全程马拉松以内得到验证。马拉松以上距离的预测不确定性显著上升，因为补给、地形、温度和配速策略等主导超长距离表现的因素无法被功率/配速模型完全捕捉。',
-  'race day': '比赛日',
   // Unified goal headline zh translations
   '{0} days to race day. Today\'s prediction is {1} against a target of {2}.':
     '距比赛日还有 {0} 天。今日预测 {1}，目标 {2}。',
