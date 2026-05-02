@@ -1,3 +1,10 @@
+// Mobile parity for the web Science page redesign. Web uses a master-
+// detail layout (sticky left rail + detail panel); Skyline phones don't
+// have horizontal real estate for that, so the same feature set lands
+// here as a horizontal pillar tab strip + a vertical detail panel.
+// Chiclet switcher with preview-then-commit, advanced disclosure, and
+// zone-labels footer all match web behavior.
+
 .sci-root {
   display: flex;
   flex-direction: column;
@@ -11,15 +18,20 @@
 }
 
 .sci-content {
-  padding: 32rpx 32rpx 200rpx;
+  padding: 24rpx 32rpx 200rpx;
 }
 
-.sci-header {
-  font-size: 52rpx;
-  font-weight: 700;
-  color: var(--text);
+// --- Header ---
+
+.sci-eyebrow {
   display: block;
-  margin-bottom: 24rpx;
+  font-family: var(--font-mono, monospace);
+  font-size: 20rpx;
+  font-weight: 600;
+  letter-spacing: 4rpx;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 12rpx;
 }
 
 .sci-intro {
@@ -27,133 +39,353 @@
   font-size: 26rpx;
   color: var(--text-muted);
   line-height: 1.6;
+  margin-bottom: 28rpx;
+}
+
+// --- Pillar tab strip ---
+// Horizontal scroll so 4 tabs fit on narrow phones without truncation.
+// Focused tab gets a cobalt bottom edge — this whole page is the
+// "show your work / reasoning" surface, so cobalt is on-brand here.
+
+.sci-tabs-wrap {
+  margin: 0 -32rpx 28rpx;
+  padding: 0;
+  white-space: nowrap;
+  border-bottom: 1rpx solid var(--border);
+}
+
+.sci-tabs {
+  display: inline-flex;
+  padding: 0 32rpx;
+  gap: 8rpx;
+}
+
+.sci-tab {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 16rpx 20rpx 18rpx;
+  min-height: 88rpx; // ≥80rpx tap target.
+  border-bottom: 4rpx solid transparent;
+  transition: border-color 150ms ease-out, color 150ms ease-out;
+}
+
+.sci-tab--focused {
+  border-bottom-color: var(--accent-cobalt);
+}
+
+.sci-tab--hover {
+  background-color: var(--surface-subtle);
+}
+
+.sci-tab-num {
+  font-family: var(--font-mono, monospace);
+  font-size: 20rpx;
+  letter-spacing: 2rpx;
+  color: var(--text-placeholder);
+  margin-bottom: 2rpx;
+}
+
+.sci-tab-label {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--text);
+}
+
+// Tiny amber dot on tabs whose recommendation differs from the active
+// theory. Top-right of the tab cell so it reads as a status indicator
+// without crowding the label.
+.sci-tab-rec-dot {
+  position: absolute;
+  top: 12rpx;
+  right: 12rpx;
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: 50%;
+  background-color: var(--warning);
+}
+
+// --- Detail panel ---
+
+.sci-detail {
   margin-bottom: 32rpx;
 }
 
-.sci-pillar-section {
-  margin-bottom: 48rpx;
+.sci-detail-eyebrow {
+  display: block;
+  font-family: var(--font-mono, monospace);
+  font-size: 20rpx;
+  font-weight: 600;
+  letter-spacing: 3rpx;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8rpx;
 }
 
-.sci-pillar-heading {
+.sci-detail-num {
+  color: var(--text);
+}
+
+.sci-detail-eyebrow-sep {
+  color: var(--text-placeholder);
+}
+
+.sci-detail-question {
   display: block;
   font-size: 36rpx;
   font-weight: 700;
   color: var(--text);
+  line-height: 1.3;
+  margin-bottom: 24rpx;
+}
+
+// --- Chiclet switcher ---
+// Pill-shaped buttons in a horizontal scroll row. Active = filled muted
+// background; previewing = cobalt outline (this is the "you're staging
+// a swap" state, so cobalt = "the system is showing you why"); rec halo
+// = amber border before commit.
+
+.sci-chiclets-wrap {
+  margin: 0 -32rpx 24rpx;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.sci-chiclets {
+  display: inline-flex;
+  padding: 0 32rpx;
+  gap: 12rpx;
+}
+
+.sci-chiclet {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 12rpx 22rpx;
+  border-radius: 999rpx;
+  border: 1rpx solid var(--border);
+  background-color: transparent;
+  min-height: 64rpx;
+  transition: border-color 150ms ease-out, background-color 150ms ease-out;
+}
+
+.sci-chiclet--hover {
+  background-color: var(--surface-subtle);
+}
+
+.sci-chiclet--active {
+  background-color: var(--surface-subtle);
+  border-color: var(--border);
+}
+
+.sci-chiclet--previewing {
+  border-color: var(--accent-cobalt);
+  background-color: transparent;
+}
+
+.sci-chiclet--recommended {
+  border-color: var(--warning);
+}
+
+.sci-chiclet-name {
+  font-size: 26rpx;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.sci-chiclet-tag {
+  font-family: var(--font-mono, monospace);
+  font-size: 18rpx;
+  font-weight: 600;
+  letter-spacing: 2rpx;
+  text-transform: uppercase;
+}
+
+.sci-chiclet-tag--active {
+  color: var(--accent-cobalt);
+}
+
+.sci-chiclet-tag--previewing {
+  color: var(--accent-cobalt);
+}
+
+.sci-chiclet-tag--recommended {
+  color: var(--warning);
+}
+
+// --- Recommendation hint ---
+
+.sci-rec-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12rpx;
+  padding: 0 0 20rpx;
   margin-bottom: 4rpx;
 }
 
-.sci-pillar-question {
-  display: block;
+.sci-rec-hint-tag {
+  font-family: var(--font-mono, monospace);
+  font-size: 18rpx;
+  font-weight: 600;
+  letter-spacing: 2rpx;
+  text-transform: uppercase;
+  color: var(--warning);
+}
+
+.sci-rec-hint-text {
+  flex: 1;
   font-size: 24rpx;
-  margin-bottom: 16rpx;
+  color: var(--text-muted);
   line-height: 1.5;
 }
 
-// --- Per-pillar Simple/Advanced tabs ---
-.sci-mode-tabs {
-  display: flex;
-  gap: 16rpx;
-  margin-bottom: 16rpx;
-}
-
-.sci-mode-tab {
-  flex: 0 0 auto;
-  padding: 10rpx 24rpx;
-  font-size: 24rpx;
-  border-radius: 16rpx;
-  background-color: var(--surface-subtle);
-  color: var(--text-muted);
-  border: 1rpx solid var(--border);
-}
-
-.sci-mode-tab--active {
-  background-color: var(--primary);
-  color: var(--primary-on);
-  border-color: var(--primary);
-  font-weight: 600;
-}
-
-// --- Active + alternative theory cards ---
-// Active card gets the primary-color left rail AND a tinted background
-// so the selection state reads at thumb-arm distance. Previous design
-// relied only on a tiny ACTIVE badge; the badge alone disappeared in
-// the visual scan when scrolling through alternatives below.
-.sci-active-card {
-  border-left: 4rpx solid var(--primary);
-  background-color: rgba(30, 142, 91, 0.06); // ~6% --primary
-}
-
-.sci-alt-card {
-  border-left: 4rpx solid var(--border);
-}
-
-.sci-active-header {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  margin-bottom: 4rpx;
-}
-
-.sci-card-name {
-  font-size: 30rpx;
-  font-weight: 600;
+.sci-rec-hint-name {
   color: var(--text);
+  font-weight: 600;
 }
 
-.sci-active-badge {
-  // Bumped 18rpx → 22rpx so the active state reads even when the user
-  // skims past the active card to compare alternatives.
-  font-size: 22rpx;
-  letter-spacing: 1rpx;
-  font-weight: 700;
-  padding: 2rpx 10rpx;
-  border-radius: 12rpx;
-  background-color: var(--surface-subtle);
+// --- Body: author/status line + description ---
+
+.sci-body {
+  padding: 4rpx 0 24rpx;
 }
 
-.sci-card-author {
-  display: block;
-  font-size: 22rpx;
+.sci-status-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 16rpx;
   margin-bottom: 12rpx;
 }
 
-.sci-card-text {
-  display: block;
-  font-size: 26rpx;
+.sci-status-author {
+  font-size: 22rpx;
+  color: var(--text-muted);
+}
+
+.sci-status-author-name {
   color: var(--text);
-  line-height: 1.6;
+}
+
+.sci-status-tag {
+  font-family: var(--font-mono, monospace);
+  font-size: 18rpx;
+  font-weight: 600;
+  letter-spacing: 2rpx;
+  text-transform: uppercase;
+}
+
+.sci-status-tag--active {
+  color: var(--accent-cobalt);
+}
+
+.sci-status-tag--previewing {
+  color: var(--text-muted);
+}
+
+.sci-description {
+  display: block;
+  font-size: 28rpx;
+  color: var(--text);
+  line-height: 1.65;
+}
+
+// --- Switch / cancel CTAs ---
+// Primary green only when the user has staged a switch — matches web's
+// "one primary per surface" rule and the two-track palette (green = act).
+
+.sci-commit-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+}
+
+.sci-commit-btn {
+  flex: 1 1 60%;
+  min-width: 0;
+  font-size: 28rpx;
+}
+
+.sci-cancel-btn {
+  flex: 0 0 auto;
+  font-size: 26rpx;
+  color: var(--text-muted);
+}
+
+// --- Advanced disclosure ---
+
+.sci-disclosure {
+  margin-top: 32rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx solid var(--border);
+}
+
+.sci-disclosure-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 10rpx;
+  padding: 8rpx 0;
+  min-height: 64rpx;
+}
+
+.sci-disclosure-trigger--hover {
+  opacity: 0.7;
+}
+
+.sci-disclosure-chevron {
+  font-family: var(--font-mono, monospace);
+  font-size: 28rpx;
+  color: var(--accent-cobalt);
+  transition: transform 200ms ease-out;
+  display: inline-block;
+}
+
+.sci-disclosure-chevron--open {
+  transform: rotate(90deg);
+}
+
+.sci-disclosure-label {
+  font-family: var(--font-mono, monospace);
+  font-size: 22rpx;
+  font-weight: 600;
+  letter-spacing: 2rpx;
+  text-transform: uppercase;
+  color: var(--accent-cobalt);
 }
 
 // --- Rich-text markdown rendering ---
+
 .sci-rich-text {
   display: block;
+  margin-top: 20rpx;
   font-size: 26rpx;
   color: var(--text);
-  line-height: 1.6;
-  // <rich-text> renders the inner nodes — these classes apply to the
-  // outer wrapper. The nodes themselves use default WeChat styling for
-  // <p>, <strong>, <em>, <ul>, etc., which respects the inherited
-  // font-size and color above.
+  line-height: 1.65;
 }
 
-// --- Citations / References ---
+// --- Citations ---
+
 .sci-citations {
-  margin-top: 16rpx;
-  padding-top: 16rpx;
-  border-top: 1rpx solid var(--border-subtle);
+  margin-top: 28rpx;
 }
 
 .sci-citations-label {
   display: block;
+  font-family: var(--font-mono, monospace);
   font-size: 20rpx;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 2rpx;
-  font-weight: 600;
-  margin-bottom: 8rpx;
+  color: var(--text-muted);
+  margin-bottom: 12rpx;
 }
 
 .sci-citation-row {
-  padding: 8rpx 0;
+  padding: 12rpx 0;
   border-bottom: 1rpx solid var(--border-subtle);
 }
 
@@ -172,46 +404,45 @@
   display: block;
   font-size: 20rpx;
   margin-top: 4rpx;
+  color: var(--accent-cobalt);
   text-decoration: underline;
 }
 
-// --- Recommendation hint ---
-.sci-recommendation {
-  padding: 16rpx 24rpx;
-  margin-bottom: 16rpx;
-  border-radius: 12rpx;
-  background-color: var(--surface-subtle);
-  border: 1rpx solid var(--warning);
+// --- Zone labels footer ---
+
+.sci-zone-card {
+  padding: 24rpx;
+  border: 1rpx solid var(--border);
+  border-radius: 16rpx;
+  background-color: var(--surface);
 }
 
-.sci-recommendation-text {
-  font-size: 24rpx;
-  line-height: 1.5;
+.sci-zone-label {
+  display: block;
+  font-family: var(--font-mono, monospace);
+  font-size: 20rpx;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 2rpx;
+  color: var(--text-muted);
+  margin-bottom: 8rpx;
 }
 
-.sci-recommendation-name {
-  font-weight: 700;
-  color: var(--warning);
-}
-
-.sci-line {
+.sci-zone-line {
   display: block;
   font-size: 26rpx;
   color: var(--text);
   line-height: 1.6;
 }
 
-.sci-muted-line {
-  display: block;
-  font-size: 22rpx;
-  line-height: 1.5;
-  margin-top: 8rpx;
+.sci-zone-value {
+  font-weight: 600;
 }
 
-// "Use this theory" button on alternative theory cards. Compact so it
-// reads as an action affordance rather than a hero CTA.
-.sci-use-btn {
-  margin-top: 16rpx;
-  font-size: 26rpx;
-  width: 100%;
+.sci-zone-muted {
+  display: block;
+  font-size: 22rpx;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-top: 8rpx;
 }
