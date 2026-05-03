@@ -163,15 +163,20 @@
   gap: 8rpx;
 }
 
+// Cobalt = reasoning surface, per the Reasoning Color Rule. The arrow +
+// label form the progressive-disclosure trigger ("How this is calculated"),
+// which mirrors web's ScienceNote — both signal "tap to see the
+// methodology behind a number". Body prose below stays muted because the
+// body is supporting context, not the reasoning *signal*.
 .goal-note-arrow {
   font-size: 22rpx;
-  color: var(--text-muted);
+  color: var(--accent-cobalt);
   width: 24rpx;
 }
 
 .goal-note-label {
   font-size: 22rpx;
-  color: var(--text-muted);
+  color: var(--accent-cobalt);
   text-transform: uppercase;
   letter-spacing: 1rpx;
   font-weight: 600;
@@ -195,8 +200,13 @@
   padding: 8rpx 0;
 }
 
+// Citation link — cobalt + underline matches web's ScienceNote
+// (`text-accent-cobalt underline-offset-2`). The trigger and the source
+// citation both belong to the reasoning surface, so they share the cobalt
+// signal.
 .goal-note-source {
   font-size: 24rpx;
+  color: var(--accent-cobalt);
   text-decoration: underline;
 }
 
