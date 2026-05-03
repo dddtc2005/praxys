@@ -168,7 +168,7 @@ msgid "6M"
 msgstr "6M"
 
 #: src/components/RecoveryPanel.tsx:141
-#: src/pages/Today.tsx:404
+#: src/pages/Today.tsx:427
 msgid "7d Trend"
 msgstr "7d Trend"
 
@@ -553,7 +553,7 @@ msgstr "Currently set to {0}-based training"
 msgid "Cycling"
 msgstr "Cycling"
 
-#: src/pages/Today.tsx:408
+#: src/pages/Today.tsx:431
 msgid "daily score"
 msgstr "daily score"
 
@@ -887,7 +887,7 @@ msgstr "Fresh"
 msgid "Freshened up — good window for racing or testing."
 msgstr "Freshened up — good window for racing or testing."
 
-#: src/pages/Today.tsx:367
+#: src/pages/Today.tsx:389
 msgid "From {dataAsOfLabel}"
 msgstr "From {dataAsOfLabel}"
 
@@ -1259,9 +1259,9 @@ msgid "No announcements yet"
 msgstr "No announcements yet"
 
 #: src/pages/Today.tsx:276
-#: src/pages/Today.tsx:404
-#: src/pages/Today.tsx:405
-#: src/pages/Today.tsx:406
+#: src/pages/Today.tsx:427
+#: src/pages/Today.tsx:428
+#: src/pages/Today.tsx:429
 msgid "no data"
 msgstr "no data"
 
@@ -1277,7 +1277,7 @@ msgstr "No goal set. Set a race target or distance goal to unlock predictions an
 msgid "No invitation codes yet. Generate one to invite a user."
 msgstr "No invitation codes yet. Generate one to invite a user."
 
-#: src/pages/Today.tsx:343
+#: src/pages/Today.tsx:365
 msgid "No new HRV, sleep, or activity since."
 msgstr "No new HRV, sleep, or activity since."
 
@@ -1359,7 +1359,7 @@ msgstr "Options"
 msgid "Other Signals"
 msgstr "Other Signals"
 
-#: src/pages/Today.tsx:406
+#: src/pages/Today.tsx:429
 msgid "overnight score"
 msgstr "overnight score"
 
@@ -1396,7 +1396,7 @@ msgstr "Plan"
 msgid "Planned"
 msgstr "Planned"
 
-#: src/pages/Today.tsx:412
+#: src/pages/Today.tsx:435
 msgid "Planned · Today"
 msgstr "Planned · Today"
 
@@ -1552,7 +1552,7 @@ msgstr "Re-push to Stryd"
 msgid "Read-only accounts that mirror your dashboard data"
 msgstr "Read-only accounts that mirror your dashboard data"
 
-#: src/pages/Today.tsx:408
+#: src/pages/Today.tsx:431
 msgid "Readiness"
 msgstr "Readiness"
 
@@ -1594,7 +1594,7 @@ msgstr "Recommended"
 msgid "Recovery"
 msgstr "Recovery"
 
-#: src/pages/Today.tsx:383
+#: src/pages/Today.tsx:406
 msgid "Recovery data hasn't synced yet. Showing the latest reading from {recoveryLatestLabel}."
 msgstr "Recovery data hasn't synced yet. Showing the latest reading from {recoveryLatestLabel}."
 
@@ -1691,7 +1691,7 @@ msgstr "Revoke"
 msgid "Revoked"
 msgstr "Revoked"
 
-#: src/pages/Today.tsx:405
+#: src/pages/Today.tsx:428
 msgid "RHR"
 msgstr "RHR"
 
@@ -1773,7 +1773,7 @@ msgstr "Setup"
 msgid "Show {0} more workouts"
 msgstr "Show {0} more workouts"
 
-#: src/pages/Today.tsx:359
+#: src/pages/Today.tsx:381
 msgid "Show anyway"
 msgstr "Show anyway"
 
@@ -1789,7 +1789,7 @@ msgstr "Show methodology details"
 msgid "Showing"
 msgstr "Showing"
 
-#: src/pages/Today.tsx:340
+#: src/pages/Today.tsx:362
 msgid "Showing yesterday's snapshot. Last reading {dataAsOfLabel}."
 msgstr "Showing yesterday's snapshot. Last reading {dataAsOfLabel}."
 
@@ -1810,7 +1810,7 @@ msgid "Skip for now"
 msgstr "Skip for now"
 
 #: src/components/RecoveryPanel.tsx:174
-#: src/pages/Today.tsx:406
+#: src/pages/Today.tsx:429
 msgid "Sleep"
 msgstr "Sleep"
 
@@ -1924,8 +1924,8 @@ msgstr "Sync from:"
 msgid "Sync history"
 msgstr "Sync history"
 
-#: src/pages/Today.tsx:352
 #: src/pages/Today.tsx:374
+#: src/pages/Today.tsx:396
 msgid "Sync now"
 msgstr "Sync now"
 
@@ -1947,8 +1947,8 @@ msgstr "Syncing"
 msgid "Syncing..."
 msgstr "Syncing..."
 
-#: src/pages/Today.tsx:352
 #: src/pages/Today.tsx:374
+#: src/pages/Today.tsx:396
 msgid "Syncing…"
 msgstr "Syncing…"
 
@@ -2033,7 +2033,7 @@ msgstr "To target"
 #: src/components/charts/FitnessFatigueChart.tsx:216
 #: src/components/RecoveryPanel.tsx:118
 #: src/pages/Today.tsx:20
-#: src/pages/Today.tsx:335
+#: src/pages/Today.tsx:357
 msgid "Today"
 msgstr "Today"
 

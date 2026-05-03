@@ -168,7 +168,7 @@ msgid "6M"
 msgstr "6月"
 
 #: src/components/RecoveryPanel.tsx:141
-#: src/pages/Today.tsx:404
+#: src/pages/Today.tsx:427
 msgid "7d Trend"
 msgstr "7天趋势"
 
@@ -553,7 +553,7 @@ msgstr "当前设置为基于 {0} 的训练"
 msgid "Cycling"
 msgstr "骑行"
 
-#: src/pages/Today.tsx:408
+#: src/pages/Today.tsx:431
 msgid "daily score"
 msgstr "每日评分"
 
@@ -887,7 +887,7 @@ msgstr "充分恢复"
 msgid "Freshened up — good window for racing or testing."
 msgstr "充分恢复——适合比赛或测试的好时机。"
 
-#: src/pages/Today.tsx:367
+#: src/pages/Today.tsx:389
 msgid "From {dataAsOfLabel}"
 msgstr "数据自 {dataAsOfLabel}"
 
@@ -1259,9 +1259,9 @@ msgid "No announcements yet"
 msgstr "还没有公告"
 
 #: src/pages/Today.tsx:276
-#: src/pages/Today.tsx:404
-#: src/pages/Today.tsx:405
-#: src/pages/Today.tsx:406
+#: src/pages/Today.tsx:427
+#: src/pages/Today.tsx:428
+#: src/pages/Today.tsx:429
 msgid "no data"
 msgstr "无数据"
 
@@ -1277,7 +1277,7 @@ msgstr "尚未设定目标。设定比赛目标或距离目标以解锁预测与
 msgid "No invitation codes yet. Generate one to invite a user."
 msgstr "尚无邀请码。生成一个以邀请用户。"
 
-#: src/pages/Today.tsx:343
+#: src/pages/Today.tsx:365
 msgid "No new HRV, sleep, or activity since."
 msgstr "此后无新的 HRV、睡眠或活动数据。"
 
@@ -1359,7 +1359,7 @@ msgstr "选项"
 msgid "Other Signals"
 msgstr "其他信号"
 
-#: src/pages/Today.tsx:406
+#: src/pages/Today.tsx:429
 msgid "overnight score"
 msgstr "夜间评分"
 
@@ -1396,7 +1396,7 @@ msgstr "计划"
 msgid "Planned"
 msgstr "计划"
 
-#: src/pages/Today.tsx:412
+#: src/pages/Today.tsx:435
 msgid "Planned · Today"
 msgstr "今日计划"
 
@@ -1552,7 +1552,7 @@ msgstr "重新推送到 Stryd"
 msgid "Read-only accounts that mirror your dashboard data"
 msgstr "镜像您仪表盘数据的只读账号"
 
-#: src/pages/Today.tsx:408
+#: src/pages/Today.tsx:431
 msgid "Readiness"
 msgstr "准备度"
 
@@ -1594,7 +1594,7 @@ msgstr "推荐"
 msgid "Recovery"
 msgstr "恢复"
 
-#: src/pages/Today.tsx:383
+#: src/pages/Today.tsx:406
 msgid "Recovery data hasn't synced yet. Showing the latest reading from {recoveryLatestLabel}."
 msgstr "今日恢复数据尚未同步，显示的是 {recoveryLatestLabel} 的最近读数。"
 
@@ -1691,7 +1691,7 @@ msgstr "撤销"
 msgid "Revoked"
 msgstr "已撤销"
 
-#: src/pages/Today.tsx:405
+#: src/pages/Today.tsx:428
 msgid "RHR"
 msgstr "静息心率"
 
@@ -1773,7 +1773,7 @@ msgstr "设置向导"
 msgid "Show {0} more workouts"
 msgstr "显示另外 {0} 项训练"
 
-#: src/pages/Today.tsx:359
+#: src/pages/Today.tsx:381
 msgid "Show anyway"
 msgstr "仍要查看"
 
@@ -1789,7 +1789,7 @@ msgstr "展开方法论详情"
 msgid "Showing"
 msgstr "显示"
 
-#: src/pages/Today.tsx:340
+#: src/pages/Today.tsx:362
 msgid "Showing yesterday's snapshot. Last reading {dataAsOfLabel}."
 msgstr "显示的是昨天的快照。最近一次读数 {dataAsOfLabel}。"
 
@@ -1810,7 +1810,7 @@ msgid "Skip for now"
 msgstr "暂时跳过"
 
 #: src/components/RecoveryPanel.tsx:174
-#: src/pages/Today.tsx:406
+#: src/pages/Today.tsx:429
 msgid "Sleep"
 msgstr "睡眠"
 
@@ -1924,8 +1924,8 @@ msgstr "同步起始日期："
 msgid "Sync history"
 msgstr "同步历史"
 
-#: src/pages/Today.tsx:352
 #: src/pages/Today.tsx:374
+#: src/pages/Today.tsx:396
 msgid "Sync now"
 msgstr "立即同步"
 
@@ -1947,8 +1947,8 @@ msgstr "同步中"
 msgid "Syncing..."
 msgstr "同步中..."
 
-#: src/pages/Today.tsx:352
 #: src/pages/Today.tsx:374
+#: src/pages/Today.tsx:396
 msgid "Syncing…"
 msgstr "正在同步…"
 
@@ -2033,7 +2033,7 @@ msgstr "距目标"
 #: src/components/charts/FitnessFatigueChart.tsx:216
 #: src/components/RecoveryPanel.tsx:118
 #: src/pages/Today.tsx:20
-#: src/pages/Today.tsx:335
+#: src/pages/Today.tsx:357
 msgid "Today"
 msgstr "今日"
 
