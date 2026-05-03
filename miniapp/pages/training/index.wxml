@@ -22,218 +22,188 @@
     <block wx:elif="{{hasResponse}}">
       <state-card wx:if="{{!hasAnyData}}" type="empty" headline="{{tr.noData}}" />
 
-      <!-- Praxys Coach receipt — conditional on training_review insight.
-           Sits at the top so the LLM diagnosis frames the per-section
-           data below. Nil-renders when LLM is disabled or no row exists,
-           in which case the rule-based Findings + Suggestions sections
-           at the bottom remain visible as the deterministic fallback. -->
-      <view wx:if="{{hasCoach}}" class="coach-receipt" aria-label="{{coachTr.aria}}">
-        <view class="coach-banner">
-          <text class="coach-mark">{{coachTr.mark}}</text>
-          <text wx:if="{{coach.stamp}}" class="coach-stamp ts-value">{{coach.stamp}}</text>
-        </view>
-        <view class="coach-body">
-          <text class="coach-headline">{{coach.headline}}</text>
+      <!-- ═══════════════════════════════════════════════════════════
+           DIAGNOSIS · stat strip (4 numbers) + pill switcher (one
+           chart at a time) + Coach receipt below. Reading order:
+           glance the number → see the matching chart → read the
+           coach's interpretation. Same shape as web's PR #280.
+           ═══════════════════════════════════════════════════════════ -->
+      <block wx:if="{{hasAnyData}}">
+        <text class="train-section-eyebrow">{{tr.diagnosis}} · {{diagnosisEyebrow}}</text>
 
-          <block wx:if="{{coach.hasFindings}}">
-            <text class="coach-label">{{coachTr.findings}}</text>
-            <view
-              wx:for="{{coach.findings}}"
-              wx:key="id"
-              class="coach-row coach-row--{{item.tone}}"
-            >
-              <text class="coach-tag">{{item.marker}}</text>
-              <text class="coach-text">{{item.text}}</text>
-            </view>
-          </block>
-
+        <!-- Stat strip — 2x2 grid on phone (stacked rows of two,
+             columns aligned). Each cell: mono uppercase label, big
+             tabular value with optional % unit, mono caption. The
+             accent class on .train-stat-value carries the verdict
+             tint; volume is intentionally untinted (context number,
+             not a verdict). -->
+        <view class="train-stats">
           <view
-            wx:if="{{coach.hasFindings && coach.hasRecommendations}}"
-            class="coach-rule"
-          ></view>
+            wx:for="{{cells}}"
+            wx:key="id"
+            class="train-stat-cell"
+          >
+            <text class="train-stat-label">{{item.label}}</text>
+            <view class="train-stat-row">
+              <text class="train-stat-value ts-value {{item.accent}}">{{item.value}}</text>
+              <text wx:if="{{item.unit}}" class="train-stat-unit">{{item.unit}}</text>
+            </view>
+            <text class="train-stat-sub">{{item.sub}}</text>
+          </view>
+        </view>
 
-          <block wx:if="{{coach.hasRecommendations}}">
-            <text class="coach-label">{{coachTr.recommendations}}</text>
+        <!-- Pill switcher. Persists active to wx storage so power
+             users land on their preferred chart on every visit.
+             Zones pill is conditional on at least one zone having
+             a target — without it the pill renders inert and
+             invites a bug. -->
+        <view class="train-pills" role="tablist" aria-label="{{tr.diagnosis}}">
+          <view
+            class="train-pill {{activePill === 'form' ? 'train-pill--active' : ''}}"
+            data-pill="form"
+            bindtap="onPickPill"
+          >{{tr.pillForm}}</view>
+          <view
+            wx:if="{{hasZones}}"
+            class="train-pill {{activePill === 'zones' ? 'train-pill--active' : ''}}"
+            data-pill="zones"
+            bindtap="onPickPill"
+          >{{tr.pillZones}}</view>
+          <view
+            class="train-pill {{activePill === 'compliance' ? 'train-pill--active' : ''}}"
+            data-pill="compliance"
+            bindtap="onPickPill"
+          >{{tr.pillCompliance}}</view>
+        </view>
+
+        <!-- Active chart pane. One option visible at a time; the
+             switcher above flips between them. Each option carries
+             its own DataHint countdown copy when the underlying
+             window isn't long enough yet. -->
+        <view class="train-chart-pane">
+          <block wx:if="{{activePill === 'form'}}">
+            <line-chart
+              wx:if="{{ffSufficient}}"
+              canvas-id="train-ctl-atl-tsb"
+              height="{{280}}"
+              show-zero-line="{{true}}"
+              dates="{{ffDates}}"
+              series="{{ffSeries}}"
+              theme="{{chartTheme}}"
+            />
+            <view wx:else class="train-data-hint">
+              <text class="train-data-hint-message ts-muted">{{ffHintMessage}}</text>
+              <text class="train-data-hint-detail ts-muted">{{ffHintDetail}}</text>
+            </view>
+          </block>
+
+          <block wx:if="{{activePill === 'zones' && hasZones}}">
+            <text class="train-zone-section-label">{{zoneSectionLabel}}</text>
             <view
-              wx:for="{{coach.recommendations}}"
-              wx:key="index"
-              class="coach-row"
+              wx:for="{{zoneRows}}"
+              wx:key="name"
+              class="train-zonebar"
             >
-              <text class="coach-tag coach-tag--rec">{{item.index}}.</text>
-              <text class="coach-text">{{item.text}}</text>
+              <view class="train-zonebar-head">
+                <text class="train-zonebar-name">{{item.name}}</text>
+                <text class="train-zonebar-value ts-value">{{item.label}}</text>
+              </view>
+              <view class="train-zonebar-track">
+                <view class="train-zonebar-fill {{item.fillClass}}" style="width: {{item.actualClamped}}%;"></view>
+                <view
+                  wx:if="{{item.hasTarget}}"
+                  class="train-zonebar-target"
+                  style="left: {{item.targetClamped}}%;"
+                ></view>
+              </view>
+            </view>
+          </block>
+
+          <block wx:if="{{activePill === 'compliance'}}">
+            <block wx:if="{{complianceSufficient}}">
+              <text wx:if="{{hasComplianceEstimateNote}}" class="train-compliance-note ts-muted">
+                {{complianceEstimateNote}}
+              </text>
+              <view class="train-bar-legend">
+                <view class="train-bar-legend-item">
+                  <view class="train-bar-legend-dot train-bar-legend-dot--planned"></view>
+                  <text class="train-bar-legend-label">{{tr.plannedLabel}}</text>
+                </view>
+                <view class="train-bar-legend-item">
+                  <view class="train-bar-legend-dot train-bar-legend-dot--ok"></view>
+                  <text class="train-bar-legend-label">{{tr.complianceOk}}</text>
+                </view>
+                <view class="train-bar-legend-item">
+                  <view class="train-bar-legend-dot train-bar-legend-dot--off"></view>
+                  <text class="train-bar-legend-label">{{tr.complianceOff}}</text>
+                </view>
+                <view class="train-bar-legend-item">
+                  <view class="train-bar-legend-dot train-bar-legend-dot--noplan"></view>
+                  <text class="train-bar-legend-label">{{tr.complianceNoPlan}}</text>
+                </view>
+              </view>
+              <bar-chart
+                canvas-id="train-compliance"
+                height="{{280}}"
+                weeks="{{complianceWeeks}}"
+                planned="{{compliancePlanned}}"
+                actual="{{complianceActual}}"
+                actual-colors="{{complianceActualColors}}"
+                theme="{{chartTheme}}"
+              />
+            </block>
+            <view wx:else class="train-data-hint">
+              <text class="train-data-hint-message ts-muted">{{complianceHintMessage}}</text>
+              <text class="train-data-hint-detail ts-muted">{{complianceHintDetail}}</text>
             </view>
           </block>
         </view>
-      </view>
 
-      <view wx:if="{{hasVolume}}" class="ts-section">
-        <text class="ts-section-label">{{tr.volume}}</text>
-        <view class="train-hero">
-          <text class="train-hero-value ts-value">{{weeklyKm}}</text>
-          <text wx:if="{{hasVolumeTrend}}" class="train-hero-meta ts-muted">{{volumeTrend}}</text>
-        </view>
-      </view>
-
-      <view wx:if="{{hasLatestCp}}" class="ts-card">
-        <text class="ts-section-label">{{tr.criticalPower}}</text>
-        <view class="train-hero">
-          <text class="train-hero-value ts-value">{{latestCpDisplay}}</text>
-          <text class="train-hero-meta ts-muted">{{tr.latestEstimate}} · {{cpDataPointCount}} {{tr.dataPoints}}</text>
-        </view>
-        <text wx:if="{{cpTakeaway}}" class="train-takeaway {{cpTakeawayAccent}}">{{cpTakeaway}}</text>
-        <line-chart
-          wx:if="{{cpSufficient}}"
-          canvas-id="train-cp-trend"
-          height="{{220}}"
-          show-legend="{{false}}"
-          dates="{{cpTrendDates}}"
-          series="{{cpTrendSeries}}"
-          y-unit="W"
-          theme="{{chartTheme}}"
-        />
-        <view wx:else class="train-data-hint">
-          <text class="train-data-hint-message ts-muted">{{cpHintMessage}}</text>
-          <text class="train-data-hint-detail ts-muted">{{cpHintDetail}}</text>
-        </view>
-      </view>
-
-      <view class="ts-card">
-        <text class="ts-section-label">{{tr.fitnessFatigue}}</text>
-        <text wx:if="{{ffTakeaway}}" class="train-takeaway {{ffTakeawayAccent}}">{{ffTakeaway}}</text>
-        <line-chart
-          wx:if="{{ffSufficient}}"
-          canvas-id="train-ctl-atl-tsb"
-          height="{{280}}"
-          show-zero-line="{{true}}"
-          dates="{{ffDates}}"
-          series="{{ffSeries}}"
-          theme="{{chartTheme}}"
-        />
-        <view wx:else class="train-data-hint">
-          <text class="train-data-hint-message ts-muted">{{ffHintMessage}}</text>
-          <text class="train-data-hint-detail ts-muted">{{ffHintDetail}}</text>
-        </view>
-      </view>
-
-      <view wx:if="{{hasDistribution}}" class="ts-card">
-        <text class="ts-section-label">{{zoneSectionLabel}}</text>
-        <view
-          wx:for="{{zoneRows}}"
-          wx:key="name"
-          class="train-zonebar"
-        >
-          <view class="train-zonebar-head">
-            <text class="train-zonebar-name">{{item.name}}</text>
-            <text class="train-zonebar-value ts-value">{{item.label}}</text>
+        <!-- Praxys Coach receipt — always rendered. AI content when a
+             training_review row exists; rule-based prose (diagnosis
+             findings + zone deviations + worst-deviation rec) as
+             deterministic fallback. The receipt is the single
+             narrative-interpretation surface across pages, so it
+             persists with or without LLM. -->
+        <view class="coach-receipt train-coach" aria-label="{{coachTr.aria}}">
+          <view class="coach-banner">
+            <text class="coach-mark">{{coachTr.mark}}</text>
+            <text wx:if="{{coach.stamp}}" class="coach-stamp ts-value">{{coach.stamp}}</text>
           </view>
-          <view class="train-zonebar-track">
-            <view class="train-zonebar-fill {{item.fillClass}}" style="width: {{item.actualClamped}}%;"></view>
+          <view class="coach-body">
+            <text class="coach-headline">{{coach.headline}}</text>
+
+            <block wx:if="{{coach.hasFindings}}">
+              <text class="coach-label">{{coachTr.findings}}</text>
+              <view
+                wx:for="{{coach.findings}}"
+                wx:key="id"
+                class="coach-row coach-row--{{item.tone}}"
+              >
+                <text class="coach-tag">{{item.marker}}</text>
+                <text class="coach-text">{{item.text}}</text>
+              </view>
+            </block>
+
             <view
-              wx:if="{{item.hasTarget}}"
-              class="train-zonebar-target"
-              style="left: {{item.targetClamped}}%;"
+              wx:if="{{coach.hasFindings && coach.hasRecommendations}}"
+              class="coach-rule"
             ></view>
+
+            <block wx:if="{{coach.hasRecommendations}}">
+              <text class="coach-label">{{coachTr.recommendations}}</text>
+              <view
+                wx:for="{{coach.recommendations}}"
+                wx:key="index"
+                class="coach-row"
+              >
+                <text class="coach-tag coach-tag--rec">{{item.index}}.</text>
+                <text class="coach-text">{{item.text}}</text>
+              </view>
+            </block>
           </view>
         </view>
-      </view>
-
-      <view wx:if="{{hasConsistency}}" class="ts-section">
-        <text class="ts-section-label">{{tr.consistency}}</text>
-        <text class="train-line">{{consistencyLine}}</text>
-      </view>
-
-      <view class="ts-card">
-        <text class="ts-section-label">{{tr.weeklyCompliance}}</text>
-        <text wx:if="{{complianceTakeaway}}" class="train-takeaway {{complianceTakeawayAccent}}">{{complianceTakeaway}}</text>
-        <block wx:if="{{complianceSufficient}}">
-          <text wx:if="{{hasComplianceEstimateNote}}" class="train-compliance-note ts-muted">
-            {{complianceEstimateNote}}
-          </text>
-          <view class="train-bar-legend">
-            <view class="train-bar-legend-item">
-              <view class="train-bar-legend-dot train-bar-legend-dot--planned"></view>
-              <text class="train-bar-legend-label">{{tr.plannedLabel}}</text>
-            </view>
-            <view class="train-bar-legend-item">
-              <view class="train-bar-legend-dot train-bar-legend-dot--ok"></view>
-              <text class="train-bar-legend-label">{{tr.complianceOk}}</text>
-            </view>
-            <view class="train-bar-legend-item">
-              <view class="train-bar-legend-dot train-bar-legend-dot--off"></view>
-              <text class="train-bar-legend-label">{{tr.complianceOff}}</text>
-            </view>
-            <view class="train-bar-legend-item">
-              <view class="train-bar-legend-dot train-bar-legend-dot--noplan"></view>
-              <text class="train-bar-legend-label">{{tr.complianceNoPlan}}</text>
-            </view>
-          </view>
-          <bar-chart
-            canvas-id="train-compliance"
-            height="{{280}}"
-            weeks="{{complianceWeeks}}"
-            planned="{{compliancePlanned}}"
-            actual="{{complianceActual}}"
-            actual-colors="{{complianceActualColors}}"
-            theme="{{chartTheme}}"
-          />
-        </block>
-        <view wx:else class="train-data-hint">
-          <text class="train-data-hint-message ts-muted">{{complianceHintMessage}}</text>
-          <text class="train-data-hint-detail ts-muted">{{complianceHintDetail}}</text>
-        </view>
-      </view>
-
-      <view class="ts-card">
-        <text class="ts-section-label">{{sleepPerfTitle}}</text>
-        <text wx:if="{{sleepTakeaway}}" class="train-takeaway {{sleepTakeawayAccent}}">{{sleepTakeaway}}</text>
-        <!-- Scatter is collapsed by default — the takeaway above
-             answers the headline question, the chart is the deeper
-             dive. Toggle row exposes it on demand. -->
-        <view
-          wx:if="{{sleepSufficient}}"
-          class="train-collapse-toggle"
-          bindtap="toggleSleepCorrelation"
-          hover-class="train-collapse-toggle--press"
-        >
-          <text class="train-collapse-toggle-label ts-muted">
-            {{showSleepCorrelation ? tr.hideCorrelation : tr.showCorrelation}}
-          </text>
-          <text class="train-collapse-toggle-chev ts-muted">{{showSleepCorrelation ? '▾' : '▸'}}</text>
-        </view>
-        <scatter-chart
-          wx:if="{{sleepSufficient && showSleepCorrelation}}"
-          canvas-id="train-sleep-perf"
-          height="{{280}}"
-          x-label="{{tr.sleepScoreLabel}}"
-          y-label="{{sleepPerfYLabel}}"
-          color="#3b82f6"
-          y-is-pace="{{sleepPerfYIsPace}}"
-          pairs="{{sleepPerfPairs}}"
-          theme="{{chartTheme}}"
-        />
-        <view wx:if="{{!sleepSufficient}}" class="train-data-hint">
-          <text class="train-data-hint-message ts-muted">{{sleepHintMessage}}</text>
-          <text class="train-data-hint-detail ts-muted">{{sleepHintDetail}}</text>
-        </view>
-      </view>
-
-      <view wx:if="{{hasFindings}}" class="ts-section">
-        <text class="ts-section-label">{{tr.findings}}</text>
-        <text
-          wx:for="{{findings}}"
-          wx:key="*this"
-          class="{{item.className}}"
-        >{{item.message}}</text>
-      </view>
-
-      <view wx:if="{{hasSuggestions}}" class="ts-section">
-        <text class="ts-section-label">{{tr.suggestions}}</text>
-        <text
-          wx:for="{{suggestions}}"
-          wx:key="*this"
-          class="train-finding"
-        >{{item.message}}</text>
-      </view>
+      </block>
     </block>
     </view>
   </scroll-view>
