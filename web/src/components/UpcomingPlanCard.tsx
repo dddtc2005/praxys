@@ -625,11 +625,15 @@ export default function UpcomingPlanCard() {
   );
 
   if (data.workouts.length === 0) {
+    const widerHint = windowId !== '4wk'
+      ? <Trans>Try a longer window above.</Trans>
+      : null;
     return (
       <section>
         {header}
         <p className="text-sm text-muted-foreground">
           <Trans>No workouts scheduled in this window.</Trans>
+          {widerHint && <span className="ml-1">{widerHint}</span>}
         </p>
       </section>
     );
