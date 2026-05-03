@@ -136,7 +136,7 @@
               class="goal-note-source-row"
               bindtap="onTapPredictionSource"
             >
-              <text class="goal-note-source ts-primary">{{tr.sourceTapCopy}}</text>
+              <text class="goal-note-source">{{tr.sourceTapCopy}}</text>
             </view>
           </view>
         </view>
@@ -152,7 +152,7 @@
           <view wx:if="{{noteUltraExpanded}}" class="goal-note-body">
             <text class="goal-note-text">{{noteUltraText}}</text>
             <view class="goal-note-source-row" bindtap="onTapUltraSource">
-              <text class="goal-note-source ts-primary">{{tr.discussionTapCopy}}</text>
+              <text class="goal-note-source">{{tr.discussionTapCopy}}</text>
             </view>
           </view>
         </view>
