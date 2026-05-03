@@ -41,7 +41,7 @@ msgid "{0, plural, one {# recommendation} other {# recommendations}}"
 msgstr "{0, plural, other {# 条建议}}"
 
 #. placeholder {0}: data.workouts.length
-#: src/components/UpcomingPlanCard.tsx:591
+#: src/components/UpcomingPlanCard.tsx:617
 msgid "{0, plural, one {# workout} other {# workouts}}"
 msgstr "{0, plural, other {# 次训练}}"
 
@@ -289,7 +289,7 @@ msgstr "有氧"
 msgid "All"
 msgstr "全部"
 
-#: src/components/UpcomingPlanCard.tsx:610
+#: src/components/UpcomingPlanCard.tsx:636
 msgid "All synced"
 msgstr "全部已同步"
 
@@ -306,7 +306,7 @@ msgstr "发生了意外错误。"
 msgid "Asia/CN"
 msgstr "亚洲/中国"
 
-#: src/components/charts/FitnessFatigueChart.tsx:275
+#: src/components/charts/FitnessFatigueChart.tsx:282
 msgid "ATL (Fatigue)"
 msgstr "ATL（疲劳）"
 
@@ -326,7 +326,7 @@ msgstr "自动"
 msgid "Auto sync frequency"
 msgstr "自动同步频率"
 
-#: src/pages/Settings.tsx:1188
+#: src/pages/Settings.tsx:1196
 msgid "Auto-merged"
 msgstr "自动合并"
 
@@ -515,7 +515,7 @@ msgid "Connect {0}"
 msgstr "连接 {0}"
 
 #: src/components/SetupChecklist.tsx:47
-#: src/pages/Settings.tsx:1134
+#: src/pages/Settings.tsx:1142
 #: src/pages/Setup.tsx:513
 msgid "Connect a platform"
 msgstr "连接平台"
@@ -551,7 +551,7 @@ msgstr "继续前往 Strava"
 msgid "Continuous"
 msgstr "持续提升"
 
-#: src/pages/Settings.tsx:1217
+#: src/pages/Settings.tsx:1225
 msgid "Continuous Improvement"
 msgstr "持续提升"
 
@@ -611,7 +611,7 @@ msgstr "阈值功率"
 msgid "Cross-training activities affect your overall training load and recovery"
 msgstr "交叉训练活动会影响您的整体训练负荷与恢复"
 
-#: src/components/charts/FitnessFatigueChart.tsx:274
+#: src/components/charts/FitnessFatigueChart.tsx:281
 msgid "CTL (Fitness)"
 msgstr "CTL（体能）"
 
@@ -759,7 +759,7 @@ msgstr "距离"
 
 #: src/components/ActivityCard.tsx:75
 #: src/components/GoalEditor.tsx:122
-#: src/pages/Settings.tsx:1221
+#: src/pages/Settings.tsx:1229
 msgid "Distance"
 msgstr "距离"
 
@@ -771,7 +771,7 @@ msgstr "距离"
 msgid "Distribution match"
 msgstr "分布匹配度"
 
-#: src/pages/Settings.tsx:1273
+#: src/pages/Settings.tsx:1281
 msgid "Drive your zone calculations and training load. Values come from connected sources; pick which source to use when you have more than one."
 msgstr "驱动您的区间计算和训练负荷。数值来自已连接的数据源；当有多个数据源时，请选择要使用的来源。"
 
@@ -825,7 +825,7 @@ msgstr "轻松"
 msgid "Easy Run"
 msgstr "轻松跑"
 
-#: src/pages/Settings.tsx:1207
+#: src/pages/Settings.tsx:1215
 #: src/pages/Setup.tsx:755
 msgid "Edit"
 msgstr "编辑"
@@ -917,7 +917,7 @@ msgstr "加载设置失败"
 msgid "Failed to load training data"
 msgstr "训练数据加载失败"
 
-#: src/components/UpcomingPlanCard.tsx:557
+#: src/components/UpcomingPlanCard.tsx:583
 msgid "Failed to load training plan"
 msgstr "训练计划加载失败"
 
@@ -930,7 +930,7 @@ msgid "Falling"
 msgstr "下降"
 
 #: src/components/charts/FitnessFatigueChart.tsx:58
-#: src/components/charts/FitnessFatigueChart.tsx:191
+#: src/components/charts/FitnessFatigueChart.tsx:198
 msgid "Fatigue"
 msgstr "疲劳"
 
@@ -955,9 +955,9 @@ msgid "Findings"
 msgstr "发现"
 
 #: src/components/charts/FitnessFatigueChart.tsx:52
-#: src/components/charts/FitnessFatigueChart.tsx:187
+#: src/components/charts/FitnessFatigueChart.tsx:194
 #: src/pages/Settings.tsx:55
-#: src/pages/Settings.tsx:1185
+#: src/pages/Settings.tsx:1193
 #: src/pages/Setup.tsx:217
 msgid "Fitness"
 msgstr "体能"
@@ -980,7 +980,7 @@ msgid "Follow Plan"
 msgstr "按计划进行"
 
 #: src/components/charts/FitnessFatigueChart.tsx:64
-#: src/components/charts/FitnessFatigueChart.tsx:195
+#: src/components/charts/FitnessFatigueChart.tsx:202
 msgid "Form"
 msgstr "竞技状态"
 
@@ -1073,7 +1073,7 @@ msgstr "前往仪表盘"
 
 #: src/components/AppSidebar.tsx:110
 #: src/pages/Goal.tsx:135
-#: src/pages/Settings.tsx:1202
+#: src/pages/Settings.tsx:1210
 msgid "Goal"
 msgstr "目标"
 
@@ -1348,7 +1348,7 @@ msgstr "管理用户和邀请码"
 #: src/components/GoalEditor.tsx:54
 #: src/lib/display-labels.ts:66
 #: src/pages/Settings.tsx:182
-#: src/pages/Settings.tsx:1223
+#: src/pages/Settings.tsx:1231
 msgid "Marathon"
 msgstr "马拉松"
 
@@ -1365,7 +1365,7 @@ msgstr "轻度疲劳"
 msgid "mirrors {0}"
 msgstr "镜像 {0}"
 
-#: src/pages/Settings.tsx:1215
+#: src/pages/Settings.tsx:1223
 msgid "Mode"
 msgstr "模式"
 
@@ -1468,7 +1468,7 @@ msgstr "无数据"
 msgid "No Data"
 msgstr "无数据"
 
-#: src/pages/Settings.tsx:1243
+#: src/pages/Settings.tsx:1251
 msgid "No goal set. Set a race target or distance goal to unlock predictions and countdown."
 msgstr "尚未设定目标。设定比赛目标或距离目标以解锁预测与倒计时。"
 
@@ -1492,7 +1492,7 @@ msgstr "没有可用的分段数据。"
 msgid "No Workout"
 msgstr "无训练"
 
-#: src/components/UpcomingPlanCard.tsx:632
+#: src/components/UpcomingPlanCard.tsx:661
 msgid "No workouts scheduled in this window."
 msgstr "此窗口内暂无安排的训练。"
 
@@ -1533,7 +1533,7 @@ msgstr "数据不足，暂无法准确跟踪体能"
 msgid "Not enough data yet for weekly load comparison"
 msgstr "数据不足，暂无法对比每周负荷"
 
-#: src/pages/Settings.tsx:1306
+#: src/pages/Settings.tsx:1314
 msgid "Not set"
 msgstr "未设置"
 
@@ -1714,7 +1714,7 @@ msgid "Proj"
 msgstr "预测"
 
 #: src/components/charts/FitnessFatigueChart.tsx:45
-#: src/components/charts/FitnessFatigueChart.tsx:200
+#: src/components/charts/FitnessFatigueChart.tsx:207
 msgid "Projected"
 msgstr "预测"
 
@@ -1749,7 +1749,7 @@ msgid "Push this workout to your Stryd calendar."
 msgstr "将此训练推送至您的 Stryd 日历。"
 
 #: src/components/UpcomingPlanCard.tsx:228
-#: src/components/UpcomingPlanCard.tsx:615
+#: src/components/UpcomingPlanCard.tsx:641
 msgid "Push to Stryd"
 msgstr "推送到 Stryd"
 
@@ -1757,7 +1757,7 @@ msgstr "推送到 Stryd"
 #~ msgid "Pushing..."
 #~ msgstr "正在推送..."
 
-#: src/components/UpcomingPlanCard.tsx:605
+#: src/components/UpcomingPlanCard.tsx:631
 msgid "Pushing…"
 msgstr "推送中…"
 
@@ -1768,7 +1768,7 @@ msgid "Race"
 msgstr "比赛"
 
 #: src/components/GoalEditor.tsx:139
-#: src/pages/Settings.tsx:1228
+#: src/pages/Settings.tsx:1236
 msgid "Race Date"
 msgstr "比赛日期"
 
@@ -1777,7 +1777,7 @@ msgid "Race date is required"
 msgstr "请填写比赛日期"
 
 #: src/components/GoalEditor.tsx:111
-#: src/pages/Settings.tsx:1217
+#: src/pages/Settings.tsx:1225
 msgid "Race Goal"
 msgstr "比赛目标"
 
@@ -1928,7 +1928,7 @@ msgid "Resting HR"
 msgstr "静息心率"
 
 #: src/components/UpcomingPlanCard.tsx:183
-#: src/components/UpcomingPlanCard.tsx:560
+#: src/components/UpcomingPlanCard.tsx:586
 #: src/pages/Goal.tsx:443
 #: src/pages/History.tsx:53
 #: src/pages/Settings.tsx:319
@@ -2003,7 +2003,7 @@ msgid "Set a goal"
 msgstr "设定目标"
 
 #: src/components/SetupChecklist.tsx:75
-#: src/pages/Settings.tsx:1207
+#: src/pages/Settings.tsx:1215
 #: src/pages/Setup.tsx:764
 msgid "Set goal"
 msgstr "设定目标"
@@ -2283,13 +2283,13 @@ msgid "Target {metricName}"
 msgstr "目标 {metricName}"
 
 #: src/components/SetupChecklist.tsx:72
-#: src/pages/Settings.tsx:1203
+#: src/pages/Settings.tsx:1211
 #: src/pages/Setup.tsx:744
 msgid "Target a race or track continuous improvement"
 msgstr "瞄准一场比赛或追踪持续提升"
 
 #: src/components/GoalEditor.tsx:152
-#: src/pages/Settings.tsx:1234
+#: src/pages/Settings.tsx:1242
 msgid "Target Time"
 msgstr "目标时间"
 
@@ -2329,7 +2329,7 @@ msgstr "阈值配速"
 msgid "Threshold Pace Trend"
 msgstr "阈值配速趋势"
 
-#: src/pages/Settings.tsx:1271
+#: src/pages/Settings.tsx:1279
 msgid "Thresholds"
 msgstr "阈值"
 
@@ -2346,7 +2346,7 @@ msgid "To target"
 msgstr "距目标"
 
 #: src/components/AppSidebar.tsx:108
-#: src/components/charts/FitnessFatigueChart.tsx:243
+#: src/components/charts/FitnessFatigueChart.tsx:250
 #: src/components/RecoveryPanel.tsx:118
 #: src/pages/Today.tsx:20
 #: src/pages/Today.tsx:350
@@ -2414,11 +2414,15 @@ msgstr "训练区间"
 msgid "Translates training stress into fitness."
 msgstr "将训练应激转化为体能。"
 
+#: src/components/UpcomingPlanCard.tsx:655
+msgid "Try a longer window above."
+msgstr "尝试上方更长的时间窗口。"
+
 #: src/pages/Training.tsx:320
 msgid "TSB"
 msgstr "TSB"
 
-#: src/components/charts/FitnessFatigueChart.tsx:276
+#: src/components/charts/FitnessFatigueChart.tsx:283
 msgid "TSB (Form)"
 msgstr "TSB（状态）"
 
@@ -2430,7 +2434,7 @@ msgstr "超长距离功率分数（50K+）为估算值，研究支持有限。Ri
 msgid "Units"
 msgstr "单位"
 
-#: src/components/UpcomingPlanCard.tsx:584
+#: src/components/UpcomingPlanCard.tsx:610
 msgid "Upcoming Plan"
 msgstr "即将到来的计划"
 
@@ -2487,7 +2491,7 @@ msgstr "查看配置（只读演示）"
 msgid "VO2max"
 msgstr "VO2max"
 
-#: src/pages/Settings.tsx:1186
+#: src/pages/Settings.tsx:1194
 msgid "VO2max, CP, LTHR, training status"
 msgstr "VO2max、CP、LTHR、训练状态"
 
