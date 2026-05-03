@@ -52,8 +52,8 @@ export default function Login() {
     setSubmitting(true);
 
     const result = mode === 'login'
-      ? await login(email, password)
-      : await register(email, password, invitationCode);
+      ? await login(email.trim(), password)
+      : await register(email.trim(), password, invitationCode.trim());
 
     setSubmitting(false);
 
@@ -94,13 +94,23 @@ export default function Login() {
         }),
       });
       if (!res.ok) {
+        if (res.status === 429) {
+          setError(t`Too many attempts from this network. Please email us instead.`);
+          return;
+        }
+        if (res.status === 422) {
+          // pydantic validation errors come back as detail: [{loc, msg, type}, …]
+          // — show a generic note rather than the raw array.
+          setError(t`Please check your email format and try again.`);
+          return;
+        }
         const data = await res.json().catch(() => null);
         const detail = data?.detail;
-        if (typeof detail === 'string' && detail.includes('rate')) {
-          setError(t`Too many attempts from this network. Please email us instead.`);
-        } else {
-          setError(detail || t`Could not save your email. Please email us instead.`);
-        }
+        setError(
+          typeof detail === 'string'
+            ? detail
+            : t`Could not save your email. Please email us instead.`,
+        );
         return;
       }
       setWaitlistSuccess(true);
@@ -127,12 +137,8 @@ export default function Login() {
         </div>
 
         <div className="login-mark-row">
-          <svg
-            className="login-mark"
-            viewBox="0 0 48 48"
-            role="img"
-            aria-label={t`Praxys race-flag mark`}
-          >
+          {/* h1 below provides the accessible name; mark is decorative */}
+          <svg className="login-mark" viewBox="0 0 48 48" aria-hidden="true">
             <line
               className="login-mark-pole"
               x1="14" y1="42" x2="16" y2="5"
@@ -238,11 +244,14 @@ export default function Login() {
             </h2>
           </div>
 
-          <div className="login-tabs-list" role="tablist" aria-label={t`Authentication mode`}>
+          <div
+            className="login-tabs-list"
+            role="group"
+            aria-label={t`Authentication mode`}
+          >
             <button
               type="button"
-              role="tab"
-              aria-selected={mode === 'login'}
+              aria-pressed={mode === 'login'}
               data-state={mode === 'login' ? 'active' : 'inactive'}
               className="login-tab"
               onClick={() => switchMode('login')}
@@ -251,8 +260,7 @@ export default function Login() {
             </button>
             <button
               type="button"
-              role="tab"
-              aria-selected={mode === 'invite'}
+              aria-pressed={mode === 'invite'}
               data-state={mode === 'invite' ? 'active' : 'inactive'}
               className="login-tab"
               onClick={() => switchMode('invite')}

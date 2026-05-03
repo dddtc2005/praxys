@@ -248,6 +248,10 @@ html[lang="zh"] .login-shell {
   color: var(--lg-ink);
   display: inline-flex;
   align-items: baseline;
+  /* Keep the six letters on one line even at extreme narrow viewports;
+     letter-spacing -0.045em + decorative ::after underline don't survive a
+     mid-word break. */
+  white-space: nowrap;
 }
 
 .login-wordmark > .login-wordmark-letter {
@@ -862,3 +866,50 @@ html[lang="zh"] .login-shell {
   align-self: center;
   justify-self: center;
 }
+
+/* ─── Windows high-contrast / forced-colors mode ─────────────────────────
+   The decorative grid + aurora are replaced by the system canvas, which
+   strips our gradients and turns the hero pane into a flat sheet. Drop
+   the decorative layers, replace cobalt-tinted accents with system
+   semantic colors so everything stays legible. */
+@media (forced-colors: active) {
+  .login-hero::before,
+  .login-hero::after {
+    display: none;
+  }
+  .login-hero,
+  .login-form-pane {
+    background: Canvas;
+    color: CanvasText;
+    border-color: CanvasText;
+  }
+  .login-input {
+    border-color: CanvasText;
+  }
+  .login-input:focus,
+  .login-input:focus-visible {
+    border-color: Highlight;
+    outline: 2px solid Highlight;
+  }
+  .login-submit {
+    background: Highlight;
+    color: HighlightText;
+    border: 1px solid Highlight;
+    forced-color-adjust: none;
+  }
+  .login-tabs-list > .login-tab[data-state="active"] {
+    border-bottom-color: Highlight;
+  }
+  .login-aside-link,
+  .login-form-foot a,
+  .login-hero-eyebrow,
+  .login-pillars > .login-pillar > .login-pillar-tag {
+    color: LinkText;
+  }
+  .login-error {
+    border-color: CanvasText;
+    color: CanvasText;
+    background: Canvas;
+  }
+}
+
