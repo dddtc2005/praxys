@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Line,
   XAxis,
@@ -10,12 +11,12 @@ import {
   ComposedChart,
   ReferenceArea,
   ReferenceLine,
+  ReferenceDot,
 } from 'recharts';
-import type { TimeSeriesData } from '@/types/api';
+import type { TimeSeriesData, WorkoutFlag } from '@/types/api';
 import ScienceNote from '@/components/ScienceNote';
 import ZoneLegend from '@/components/charts/ZoneLegend';
 import { useScience, tsbZoneFromConfig } from '@/contexts/ScienceContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useChartColors } from '@/hooks/useChartColors';
 import { Trans, useLingui } from '@lingui/react/macro';
 
@@ -24,6 +25,9 @@ import type { ScienceNoteInfo } from '@/types/api';
 interface Props {
   data: TimeSeriesData;
   scienceNote?: ScienceNoteInfo;
+  /** Flagged workouts (good / bad). Rendered as small dots above the
+   *  bottom axis, clickable to drill through to /activities. Optional. */
+  workoutFlags?: WorkoutFlag[];
 }
 
 const ZONE_OPACITIES = [0.04, 0.07, 0.06, 0.04, 0.05];
@@ -42,7 +46,7 @@ function CustomTooltip({ active, payload, label, tsbZones, chartColors }: any) {
       <div className="flex items-center gap-2 mb-2">
         <span className="text-[11px] text-muted-foreground font-data">{label}</span>
         {isProjected && (
-          <span className="text-[9px] uppercase tracking-wider text-accent-purple font-semibold px-1.5 py-0.5 rounded bg-accent-purple/10">
+          <span className="text-[9px] uppercase tracking-wider text-accent-cobalt font-semibold px-1.5 py-0.5 rounded bg-accent-cobalt/10">
             <Trans>Projected</Trans>
           </span>
         )}
@@ -81,10 +85,18 @@ function CustomTooltip({ active, payload, label, tsbZones, chartColors }: any) {
   );
 }
 
-export default function FitnessFatigueChart({ data, scienceNote }: Props) {
+export default function FitnessFatigueChart({ data, scienceNote, workoutFlags }: Props) {
   const chartColors = useChartColors();
   const { t } = useLingui();
   const { tsbZones } = useScience();
+  const navigate = useNavigate();
+  // Limit overlay dots to dates actually rendered on the chart so a
+  // "bad" flag from before the visible window doesn't render off-axis.
+  const visibleDates = useMemo(() => new Set(data.dates), [data.dates]);
+  const flags = useMemo(
+    () => (workoutFlags ?? []).filter((f) => visibleDates.has(f.date)),
+    [workoutFlags, visibleDates],
+  );
   const { chartData, yMin, yMax, hasProjection } = useMemo(() => {
     const hasProjData = !!(data.projected_dates?.length && data.projected_ctl?.length);
 
@@ -150,23 +162,29 @@ export default function FitnessFatigueChart({ data, scienceNote }: Props) {
   const projectionStartDate = data.dates[data.dates.length - 1];
 
   return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between space-y-0">
-        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+    // Borderless content block (no Card chrome) — used inside the
+    // Diagnosis chart switcher tab. Section identity comes from the
+    // switcher tab label above; no own header eyebrow needed.
+    <section>
+      <div className="flex flex-row items-center justify-between mb-4">
+        <p className="text-[10px] font-data uppercase tracking-[0.14em] text-muted-foreground">
           <Trans>Fitness / Fatigue / Form</Trans>
-        </CardTitle>
-        <div className="flex items-center gap-4 text-[11px]">
+        </p>
+        {/* Legend pairs each acronym with its plain-English meaning.
+            Power users keep CTL/ATL/TSB anchors; first-timers get
+            meaning. */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-0.5 rounded-full" style={{ backgroundColor: chartColors.fitness }} />
-            <span className="text-muted-foreground">CTL</span>
+            <span className="text-muted-foreground"><Trans>Fitness</Trans> <span className="font-data">CTL</span></span>
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-0.5 rounded-full" style={{ backgroundColor: chartColors.fatigue }} />
-            <span className="text-muted-foreground">ATL</span>
+            <span className="text-muted-foreground"><Trans>Fatigue</Trans> <span className="font-data">ATL</span></span>
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-0.5 rounded-full" style={{ backgroundColor: chartColors.form }} />
-            <span className="text-muted-foreground">TSB</span>
+            <span className="text-muted-foreground"><Trans>Form</Trans> <span className="font-data">TSB</span></span>
           </span>
           {hasProjection && (
             <span className="flex items-center gap-1.5">
@@ -175,8 +193,8 @@ export default function FitnessFatigueChart({ data, scienceNote }: Props) {
             </span>
           )}
         </div>
-      </CardHeader>
-      <CardContent>
+      </div>
+      <div>
         <ResponsiveContainer width="100%" height={380}>
           <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -5, bottom: 5 }}>
             <defs>
@@ -250,8 +268,59 @@ export default function FitnessFatigueChart({ data, scienceNote }: Props) {
                 <Line type="monotone" dataKey="proj_tsb" stroke={chartColors.projection} strokeWidth={2} strokeDasharray="6 4" dot={false} connectNulls={false} isAnimationActive={false} />
               </>
             )}
+
+            {flags.map((flag) => {
+              const tooltipText = `${flag.type === 'good' ? t`Good workout` : t`Bad workout`} \u00b7 ${flag.date}${flag.description ? `\n${flag.description}` : ''}`;
+              return (
+                <ReferenceDot
+                  key={`${flag.type}-${flag.date}`}
+                  x={flag.date}
+                  /* Sit ~6% above the chart floor so dots land on the
+                     visible plot area instead of crowding axis ticks. */
+                  y={yMin + (yMax - yMin) * 0.06}
+                  r={4}
+                  fill={flag.type === 'good' ? 'var(--primary)' : 'var(--destructive)'}
+                  stroke="var(--card)"
+                  strokeWidth={1.5}
+                  ifOverflow="hidden"
+                  shape={(props) => {
+                    const { cx, cy, fill, stroke, strokeWidth, r } = props as { cx: number; cy: number; fill: string; stroke: string; strokeWidth: number; r: number };
+                    return (
+                      <g
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => navigate('/activities')}
+                        role="button"
+                        aria-label={tooltipText}
+                      >
+                        <circle cx={cx} cy={cy} r={r} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
+                        {/* Larger transparent hit target so the small
+                            visual dot doesn't require pixel-precise aim. */}
+                        <circle cx={cx} cy={cy} r={r + 4} fill="transparent" />
+                        <title>{tooltipText}</title>
+                      </g>
+                    );
+                  }}
+                />
+              );
+            })}
           </ComposedChart>
         </ResponsiveContainer>
+
+        {flags.length > 0 && (
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px]">
+            <span className="font-data uppercase tracking-wider text-muted-foreground">
+              <Trans>Flagged</Trans>
+            </span>
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" />
+              <Trans>good \u00b7 {flags.filter((f) => f.type === 'good').length}</Trans>
+            </span>
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-destructive" />
+              <Trans>bad \u00b7 {flags.filter((f) => f.type === 'bad').length}</Trans>
+            </span>
+          </div>
+        )}
 
         <ZoneLegend zones={tsbZones} />
 
@@ -261,7 +330,7 @@ export default function FitnessFatigueChart({ data, scienceNote }: Props) {
           sourceUrl={scienceNote?.citations?.[0]?.url || "https://help.trainingpeaks.com/hc/en-us/articles/204071944"}
           sourceLabel={scienceNote?.citations?.[0]?.label || "TrainingPeaks PMC"}
         />
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

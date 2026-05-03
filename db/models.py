@@ -400,6 +400,14 @@ class TrainingPlan(Base):
     target_pace_max = Column(String(20), nullable=True)
     workout_description = Column(Text, nullable=True)
     source = Column(String(20), default="stryd")  # stryd or ai
+    # External platform's identifier for this workout, when the plan
+    # row was imported from a platform calendar (e.g. Stryd's workout
+    # `id`). NULL for AI-generated rows. Lets `/api/plan` join AI rows
+    # against platform rows on date and detect mismatches: if Praxys
+    # pushed a workout, we know its external_id from the push log; if
+    # the platform has a workout with a different external_id on that
+    # date, it's user-created (mismatch).
+    external_id = Column(String(100), nullable=True)
     meta = Column(JSON, nullable=True)  # for AI plans: generated_at, cp_at_generation
 
     __table_args__ = (

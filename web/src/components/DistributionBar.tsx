@@ -6,12 +6,17 @@ interface Props {
   distribution: ZoneDistribution[];
 }
 
+// Cool→warm gradient as zone intensity climbs. Aerobic zones use
+// tinted ink at decreasing opacity; threshold/vo2 zones get the warm
+// semantic colors. No accent-blue / accent-purple — those tokens are
+// retired per DESIGN.md ("reasoning roles move to cobalt; positive
+// deltas to primary; metadata to muted-foreground").
 const ZONE_COLORS = [
-  { color: 'bg-destructive', textColor: 'text-destructive' },
-  { color: 'bg-accent-amber', textColor: 'text-accent-amber' },
-  { color: 'bg-accent-blue', textColor: 'text-accent-blue' },
-  { color: 'bg-accent-blue/50', textColor: 'text-accent-blue' },
-  { color: 'bg-muted-foreground', textColor: 'text-muted-foreground' },
+  { color: 'bg-destructive',          textColor: 'text-destructive' },
+  { color: 'bg-accent-amber',         textColor: 'text-accent-amber' },
+  { color: 'bg-muted-foreground',     textColor: 'text-foreground' },
+  { color: 'bg-muted-foreground/60',  textColor: 'text-foreground/70' },
+  { color: 'bg-muted-foreground/30',  textColor: 'text-muted-foreground' },
 ];
 
 function getZoneColor(index: number, total: number) {

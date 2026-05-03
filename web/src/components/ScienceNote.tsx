@@ -20,7 +20,12 @@ export default function ScienceNote({ text, sourceUrl, sourceLabel }: { text: st
   const [expanded, setExpanded] = useState(false);
   const { t } = useLingui();
   return (
-    <div className="mt-4 pt-3 border-t border-border">
+    // No own border. Page-level section hairlines do the separation
+    // work in flat-page contexts; on surfaces that still need a
+    // visual divider above the note (Goal's trajectory block), the
+    // parent provides it. Eliminates the "double-hairline" look when
+    // a flat section ends with a ScienceNote.
+    <div className="mt-4">
       <button
         onClick={() => setExpanded(!expanded)}
         className="text-[12px] text-accent-cobalt hover:text-accent-cobalt/80 transition-colors"

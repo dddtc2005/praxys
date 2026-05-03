@@ -9,17 +9,23 @@ import { Trans, useLingui, Plural } from '@lingui/react/macro';
 import { useLocale } from '@/contexts/LocaleContext';
 import { useSettings } from '@/contexts/SettingsContext';
 
+// Workout-type chips lean on the semantic palette only.
+//   primary       — easy / recovery (action: go and run easy)
+//   muted         — long (steady aerobic methodology slot, restrained)
+//   accent-amber  — tempo / threshold (caution: at the line)
+//   destructive   — interval / repetition (this costs you)
+//   muted         — unknown types (no accent rather than reaching for blue/purple)
 const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
-  easy:       { bg: 'bg-primary/15', text: 'text-primary' },
-  recovery:   { bg: 'bg-primary/15', text: 'text-primary' },
-  long:       { bg: 'bg-accent-blue/15',  text: 'text-accent-blue' },
+  easy:       { bg: 'bg-primary/15',      text: 'text-primary' },
+  recovery:   { bg: 'bg-primary/15',      text: 'text-primary' },
+  long:       { bg: 'bg-muted',           text: 'text-foreground' },
   tempo:      { bg: 'bg-accent-amber/15', text: 'text-accent-amber' },
   threshold:  { bg: 'bg-accent-amber/15', text: 'text-accent-amber' },
-  interval:   { bg: 'bg-destructive/15',   text: 'text-destructive' },
-  repetition: { bg: 'bg-destructive/15',   text: 'text-destructive' },
+  interval:   { bg: 'bg-destructive/15',  text: 'text-destructive' },
+  repetition: { bg: 'bg-destructive/15',  text: 'text-destructive' },
 };
 
-const DEFAULT_COLOR = { bg: 'bg-accent-purple/15', text: 'text-accent-purple' };
+const DEFAULT_COLOR = { bg: 'bg-muted', text: 'text-muted-foreground' };
 
 function getTypeColor(type: string) {
   const key = type.toLowerCase().replace(/\s+/g, ' ');
@@ -210,7 +216,7 @@ function WorkoutRow({
     <div
       className={`group flex items-center gap-3 py-2.5 px-3 rounded-lg transition-colors ${
         isToday
-          ? 'bg-primary/5 ring-1 ring-accent-green/20'
+          ? 'bg-primary/5 ring-1 ring-primary/30'
           : 'hover:bg-muted/50'
       }`}
     >

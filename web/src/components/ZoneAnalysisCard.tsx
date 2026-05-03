@@ -1,6 +1,5 @@
 import type { ZoneDistribution, ZoneRange, DisplayConfig } from '@/types/api';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import DistributionBar from '@/components/DistributionBar';
 import { Trans, useLingui } from '@lingui/react/macro';
 import { tDisplay } from '@/lib/display-labels';
 
@@ -9,12 +8,22 @@ interface Props {
   zoneRanges: ZoneRange[];
   theoryName: string;
   display?: DisplayConfig;
+  /** Optional one-sentence theory description rendered as a muted
+   *  caption beneath the eyebrow. Used to inline-explain theory names
+   *  ("Seiler Polarized 3-Zone") that mean nothing to first-timers. */
+  theoryDescription?: string;
 }
 
+// Zone gradient runs cool→warm with intensity. Uses only the semantic
+// palette — no accent-blue/cobalt (cobalt is reserved for reasoning
+// surfaces), no primary green dominating the bar (primary is the action
+// signal, kept rare per the Restraint Rule). Aerobic zones stay in
+// tinted ink; caution (threshold) and high-intensity (vo2max) earn
+// warm color.
 const ZONE_TEXT_COLORS = [
   'text-muted-foreground',
-  'text-accent-blue/70',
-  'text-accent-blue',
+  'text-foreground/70',
+  'text-foreground',
   'text-accent-amber',
   'text-destructive',
 ];
@@ -30,70 +39,75 @@ function formatRange(range: ZoneRange): string {
   return `${range.lower}–${range.upper}${range.unit}`;
 }
 
-export default function ZoneAnalysisCard({ distribution, zoneRanges, theoryName, display }: Props) {
-  const { t, i18n } = useLingui();
+/**
+ * Zone distribution panel — borderless content block (no Card chrome).
+ * Owns the full zone story: theory description (optional) + visual
+ * proportion bar + numeric breakdown table. Used as a tab in the
+ * Diagnosis chart switcher on Training; flat-by-default.
+ *
+ * Note: deviation alerts that used to live here have moved into the
+ * Praxys Coach receipt's rule-based fallback (single canonical
+ * interpretation surface). Don't re-introduce the standalone Alert.
+ */
+export default function ZoneAnalysisCard({ distribution, zoneRanges, theoryName, display, theoryDescription }: Props) {
+  const { i18n } = useLingui();
   const thresholdLabel = display ? `${display.threshold_abbrev}` : '';
 
   const rows = [...distribution].reverse();
   const ranges = [...zoneRanges].reverse();
 
-  const alerts = distribution
-    .filter((d) => d.target_pct != null && Math.abs(d.actual_pct - d.target_pct!) > 5)
-    .map((d) => {
-      const diff = d.actual_pct - d.target_pct!;
-      const direction = diff > 0 ? t`above` : t`below`;
-      return `${tDisplay(d.name, i18n)}: ${d.actual_pct}% (${Math.abs(diff)}pp ${direction} ${d.target_pct}% ${t`target`})`;
-    });
-
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            <Trans>Zone Analysis</Trans> · {theoryName}
-          </CardTitle>
-          {thresholdLabel && (
-            <span className="text-xs text-muted-foreground font-data">{thresholdLabel}</span>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-center pb-2 mb-2 border-b border-border">
-          <span className="w-20 text-[10px] uppercase tracking-wider text-muted-foreground"><Trans>Zone</Trans></span>
-          <span className="flex-1 text-[10px] uppercase tracking-wider text-muted-foreground"><Trans>Range</Trans></span>
-          <span className="w-14 text-right text-[10px] uppercase tracking-wider text-muted-foreground"><Trans>Actual</Trans></span>
-          <span className="w-14 text-right text-[10px] uppercase tracking-wider text-muted-foreground"><Trans>Target</Trans></span>
-        </div>
-
-        <div className="space-y-1.5">
-          {rows.map((d, i) => {
-            const range = ranges[i];
-            const colorClass = getZoneTextColor(distribution.length - 1 - i, distribution.length);
-            return (
-              <div key={d.name} className="flex items-center">
-                <span className={`w-20 text-sm font-medium ${colorClass}`}>{tDisplay(d.name, i18n)}</span>
-                <span className="flex-1 text-sm text-muted-foreground font-data">
-                  {range ? formatRange(range) : ''}
-                </span>
-                <span className="w-14 text-right text-sm font-semibold font-data text-foreground">
-                  {d.actual_pct}%
-                </span>
-                <span className="w-14 text-right text-sm font-data text-muted-foreground">
-                  {d.target_pct != null ? `${d.target_pct}%` : '—'}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-
-        {alerts.length > 0 && (
-          <Alert className="mt-4 border-accent-amber/30 bg-accent-amber/5">
-            <AlertDescription className="text-sm text-accent-amber">
-              <Trans>Distribution deviates from target</Trans>: {alerts.join('; ')}
-            </AlertDescription>
-          </Alert>
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <p className="text-[10px] font-data uppercase tracking-[0.14em] text-muted-foreground">
+          <Trans>Zone Distribution</Trans> · {theoryName}
+        </p>
+        {thresholdLabel && (
+          <span className="text-[11px] text-muted-foreground font-data">{thresholdLabel}</span>
         )}
-      </CardContent>
-    </Card>
+      </div>
+      {theoryDescription ? (
+        <p className="text-xs text-muted-foreground/80 leading-snug mb-4">
+          {theoryDescription}
+        </p>
+      ) : (
+        <div className="mb-3" />
+      )}
+
+      {/* Visual bar above the numeric table — same dataset, two
+          presentations stacked: scan-fast bar on top, precise
+          breakdown below. */}
+      <div className="mb-5">
+        <DistributionBar distribution={distribution} />
+      </div>
+
+      <div className="grid grid-cols-[5rem_1fr_3.5rem_3.5rem] items-center pb-2 mb-2 border-b border-border">
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground"><Trans>Zone</Trans></span>
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground"><Trans>Range</Trans></span>
+        <span className="text-right text-[10px] uppercase tracking-wider text-muted-foreground"><Trans>Actual</Trans></span>
+        <span className="text-right text-[10px] uppercase tracking-wider text-muted-foreground"><Trans>Target</Trans></span>
+      </div>
+
+      <div className="space-y-1.5">
+        {rows.map((d, i) => {
+          const range = ranges[i];
+          const colorClass = getZoneTextColor(distribution.length - 1 - i, distribution.length);
+          return (
+            <div key={d.name} className="grid grid-cols-[5rem_1fr_3.5rem_3.5rem] items-center">
+              <span className={`text-sm font-medium ${colorClass}`}>{tDisplay(d.name, i18n)}</span>
+              <span className="text-sm text-muted-foreground font-data tabular-nums truncate">
+                {range ? formatRange(range) : ''}
+              </span>
+              <span className="text-right text-sm font-semibold font-data tabular-nums text-foreground">
+                {d.actual_pct}%
+              </span>
+              <span className="text-right text-sm font-data tabular-nums text-muted-foreground">
+                {d.target_pct != null ? `${d.target_pct}%` : '—'}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
