@@ -123,9 +123,17 @@ html[lang="zh"] .login-shell {
   content: '';
   position: absolute;
   inset: 0;
+  /* Aurora centers anchor in the left half of the hero so the gradients
+     don't bleed past the right-edge separator and read as a thin "green
+     stripe" against the form pane. The drift animation translates by
+     -18px which keeps both centers comfortably away from the seam. */
   background:
-    radial-gradient(circle at 80% 110%, color-mix(in oklch, var(--lg-primary) 14%, transparent) 0%, transparent 55%),
-    radial-gradient(circle at 12% 8%, color-mix(in oklch, var(--lg-cobalt) 12%, transparent) 0%, transparent 50%);
+    radial-gradient(circle at 30% 105%, color-mix(in oklch, var(--lg-primary) 14%, transparent) 0%, transparent 50%),
+    radial-gradient(circle at 8% 5%, color-mix(in oklch, var(--lg-cobalt) 12%, transparent) 0%, transparent 45%);
+  /* Soft horizontal mask fades the aurora out before reaching the right
+     edge so the seam stays clean even when the drift translates right. */
+  mask-image: linear-gradient(to right, black 0%, black 70%, transparent 95%);
+  -webkit-mask-image: linear-gradient(to right, black 0%, black 70%, transparent 95%);
   pointer-events: none;
   animation: lg-aurora-drift 18s ease-in-out infinite alternate;
 }
@@ -252,16 +260,16 @@ html[lang="zh"] .login-shell {
   font-family: var(--lg-font-display);
   font-weight: 500;
   font-size: clamp(2.75rem, 7vw, 5.5rem);
-  letter-spacing: -0.045em;
-  /* Brand cover wordmark uses 0.86; at this smaller scale 0.95 is the
-     right tighten — keeps ascenders/descenders comfortable but stops the
-     wordmark feeling airy. */
-  line-height: 0.95;
+  /* Brand-spec exact (docs/brand/index.html .cover-wordmark): -0.055em
+     letter-spacing, 0.86 line-height. Same values across every brand
+     surface so the wordmark reads consistent at any scale. */
+  letter-spacing: -0.055em;
+  line-height: 0.86;
   color: var(--lg-ink);
   display: inline-flex;
   align-items: baseline;
   /* Keep the six letters on one line even at extreme narrow viewports;
-     letter-spacing -0.045em + decorative ::after underline don't survive a
+     letter-spacing -0.055em + decorative ::after underline don't survive a
      mid-word break. */
   white-space: nowrap;
 }
@@ -281,29 +289,13 @@ html[lang="zh"] .login-shell {
 .login-wordmark > .login-wordmark-letter:nth-child(6) { animation-delay: 460ms; }
 
 .login-wordmark > .login-wordmark-x {
+  /* Brand spec is color-only on the accented x (docs/brand cover-wordmark
+     .accent { color: var(--primary); }). No underline decoration. */
   color: var(--lg-primary);
-  position: relative;
-}
-
-.login-wordmark > .login-wordmark-x::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0.08em;
-  height: 0.08em;
-  background: currentColor;
-  transform-origin: left center;
-  transform: scaleX(0);
-  animation: lg-x-underline 400ms cubic-bezier(0.215, 0.61, 0.355, 1) 700ms forwards;
 }
 
 @keyframes lg-letter-reveal {
   to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes lg-x-underline {
-  to { transform: scaleX(1); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -312,13 +304,9 @@ html[lang="zh"] .login-shell {
     transform: none;
     animation: none;
   }
-  .login-wordmark > .login-wordmark-x::after {
-    transform: scaleX(1);
-    animation: none;
-  }
 }
 
-/* Tagline */
+/* Tagline — mirrors docs/brand/index.html .cover-tag */
 .login-tagline {
   position: relative;
   z-index: 1;
@@ -327,14 +315,20 @@ html[lang="zh"] .login-shell {
   font-weight: 400;
   font-size: clamp(1rem, 1.6vw, 1.375rem);
   line-height: 1.4;
+  letter-spacing: -0.02em;
   color: var(--lg-ink-soft);
   max-width: 32ch;
   /* Distribute words across the two-line wrap optically instead of letting
-     the last word ("position.") widow. Browsers without text-wrap support
-     fall back to default greedy wrap, which is acceptable. */
+     a single word widow. Browsers without text-wrap fall back to default
+     greedy wrap, which is acceptable. */
   text-wrap: balance;
   opacity: 0;
   animation: lg-fade-up 600ms cubic-bezier(0.215, 0.61, 0.355, 1) 760ms forwards;
+}
+
+.login-tagline-accent {
+  color: var(--lg-primary);
+  font-weight: 600;
 }
 
 @keyframes lg-fade-up {
@@ -401,29 +395,6 @@ html[lang="zh"] .login-shell {
     transform: none;
     animation: none;
   }
-}
-
-/* Hero foot — small attribution stamp */
-.login-hero-foot {
-  position: relative;
-  z-index: 1;
-  margin-top: clamp(1.5rem, 3vw, 2.25rem);
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  font-family: var(--lg-font-data);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--lg-ink-ghost);
-}
-
-.login-hero-foot > .login-hero-foot-rule {
-  flex: 1;
-  height: 1px;
-  background: var(--lg-rule);
-  max-width: 5rem;
 }
 
 /* ─── Form pane (right on desktop, below hero on mobile) ──────────────── */
@@ -869,6 +840,29 @@ html[lang="zh"] .login-shell {
 .login-form-foot-button:focus-visible {
   outline: 2px solid var(--lg-primary);
   outline-offset: 2px;
+}
+
+.login-form-foot-button.login-form-foot-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Override the px-heavy text padding so the SVG isn't cramped */
+  padding: 0.375rem;
+}
+
+.login-form-foot-button.login-form-foot-icon > svg {
+  width: 14px;
+  height: 14px;
+}
+
+@media (max-width: 1023px) {
+  .login-form-foot-button.login-form-foot-icon {
+    padding: 0.5rem;
+  }
+  .login-form-foot-button.login-form-foot-icon > svg {
+    width: 18px;
+    height: 18px;
+  }
 }
 
 /* CLI callback banner — only appears when ?cli_callback=... is present */

@@ -168,7 +168,13 @@ export default function Login() {
         </div>
 
         <p className="login-tagline">
-          <Trans>A scientific training system that takes a position.</Trans>
+          {/* Canonical brand-guide primary tagline (docs/brand/index.html
+              "cover-tag"). The accented phrase is the warm half of the
+              brand's adaptive voice — the system meets the reader before
+              it pushes. */}
+          <Trans>
+            Sports science that <span className="login-tagline-accent">meets you</span> where you are.
+          </Trans>
         </p>
 
         <ul className="login-pillars">
@@ -198,11 +204,6 @@ export default function Login() {
           </li>
         </ul>
 
-        <div className="login-hero-foot">
-          <span aria-hidden className="login-hero-foot-rule" />
-          <span className="font-data">FIELD · LAB</span>
-          <span aria-hidden className="login-hero-foot-rule" />
-        </div>
       </aside>
 
       {/* ──────────────────────── FORM PANE (right on desktop) ──────────────────────── */}
@@ -478,10 +479,8 @@ export default function Login() {
                   value={invitationCode}
                   onChange={(e) => setInvitationCode(e.target.value.toUpperCase())}
                   disabled={submitting}
+                  required
                 />
-                <span className="login-field-hint">
-                  <Trans>Leave blank if this is the first account on a fresh install.</Trans>
-                </span>
               </div>
 
               <button type="submit" className="login-submit" disabled={submitting}>
@@ -519,15 +518,41 @@ export default function Login() {
               </button>
               <button
                 type="button"
-                className="login-form-foot-button"
+                className="login-form-foot-button login-form-foot-icon"
                 onClick={() => {
                   const next = theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light';
                   setTheme(next);
                 }}
-                aria-label={t`Toggle theme`}
-                title={t`Toggle theme`}
+                aria-label={
+                  theme === 'light'
+                    ? t`Switch to dark theme`
+                    : theme === 'dark'
+                    ? t`Switch to system theme`
+                    : t`Switch to light theme`
+                }
+                title={
+                  theme === 'light'
+                    ? t`Light theme (click for dark)`
+                    : theme === 'dark'
+                    ? t`Dark theme (click for system)`
+                    : t`System theme (click for light)`
+                }
               >
-                {theme === 'light' ? '☀' : theme === 'dark' ? '☾' : '⌖'}
+                {theme === 'light' ? (
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="8" cy="8" r="3" />
+                    <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" />
+                  </svg>
+                ) : theme === 'dark' ? (
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M13 9.5A5.5 5.5 0 0 1 6.5 3a5.5 5.5 0 1 0 6.5 6.5z" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <rect x="2" y="3" width="12" height="9" rx="1" />
+                    <path d="M5 14h6" />
+                  </svg>
+                )}
               </button>
             </div>
           </div>
