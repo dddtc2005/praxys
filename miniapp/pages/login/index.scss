@@ -1,9 +1,18 @@
 // Refined-minimal centered landing.
 //
+// Brand-led re-design (issue #276) bringing the miniapp login in line
+// with PR #274 on web. Same hierarchy: PRIVATE ALPHA eyebrow → mark +
+// wordmark → green-accented tagline → primary CTA → three pillars →
+// footer with waitlist + invitation-code-on-web rows. The two-column
+// hero from web is intentionally absent — miniapp is mobile-native
+// Skyline, and web's hero collapses to a stacked mobile layout
+// already, so the miniapp uses its own native vertical stack.
+//
 // WeChat layout constraints we have to respect:
 //   * Top-right is RESERVED for the system capsule (`...` + `⊙`). Mini
 //     programs can't draw there — anything we place collides with it.
-//     So the language toggle goes top-LEFT below the status bar.
+//     So the language toggle and the new theme toggle both live
+//     top-LEFT below the status bar.
 //   * iOS home indicator (~34pt / ~65rpx on notched devices) needs
 //     `env(safe-area-inset-bottom)` clearance. WebView renderer (which
 //     this page uses) honors it; the fixed-rpx fallback covers cases
@@ -12,18 +21,15 @@
 // Composition strategy: the whole brand stack + footer is *one* visual
 // composition centered on the screen. We don't pin the footer to the
 // absolute bottom — that creates a scroll-inducing dead zone on tall
-// phones (iPhone 12/13/14/15 Pro all 1623rpx tall, way bigger than the
-// content needs). Centering keeps everything in the eye's natural
-// reading band, and the explicit `margin-top` on the footer sets the
-// gap between stack and footer to a fixed, comfortable distance.
+// phones. Centering keeps everything in the eye's natural reading band,
+// and the explicit `margin-top` on the footer sets the gap between
+// stack and footer to a fixed, comfortable distance.
 .login-root {
   // min-height (not height) so the page can scroll when needed — the
-  // link stage opens the keyboard, and WeChat's adjust-position needs
-  // a scrollable page to push the focused input into view. Idle stage
-  // composition fits in 100vh with no scroll happening naturally.
-  // Disabling scroll altogether (which we tried before) broke
-  // keyboard handling on the link stage; the user couldn't see the
-  // input they were typing into.
+  // link + waitlist stages open the keyboard, and WeChat's
+  // adjust-position needs a scrollable page to push the focused input
+  // into view. Idle stage composition fits in 100vh with no scroll
+  // happening naturally on most phones.
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -35,18 +41,50 @@
   position: relative;
 }
 
-// Brand stack — mark, wordmark, hero, description, CTA. Natural height,
-// just centered horizontally and stacked with consistent gap.
+// Brand stack — eyebrow, mark, wordmark, tagline, CTA, pillars.
+// Natural height, just centered horizontally and stacked with
+// consistent gap.
 .login-stack {
   display: flex;
   flex-direction: column;
   align-items: center;
-  // 20rpx gap (was 24rpx) — saves ~16rpx total across the stack so the
-  // composition fits iPhone SE without scroll while staying airy on
-  // taller phones.
+  // 20rpx gap holds for most adjacent elements; specific elements
+  // tweak via margin-top for visual rhythm where needed (eyebrow
+  // directly above the mark wants tighter spacing).
   gap: 20rpx;
   width: 100%;
   max-width: 560rpx;
+}
+
+// PRIVATE ALPHA · INVITATION ONLY eyebrow. Cobalt = reasoning surface
+// (Reasoning Color Rule); the eyebrow tells the user "this is a
+// scoped, deliberate product" before they even read the headline.
+// Letterspacing follows the brand-data convention (uppercase mono).
+.login-eyebrow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12rpx;
+  // Pull the eyebrow tight against the mark below; the .login-stack
+  // gap of 20rpx is too loose for the visual reading group "eyebrow +
+  // mark + wordmark".
+  margin-bottom: -8rpx;
+}
+
+.login-eyebrow-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 999rpx;
+  background-color: var(--accent-cobalt);
+}
+
+.login-eyebrow-text {
+  font-size: 22rpx;
+  font-weight: 700;
+  letter-spacing: 4rpx;
+  text-transform: uppercase;
+  color: var(--accent-cobalt);
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
 }
 
 .login-mark {
@@ -54,8 +92,9 @@
   height: 144rpx;
 }
 
-// Pra<x>ys wordmark — sentence case, Geist 500, x in --primary. Tight
-// letter-spacing per brand guide (-0.055em ≈ -3rpx at 84rpx).
+// Pra<x>ys wordmark — sentence case, Geist 500, x in --primary. Brand
+// guide spec is letter-spacing -0.055em and line-height 0.86; using em
+// (not rpx) so the relationship survives any future font-size tweak.
 .login-wordmark {
   display: flex;
   align-items: baseline;
@@ -66,12 +105,33 @@
     'PingFang SC', 'Hiragino Sans GB', sans-serif;
   font-size: 84rpx;
   font-weight: 500;
-  letter-spacing: -3rpx;
+  letter-spacing: -0.055em;
   line-height: 0.86;
   color: var(--text);
 }
 .login-wordmark__accent {
   color: var(--primary);
+}
+
+// Tagline. Three segments stacked horizontally and wrapped naturally.
+// The accented segment ("meets you" / "知行合一") gets primary green —
+// that's the warm half of the brand's adaptive voice ("system meets
+// the reader before it pushes").
+.login-tagline {
+  display: block;
+  text-align: center;
+  margin-top: 12rpx;
+  max-width: 560rpx;
+}
+.login-tagline-seg {
+  font-size: 32rpx;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--text);
+}
+.login-tagline-accent {
+  color: var(--primary);
+  font-weight: 600;
 }
 
 .login-hero {
@@ -98,6 +158,55 @@
   margin-top: 28rpx;
 }
 
+// Three pillars — "Today's signal · go, modify, or rest" etc. Each
+// row: cobalt mono numeral + sentence text with a strong half + a
+// muted half. The numeral acts as a visual gutter so the eye can
+// quickly scan all three.
+.login-pillars {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-top: 32rpx;
+  padding-top: 28rpx;
+  border-top: 1rpx solid var(--border-subtle);
+}
+
+.login-pillar {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 20rpx;
+  padding: 12rpx 0;
+}
+
+.login-pillar-num {
+  flex-shrink: 0;
+  width: 56rpx;
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  font-size: 22rpx;
+  font-weight: 700;
+  letter-spacing: 2rpx;
+  color: var(--accent-cobalt);
+  line-height: 1.6;
+  padding-top: 4rpx;
+}
+
+.login-pillar-text {
+  flex: 1;
+  font-size: 26rpx;
+  line-height: 1.6;
+  text-align: left;
+}
+
+.login-pillar-strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.login-pillar-rest {
+  color: var(--text-muted);
+}
+
 // --- Login form fields ---
 //
 // WeChat's `<input>` is a *native iOS input* on real device even when
@@ -117,12 +226,10 @@
 //      Reset it explicitly on the input.
 //
 // Visual treatment: filled-pill row with a leading icon (envelope for
-// email, lock for password). 88rpx tall to clear iOS HIG min tap
-// targets. No border by default; primary-green hairline ring + soft
-// glow on focus replaces the iOS native focus indicator with a
-// brand-aligned one. Reads as a "container the user fills" rather
-// than a styled rectangle — same affordance as iOS Settings, Mail,
-// or Stripe checkout.
+// email, lock for password, note for the waitlist optional field).
+// 88rpx tall to clear iOS HIG min tap targets. No border by default;
+// primary-green hairline ring + soft glow on focus replaces the iOS
+// native focus indicator with a brand-aligned one.
 .login-field {
   display: flex;
   flex-direction: row;
@@ -163,6 +270,11 @@
   -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='18' height='11' x='3' y='11' rx='2' ry='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E");
           mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='18' height='11' x='3' y='11' rx='2' ry='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E");
 }
+// Notebook icon for the waitlist "training goal" optional field.
+.login-field__icon--note {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpolyline points='14 2 14 8 20 8'/%3E%3Cline x1='9' y1='13' x2='15' y2='13'/%3E%3Cline x1='9' y1='17' x2='15' y2='17'/%3E%3C/svg%3E");
+          mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpolyline points='14 2 14 8 20 8'/%3E%3Cline x1='9' y1='13' x2='15' y2='13'/%3E%3Cline x1='9' y1='17' x2='15' y2='17'/%3E%3C/svg%3E");
+}
 
 .login-field__input {
   flex: 1;
@@ -180,8 +292,6 @@
   background-color: transparent;
   border: none;
   padding: 0;
-  // Belt-and-suspenders fallback if the inline `text-align: left`
-  // doesn't propagate from the WXML attribute.
   text-align: left;
 }
 
@@ -200,51 +310,97 @@
   text-align: center;
 }
 
-// Footer "new here?" row — sits below the stack with a fixed margin so
-// the visual gap is consistent, hairline divider above. Because the
-// whole composition is centered (root has `justify-content: center`),
-// any extra screen height above-and-below distributes evenly: footer
-// always reads as anchored to the lower portion without being literally
-// pinned to the bottom edge (which would be hidden behind the home
-// indicator on iOS or scroll off on tiny screens).
+// Waitlist success state — green check + headline + detail.
+.login-success {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
+  margin-top: 24rpx;
+}
+.login-success-mark {
+  font-size: 44rpx;
+  font-weight: 700;
+  color: var(--primary);
+}
+.login-success-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--text);
+}
+
+// Back-to-signin row. Sits below the waitlist CTA — quieter
+// affordance, no border / chip, just a tappable line.
+.login-back-row {
+  margin-top: 24rpx;
+  padding: 8rpx 0;
+}
+.login-back-link {
+  font-size: 26rpx;
+  text-decoration: underline;
+}
+
+// Footer rows — waitlist link + invitation-code-on-web hint. Sits
+// below the stack with a fixed margin so the visual gap is
+// consistent. Tappable rows: muted prefix + primary-coloured action
+// text.
 .login-footer {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4rpx;
+  gap: 8rpx;
   padding-top: 20rpx;
-  // 48rpx margin-top (was 64rpx) — tighter footer-to-stack gap so the
-  // composition fits iPhone SE.
   margin-top: 48rpx;
   border-top: 1rpx solid var(--border-subtle);
   width: 80%;
   max-width: 480rpx;
 }
-.login-newhere-label {
-  font-size: 24rpx;
-}
-.login-signup-row {
+
+.login-footer-row {
   display: flex;
   flex-direction: row;
   align-items: baseline;
   gap: 8rpx;
-  padding: 4rpx 0;
-}
-.login-signup-url {
-  font-size: 30rpx;
-  font-weight: 600;
-  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
-}
-.login-signup-hint {
-  font-size: 22rpx;
+  padding: 8rpx 0;
 }
 
-// Top-LEFT language toggle. WeChat's `... | ⊙` capsule reserves the
-// top-right; top-LEFT below the status bar is fully ours. Visual
-// treatment: a single pill with two segments. Active segment gets an
-// inset surface chip + bolder text; inactive sits muted on the pill
-// background. Mirrors web's small chip-style toggle while feeling
-// native to a touch surface (44rpx tall hit targets).
+.login-footer-label {
+  font-size: 24rpx;
+}
+
+.login-footer-link {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.login-footer-link--mono {
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+}
+
+// "Have an invitation code?" path is a two-step flow: register on web
+// first, then return here and sign in with WeChat. The block groups
+// the action row + helper line so the user reads them as one
+// instruction, not two unrelated rows.
+.login-footer-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.login-footer-helper {
+  font-size: 22rpx;
+  line-height: 1.4;
+  margin-top: 2rpx;
+  text-align: center;
+  max-width: 460rpx;
+}
+
+// Top-LEFT language toggle — unchanged from prior version. WeChat's
+// `... | ⊙` capsule reserves the top-right; top-LEFT below the status
+// bar is fully ours. Visual treatment: a single pill with two
+// segments. Active segment gets an inset surface chip + bolder text.
 .login-lang-toggle {
   position: absolute;
   top: calc(128rpx + env(safe-area-inset-top));
@@ -262,8 +418,6 @@
   font-size: 24rpx;
   font-weight: 500;
   color: var(--text-muted);
-  // Generous horizontal padding so each segment is a comfortable hit
-  // target; vertical padding keeps the pill compact.
   padding: 8rpx 20rpx;
   border-radius: 999rpx;
   line-height: 1.2;
@@ -273,15 +427,77 @@
   color: var(--text);
   font-weight: 600;
   background-color: var(--surface);
-  // Tiny inner shadow so the active chip reads as "lifted on top of
-  // the pill track" rather than just a color swap.
   box-shadow: 0 1rpx 3rpx rgba(0, 0, 0, 0.06);
 }
 
-// Single orchestrated entrance: mark fades first, each subsequent
-// element 80ms after. Translate-from-below 8rpx adds a hint of depth
-// without being showy. `both` keeps the start state visible so we
-// never get the unmounted-flicker that some Skyline animations show.
+// Top-LEFT theme toggle — sits 64rpx below the language pill. Three
+// SVG glyphs (sun / moon / monitor) replace the unicode icons web's
+// previous design used. Active glyph gets a primary tint + filled
+// surface chip; inactive sits muted on the pill background.
+.login-theme-toggle {
+  position: absolute;
+  top: calc(196rpx + env(safe-area-inset-top));
+  left: 32rpx;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  background-color: var(--surface-subtle);
+  border: 1rpx solid var(--border-subtle);
+  border-radius: 999rpx;
+  padding: 4rpx;
+  z-index: 10;
+}
+
+.login-theme-opt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56rpx;
+  height: 44rpx;
+  border-radius: 999rpx;
+  transition: background-color 160ms ease;
+}
+
+.login-theme-opt--active {
+  background-color: var(--surface);
+  box-shadow: 0 1rpx 3rpx rgba(0, 0, 0, 0.06);
+}
+
+.login-theme-icon {
+  width: 28rpx;
+  height: 28rpx;
+  background-color: var(--text-muted);
+  -webkit-mask-size: contain;
+          mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+          mask-position: center;
+}
+
+.login-theme-opt--active .login-theme-icon {
+  background-color: var(--text);
+}
+
+.login-theme-icon--sun {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3Cpath d='M12 2v2'/%3E%3Cpath d='M12 20v2'/%3E%3Cpath d='m4.93 4.93 1.41 1.41'/%3E%3Cpath d='m17.66 17.66 1.41 1.41'/%3E%3Cpath d='M2 12h2'/%3E%3Cpath d='M20 12h2'/%3E%3Cpath d='m6.34 17.66-1.41 1.41'/%3E%3Cpath d='m19.07 4.93-1.41 1.41'/%3E%3C/svg%3E");
+          mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3Cpath d='M12 2v2'/%3E%3Cpath d='M12 20v2'/%3E%3Cpath d='m4.93 4.93 1.41 1.41'/%3E%3Cpath d='m17.66 17.66 1.41 1.41'/%3E%3Cpath d='M2 12h2'/%3E%3Cpath d='M20 12h2'/%3E%3Cpath d='m6.34 17.66-1.41 1.41'/%3E%3Cpath d='m19.07 4.93-1.41 1.41'/%3E%3C/svg%3E");
+}
+
+.login-theme-icon--moon {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z'/%3E%3C/svg%3E");
+          mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z'/%3E%3C/svg%3E");
+}
+
+.login-theme-icon--monitor {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='20' height='14' x='2' y='3' rx='2'/%3E%3Cline x1='8' x2='16' y1='21' y2='21'/%3E%3Cline x1='12' x2='12' y1='17' y2='21'/%3E%3C/svg%3E");
+          mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='20' height='14' x='2' y='3' rx='2'/%3E%3Cline x1='8' x2='16' y1='21' y2='21'/%3E%3Cline x1='12' x2='12' y1='17' y2='21'/%3E%3C/svg%3E");
+}
+
+// Single orchestrated entrance: each element fades in 80ms after the
+// previous. Translate-from-below 8rpx adds a hint of depth without
+// being showy. `both` keeps the start state visible so we never get
+// the unmounted-flicker that some Skyline animations show.
 @keyframes login-fade-in {
   from { opacity: 0; transform: translateY(8rpx); }
   to   { opacity: 1; transform: translateY(0); }
