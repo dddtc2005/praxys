@@ -333,12 +333,15 @@
   opacity: 0.7;
 }
 
+// Skyline supports only `block | flex | grid | none` for `display`, so
+// no `inline-block` here. The chevron is a flex child of the trigger
+// row, which blockifies it regardless of declared display — that's
+// enough to establish a transform context for the open-state rotation.
 .sci-disclosure-chevron {
   font-family: var(--font-mono, monospace);
   font-size: 28rpx;
   color: var(--accent-cobalt);
   transition: transform 200ms ease-out;
-  display: inline-block;
 }
 
 .sci-disclosure-chevron--open {
