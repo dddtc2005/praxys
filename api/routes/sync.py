@@ -150,14 +150,20 @@ def _persist_credentials(user_id: str, platform: str, creds: dict, db: Session) 
     conn.wrapped_dek = wrapped_dek
 
 
-def _get_strava_client_config() -> tuple[str, str]:
-    """Load Strava OAuth client credentials from environment."""
+def _get_strava_client_config(creds: dict | None = None) -> tuple[str, str]:
+    """Load Strava OAuth client credentials from user's stored credentials or environment."""
+
+    if creds:
+        client_id = creds.get("client_id")
+        client_secret = creds.get("client_secret")
+        if client_id and client_secret:
+            return client_id, client_secret
 
     client_id = getenv_compat("STRAVA_CLIENT_ID")
     client_secret = getenv_compat("STRAVA_CLIENT_SECRET")
     if not client_id or not client_secret:
         raise RuntimeError(
-            "Strava OAuth is not configured. Set PRAXYS_STRAVA_CLIENT_ID and PRAXYS_STRAVA_CLIENT_SECRET."
+            "Strava OAuth is not configured. Provide your Strava Client ID and Client Secret when connecting."
         )
     return client_id, client_secret
 
@@ -230,7 +236,11 @@ def _run_sync(user_id: str, source: str, creds: dict,
                 logger.exception("Activity-derived CP refresh failed for user %s", user_id)
                 db.rollback()
 
-        # Update last_sync on the connection record
+        # Update last_sync on the connection record. Clear any prior
+        # backoff state so a previously-failed connection that the user
+        # successfully synced manually (or that recovered on its own)
+        # rejoins the regular schedule immediately.
+        from db.sync_scheduler import reset_connection_backoff
         conn = db.query(UserConnection).filter(
             UserConnection.user_id == user_id,
             UserConnection.platform == source,
@@ -238,9 +248,23 @@ def _run_sync(user_id: str, source: str, creds: dict,
         if conn:
             conn.last_sync = datetime.now(timezone.utc).replace(tzinfo=None)
             conn.status = "connected"
+            reset_connection_backoff(conn)
             db.commit()
 
         logger.info("Sync %s for user %s: %s", source, user_id, counts)
+
+        # Post-sync LLM insight generation. Best-effort: failures here must
+        # never break the sync. The runner is content-addressable (skips when
+        # the dataset hash is unchanged) and self-throttling (per-user daily
+        # cap), so calling it on every sync is safe.
+        try:
+            from api.insights_runner import run_insights_for_user
+            insight_results = run_insights_for_user(user_id, db, counts)
+            logger.info("Insight generation for user %s: %s", user_id, insight_results)
+        except Exception:
+            # No rollback: the runner uses its own session, and the caller's
+            # session has nothing pending past the prior db.commit().
+            logger.exception("Insight generation failed for user %s", user_id)
 
         with _sync_lock:
             status[source] = {
@@ -258,15 +282,17 @@ def _run_sync(user_id: str, source: str, creds: dict,
                 "last_sync": None,
                 "error": str(e),
             }
-        # Update connection status to error
+        # Update connection status with classification + backoff so the
+        # background scheduler stops hammering a stuck connection.
+        # ``_record_sync_failure`` handles its own rollback and commit.
         try:
+            from db.sync_scheduler import _record_sync_failure
             conn = db.query(UserConnection).filter(
                 UserConnection.user_id == user_id,
                 UserConnection.platform == source,
             ).first()
             if conn:
-                conn.status = "error"
-                db.commit()
+                _record_sync_failure(conn, e, db)
         except Exception:
             pass
     finally:
@@ -866,7 +892,7 @@ def _sync_strava(user_id: str, creds: dict, from_date: str | None, db) -> dict:
         refresh_access_token_if_needed,
     )
 
-    client_id, client_secret = _get_strava_client_config()
+    client_id, client_secret = _get_strava_client_config(creds)
     creds, changed = refresh_access_token_if_needed(creds, client_id, client_secret)
     if changed:
         _persist_credentials(user_id, "strava", creds, db)
@@ -924,18 +950,24 @@ def _sync_oura(user_id: str, creds: dict, from_date: str | None,
     """Fetch Oura data and write directly to DB."""
     from db import sync_writer
     from sync.oura_sync import (
-        fetch_sleep_data, fetch_readiness_data,
-        parse_sleep_records, parse_readiness_records,
-        select_oura_hrv_per_day,
+        fetch_sleep_data, fetch_daily_sleep_data, fetch_readiness_data,
+        parse_sleep_records, parse_daily_sleep_records, parse_readiness_records,
+        merge_daily_sleep_score, select_oura_hrv_per_day,
     )
 
     token = creds["token"]
     end = date.today().isoformat()
     start = from_date or (date.today() - timedelta(days=7)).isoformat()
 
-    # Fetch raw data
+    # /sleep gives per-sleep-period detail (HRV, RHR, total/deep/REM,
+    # efficiency); /daily_sleep gives the once-per-day sleep score
+    # (0–100) that the dashboard renders. Merge by date so each day's
+    # detail row carries the canonical sleep_score.
     sleep_raw = fetch_sleep_data(token, start, end)
     sleep_rows = parse_sleep_records(sleep_raw)
+    daily_sleep_raw = fetch_daily_sleep_data(token, start, end)
+    daily_sleep_rows = parse_daily_sleep_records(daily_sleep_raw)
+    sleep_rows = merge_daily_sleep_score(sleep_rows, daily_sleep_rows)
 
     hrv_by_date = select_oura_hrv_per_day(sleep_raw)
 
@@ -962,7 +994,8 @@ def _sync_coros(user_id: str, creds: dict, from_date: str | None,
         fetch_daily_metrics,
         fetch_fitness_summary,
         parse_activities,
-        parse_splits,
+        parse_fit_laps,
+        parse_fit_stream,
         parse_daily_metrics as parse_daily,
         parse_fitness_summary as parse_fitness,
         mobile_login,
@@ -1019,8 +1052,11 @@ def _sync_coros(user_id: str, creds: dict, from_date: str | None,
         row.setdefault("source", "coros")
     act_count = sync_writer.write_activities(user_id, activity_rows, db)
 
-    # Splits (per-activity laps)
+    # Splits and per-second samples from the same activity detail call.
+    # parse_activity_stream() reads trackPoints when present; returns []
+    # otherwise (UNVERIFIED field names — needs real COROS data to confirm).
     all_splits = []
+    all_samples = []
     total = len(raw_activities)
     for idx, raw_act in enumerate(raw_activities):
         act_id = str(raw_act.get("labelId") or raw_act.get("activityId") or "")
@@ -1029,12 +1065,17 @@ def _sync_coros(user_id: str, creds: dict, from_date: str | None,
         with _sync_lock:
             status.setdefault("coros", {})["progress"] = f"Fetching splits: {idx + 1}/{total}"
         try:
-            detail = fetch_activity_detail(access_token, region, act_id)
-            all_splits.extend(parse_splits(act_id, detail))
+            sport_type = raw_act.get("sportType")
+            fit_bytes = fetch_activity_detail(access_token, region, act_id, sport_type)
+            if fit_bytes:
+                all_splits.extend(parse_fit_laps(act_id, fit_bytes))
+                all_samples.extend(parse_fit_stream(act_id, fit_bytes))
             time_mod.sleep(0.3)
         except Exception as e:
             logger.debug("COROS splits for %s: skipped (%s)", act_id, e)
     split_count = sync_writer.write_splits(user_id, all_splits, db)
+    sample_count = sync_writer.write_samples(user_id, all_samples, db)
+    logger.debug("COROS sync: %d splits, %d samples written", split_count, sample_count)
 
     # Daily metrics (HRV, resting HR, training load)
     # Fetch a wider window (90 days) to ensure enough HRV readings for
@@ -1132,6 +1173,7 @@ def get_sync_status(
 ) -> dict:
     """Return current sync status for this user's connected platforms."""
     from db.models import UserConnection
+    from db.sync_scheduler import ACTIVE_CONNECTION_STATUSES
 
     # Snapshot runtime status under lock to avoid reading partial updates.
     # _get_user_status acquires _sync_lock internally, so call it outside
@@ -1152,7 +1194,7 @@ def get_sync_status(
             "status": runtime.get("status", "idle"),
             "last_sync": utc_isoformat(conn.last_sync) or runtime.get("last_sync"),
             "error": runtime.get("error"),
-            "connected": conn.status in ("connected", "error"),
+            "connected": conn.status in ACTIVE_CONNECTION_STATUSES,
             "progress": runtime.get("progress"),
         }
 

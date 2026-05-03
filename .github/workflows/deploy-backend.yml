@@ -12,6 +12,8 @@ on:
       - 'tests/**'
       - 'requirements.txt'
       - '.github/workflows/deploy-backend.yml'
+    tags:
+      - 'api-*'
 
 permissions:
   id-token: write
@@ -35,12 +37,63 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+
+      - name: Stamp build version
+        # Write ``api/_build_version.txt`` so ``api.version.get_api_version()``
+        # returns the deploy build instead of ``"develop"``. Mirrors the web
+        # bundle's ``VITE_APP_VERSION`` injection — both surfaces show a
+        # CalVer-ish synthetic version on auto-deploys, the stripped tag on
+        # tagged releases (``api-YYYY.MM.MICRO`` → ``YYYY.MM.MICRO``).
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" && "${GITHUB_REF_NAME}" == api-* ]]; then
+            VERSION="${GITHUB_REF_NAME#api-}"
+          else
+            VERSION="$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}"
+          fi
+          echo "${VERSION}" > api/_build_version.txt
+          echo "Build version: ${VERSION}"
+
       - name: Azure Login (OIDC)
         uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Sync App Service settings
+        env:
+          AZURE_AI_ENDPOINT: ${{ vars.AZURE_AI_ENDPOINT }}
+          KEY_VAULT_URL: ${{ vars.KEY_VAULT_URL }}
+          KEY_VAULT_KEY_NAME: ${{ vars.KEY_VAULT_KEY_NAME }}
+          APPLICATIONINSIGHTS_CONNECTION_STRING: ${{ vars.APPLICATIONINSIGHTS_CONNECTION_STRING }}
+          PRAXYS_JWT_SECRET: ${{ secrets.PRAXYS_JWT_SECRET }}
+          WECHAT_MINIAPP_APPID: ${{ secrets.WECHAT_MINIAPP_APPID }}
+          WECHAT_MINIAPP_SECRET: ${{ secrets.WECHAT_MINIAPP_SECRET }}
+        run: |
+          for var in AZURE_AI_ENDPOINT KEY_VAULT_URL KEY_VAULT_KEY_NAME \
+                     APPLICATIONINSIGHTS_CONNECTION_STRING PRAXYS_JWT_SECRET \
+                     WECHAT_MINIAPP_APPID WECHAT_MINIAPP_SECRET; do
+            if [[ -z "${!var}" ]]; then
+              echo "ERROR: required setting '${var}' is empty or undefined" >&2
+              exit 1
+            fi
+          done
+          az webapp config appsettings set \
+            --name trainsight-app \
+            --resource-group rg-trainsight \
+            --settings \
+              AZURE_AI_ENDPOINT="${AZURE_AI_ENDPOINT}" \
+              KEY_VAULT_URL="${KEY_VAULT_URL}" \
+              KEY_VAULT_KEY_NAME="${KEY_VAULT_KEY_NAME}" \
+              APPLICATIONINSIGHTS_CONNECTION_STRING="${APPLICATIONINSIGHTS_CONNECTION_STRING}" \
+              PRAXYS_JWT_SECRET="${PRAXYS_JWT_SECRET}" \
+              WECHAT_MINIAPP_APPID="${WECHAT_MINIAPP_APPID}" \
+              WECHAT_MINIAPP_SECRET="${WECHAT_MINIAPP_SECRET}" \
+              WEBSITES_PORT="8000" \
+              DATA_DIR="/home/data" \
+              SCM_DO_BUILD_DURING_DEPLOYMENT="true" \
+              WEBSITE_HTTPLOGGING_RETENTION_DAYS="3"
+
       - name: Deploy to App Service
         uses: azure/webapps-deploy@v3
         with:

@@ -6,6 +6,13 @@
 export type TrainingBase = 'power' | 'hr' | 'pace';
 export type SciencePillar = 'load' | 'recovery' | 'prediction' | 'zones';
 
+/** Build version of the running ``api/main.py``. The backend always
+ * returns a non-empty string (``"develop"`` is the local-dev fallback),
+ * so consumers don't need to handle a missing field. */
+export interface VersionResponse {
+  version: string;
+}
+
 export interface TsbZoneConfig {
   min: number | null;
   max: number | null;
@@ -122,6 +129,15 @@ export interface PlatformConnection {
   status: string;
   last_sync: string | null;
   has_credentials: boolean;
+  // Scheduler retry-state surfaced for UI: when status is "error", the
+  // connection is in exponential backoff and `next_retry_at` says when
+  // the next attempt fires; when status is "auth_required" the user
+  // must reconnect and `next_retry_at` is null. `last_error` is a short
+  // tag for the failure cause (e.g. "GarminConnectConnectionError:
+  // Portal login failed (non-JSON): HTTP 403"), suitable for a tooltip.
+  next_retry_at?: string | null;
+  consecutive_failures?: number;
+  last_error?: string | null;
 }
 
 export interface ConnectionsResponse {
@@ -131,6 +147,8 @@ export interface ConnectionsResponse {
 export interface StravaOAuthStartRequest {
   web_origin: string;
   return_to: string;
+  client_id?: string;
+  client_secret?: string;
 }
 
 export interface StravaOAuthStartResponse {
@@ -241,6 +259,11 @@ export interface RecoveryAnalysis {
   status: RecoveryStatus;
   hrv: HrvAnalysis | null;
   sleep_score: number | null;
+  /** Platform-emitted readiness score (Oura, Garmin Body Battery, …)
+   *  on a 0–100 scale. Distinct from sleep_score — Oura users get
+   *  both side-by-side; sources that don't surface readiness leave
+   *  this null. Informational, never combined into a composite. */
+  readiness_score: number | null;
   resting_hr: number | null;
   rhr_trend: 'stable' | 'elevated' | 'low' | null;
   /** ISO date of the most recent recovery reading, or null when no data exists. */
@@ -272,6 +295,14 @@ export interface UpcomingWorkout {
 }
 
 export interface TodayResponse {
+  /** ISO `YYYY-MM-DD` — server-local calendar date the response was
+   *  computed for. Clients should render the eyebrow against this rather
+   *  than `new Date()` so a traveler whose device crossed midnight before
+   *  sync caught up doesn't see "today" assert a date the server hasn't
+   *  reached yet (and vice versa). Pair with
+   *  `recovery_analysis.is_stale` / `latest_date` to label the actual
+   *  reading date when sync lags. */
+  as_of_date: string;
   signal: TrainingSignal;
   tsb_sparkline: TsbSparkline;
   warnings: string[];
@@ -491,6 +522,13 @@ export interface AiInsightFinding {
   text: string;
 }
 
+export interface AiInsightTranslation {
+  headline: string;
+  summary: string;
+  findings: AiInsightFinding[];
+  recommendations: string[];
+}
+
 export interface AiInsight {
   headline: string;
   summary: string;
@@ -498,6 +536,10 @@ export interface AiInsight {
   recommendations: string[];
   meta: Record<string, unknown>;
   generated_at: string | null;
+  // Issue #103: optional bilingual payload. The backend writes
+  // ``translations.zh`` for LLM-generated rows; the frontend prefers the
+  // current locale's block and falls back to the top-level English fields.
+  translations?: Partial<Record<'zh' | 'en', AiInsightTranslation>>;
 }
 
 export type AiInsightsResponse = {
@@ -509,4 +551,16 @@ export interface HistoryResponse {
   total: number;
   limit: number;
   offset: number;
+}
+
+export interface SystemAnnouncement {
+  id: number;
+  title: string;
+  body: string;
+  type: 'info' | 'warning' | 'success';
+  is_active: boolean;
+  link_text: string | null;
+  link_url: string | null;
+  created_at: string;
+  updated_at: string;
 }

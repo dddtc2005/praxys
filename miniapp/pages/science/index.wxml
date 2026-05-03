@@ -3,128 +3,141 @@
 
   <scroll-view scroll-y="{{true}}" class="sci-scroll">
     <view class="sci-content">
-    <block wx:if="{{loading && !hasResponse}}">
-      <state-card type="loading" />
-      <state-card type="loading" />
-    </block>
+      <block wx:if="{{loading && !hasResponse}}">
+        <state-card type="loading" />
+        <state-card type="loading" />
+      </block>
 
-    <block wx:elif="{{errorMessage}}">
-      <state-card type="error" headline="{{tr.failedToLoad}}" detail="{{errorMessage}}" show-retry bindretry="onRetry" />
-    </block>
+      <block wx:elif="{{errorMessage}}">
+        <state-card type="error" headline="{{tr.failedToLoad}}" detail="{{errorMessage}}" show-retry bindretry="onRetry" />
+      </block>
 
-    <block wx:elif="{{hasResponse}}">
-      <text class="sci-intro">{{tr.intro}}</text>
+      <block wx:elif="{{hasResponse && detail}}">
+        <!-- Header -->
+        <text class="sci-eyebrow">{{tr.eyebrow}}</text>
+        <text class="sci-intro">{{tr.intro}}</text>
 
-      <view
-        wx:for="{{pillars}}"
-        wx:key="pillar"
-        wx:for-item="row"
-        class="sci-pillar-section"
-      >
-        <text class="sci-pillar-heading">{{row.label}}</text>
-        <text class="sci-pillar-question ts-muted">{{row.question}}</text>
-
-        <view class="sci-mode-tabs">
-          <text
-            class="sci-mode-tab {{row.modeIsSimple ? 'sci-mode-tab--active' : ''}}"
-            data-pillar="{{row.pillar}}"
-            data-mode="simple"
-            bindtap="setPillarMode"
-          >{{tr.simple}}</text>
-          <text
-            class="sci-mode-tab {{row.modeIsAdvanced ? 'sci-mode-tab--active' : ''}}"
-            data-pillar="{{row.pillar}}"
-            data-mode="advanced"
-            bindtap="setPillarMode"
-          >{{tr.advanced}}</text>
-        </view>
-
-        <!-- Active theory card -->
-        <view wx:if="{{row.hasActive}}" class="ts-card sci-active-card">
-          <view class="sci-active-header">
-            <text class="sci-card-name">{{row.activeName}}</text>
-            <text class="sci-active-badge ts-primary">{{tr.active}}</text>
+        <!-- Pillar tab strip -->
+        <scroll-view scroll-x="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}" class="sci-tabs-wrap">
+          <view class="sci-tabs">
+            <view
+              wx:for="{{tabs}}"
+              wx:key="pillar"
+              wx:for-item="tab"
+              class="sci-tab {{tab.isFocused ? 'sci-tab--focused' : ''}}"
+              data-pillar="{{tab.pillar}}"
+              bindtap="onSelectPillar"
+              hover-class="sci-tab--hover"
+              hover-stay-time="80"
+            >
+              <text class="sci-tab-num">{{tab.num}}</text>
+              <text class="sci-tab-label">{{tab.label}}</text>
+              <view wx:if="{{tab.recAvailable}}" class="sci-tab-rec-dot" aria-label="{{tr.recommendedTag}}"></view>
+            </view>
           </view>
-          <text class="sci-card-author ts-muted">{{row.activeAuthor}}</text>
+        </scroll-view>
 
-          <text wx:if="{{row.modeIsSimple}}" class="sci-card-text">
-            {{row.activeCard.simpleText}}
+        <!-- Detail panel -->
+        <view class="sci-detail">
+          <text class="sci-detail-eyebrow">
+            <text class="sci-detail-num">{{detail.num}}</text>
+            <text class="sci-detail-eyebrow-sep"> · </text>
+            {{detail.label}}
           </text>
+          <text class="sci-detail-question">{{detail.question}}</text>
 
-          <block wx:if="{{row.modeIsAdvanced}}">
-            <rich-text class="sci-rich-text" nodes="{{row.activeCard.advancedHtml}}"></rich-text>
-            <view wx:if="{{row.activeCard.hasCitations}}" class="sci-citations">
-              <text class="sci-citations-label ts-muted">{{tr.references}}</text>
+          <!-- Chiclet switcher -->
+          <scroll-view scroll-x="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}" class="sci-chiclets-wrap">
+            <view class="sci-chiclets">
               <view
-                wx:for="{{row.activeCard.citations}}"
-                wx:key="display"
-                wx:for-item="cite"
-                class="sci-citation-row"
-                data-url="{{cite.url}}"
-                bindtap="onCopyCitation"
+                wx:for="{{detail.chiclets}}"
+                wx:key="id"
+                wx:for-item="chip"
+                class="sci-chiclet {{chip.modifier}}"
+                data-id="{{chip.id}}"
+                bindtap="onChicletTap"
+                hover-class="sci-chiclet--hover"
+                hover-stay-time="80"
               >
-                <text class="sci-citation-text">{{cite.display}}</text>
-                <text wx:if="{{cite.hasUrl}}" class="sci-citation-url ts-primary">{{tr.tapToCopy}}</text>
+                <text class="sci-chiclet-name">{{chip.name}}</text>
+                <text wx:if="{{chip.isActive}}" class="sci-chiclet-tag sci-chiclet-tag--active">·&#160;{{tr.activeTag}}</text>
+                <text wx:elif="{{chip.isPreviewing}}" class="sci-chiclet-tag sci-chiclet-tag--previewing">·&#160;{{tr.previewingTag}}</text>
+                <text wx:elif="{{chip.isRecommended}}" class="sci-chiclet-tag sci-chiclet-tag--recommended">·&#160;{{tr.recommendedTag}}</text>
               </view>
             </view>
-          </block>
-        </view>
+          </scroll-view>
 
-        <!-- Recommendation hint -->
-        <view wx:if="{{row.hasRecommendation}}" class="sci-recommendation">
-          <text class="sci-recommendation-text ts-warning">
-            {{tr.suggestion}} <text class="sci-recommendation-name">{{row.recommendationName}}</text> — {{row.recommendationReason}}
-          </text>
-        </view>
+          <!-- Recommendation hint -->
+          <view wx:if="{{detail.hasRecHint}}" class="sci-rec-hint">
+            <text class="sci-rec-hint-tag">{{tr.recommendedTag}}</text>
+            <text class="sci-rec-hint-text">
+              <text class="sci-rec-hint-name">{{detail.recName}}</text> — {{detail.recReason}}
+            </text>
+          </view>
 
-        <!-- Alternative theories -->
-        <view
-          wx:for="{{row.alternatives}}"
-          wx:key="id"
-          wx:for-item="alt"
-          class="ts-card sci-alt-card"
-        >
-          <text class="sci-card-name">{{alt.name}}</text>
-          <text class="sci-card-author ts-muted">{{alt.author}}</text>
-
-          <text wx:if="{{row.modeIsSimple}}" class="sci-card-text">{{alt.simpleText}}</text>
-
-          <block wx:if="{{row.modeIsAdvanced}}">
-            <rich-text class="sci-rich-text" nodes="{{alt.advancedHtml}}"></rich-text>
-            <view wx:if="{{alt.hasCitations}}" class="sci-citations">
-              <text class="sci-citations-label ts-muted">{{tr.references}}</text>
-              <view
-                wx:for="{{alt.citations}}"
-                wx:key="display"
-                wx:for-item="cite"
-                class="sci-citation-row"
-                data-url="{{cite.url}}"
-                bindtap="onCopyCitation"
-              >
-                <text class="sci-citation-text">{{cite.display}}</text>
-                <text wx:if="{{cite.hasUrl}}" class="sci-citation-url ts-primary">{{tr.tapToCopy}}</text>
-              </view>
+          <!-- Body: author/status line + description -->
+          <view class="sci-body">
+            <view class="sci-status-line">
+              <text wx:if="{{detail.shownAuthorVisible}}" class="sci-status-author">{{tr.by}} <text class="sci-status-author-name">{{detail.shownAuthor}}</text></text>
+              <text wx:if="{{detail.isPreviewMode}}" class="sci-status-tag sci-status-tag--previewing">{{tr.previewingTag}}</text>
+              <text wx:else class="sci-status-tag sci-status-tag--active">{{tr.activeTag}}</text>
             </view>
-          </block>
+            <text class="sci-description">{{detail.shownDescription}}</text>
+          </view>
 
-          <button
-            class="ts-button ts-button--secondary sci-use-btn"
-            data-pillar="{{row.pillar}}"
-            data-id="{{alt.id}}"
-            bindtap="onSelectTheory"
-            disabled="{{selectingPillar === row.pillar}}"
-          >{{tr.useThis}}</button>
+          <!-- Switch / cancel CTAs -->
+          <view wx:if="{{detail.isPreviewMode}}" class="sci-commit-row">
+            <button
+              class="ts-button ts-button--primary sci-commit-btn"
+              bindtap="onSwitchTheory"
+              disabled="{{selectingPillar === detail.pillar}}"
+            >{{detail.switchLabel}}</button>
+            <button
+              class="ts-button ts-button--ghost sci-cancel-btn"
+              bindtap="onCancelPreview"
+            >{{tr.cancelPreview}}</button>
+          </view>
+
+          <!-- Advanced disclosure -->
+          <view class="sci-disclosure">
+            <view
+              class="sci-disclosure-trigger"
+              bindtap="onToggleAdvanced"
+              hover-class="sci-disclosure-trigger--hover"
+              hover-stay-time="80"
+            >
+              <text class="sci-disclosure-chevron {{showAdvanced ? 'sci-disclosure-chevron--open' : ''}}">›</text>
+              <text class="sci-disclosure-label">{{showAdvanced ? tr.hideAdvanced : tr.showAdvanced}}</text>
+            </view>
+
+            <block wx:if="{{showAdvanced}}">
+              <rich-text wx:if="{{detail.hasAdvanced}}" class="sci-rich-text" nodes="{{detail.shownAdvancedHtml}}"></rich-text>
+
+              <view wx:if="{{detail.hasCitations}}" class="sci-citations">
+                <text class="sci-citations-label">{{tr.references}}</text>
+                <view
+                  wx:for="{{detail.citations}}"
+                  wx:key="display"
+                  wx:for-item="cite"
+                  class="sci-citation-row"
+                  data-url="{{cite.url}}"
+                  bindtap="onCopyCitation"
+                >
+                  <text class="sci-citation-text">{{cite.display}}</text>
+                  <text wx:if="{{cite.hasUrl}}" class="sci-citation-url">{{tr.tapToCopy}}</text>
+                </view>
+              </view>
+            </block>
+          </view>
         </view>
-      </view>
 
-      <view class="ts-card">
-        <text class="ts-section-label">{{tr.zoneLabels}}</text>
-        <text class="sci-line">{{tr.currentlyUsing}}: <text class="ts-value">{{activeLabels}}</text></text>
-        <text wx:if="{{hasMultipleLabelSets}}" class="sci-muted-line ts-muted">
-          {{labelSetsAvailableText}}
-        </text>
-      </view>
-    </block>
+        <!-- Zone labels footer -->
+        <view class="sci-zone-card">
+          <text class="sci-zone-label">{{tr.zoneLabels}}</text>
+          <text class="sci-zone-line">{{tr.currentlyUsing}}: <text class="sci-zone-value">{{activeLabels}}</text></text>
+          <text wx:if="{{hasMultipleLabelSets}}" class="sci-zone-muted">{{labelSetsAvailableText}}</text>
+        </view>
+      </block>
     </view>
   </scroll-view>
 </view>

@@ -26,6 +26,10 @@ class PushInsightRequest(BaseModel):
     findings: list[InsightFinding] = []
     recommendations: list[str] = []
     meta: dict = {}
+    # Optional bilingual payload — written by the post-sync LLM runner.
+    # Legacy CLI / MCP push paths may omit this; old rows render English from
+    # the top-level fields. Issue #103.
+    translations: dict = {}
 
 
 @router.post("/insights")
@@ -53,6 +57,7 @@ def push_insight(
         existing.findings = findings_dicts
         existing.recommendations = body.recommendations
         existing.meta = body.meta
+        existing.translations = body.translations
         existing.generated_at = datetime.utcnow()
     else:
         db.add(AiInsight(
@@ -63,6 +68,7 @@ def push_insight(
             findings=findings_dicts,
             recommendations=body.recommendations,
             meta=body.meta,
+            translations=body.translations,
         ))
 
     db.commit()
@@ -86,6 +92,7 @@ def get_insights(
                 "findings": row.findings or [],
                 "recommendations": row.recommendations or [],
                 "meta": row.meta or {},
+                "translations": row.translations or {},
                 "generated_at": utc_isoformat(row.generated_at),
             }
             for row in rows
@@ -117,6 +124,7 @@ def get_insight(
             "findings": row.findings or [],
             "recommendations": row.recommendations or [],
             "meta": row.meta or {},
+            "translations": row.translations or {},
             "generated_at": utc_isoformat(row.generated_at),
         }
     }

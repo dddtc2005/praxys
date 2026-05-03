@@ -55,10 +55,14 @@ export function getStravaOAuthMessage(result: StravaOAuthResult): string {
   return 'Strava connection failed.';
 }
 
-export async function startStravaOAuth(returnTo: string): Promise<never> {
+export async function startStravaOAuth(
+  returnTo: string,
+  clientCreds?: { client_id: string; client_secret: string },
+): Promise<never> {
   const payload: StravaOAuthStartRequest = {
     web_origin: window.location.origin,
     return_to: returnTo,
+    ...clientCreds,
   };
 
   const res = await fetch(`${API_BASE}/api/settings/connections/strava/start`, {

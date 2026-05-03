@@ -110,7 +110,19 @@ class UserConnection(Base):
     last_sync = Column(DateTime, nullable=True)
     status = Column(
         String(20), default="disconnected"
-    )  # connected, error, expired, disconnected
+    )  # connected, error, auth_required, expired, disconnected
+
+    # Scheduler backoff state. Without this, a stuck connection (expired
+    # token, account-locked, CAPTCHA-gated) made the scheduler retry every
+    # 10 min indefinitely, which on 2026-04-25 escalated Garmin's bot
+    # mitigation from transient 429s to a persistent CAPTCHA flag against
+    # the App Service outbound IP. consecutive_failures drives exponential
+    # backoff; next_retry_at gates the scheduler (skip while in future);
+    # last_error captures a short tag for the UI. All three reset on
+    # successful sync or when the user reconnects credentials.
+    consecutive_failures = Column(Integer, nullable=False, default=0)
+    next_retry_at = Column(DateTime, nullable=True)
+    last_error = Column(String(500), nullable=True)
 
     user = relationship("User", back_populates="connections")
     __table_args__ = (
@@ -270,7 +282,8 @@ class FitnessData(Base):
 
 
 class AiInsight(Base):
-    """AI-generated insights pushed from CLI skills (training review, etc.)."""
+    """AI-generated insights — written by the post-sync LLM runner
+    (``api/insights_runner.py``) and the legacy CLI / MCP push paths."""
 
     __tablename__ = "ai_insights"
 
@@ -281,7 +294,11 @@ class AiInsight(Base):
     summary = Column(Text, nullable=True)
     findings = Column(JSON, default=list)  # [{type, text}, ...]
     recommendations = Column(JSON, default=list)  # [str, ...]
-    meta = Column(JSON, default=dict)  # data_range, training_base, etc.
+    meta = Column(JSON, default=dict)  # data_range, training_base, dataset_hash, etc.
+    # Issue #103: bilingual payload. Top-level fields stay English so legacy
+    # CLI/MCP push paths keep working; the frontend reads
+    # translations[locale] when present and falls back to top-level English.
+    translations = Column(JSON, default=dict)
     generated_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (
@@ -390,3 +407,25 @@ class TrainingPlan(Base):
             "user_id", "date", "source", "workout_type", name="uq_user_date_plan"
         ),
     )
+
+
+class SystemAnnouncement(Base):
+    """Admin-configurable site-wide notification banners.
+
+    Active announcements are returned by GET /api/announcements to all
+    authenticated users and rendered as dismissible banners in the web UI.
+    Dismissed banner IDs are stored client-side (localStorage) so they
+    don't re-appear after reload without server-side per-user tracking.
+    """
+
+    __tablename__ = "system_announcements"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    title = Column(String(200), nullable=False)
+    body = Column(Text, nullable=False)
+    type = Column(String(20), default="info", nullable=False)  # info | warning | success
+    is_active = Column(Boolean, default=True, nullable=False)
+    link_text = Column(String(100), nullable=True)
+    link_url = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

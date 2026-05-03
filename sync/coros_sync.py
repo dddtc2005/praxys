@@ -12,12 +12,15 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import io
 import json
 import logging
 import random
 import time
 from datetime import datetime, timezone
 
+import fitparse
+import fitparse.base
 import requests
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.padding import PKCS7
@@ -39,18 +42,21 @@ MOBILE_BASE_URLS = {
 _MOBILE_IV = b"weloop3_2015_03#"
 
 _SPORT_TYPE_MAP = {
-    1: "running",
-    2: "cycling",
-    3: "swimming",
-    4: "trail_running",
-    5: "skiing",
-    6: "hiking",
-    7: "walking",
-    8: "strength",
-    9: "other",
-    10: "triathlon",
-    100: "running",       # indoor run
-    101: "cycling",       # indoor cycling
+    100: "running",       # outdoor run
+    101: "treadmill",     # indoor run / treadmill
+    102: "trail_running",
+    103: "running",       # track run
+    104: "hiking",
+    200: "cycling",       # outdoor cycling
+    201: "cycling",       # indoor cycling
+    300: "swimming",      # pool swim
+    301: "swimming",      # open water
+    400: "cardio",        # indoor cardio / gym
+    402: "strength",
+    500: "skiing",
+    900: "walking",
+    1000: "badminton",
+    10000: "triathlon",
 }
 
 TOKEN_TTL_SECONDS = 23 * 3600  # conservative: treat as expired after 23h
@@ -364,31 +370,43 @@ def fetch_activities(
     *,
     page_size: int = 100,
 ) -> list[dict]:
-    """Fetch activity list via POST /activity/query with pagination."""
+    """Fetch activity list via GET /activity/query with pagination."""
     url = f"{_base_url(region)}/activity/query"
     all_activities: list[dict] = []
     page = 1
 
     while True:
-        resp = requests.post(
+        params: dict = {"size": page_size, "pageNumber": page}
+        if from_date:
+            params["startDay"] = from_date.replace("-", "")
+        if to_date:
+            params["endDay"] = to_date.replace("-", "")
+
+        resp = requests.get(
             url,
-            json={
-                "size": page_size,
-                "pageNumber": page,
-                "startDay": from_date.replace("-", ""),
-                "endDay": to_date.replace("-", ""),
-            },
+            params=params,
             headers=_headers(access_token),
             timeout=30,
         )
         resp.raise_for_status()
-        data = resp.json().get("data", {})
+        body = resp.json()
+
+        result_code = str(body.get("result", ""))
+        if result_code not in ("0000", "0"):
+            msg = body.get("message", result_code)
+            if "token" in str(msg).lower() or "auth" in str(msg).lower():
+                raise RuntimeError(f"COROS auth error: {msg}")
+            logger.warning("COROS activity query error: %s", msg)
+            return []
+
+        data = body.get("data", {})
         activities = data.get("dataList") or data.get("activities") or []
         if not activities:
             break
         all_activities.extend(activities)
-        total_count = data.get("totalCount") or data.get("count") or 0
-        if len(all_activities) >= total_count or len(activities) < page_size:
+
+        total_pages = data.get("totalPage") or 0
+        if page >= total_pages:
             break
         page += 1
 
@@ -397,17 +415,56 @@ def fetch_activities(
 
 def fetch_activity_detail(
     access_token: str, region: str, activity_id: str,
-) -> dict:
-    """Fetch detailed activity data (laps, HR zones, power)."""
-    url = f"{_base_url(region)}/activity/detail/query"
-    resp = requests.post(
-        url,
-        json={"labelId": activity_id},
-        headers=_headers(access_token),
-        timeout=30,
-    )
-    resp.raise_for_status()
-    return resp.json().get("data", {})
+    sport_type: int | None = None,
+) -> bytes:
+    """Download a FIT file for the given activity and return raw bytes.
+
+    Uses ``POST /activity/detail/download?labelId=...&sportType=...&fileType=4``
+    which returns a JSON response containing ``data.fileUrl``.  We then GET that
+    URL to retrieve the actual FIT binary.
+
+    Returns empty bytes on any error so callers can skip gracefully.
+    """
+    url = f"{_base_url(region)}/activity/detail/download"
+    params: dict = {
+        "labelId": activity_id,
+        "fileType": 4,  # FIT format
+    }
+    if sport_type is not None:
+        params["sportType"] = sport_type
+
+    try:
+        resp = requests.post(
+            url,
+            params=params,
+            headers=_headers(access_token),
+            timeout=30,
+        )
+        resp.raise_for_status()
+        body = resp.json()
+    except Exception as e:
+        logger.warning("COROS FIT download request failed for %s: %s", activity_id, e)
+        return b""
+
+    if str(body.get("result")) not in ("0000", "0"):
+        msg = body.get("message", body.get("result"))
+        if "token" in str(msg).lower() or "auth" in str(msg).lower():
+            raise RuntimeError(f"COROS auth error: {msg}")
+        logger.warning("COROS FIT download error for %s: %s", activity_id, msg)
+        return b""
+
+    file_url = (body.get("data") or {}).get("fileUrl")
+    if not file_url:
+        logger.warning("COROS FIT download: no fileUrl for %s", activity_id)
+        return b""
+
+    try:
+        fit_resp = requests.get(file_url, timeout=60)
+        fit_resp.raise_for_status()
+        return fit_resp.content
+    except Exception as e:
+        logger.warning("COROS FIT file download failed for %s: %s", activity_id, e)
+        return b""
 
 
 def fetch_daily_metrics(
@@ -442,7 +499,10 @@ def fetch_daily_metrics(
             logger.debug("COROS dayDetail: %d items", len(items))
             all_items.extend(items)
         else:
-            logger.warning("COROS dayDetail error: %s", raw.get("message", raw.get("result")))
+            msg = raw.get("message", raw.get("result"))
+            if "token" in str(msg).lower() or "auth" in str(msg).lower():
+                raise RuntimeError(f"COROS auth error: {msg}")
+            logger.warning("COROS dayDetail error: %s", msg)
     except Exception as e:
         logger.warning("COROS dayDetail fetch failed: %s", e)
 
@@ -515,6 +575,8 @@ def parse_activities(raw_activities: list[dict]) -> list[dict]:
     """Convert COROS activity list to canonical activity rows."""
     rows = []
     for a in raw_activities:
+        logger.debug("COROS raw activity: sportType=%s name=%s date=%s",
+                     a.get("sportType"), a.get("name"), a.get("date") or a.get("day"))
         distance_m = float(a.get("distance") or a.get("totalDistance") or 0)
         duration_sec = float(a.get("duration") or a.get("totalTime") or 0)
         distance_km = distance_m / 1000 if distance_m > 0 else 0
@@ -551,8 +613,178 @@ def parse_activities(raw_activities: list[dict]) -> list[dict]:
     return rows
 
 
+def parse_fit_laps(activity_id: str, fit_bytes: bytes) -> list[dict]:
+    """Parse lap data from a FIT file into canonical split rows."""
+    if not fit_bytes:
+        return []
+
+    rows = []
+    try:
+        fit = fitparse.FitFile(io.BytesIO(fit_bytes))
+        idx = 0
+        for msg in fit.get_messages("lap"):
+            try:
+                fields = {f.name: f.value for f in msg.fields}
+            except Exception:
+                continue
+            idx += 1
+            distance_m = float(fields.get("total_distance") or 0)
+            duration_sec = float(fields.get("total_elapsed_time") or 0)
+            distance_km = round(distance_m / 1000, 3) if distance_m > 0 else 0.0
+            avg_pace_sec_km = (
+                round(duration_sec / distance_km, 1)
+                if distance_km > 0 and duration_sec > 0
+                else None
+            )
+            rows.append({
+                "activity_id": str(activity_id),
+                "split_num": str(idx),
+                "distance_km": str(distance_km),
+                "duration_sec": str(duration_sec),
+                "avg_power": _round_or_empty(fields.get("avg_power")),
+                "avg_hr": _round_or_empty(fields.get("avg_heart_rate"), 0),
+                "max_hr": _round_or_empty(fields.get("max_heart_rate"), 0),
+                "avg_cadence": _round_or_empty(fields.get("avg_cadence"), 0),
+                "avg_pace_sec_km": _round_or_empty(avg_pace_sec_km),
+                "elevation_change_m": _round_or_empty(fields.get("total_ascent")),
+            })
+    except Exception as e:
+        logger.warning("FIT lap parse failed for %s: %s", activity_id, e)
+
+    return rows
+
+
+_SEMICIRCLE_TO_DEG = 180.0 / (2 ** 31)
+
+
+# ---------------------------------------------------------------------------
+# Patch fitparse to tolerate field-size mismatches in COROS FIT files.
+#
+# COROS firmware sometimes emits fields whose byte size doesn't match the
+# declared base type (e.g. 1 byte marked as uint32). Stock fitparse raises
+# FitParseError for these. The fitparse source even has a comment saying
+# "we could fall back to byte encoding". We apply that fallback here by
+# replacing _parse_definition_message with a version that uses
+# BASE_TYPE_BYTE when (field_size % base_type.size) != 0.
+# ---------------------------------------------------------------------------
+def _install_fitparse_lenient_patch():
+    from fitparse.base import (
+        BASE_TYPE_BYTE, BASE_TYPES, MESSAGE_TYPES,
+        FieldDefinition, DevFieldDefinition, DefinitionMessage,
+    )
+    try:
+        from fitparse.base import get_dev_type
+    except ImportError:
+        get_dev_type = None
+
+    def _lenient_parse_definition_message(self, header):
+        endian = '>' if self._read_struct('xB') else '<'
+        global_mesg_num, num_fields = self._read_struct('HB', endian=endian)
+        mesg_type = MESSAGE_TYPES.get(global_mesg_num)
+        field_defs = []
+
+        for _n in range(num_fields):
+            field_def_num, field_size, base_type_num = self._read_struct('3B', endian=endian)
+            field = mesg_type.fields.get(field_def_num) if mesg_type else None
+            base_type = BASE_TYPES.get(base_type_num, BASE_TYPE_BYTE)
+
+            if (field_size % base_type.size) != 0:
+                base_type = BASE_TYPE_BYTE  # fall back instead of raising
+
+            if field and field.components:
+                for component in field.components:
+                    if component.accumulate:
+                        accumulators = self._accumulators.setdefault(global_mesg_num, {})
+                        accumulators[component.def_num] = 0
+
+            field_defs.append(FieldDefinition(
+                field=field,
+                def_num=field_def_num,
+                base_type=base_type,
+                size=field_size,
+            ))
+
+        dev_field_defs = []
+        if header.is_developer_data:
+            num_dev_fields = self._read_struct('B', endian=endian)
+            for _n in range(num_dev_fields):
+                field_def_num, field_size, dev_data_index = self._read_struct('3B', endian=endian)
+                field = get_dev_type(dev_data_index, field_def_num) if get_dev_type else None
+                dev_field_defs.append(DevFieldDefinition(
+                    field=field,
+                    dev_data_index=dev_data_index,
+                    def_num=field_def_num,
+                    size=field_size,
+                ))
+
+        def_mesg = DefinitionMessage(
+            header=header,
+            endian=endian,
+            mesg_type=mesg_type,
+            mesg_num=global_mesg_num,
+            field_defs=field_defs,
+            dev_field_defs=dev_field_defs,
+        )
+        self._local_mesgs[header.local_mesg_num] = def_mesg
+        return def_mesg
+
+    fitparse.base.FitFile._parse_definition_message = _lenient_parse_definition_message
+
+
+_install_fitparse_lenient_patch()
+
+
+def parse_fit_stream(activity_id: str, fit_bytes: bytes) -> list[dict]:
+    """Parse per-second record data from a FIT file into canonical sample rows."""
+    if not fit_bytes:
+        return []
+
+    samples = []
+    try:
+        fit = fitparse.FitFile(io.BytesIO(fit_bytes))
+        for msg in fit.get_messages("record"):
+            try:
+                fields = {f.name: f.value for f in msg.fields}
+            except Exception:
+                continue
+            ts = fields.get("timestamp")
+            if ts is None:
+                continue
+            # Convert datetime to Unix epoch
+            if isinstance(ts, datetime):
+                t_sec = int(ts.replace(tzinfo=timezone.utc).timestamp()) if ts.tzinfo is None else int(ts.timestamp())
+            else:
+                t_sec = int(float(ts))
+
+            lat_sc = fields.get("position_lat")
+            lng_sc = fields.get("position_long")
+            lat = lat_sc * _SEMICIRCLE_TO_DEG if lat_sc is not None else None
+            lng = lng_sc * _SEMICIRCLE_TO_DEG if lng_sc is not None else None
+
+            samples.append({
+                "activity_id": str(activity_id),
+                "source": "coros",
+                "t_sec": t_sec,
+                "hr_bpm": fields.get("heart_rate"),
+                "cadence_spm": fields.get("cadence"),
+                "speed_ms": fields.get("speed"),
+                "altitude_m": fields.get("altitude"),
+                "lat": round(lat, 7) if lat is not None else None,
+                "lng": round(lng, 7) if lng is not None else None,
+                "power_watts": fields.get("power"),
+            })
+    except Exception as e:
+        logger.warning("FIT record parse failed for %s: %s", activity_id, e)
+
+    return samples
+
+
 def parse_splits(activity_id: str, detail: dict) -> list[dict]:
-    """Parse per-lap split data from activity detail response."""
+    """Parse per-lap split data from activity detail response.
+
+    DEPRECATED: Use parse_fit_laps() with FIT file bytes instead.
+    Kept for backward compatibility with non-FIT code paths.
+    """
     rows = []
     laps = detail.get("lapList") or detail.get("laps") or []
     for idx, lap in enumerate(laps, start=1):
@@ -578,6 +810,43 @@ def parse_splits(activity_id: str, detail: dict) -> list[dict]:
             "elevation_change_m": _round_or_empty(lap.get("totalAscent")),
         })
     return rows
+
+
+def parse_activity_stream(activity_id: str, detail: dict) -> list[dict]:
+    """Parse per-second stream data from a COROS activity detail response.
+
+    DEPRECATED: Use parse_fit_stream() with FIT file bytes instead.
+    Kept for backward compatibility with non-FIT code paths.
+
+    Returns an empty list when trackPoints is absent (older firmware, activity type
+    that doesn't record per-second data, or API shape differs from expectation).
+    """
+    track_points = detail.get("trackPoints") or detail.get("trackingPoints") or []
+    if not track_points:
+        return []
+
+    samples = []
+    for pt in track_points:
+        ts = pt.get("timestamp") or pt.get("utcTime") or pt.get("time")
+        if ts is None:
+            continue
+        lat = pt.get("latitude") or pt.get("lat")
+        lng = pt.get("longitude") or pt.get("lon") or pt.get("lng")
+        speed_ms = pt.get("speed")
+        samples.append({
+            "activity_id": str(activity_id),
+            "source": "coros",
+            "t_sec": int(float(ts)),
+            "hr_bpm": pt.get("heartRate") or pt.get("hr"),
+            "cadence_spm": pt.get("cadence"),
+            "speed_ms": speed_ms,
+            "altitude_m": pt.get("altitude") or pt.get("alt"),
+            "lat": float(lat) if lat is not None else None,
+            "lng": float(lng) if lng is not None else None,
+            "power_watts": pt.get("power"),
+        })
+
+    return samples
 
 
 def parse_daily_metrics(raw_metrics: list[dict]) -> list[dict]:

@@ -1,17 +1,14 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useApi } from '@/hooks/useApi';
 import { useAuth } from '@/hooks/useAuth';
 import { useSettings } from '@/contexts/SettingsContext';
-import type { GoalResponse } from '@/types/api';
+import type { AiInsight, GoalResponse } from '@/types/api';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import GoalEditor from '@/components/GoalEditor';
-import CliHint from '@/components/CliHint';
-import MilestoneTracker from '@/components/MilestoneTracker';
+import AiInsightsCard from '@/components/AiInsightsCard';
 import CpTrendChart from '@/components/charts/CpTrendChart';
 import DataHint from '@/components/DataHint';
 import ScienceNote from '@/components/ScienceNote';
@@ -25,16 +22,7 @@ function formatThreshold(value: number, unit: string): string {
 }
 
 type Severity = 'on_track' | 'close' | 'behind' | 'unlikely';
-
-function severityColor(severity: string): string {
-  switch (severity as Severity) {
-    case 'on_track': return 'text-primary';
-    case 'close': return 'text-accent-amber';
-    case 'behind':
-    case 'unlikely': return 'text-destructive';
-    default: return 'text-muted-foreground';
-  }
-}
+type StripTone = 'amber' | 'positive' | 'destructive' | undefined;
 
 function severityVariant(severity: string): 'default' | 'secondary' | 'destructive' | 'outline' {
   switch (severity as Severity) {
@@ -43,6 +31,16 @@ function severityVariant(severity: string): 'default' | 'secondary' | 'destructi
     case 'behind':
     case 'unlikely': return 'destructive';
     default: return 'outline';
+  }
+}
+
+function severityTone(severity: string): StripTone {
+  switch (severity as Severity) {
+    case 'on_track': return 'positive';
+    case 'close': return 'amber';
+    case 'behind':
+    case 'unlikely': return 'destructive';
+    default: return undefined;
   }
 }
 
@@ -92,152 +90,18 @@ function isUltraDistance(distance?: string): boolean {
   return !!distance && ULTRA_DISTANCES.has(distance);
 }
 
-// --- Tracking Modes ---
-
-function RaceDateMode({ data }: { data: GoalResponse }) {
-  const { t, i18n } = useLingui();
-  const predictionNote = usePredictionNote();
-  const ultraNote = useUltraNote();
-  const rc = data.race_countdown;
-  const rCheck = rc.reality_check;
-  const hasTarget = rc.target_time_sec != null && rc.target_time_sec > 0;
-  const distLabel = rc.distance_label ? tDisplay(rc.distance_label, i18n) : t`Race`;
-  const d = data.display;
-  const unit = d?.threshold_unit || 'W';
-  const abbrev = d?.threshold_abbrev || 'CP';
-  const note = predictionNote(data.training_base, data.science_notes);
-
-  return (
-    <div className="space-y-4">
-      {/* Hero: Countdown */}
-      <Card>
-        <CardContent className="pt-6 text-center">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-            <Trans>{distLabel} Countdown</Trans>
-          </h3>
-          <div className="flex flex-col items-center gap-2">
-            <span className="font-data text-6xl font-bold text-foreground">
-              {rc.days_left ?? '\u2014'}
-            </span>
-            <span className="text-sm text-muted-foreground">
-              <Trans>days until {rc.race_date ?? t`race day`}</Trans>
-            </span>
-            <Badge variant={severityVariant(rCheck.severity)} className="uppercase tracking-wider">
-              {rc.status.replace(/_/g, ' ')}
-            </Badge>
-          </div>
-
-          <div className={`mt-6 grid gap-4 ${hasTarget ? 'grid-cols-2' : 'grid-cols-1'}`}>
-            <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1"><Trans>Predicted {distLabel}</Trans></p>
-              <p className="font-data text-2xl text-foreground">
-                {rc.predicted_time_sec != null ? formatTime(rc.predicted_time_sec) : '\u2014'}
-              </p>
-            </div>
-            {hasTarget && (
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1"><Trans>Target</Trans></p>
-                <p className="font-data text-2xl text-foreground">
-                  {formatTime(rc.target_time_sec!)}
-                </p>
-              </div>
-            )}
-          </div>
-          <ScienceNote text={note.text} sourceUrl={note.url} sourceLabel={t`Source`} />
-          {isUltraDistance(data.race_countdown.distance) && (
-            <ScienceNote text={ultraNote()} sourceUrl={SCIENCE_ULTRA_URL} sourceLabel={t`Discussion`} />
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Reality Check */}
-      {hasTarget && rCheck.severity !== 'unknown' && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"><Trans>Reality Check</Trans></CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className={`text-sm font-medium ${severityColor(rCheck.severity)}`}>
-              {rCheck.assessment}
-            </p>
-
-            {rCheck.current_cp != null && rCheck.needed_cp != null && (
-              <div className="flex items-center gap-4 rounded-lg bg-muted px-4 py-3">
-                <div className="text-center">
-                  <p className="text-xs text-muted-foreground"><Trans>Current {abbrev}</Trans></p>
-                  <p className="font-data text-lg text-foreground">{formatThreshold(rCheck.current_cp, unit)}{unit}</p>
-                </div>
-                <div className="text-muted-foreground">&rarr;</div>
-                <div className="text-center">
-                  <p className="text-xs text-muted-foreground"><Trans>Needed {abbrev}</Trans></p>
-                  <p className="font-data text-lg text-foreground">{formatThreshold(rCheck.needed_cp, unit)}{unit}</p>
-                </div>
-                {rCheck.cp_gap_watts != null && (
-                  <div className="ml-auto text-center">
-                    <p className="text-xs text-muted-foreground"><Trans>Gap</Trans></p>
-                    <p className={`font-data text-lg font-semibold ${severityColor(rCheck.severity)}`}>
-                      {rCheck.cp_gap_watts > 0 ? '+' : ''}
-                      {unit === '/km' ? formatPace(Math.abs(rCheck.cp_gap_watts)) : rCheck.cp_gap_watts}{unit}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {rCheck.trend_note && (
-              <p className="text-sm text-muted-foreground">{rCheck.trend_note}</p>
-            )}
-
-            {rCheck.realistic_targets &&
-              (rCheck.severity === 'behind' || rCheck.severity === 'unlikely') && (
-                <div className="rounded-lg bg-muted px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                    <Trans>Realistic Alternative Targets</Trans>
-                  </p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs text-muted-foreground"><Trans>Comfortable</Trans></p>
-                      <p className="font-data text-lg text-primary">
-                        {formatTime(rCheck.realistic_targets.comfortable)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground"><Trans>Stretch</Trans></p>
-                      <p className="font-data text-lg text-accent-amber">
-                        {formatTime(rCheck.realistic_targets.stretch)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Trend-based assessment when no target */}
-      {!hasTarget && rCheck.trend_note && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"><Trans>Fitness Trend</Trans></CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className={`text-sm font-medium ${severityColor(rCheck.severity)}`}>
-              {rCheck.assessment}
-            </p>
-            <p className="text-sm text-muted-foreground mt-2">{rCheck.trend_note}</p>
-          </CardContent>
-        </Card>
-      )}
-
-      <DataHint sufficient={data.data_meta?.cp_trend_sufficient ?? true} message={t`Not enough data to show CP trend`} hint={t`Need at least 3 activities with power data.`}><CpTrendChart data={data.cp_trend} targetCp={rc.target_cp} label={d?.trend_label} unit={d?.threshold_unit} metricName={d?.threshold_abbrev} /></DataHint>
-    </div>
-  );
+interface StripCell {
+  label: ReactNode;
+  value: string;
+  sub?: ReactNode;
+  tone?: StripTone;
 }
 
-function CpMilestoneMode({ data }: { data: GoalResponse }) {
+function TrajectoryGoal({ data, hasCoachForecast }: { data: GoalResponse; hasCoachForecast: boolean }) {
   const { t, i18n } = useLingui();
   const predictionNote = usePredictionNote();
   const ultraNote = useUltraNote();
+  const trendDirectionLabel = useTrendDirectionLabel();
   const rc = data.race_countdown;
   const rCheck = rc.reality_check;
   const currentCp = data.latest_cp;
@@ -246,182 +110,271 @@ function CpMilestoneMode({ data }: { data: GoalResponse }) {
   const hasTimeTarget = rc.target_time_sec != null && rc.target_time_sec > 0;
   const d = data.display;
   const unit = d?.threshold_unit || 'W';
+  const abbrev = d?.threshold_abbrev || 'CP';
   const isPace = unit === '/km';
+  const attribution = data.science_notes?.prediction?.name;
+  const mode = rc.mode;
   const note = predictionNote(data.training_base, data.science_notes);
+  const trend = rc.cp_trend_summary;
 
-  const progressPct = (() => {
-    if (currentCp == null || targetCp == null || targetCp <= 0) return 0;
-    if (isPace) return Math.min(100, Math.max(0, (targetCp / currentCp) * 100));
-    return Math.min(100, Math.max(0, (currentCp / targetCp) * 100));
+  const gap = currentCp != null && targetCp != null ? targetCp - currentCp : null;
+  const statusLabel = rc.status.replace(/_/g, ' ');
+
+  const eyebrow: ReactNode = (() => {
+    if (mode === 'race_date') {
+      return (
+        <>
+          <Trans>Race</Trans> · {rc.race_date ?? distLabel}
+          {hasTimeTarget && <> · {formatTime(rc.target_time_sec!)}</>}
+        </>
+      );
+    }
+    if (mode === 'cp_milestone') {
+      return (
+        <>
+          <Trans>Goal</Trans> · {hasTimeTarget ? `${formatTime(rc.target_time_sec!)} ${distLabel}` : distLabel}
+        </>
+      );
+    }
+    return (
+      <>
+        <Trans>Tracking</Trans> · {distLabel}
+      </>
+    );
   })();
 
-  return (
-    <div className="space-y-4">
-      {/* Hero: Target + Progress */}
-      <Card>
-        <CardContent className="pt-6 text-center">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-            {hasTimeTarget
-              ? <Trans>Building toward {formatTime(rc.target_time_sec!)} {distLabel}</Trans>
-              : <Trans>{distLabel} Progress</Trans>}
-          </h3>
+  const headline: ReactNode = (() => {
+    if (mode === 'race_date') {
+      const days = rc.days_left ?? 0;
+      const predicted = rc.predicted_time_sec != null ? formatTime(rc.predicted_time_sec) : '—';
+      if (hasTimeTarget) {
+        return (
+          <Trans>
+            <strong className="goal-headline-num">{days}</strong> days to race day. Today's prediction is{' '}
+            <strong className="goal-headline-num">{predicted}</strong> against a target of{' '}
+            <strong className="goal-headline-num">{formatTime(rc.target_time_sec!)}</strong>.
+          </Trans>
+        );
+      }
+      return (
+        <Trans>
+          <strong className="goal-headline-num">{days}</strong> days to race day. Today's prediction is{' '}
+          <strong className="goal-headline-num">{predicted}</strong>.
+        </Trans>
+      );
+    }
+    if (mode === 'cp_milestone') {
+      // Drop the "X% of the way" phrasing — the (current/target) ratio is a
+      // linear scale not anchored to any training-science model. Lead with the
+      // concrete numbers (current → needed) and let the Coach receipt or the
+      // estimated-months strip cell carry the verdict timing.
+      const currentStr = currentCp != null ? formatThreshold(currentCp, unit) : '—';
+      const targetStr = targetCp != null ? formatThreshold(targetCp, unit) : '—';
+      if (hasTimeTarget) {
+        return (
+          <Trans>
+            Building toward <strong className="goal-headline-num">{formatTime(rc.target_time_sec!)}</strong> {distLabel}.{' '}
+            Current {abbrev} <strong className="goal-headline-num">{currentStr}{unit}</strong>, need{' '}
+            <strong className="goal-headline-num">{targetStr}{unit}</strong>.
+          </Trans>
+        );
+      }
+      return (
+        <Trans>
+          Building toward {distLabel}. Current {abbrev}{' '}
+          <strong className="goal-headline-num">{currentStr}{unit}</strong>, need{' '}
+          <strong className="goal-headline-num">{targetStr}{unit}</strong>.
+        </Trans>
+      );
+    }
+    // continuous / none
+    const predicted = rc.predicted_time_sec != null ? formatTime(rc.predicted_time_sec) : null;
+    const dirLabel = trend ? trendDirectionLabel(trend.direction).toLowerCase() : t`flat`;
+    const slopeStr = trend && trend.slope_per_month !== 0
+      ? `${trend.slope_per_month > 0 ? '+' : ''}${isPace ? formatPace(Math.abs(trend.slope_per_month)) : trend.slope_per_month.toFixed(1)}${unit}/mo`
+      : null;
+    if (predicted && slopeStr) {
+      return (
+        <Trans>
+          Today's <strong className="goal-headline-num">{distLabel}</strong> prediction is{' '}
+          <strong className="goal-headline-num">{predicted}</strong>. {abbrev} is <strong>{dirLabel}</strong> at{' '}
+          <strong className="goal-headline-num">{slopeStr}</strong>.
+        </Trans>
+      );
+    }
+    if (predicted) {
+      return (
+        <Trans>
+          Today's <strong className="goal-headline-num">{distLabel}</strong> prediction is{' '}
+          <strong className="goal-headline-num">{predicted}</strong>. {abbrev} is <strong>{dirLabel}</strong>.
+        </Trans>
+      );
+    }
+    return (
+      <Trans>
+        {abbrev} is <strong>{dirLabel}</strong>. Add more activities for a race-time prediction.
+      </Trans>
+    );
+  })();
 
-          {rc.predicted_time_sec != null && (
-            <div className={`grid gap-4 mb-4 ${hasTimeTarget ? 'grid-cols-2' : 'grid-cols-1'}`}>
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1"><Trans>Predicted {distLabel}</Trans></p>
-                <p className="font-data text-2xl text-foreground">{formatTime(rc.predicted_time_sec)}</p>
-              </div>
-              {hasTimeTarget && (
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1"><Trans>Target</Trans></p>
-                  <p className="font-data text-2xl text-foreground">{formatTime(rc.target_time_sec!)}</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {targetCp != null && (
-            <>
-              <div className="flex items-baseline justify-center gap-2 mb-2">
-                <span className="font-data text-4xl font-bold text-foreground">
-                  {currentCp != null ? formatThreshold(currentCp, unit) : '\u2014'}
-                </span>
-                <span className="text-muted-foreground text-lg">&rarr;</span>
-                <span className="font-data text-2xl text-muted-foreground">{formatThreshold(targetCp, unit)}</span>
-                <span className="text-sm text-muted-foreground">{unit}</span>
-              </div>
-              <div className="mx-auto max-w-md">
-                <Progress value={progressPct} className="h-4" />
-                <p className="text-xs text-muted-foreground mt-1 font-data">{progressPct.toFixed(0)}%</p>
-              </div>
-            </>
-          )}
-
-          <div className="mt-3">
-            <Badge variant={severityVariant(rCheck.severity)} className="uppercase tracking-wider">
-              {rc.status.replace(/_/g, ' ')}
-            </Badge>
-          </div>
-          <ScienceNote text={note.text} sourceUrl={note.url} sourceLabel={t`Source`} />
-          {isUltraDistance(data.race_countdown.distance) && (
-            <ScienceNote text={ultraNote()} sourceUrl={SCIENCE_ULTRA_URL} sourceLabel={t`Discussion`} />
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Milestones */}
-      {rc.milestones && rc.milestones.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"><Trans>Milestones</Trans></CardTitle>
-          </CardHeader>
-          <CardContent>
-            <MilestoneTracker milestones={rc.milestones} currentCp={currentCp} targetCp={targetCp} />
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Assessment */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"><Trans>Assessment</Trans></CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className={`text-sm font-medium ${severityColor(rCheck.severity)}`}>
-            {rCheck.assessment}
-          </p>
-          {rc.estimated_months != null && (
-            <div className="rounded-lg bg-muted px-4 py-3">
-              <p className="text-xs text-muted-foreground"><Trans>Estimated time to target</Trans></p>
-              <p className="font-data text-lg text-foreground">
-                <Trans>{rc.estimated_months.toFixed(1)} months</Trans>
-              </p>
-            </div>
-          )}
-          {rCheck.trend_note && (
-            <p className="text-sm text-muted-foreground">{rCheck.trend_note}</p>
-          )}
-        </CardContent>
-      </Card>
-
-      <DataHint sufficient={data.data_meta?.cp_trend_sufficient ?? true} message={t`Not enough data to show CP trend`} hint={t`Need at least 3 activities with power data.`}><CpTrendChart data={data.cp_trend} targetCp={targetCp} label={d?.trend_label} unit={d?.threshold_unit} metricName={d?.threshold_abbrev} /></DataHint>
-    </div>
+  const chart = (
+    <DataHint
+      sufficient={data.data_meta?.cp_trend_sufficient ?? true}
+      message={t`Not enough data to show CP trend`}
+      hint={t`Need at least 3 activities with power data.`}
+    >
+      <CpTrendChart
+        data={data.cp_trend}
+        targetCp={targetCp}
+        label={d?.trend_label}
+        unit={d?.threshold_unit}
+        metricName={d?.threshold_abbrev}
+      />
+    </DataHint>
   );
-}
 
-function ContinuousMode({ data }: { data: GoalResponse }) {
-  const { t, i18n } = useLingui();
-  const predictionNote = usePredictionNote();
-  const ultraNote = useUltraNote();
-  const trendDirectionLabel = useTrendDirectionLabel();
-  const rc = data.race_countdown;
-  const rCheck = rc.reality_check;
-  const currentCp = data.latest_cp;
-  const trend = rc.cp_trend_summary;
-  const distLabel = rc.distance_label ? tDisplay(rc.distance_label, i18n) : t`Marathon`;
-  const d = data.display;
-  const unit = d?.threshold_unit || 'W';
-  const note = predictionNote(data.training_base, data.science_notes);
+  const statCells: StripCell[] = (() => {
+    const cells: StripCell[] = [];
+    if (mode === 'race_date') {
+      cells.push({ label: t`Days left`, value: rc.days_left != null ? String(rc.days_left) : '—', sub: t`days` });
+      cells.push({
+        label: t`Predicted`,
+        value: rc.predicted_time_sec != null ? formatTime(rc.predicted_time_sec) : '—',
+        sub: distLabel,
+      });
+      if (hasTimeTarget) {
+        cells.push({ label: t`Target`, value: formatTime(rc.target_time_sec!), sub: distLabel });
+      }
+      cells.push({
+        label: <Trans>Current {abbrev}</Trans>,
+        value: currentCp != null ? formatThreshold(currentCp, unit) : '—',
+        sub: unit,
+      });
+      if (rCheck.needed_cp != null) {
+        cells.push({
+          label: <Trans>Needed {abbrev}</Trans>,
+          value: formatThreshold(rCheck.needed_cp, unit),
+          sub: unit,
+        });
+      }
+      if (rCheck.cp_gap_watts != null) {
+        cells.push({
+          label: t`Gap`,
+          value: `${rCheck.cp_gap_watts > 0 ? '+' : ''}${isPace ? formatPace(Math.abs(rCheck.cp_gap_watts)) : rCheck.cp_gap_watts}`,
+          sub: unit,
+          tone: severityTone(rCheck.severity),
+        });
+      }
+    } else if (mode === 'cp_milestone') {
+      // Track already shows current / target / status. Strip carries only
+      // the metrics that aren't visualized: gap, race-time prediction, ETA.
+      cells.push({
+        label: t`Gap`,
+        value: gap != null ? `${gap > 0 ? '+' : ''}${formatThreshold(Math.abs(gap), unit)}` : '—',
+        sub: unit,
+        tone: gap == null ? undefined : gap > 0 ? 'amber' : 'positive',
+      });
+      cells.push({
+        label: t`Predicted`,
+        value: rc.predicted_time_sec != null ? formatTime(rc.predicted_time_sec) : '—',
+        sub: distLabel,
+      });
+      cells.push({
+        label: t`To target`,
+        value: rc.estimated_months != null ? rc.estimated_months.toFixed(1) : '—',
+        sub: t`months`,
+      });
+    } else {
+      cells.push({
+        label: <Trans>Current {abbrev}</Trans>,
+        value: currentCp != null ? formatThreshold(currentCp, unit) : '—',
+        sub: unit,
+      });
+      cells.push({
+        label: t`Direction`,
+        value: trend ? trendDirectionLabel(trend.direction) : '—',
+        sub: trend && trend.slope_per_month !== 0
+          ? `${trend.slope_per_month > 0 ? '+' : ''}${isPace ? formatPace(Math.abs(trend.slope_per_month)) : trend.slope_per_month.toFixed(1)}${unit}/mo`
+          : undefined,
+        tone: severityTone(rCheck.severity),
+      });
+      if (rc.predicted_time_sec != null) {
+        cells.push({
+          label: t`Predicted`,
+          value: formatTime(rc.predicted_time_sec),
+          sub: distLabel,
+        });
+      }
+    }
+    return cells;
+  })();
+
+  const isUltra = isUltraDistance(rc.distance);
 
   return (
-    <div className="space-y-4">
-      {/* Hero: Current Threshold + Predicted Time */}
-      <Card>
-        <CardContent className="pt-6 text-center">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-            <Trans>Current Fitness</Trans>
-          </h3>
-          <div className="flex flex-col items-center gap-2">
-            <div className="flex items-baseline gap-2">
-              <span className="font-data text-5xl font-bold text-foreground">
-                {currentCp != null ? formatThreshold(currentCp, unit) : '\u2014'}
-              </span>
-              <span className="text-sm text-muted-foreground">{unit}</span>
-            </div>
-            {trend && (
-              <div className="flex items-center gap-2">
-                <span className={`text-sm font-semibold ${severityColor(rCheck.severity)}`}>
-                  {trendDirectionLabel(trend.direction)}
-                </span>
-                {trend.slope_per_month !== 0 && (
-                  <span className="text-xs text-muted-foreground font-data">
-                    ({trend.slope_per_month > 0 ? '+' : ''}{unit === '/km' ? formatPace(Math.abs(trend.slope_per_month)) : trend.slope_per_month.toFixed(1)}{unit}/mo)
-                  </span>
-                )}
-              </div>
-            )}
+    <div className="goal-trajectory">
+      <p className="goal-eyebrow">
+        {eyebrow}
+        {rCheck.severity !== 'unknown' && (
+          <Badge variant={severityVariant(rCheck.severity)} className="goal-eyebrow-status uppercase tracking-wider">
+            {statusLabel}
+          </Badge>
+        )}
+      </p>
+      <h2 className="goal-headline">{headline}</h2>
+
+      <div className="goal-cols">
+        <div className="goal-col-chart">{chart}</div>
+        <div className="goal-col-coach">
+          <AiInsightsCard insightType="race_forecast" attribution={attribution} />
+        </div>
+      </div>
+
+      <div className="goal-strip">
+        {statCells.map((c, i) => (
+          <div key={i} className="goal-strip-cell">
+            <span className="goal-strip-label">{c.label}</span>
+            <span
+              className={`goal-strip-value ${
+                c.tone === 'amber'
+                  ? 'goal-strip-amber'
+                  : c.tone === 'positive'
+                    ? 'goal-strip-positive'
+                    : c.tone === 'destructive'
+                      ? 'goal-strip-destructive'
+                      : ''
+              }`.trim()}
+            >
+              {c.value}
+            </span>
+            {c.sub && <span className="goal-strip-sub">{c.sub}</span>}
           </div>
+        ))}
+      </div>
 
-          {rc.predicted_time_sec != null && (
-            <div className="mt-4 pt-4 border-t border-border">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1"><Trans>Predicted {distLabel}</Trans></p>
-              <p className="font-data text-2xl text-foreground">{formatTime(rc.predicted_time_sec)}</p>
+{mode === 'race_date' && rCheck.realistic_targets &&
+        (rCheck.severity === 'behind' || rCheck.severity === 'unlikely') && (
+          <div className="goal-section">
+            <p className="goal-section-label"><Trans>Realistic alternative targets</Trans></p>
+            <div className="goal-alts-grid">
+              <div className="goal-alts-cell">
+                <span className="goal-strip-label"><Trans>Comfortable</Trans></span>
+                <span className="goal-strip-value goal-strip-positive">{formatTime(rCheck.realistic_targets.comfortable)}</span>
+              </div>
+              <div className="goal-alts-cell">
+                <span className="goal-strip-label"><Trans>Stretch</Trans></span>
+                <span className="goal-strip-value goal-strip-amber">{formatTime(rCheck.realistic_targets.stretch)}</span>
+              </div>
             </div>
-          )}
-          <ScienceNote text={note.text} sourceUrl={note.url} sourceLabel={t`Source`} />
-          {isUltraDistance(data.race_countdown.distance) && (
-            <ScienceNote text={ultraNote()} sourceUrl={SCIENCE_ULTRA_URL} sourceLabel={t`Discussion`} />
-          )}
-        </CardContent>
-      </Card>
+          </div>
+        )}
 
-      {/* Assessment */}
-      {rCheck.trend_note && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"><Trans>Trend</Trans></CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className={`text-sm font-medium ${severityColor(rCheck.severity)}`}>
-              {rCheck.assessment}
-            </p>
-            <p className="text-sm text-muted-foreground mt-2">{rCheck.trend_note}</p>
-          </CardContent>
-        </Card>
+      {!hasCoachForecast && rCheck.trend_note && (
+        <p className="goal-rationale">{rCheck.trend_note}</p>
       )}
 
-      <DataHint sufficient={data.data_meta?.cp_trend_sufficient ?? true} message={t`Not enough data to show CP trend`} hint={t`Need at least 3 activities with power data.`}><CpTrendChart data={data.cp_trend} label={d?.trend_label} unit={d?.threshold_unit} metricName={d?.threshold_abbrev} /></DataHint>
+      <ScienceNote text={note.text} sourceUrl={note.url} sourceLabel={t`Source`} />
+      {isUltra && <ScienceNote text={ultraNote()} sourceUrl={SCIENCE_ULTRA_URL} sourceLabel={t`Discussion`} />}
     </div>
   );
 }
@@ -437,21 +390,23 @@ function GoalSkeleton() {
         <Skeleton className="h-8 w-36" />
         <Skeleton className="h-8 w-24" />
       </div>
-      <Skeleton className="h-64 rounded-2xl" />
-      <Skeleton className="h-48 rounded-2xl" />
+      <Skeleton className="h-12 w-72" />
+      <Skeleton className="h-20 w-full max-w-2xl" />
       <Skeleton className="h-80 rounded-2xl" />
     </div>
   );
 }
 
 export default function Goal() {
-  const { t } = useLingui();
   const { data, loading, error, refetch } = useApi<GoalResponse>('/api/goal');
+  // Same query key as AiInsightsCard, dedupes via React Query.
+  const { data: forecastData } = useApi<{ insight: AiInsight | null }>(
+    '/api/insights/race_forecast',
+  );
+  const hasCoachForecast = forecastData?.insight != null;
   const { isDemo } = useAuth();
   const { config, updateSettings } = useSettings();
   const [isEditing, setIsEditing] = useState(false);
-
-  const mode = data?.race_countdown.mode;
 
   const currentRaceDate = config?.goal?.race_date ? String(config.goal.race_date) : '';
   const currentDistance = config?.goal?.distance ? String(config.goal.distance) : 'marathon';
@@ -501,19 +456,7 @@ export default function Goal() {
         />
       )}
 
-      {data && (
-        <>
-          {mode === 'race_date' && <RaceDateMode data={data} />}
-          {mode === 'cp_milestone' && <CpMilestoneMode data={data} />}
-          {(mode === 'continuous' || mode === 'none') && <ContinuousMode data={data} />}
-        </>
-      )}
-
-      <CliHint
-        skill="race-forecast"
-        title={t`AI Race Forecast`}
-        description={t`Get a detailed race prediction, goal feasibility analysis, and what you need to improve.`}
-      />
+      {data && <TrajectoryGoal data={data} hasCoachForecast={hasCoachForecast} />}
     </div>
   );
 }
