@@ -17,15 +17,16 @@
         <text class="sci-eyebrow">{{tr.eyebrow}}</text>
         <text class="sci-intro">{{tr.intro}}</text>
 
-        <!-- Pillar tab strip. enable-flex is required by Skyline for the
-             scroll-view to act as a flex container; without it the inner
-             content collapses to zero height and the detail panel below
-             renders on top. The scroll-view itself is the flex row — no
-             wrapper view inside. -->
+        <!-- Pillar tab strip. Canonical Skyline horizontal-scroll pattern
+             (per the official `awesome-skyline` examples): scroll-view
+             with `type="list"` + `enable-flex`, each direct child marked
+             `list-item`, class supplies `display: flex; flex-direction:
+             row` and an explicit height. Without `type="list"` the
+             scroll-view's children stack vertically. -->
         <scroll-view
           scroll-x="{{true}}"
+          type="list"
           enable-flex="{{true}}"
-          enhanced="{{true}}"
           show-scrollbar="{{false}}"
           class="sci-tabs-wrap"
         >
@@ -33,6 +34,7 @@
             wx:for="{{tabs}}"
             wx:key="pillar"
             wx:for-item="tab"
+            list-item
             class="sci-tab {{tab.isFocused ? 'sci-tab--focused' : ''}}"
             data-pillar="{{tab.pillar}}"
             bindtap="onSelectPillar"
@@ -49,13 +51,13 @@
         <view class="sci-detail">
           <text class="sci-detail-question">{{detail.question}}</text>
 
-          <!-- Chiclet switcher. Same Skyline pattern as the tab strip:
-               scroll-view is the flex container via enable-flex; no
-               wrapper view inside. -->
+          <!-- Chiclet switcher. Same canonical Skyline pattern as the tab
+               strip — type="list" + enable-flex + list-item on each
+               child. -->
           <scroll-view
             scroll-x="{{true}}"
+            type="list"
             enable-flex="{{true}}"
-            enhanced="{{true}}"
             show-scrollbar="{{false}}"
             class="sci-chiclets-wrap"
           >
@@ -63,6 +65,7 @@
               wx:for="{{detail.chiclets}}"
               wx:key="id"
               wx:for-item="chip"
+              list-item
               class="sci-chiclet {{chip.modifier}}"
               data-id="{{chip.id}}"
               bindtap="onChicletTap"
