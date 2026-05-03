@@ -15,6 +15,11 @@ STRAVA_TOKEN_URL = "https://www.strava.com/oauth/token"
 STRAVA_ATHLETE_API = "https://www.strava.com/api/v3/athlete"
 STRAVA_ACTIVITIES_API = "https://www.strava.com/api/v3/athlete/activities"
 STRAVA_ACTIVITY_LAPS_API = "https://www.strava.com/api/v3/activities/{activity_id}/laps"
+STRAVA_STREAMS_API = "https://www.strava.com/api/v3/activities/{activity_id}/streams"
+
+# Stream keys requested from the Strava API. All are optional — missing keys
+# produce NULL columns rather than errors.
+_STREAM_KEYS = "time,heartrate,watts,velocity_smooth,cadence,altitude,distance,latlng,grade_smooth,temp"
 
 DEFAULT_SCOPE = "read,activity:read_all,profile:read_all"
 
@@ -233,6 +238,92 @@ def fetch_activity_laps(activity_id: str, access_token: str) -> list[dict]:
         )
 
     return rows
+
+
+def fetch_activity_streams(activity_id: str, access_token: str) -> dict:
+    """Fetch per-second stream data for a Strava activity.
+
+    Requests all supported keys with key_by_type=true so each stream is keyed
+    by name rather than returned as a positional list. Missing streams (e.g.
+    power on non-power-meter activities) are simply absent from the response.
+    """
+    resp = requests.get(
+        STRAVA_STREAMS_API.format(activity_id=activity_id),
+        params={"keys": _STREAM_KEYS, "key_by_type": "true"},
+        headers={"Authorization": f"Bearer {access_token}"},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def parse_activity_stream(
+    activity_id: str,
+    streams: dict,
+    start_date_utc: str,
+) -> list[dict]:
+    """Convert Strava streams response into activity_samples rows.
+
+    Strava `time` stream is seconds offset from activity start, so
+    start_date_utc (ISO 8601 UTC, e.g. '2026-04-26T05:30:00Z') is
+    needed to compute absolute Unix timestamps for t_sec.
+
+    Cadence from Strava is strides/min (single-foot); multiply by 2 for
+    full steps/min (cadence_spm). GPS is a nested [lat, lng] per element.
+    """
+    from datetime import datetime, timezone as _tz
+
+    time_data = (streams.get("time") or {}).get("data") or []
+    if not time_data:
+        return []
+
+    try:
+        start_ts = int(
+            datetime.fromisoformat(start_date_utc.replace("Z", "+00:00"))
+            .astimezone(_tz.utc)
+            .timestamp()
+        )
+    except (ValueError, AttributeError):
+        return []
+
+    def _stream(key: str) -> list:
+        return (streams.get(key) or {}).get("data") or []
+
+    hr = _stream("heartrate")
+    watts = _stream("watts")
+    velocity = _stream("velocity_smooth")
+    cadence = _stream("cadence")
+    altitude = _stream("altitude")
+    distance = _stream("distance")
+    latlng = _stream("latlng")
+    grade = _stream("grade_smooth")
+    temp = _stream("temp")
+
+    def _at(lst: list, i: int):
+        return lst[i] if lst and i < len(lst) else None
+
+    samples = []
+    for i, offset in enumerate(time_data):
+        speed = _at(velocity, i)
+        raw_cad = _at(cadence, i)
+        ll = _at(latlng, i)
+        samples.append({
+            "activity_id": str(activity_id),
+            "source": "strava",
+            "t_sec": start_ts + int(offset),
+            "power_watts": _at(watts, i),
+            "hr_bpm": _at(hr, i),
+            "speed_ms": speed,
+            "cadence_spm": raw_cad * 2 if raw_cad is not None else None,
+            "altitude_m": _at(altitude, i),
+            "distance_m": _at(distance, i),
+            "lat": ll[0] if isinstance(ll, list) and len(ll) >= 2 else None,
+            "lng": ll[1] if isinstance(ll, list) and len(ll) >= 2 else None,
+            "grade_pct": _at(grade, i),
+            "temperature_c": _at(temp, i),
+        })
+
+    return samples
 
 
 def _parse_activity(activity: dict) -> dict:
