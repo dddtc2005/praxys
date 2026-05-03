@@ -24,17 +24,18 @@ interface DiagnosisChartOption {
 }
 
 /**
- * Segmented chart switcher inside the Diagnosis section. One slot,
+ * Segmented pill switcher inside the Diagnosis section. One slot,
  * one chart at a time. Active selection persisted to localStorage so
  * power users land on their preferred chart on every visit.
  *
  * Tab order matches the stat-strip order (TSB → Form, Distribution
  * match → Zone distribution, Load compliance → Compliance) so the
- * user reads stat → looks at the corresponding chart below.
+ * user reads a stat then looks at the corresponding chart below.
  *
- * Active tab styling: foreground ink + 2px primary underline that
- * overlaps the parent's bottom border via `-mb-px`. Inactive tabs
- * get a transparent border with hover lift.
+ * Pill styling — solid primary fill on the active option, muted text
+ * on the rest — was chosen over a subtle underline because the latter
+ * read as static type at a glance and missed clicks. The pill is
+ * unmistakably an interactive control.
  */
 function DiagnosisChartSwitcher({ options }: { options: DiagnosisChartOption[] }) {
   const [active, setActive] = useState<string>(() => {
@@ -51,7 +52,7 @@ function DiagnosisChartSwitcher({ options }: { options: DiagnosisChartOption[] }
       <div
         role="tablist"
         aria-label="Diagnosis chart"
-        className="flex items-center gap-1 mb-5 text-[10px] font-data uppercase tracking-[0.14em] border-b border-border"
+        className="inline-flex items-center gap-1 mb-6 rounded-full bg-muted/60 p-1 text-[11px] font-medium"
       >
         {options.map((opt) => {
           const isActive = opt.id === active;
@@ -67,10 +68,10 @@ function DiagnosisChartSwitcher({ options }: { options: DiagnosisChartOption[] }
                   window.localStorage.setItem(DIAGNOSIS_CHART_KEY, opt.id);
                 }
               }}
-              className={`px-3 py-2 -mb-px border-b-2 transition-colors ${
+              className={`rounded-full px-4 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 isActive
-                  ? 'text-foreground border-primary'
-                  : 'text-muted-foreground border-transparent hover:text-foreground hover:border-border'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               {opt.label}

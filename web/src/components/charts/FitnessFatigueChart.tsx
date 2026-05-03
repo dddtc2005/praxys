@@ -166,10 +166,7 @@ export default function FitnessFatigueChart({ data, scienceNote, workoutFlags }:
     // Diagnosis chart switcher tab. Section identity comes from the
     // switcher tab label above; no own header eyebrow needed.
     <section>
-      <div className="flex flex-row items-center justify-between mb-4">
-        <p className="text-[10px] font-data uppercase tracking-[0.14em] text-muted-foreground">
-          <Trans>Fitness / Fatigue / Form</Trans>
-        </p>
+      <div className="flex flex-row items-center justify-end mb-4">
         {/* Legend pairs each acronym with its plain-English meaning.
             Power users keep CTL/ATL/TSB anchors; first-timers get
             meaning. */}

@@ -58,9 +58,12 @@ export default function ZoneAnalysisCard({ distribution, zoneRanges, theoryName,
 
   return (
     <div>
+      {/* Tab label above already says "Zone distribution" — render only
+          the theory attribution + threshold label here so the chart
+          carries its analytical context without duplicating the title. */}
       <div className="flex items-center justify-between mb-1">
-        <p className="text-[10px] font-data uppercase tracking-[0.14em] text-muted-foreground">
-          <Trans>Zone Distribution</Trans> · {theoryName}
+        <p className="text-[11px] text-muted-foreground">
+          <Trans>vs {theoryName}</Trans>
         </p>
         {thresholdLabel && (
           <span className="text-[11px] text-muted-foreground font-data">{thresholdLabel}</span>

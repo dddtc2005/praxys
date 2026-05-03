@@ -93,11 +93,10 @@ export default function ComplianceChart({ data, loadLabel }: Props) {
   return (
     <section>
       <div className="flex flex-row items-baseline justify-between mb-4">
-        <p className="text-[10px] font-data uppercase tracking-[0.14em] text-muted-foreground">
-          <Trans>Weekly Load Compliance</Trans>
-          <span className="normal-case tracking-normal text-muted-foreground/70 ml-2">
-            {labelExpansion}
-          </span>
+        {/* Tab label above already says "Load compliance" — keep just
+            the unit hint here (e.g. "Running Stress Score"). */}
+        <p className="text-[11px] text-muted-foreground">
+          {labelExpansion}
         </p>
         {/* Inline two-step legend replaces the prior Recharts Legend
             chrome; ghost bar + solid bar are the visual key, the
