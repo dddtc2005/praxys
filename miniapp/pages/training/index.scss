@@ -19,48 +19,170 @@
   padding: 32rpx 32rpx 200rpx;
 }
 
-.train-header {
-  font-size: 52rpx;
+// Section eyebrow — the "DIAGNOSIS · last 6 weeks" label that opens
+// the Diagnosis section. Mono uppercase per DESIGN.md's section-label
+// rule, with the lookback half lighter so the eye reads "DIAGNOSIS"
+// first and treats the lookback as context.
+.train-section-eyebrow {
+  display: block;
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  font-size: 22rpx;
   font-weight: 700;
-  color: var(--text);
-  display: block;
-  margin-bottom: 24rpx;
+  letter-spacing: 3rpx;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-top: 8rpx;
+  margin-bottom: 28rpx;
 }
 
-.train-hero-value {
-  font-size: 48rpx;
+// ─── Stat strip ─────────────────────────────────────────────────────
+//
+// 4 cells laid out as a 2x2 grid. Web uses `sm:flex sm:flex-wrap` to
+// lay them out in a row on desktop and 2x2 on narrow viewports — mini
+// program is always narrow, so we pin to 2 cols.
+//
+// Implementation note: Skyline doesn't reliably honor `display: grid`
+// (and `grid-template-columns: 1fr 1fr` collapses to a single column
+// in the simulator and on some phone runtimes). We mirror Today's
+// `today-supporting` / `today-cell` pattern instead — `flex-wrap`
+// container plus `width: 50%` + `box-sizing: border-box` per cell.
+// Robust across both renderers.
+.train-stats {
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 36rpx;
+  border-top: 1rpx solid var(--border-subtle);
+}
+
+.train-stat-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+  padding: 20rpx 0;
+  width: 50%;
+  // Without box-sizing the per-cell padding pushes width past 50%
+  // and the second cell wraps to its own row (the failure mode the
+  // user reported in the simulator).
+  box-sizing: border-box;
+  border-bottom: 1rpx solid var(--border-subtle);
+  // Min-width 0 lets long sub-text (e.g. "vs Seiler Polarized 3-Zone")
+  // shrink and wrap rather than forcing the cell wider than 50%.
+  min-width: 0;
+}
+
+// Hairline vertical rule between the two columns. Same treatment as
+// Today's supporting grid — odd cells get a right rule + right
+// padding; even cells absorb a matching left padding so the value /
+// label inside don't sit on the rule.
+.train-stat-cell:nth-child(odd) {
+  border-right: 1rpx solid var(--border-subtle);
+  padding-right: 28rpx;
+}
+.train-stat-cell:nth-child(even) {
+  padding-left: 28rpx;
+}
+
+.train-stat-label {
+  display: block;
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  font-size: 20rpx;
   font-weight: 600;
-  color: var(--text);
-  display: block;
+  letter-spacing: 1rpx;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6rpx;
 }
 
-.train-hero-meta {
-  font-size: 24rpx;
+.train-stat-row {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 4rpx;
+}
+
+.train-stat-value {
+  font-size: 44rpx;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text);
+}
+
+// % suffix sits inline at body-size + muted, so the headline number
+// dominates the vertical rhythm and the unit reads as an afterthought.
+.train-stat-unit {
+  font-size: 26rpx;
+  color: var(--text-muted);
+  margin-left: 2rpx;
+}
+
+.train-stat-sub {
   display: block;
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  font-size: 20rpx;
+  color: var(--text-muted);
+  line-height: 1.4;
   margin-top: 4rpx;
 }
 
-.train-line {
-  font-size: 26rpx;
-  color: var(--text);
-  line-height: 1.6;
+// ─── Pill switcher ──────────────────────────────────────────────────
+//
+// Three-segment pill row sitting on the muted-track background, like
+// the language toggle on login. Active segment fills with primary
+// green + light text — solid enough to read as an interactive
+// control. The track itself is muted so inactive pills sit calmly
+// without competing.
+.train-pills {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4rpx;
+  background-color: var(--surface-subtle);
+  border: 1rpx solid var(--border-subtle);
+  border-radius: 999rpx;
+  padding: 4rpx;
+  margin-bottom: 24rpx;
 }
 
-.train-empty {
-  font-size: 26rpx;
+.train-pill {
+  font-size: 24rpx;
+  font-weight: 500;
   color: var(--text-muted);
-  line-height: 1.6;
-  display: block;
+  padding: 10rpx 24rpx;
+  border-radius: 999rpx;
+  line-height: 1.2;
+  transition: background-color 160ms ease, color 160ms ease;
 }
 
-.train-finding {
-  font-size: 26rpx;
-  display: block;
-  padding: 8rpx 0;
-  line-height: 1.5;
-  color: var(--text);
+.train-pill--active {
+  color: #ffffff;
+  font-weight: 600;
+  background-color: var(--primary);
+  box-shadow: 0 1rpx 3rpx rgba(0, 0, 0, 0.06);
 }
 
+// Chart pane — wraps whichever chart the active pill exposes. No
+// ts-card chrome on the wrapper itself; we let the chart's own
+// canvas / stack carry the visual weight. Margin below sets the gap
+// to the Coach receipt.
+.train-chart-pane {
+  margin-bottom: 28rpx;
+}
+
+// Zone-section label inside the Zones pill view — shown above the
+// per-zone bars. Replaces the prior ts-card chrome around the zone
+// distribution.
+.train-zone-section-label {
+  display: block;
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  font-size: 22rpx;
+  font-weight: 600;
+  letter-spacing: 1rpx;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 16rpx;
+}
+
+// ─── Zone distribution bars ─────────────────────────────────────────
 .train-zonebar {
   margin-bottom: 24rpx;
 }
@@ -122,7 +244,7 @@
   border-radius: 2rpx;
 }
 
-// --- Weekly Load Compliance legend ---
+// ─── Weekly Load Compliance legend ──────────────────────────────────
 .train-compliance-note {
   font-size: 22rpx;
   display: block;
@@ -132,6 +254,7 @@
 
 .train-bar-legend {
   display: flex;
+  flex-wrap: wrap;
   gap: 24rpx;
   margin-bottom: 12rpx;
 }
@@ -168,13 +291,7 @@
   color: var(--text-muted);
 }
 
-.train-share {
-  margin-top: 32rpx;
-  padding: 0 16rpx;
-}
-.train-share-btn { width: 100%; }
-
-// --- Inline DataHint replaces a chart when not enough data ---
+// ─── Inline DataHint replaces a chart when not enough data ──────────
 .train-data-hint {
   padding: 32rpx 8rpx;
 }
@@ -192,37 +309,11 @@
   line-height: 1.5;
 }
 
-// One-line "what's the chart telling you" sentence above CP-trend and
-// Fitness/Fatigue charts. Sits between the section label / hero value
-// and the chart canvas. The accent class (`ts-primary` / `ts-warning`
-// / `ts-muted`) carries the directional cue.
-.train-takeaway {
-  display: block;
-  margin-bottom: 12rpx;
-  font-size: 24rpx;
-  font-weight: 500;
-  line-height: 1.4;
-}
-
-// Tappable toggle row that reveals/hides the Sleep×Performance scatter.
-// Reads as a subtle disclosure affordance — bordered top + chevron — so
-// it doesn't compete with the takeaway line above.
-.train-collapse-toggle {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16rpx 0;
-  border-top: 1rpx solid var(--border-subtle);
-  margin-top: 8rpx;
-}
-.train-collapse-toggle--press {
-  opacity: 0.6;
-}
-.train-collapse-toggle-label {
-  font-size: 24rpx;
-}
-.train-collapse-toggle-chev {
-  font-size: 24rpx;
-  font-variant-numeric: tabular-nums;
+// Coach receipt sits as the last section in the Diagnosis stack.
+// No structural overrides — the shared `coach-receipt` styles do all
+// the work — but a small top margin separates it from the chart pane
+// above, even when no `train-chart-pane` margin-bottom applies (e.g.
+// when the chart was a hint, not a canvas).
+.train-coach {
+  margin-top: 4rpx;
 }

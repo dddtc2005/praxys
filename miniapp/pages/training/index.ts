@@ -2,55 +2,99 @@ import { setTabBarSelected } from '../../utils/tabbar';
 import type { IAppOption } from '../../app';
 import { apiGet } from '../../utils/api-client';
 import type { ApiError } from '../../utils/api-client';
-import type { AiInsight, AiInsightFinding, TrainingResponse } from '../../types/api';
+import type {
+  AiInsight,
+  AiInsightFinding,
+  TrainingResponse,
+} from '../../types/api';
 import { applyThemeChrome, themeClassName } from '../../utils/theme';
 import { detectLocale, t, tFmt } from '../../utils/i18n';
-import { fetchInsight, localizedInsight } from '../../utils/insights';
+import { coachToggleLabel, fetchInsight, localizedInsight } from '../../utils/insights';
+import {
+  buildShareMessage,
+  buildTimelineMessage,
+  detectShareLocale,
+  getShareMessage,
+} from '../../utils/share';
+
+// Persisted active pill — same key web uses (mini program uses wx
+// storage instead of localStorage, but the chosen value is portable).
+const DIAGNOSIS_CHART_KEY = 'praxys.diagnosis_chart';
+
+type DiagnosisPill = 'form' | 'zones' | 'compliance';
 
 function buildTrainingTr() {
   return {
     navTitle: t('Training'),
-    sleepScoreLabel: t('Sleep Score'),
     failedToLoad: t('Failed to load'),
     retry: t('Retry'),
     noData: t(
       'No training data yet. Sync Garmin / Stryd from the web app (Settings → Sync) to populate this view.',
     ),
-    volume: t('Volume'),
-    criticalPower: t('Critical Power'),
-    fitnessFatigue: t('Fitness & Fatigue'),
-    consistency: t('Consistency'),
-    weeklyCompliance: t('Weekly Load Compliance'),
-    findings: t('Findings'),
-    suggestions: t('Suggestions'),
+
+    // Diagnosis section eyebrow.
+    diagnosis: t('Diagnosis'),
+
+    // Stat strip — labels, sub-text, units. The four metrics answer
+    // four distinct training questions: TSB (form), Distribution
+    // (zone mix vs target), Load compliance (planned vs actual), and
+    // Volume (amount of work). Strip order matches pill order so eye
+    // → number → chart is one motion.
+    statTsbLabel: t('TSB'),
+    statTsbSubFresh: t('fresh, primed'),
+    statTsbSubBalanced: t('balanced'),
+    statTsbSubProductive: t('productive load'),
+    statTsbSubFatigue: t('fatigue accumulating'),
+    statTsbSubDefault: t('form (CTL−ATL)'),
+    statDistLabel: t('Distribution match'),
+    statDistSubDefault: t('vs target zones'),
+    statLoadLabel: t('Load compliance'),
+    statLoadSub: t('actual vs planned, avg'),
+    statVolumeLabel: t('Volume'),
+
+    // Pill switcher labels. Compact for the phone-width row; the
+    // chart heading below carries the full context (e.g. the FF
+    // chart still shows "Fitness · Fatigue · Form" as legend).
+    pillForm: t('Form'),
+    pillZones: t('Zones'),
+    pillCompliance: t('Compliance'),
+
+    // Insufficient-data hints. Web's PR #280 introduced countdown
+    // copy ("Need N more days") so the user knows when the chart
+    // will become useful. Mini program inherits the same threshold.
+    pmcMessage: t('Not enough data yet for accurate fitness tracking'),
+    loadMessage: t('Not enough data yet for weekly load comparison'),
+
+    // Compliance bar legend.
     plannedLabel: t('Planned'),
-    actualLabel: t('Actual'),
     complianceOk: t('On target'),
     complianceOff: t('Off target'),
     complianceNoPlan: t('No plan'),
-    latestEstimate: t('latest estimate'),
-    dataPoints: t('data points'),
-    showCorrelation: t('Show correlation'),
-    hideCorrelation: t('Hide correlation'),
+
+    // Coach receipt fallback strings.
+    weeklyReady: t('Weekly diagnosis ready.'),
+    findings: t('Findings'),
+    recommendations: t('Recommendations'),
+    coachMark: t('Praxys Coach'),
+    coachAria: t('Praxys Coach insight'),
   };
 }
 
 // ---- Praxys Coach receipt (training_review) ----
 //
-// Same shape used by Today (daily_brief) and Goal (race_forecast). When
-// the LLM training-review row is present, the receipt replaces the
-// rule-based Findings + Suggestions sections at the bottom of the page —
-// they cover the same ground in a less specific voice. When the row is
-// absent (LLM disabled, generation cap hit, transient endpoint failure),
-// the receipt nil-renders and the rule-based sections remain visible as
-// the deterministic fallback.
+// Same shape used by Today (daily_brief) and Goal (race_forecast). On
+// the new Training page (web PR #280) the receipt is always rendered:
+// when an LLM `training_review` row exists it carries the AI content;
+// when not, the rule-based diagnosis prose populates the same shape so
+// the narrative-led layout persists with or without AI.
 
 type CoachMarker = '[+]' | '[!]' | '[·]';
 
 interface CoachFindingRow {
-  /** Stable unique key for `wx:key` — array index, not text, because two
-   *  findings can carry identical copy across reviews and Skyline's
-   *  reconciler would collide on duplicate keys. */
+  /** Stable unique key for `wx:key` — array index, not text, because
+   *  two findings can carry identical copy (e.g. repeated neutral
+   *  notes across reviews) and Skyline's reconciler would collide on
+   *  duplicate keys. */
   id: string;
   marker: CoachMarker;
   tone: AiInsightFinding['type'];
@@ -64,7 +108,9 @@ interface CoachRecRow {
 }
 
 interface CoachReceipt {
-  /** "2h ago" / "5分钟前". Empty when no `generated_at` (legacy rows). */
+  /** "2h ago" / "5分钟前" for AI rows; "6wk" for rule-based fallback
+   *  (mirrors the lookback window used by the diagnosis). Empty
+   *  string hides the chip. */
   stamp: string;
   headline: string;
   hasFindings: boolean;
@@ -73,8 +119,6 @@ interface CoachReceipt {
   recommendations: CoachRecRow[];
 }
 
-/** Pre-translated coach-receipt copy. Captured in render state so WXML
- *  stays stringless and `check-i18n.cjs` doesn't flag the template. */
 interface CoachTranslations {
   mark: string;
   findings: string;
@@ -85,7 +129,10 @@ interface CoachTranslations {
 function timeAgo(isoDate: string, locale: 'en' | 'zh'): string {
   try {
     const diff = Date.now() - new Date(isoDate).getTime();
-    const rtf = new Intl.RelativeTimeFormat(locale === 'zh' ? 'zh-CN' : 'en-US', { style: 'short' });
+    const rtf = new Intl.RelativeTimeFormat(
+      locale === 'zh' ? 'zh-CN' : 'en-US',
+      { style: 'short' },
+    );
     const mins = Math.floor(diff / 60_000);
     if (mins < 60) return rtf.format(-mins, 'minute');
     const hours = Math.floor(mins / 60);
@@ -99,11 +146,18 @@ function timeAgo(isoDate: string, locale: 'en' | 'zh'): string {
   }
 }
 
-function buildCoachReceipt(insight: AiInsight, locale: 'en' | 'zh'): CoachReceipt {
+function markerFor(type: AiInsightFinding['type']): CoachMarker {
+  return type === 'positive' ? '[+]' : type === 'warning' ? '[!]' : '[·]';
+}
+
+function buildCoachFromInsight(
+  insight: AiInsight,
+  locale: 'en' | 'zh',
+): CoachReceipt {
   const view = localizedInsight(insight, locale);
   const findings: CoachFindingRow[] = view.findings.map((f, i) => ({
     id: `${i}`,
-    marker: f.type === 'positive' ? '[+]' : f.type === 'warning' ? '[!]' : '[·]',
+    marker: markerFor(f.type),
     tone: f.type,
     text: f.text,
   }));
@@ -120,12 +174,136 @@ function buildCoachReceipt(insight: AiInsight, locale: 'en' | 'zh'): CoachReceip
     recommendations,
   };
 }
-import {
-  buildShareMessage,
-  buildTimelineMessage,
-  detectShareLocale,
-  getShareMessage,
-} from '../../utils/share';
+
+interface ZoneDeviation {
+  name: string;
+  actual: number;
+  target: number;
+  /** Signed delta: positive = above target. */
+  diff: number;
+  absDiff: number;
+}
+
+function zoneDeviations(
+  distribution: { name: string; actual_pct: number; target_pct?: number | null }[],
+): ZoneDeviation[] {
+  return distribution
+    .filter((d) => d.target_pct != null && Math.abs(d.actual_pct - d.target_pct!) > 5)
+    .map((d) => {
+      const diff = d.actual_pct - d.target_pct!;
+      return {
+        name: d.name,
+        actual: Math.round(d.actual_pct),
+        target: Math.round(d.target_pct!),
+        diff,
+        absDiff: Math.abs(diff),
+      };
+    });
+}
+
+/**
+ * Rule-based fallback Coach Receipt — used when no LLM
+ * `training_review` row exists. Mirrors web's `fallback` payload in
+ * `Training.tsx`: rule findings + zone deviations folded together,
+ * rule suggestions + worst-deviation rec folded together, lead
+ * finding becomes the headline.
+ *
+ * The receipt always renders something: even with zero rule findings
+ * and zero deviations, the headline is "Weekly diagnosis ready." so
+ * the narrative-led layout survives blank-data accounts. The user
+ * then reads the stat strip + chart for context.
+ */
+function buildCoachFallback(
+  diagnosis: TrainingResponse['diagnosis'],
+  locale: 'en' | 'zh',
+): CoachReceipt {
+  const ruleFindings = diagnosis?.diagnosis ?? [];
+  const ruleSuggestions = diagnosis?.suggestions ?? [];
+  const distribution = diagnosis?.distribution ?? [];
+  const deviations = zoneDeviations(distribution);
+
+  // Distribution-deviation findings — rendered as warnings so the
+  // strip-zone tone classes light up amber/red.
+  const distFindings: CoachFindingRow[] = deviations.map((d, i) => ({
+    id: `dist-${i}`,
+    marker: '[!]',
+    tone: 'warning',
+    text: tFmt(
+      '{0}: {1}% ({2}pp {3} {4}% target)',
+      d.name,
+      d.actual,
+      d.absDiff,
+      d.diff > 0 ? t('above') : t('below'),
+      d.target,
+    ),
+  }));
+
+  const allFindings: CoachFindingRow[] = [
+    ...ruleFindings.map((f, i) => ({
+      id: `rule-${i}`,
+      marker: markerFor(f.type),
+      tone: f.type,
+      text: f.message,
+    })),
+    ...distFindings,
+  ];
+
+  // Worst-deviation derived recommendation. Same wording as web —
+  // single-source the suggestion so a future reviewer can grep.
+  const worst = deviations.slice().sort((a, b) => b.absDiff - a.absDiff)[0];
+  const distRec = worst
+    ? worst.diff > 0
+      ? tFmt(
+          'Most over-target: {0} at {1}% (target {2}%). Shift 1-2 sessions next week toward an under-target zone.',
+          worst.name,
+          worst.actual,
+          worst.target,
+        )
+      : tFmt(
+          'Most under-target: {0} at {1}% (target {2}%). Add 1-2 sessions in this zone next week.',
+          worst.name,
+          worst.actual,
+          worst.target,
+        )
+    : null;
+
+  const recommendations: CoachRecRow[] = [
+    ...ruleSuggestions.map((s, i) => ({ index: `${i + 1}`, text: s })),
+    ...(distRec
+      ? [{ index: `${ruleSuggestions.length + 1}`, text: distRec }]
+      : []),
+  ];
+
+  // Lead-finding-as-headline. Prefer warnings (most actionable),
+  // then positives, then the first rule finding, then the default.
+  const lead =
+    ruleFindings.find((f) => f.type === 'warning') ??
+    ruleFindings.find((f) => f.type === 'positive') ??
+    ruleFindings[0];
+  const headline = lead?.message ?? t('Weekly diagnosis ready.');
+
+  // Stamp is the lookback window (e.g. "6wk") rather than a relative
+  // age — rule-based content is always "now", so a timeAgo stamp
+  // would say "0 minutes ago" misleadingly.
+  const lookback = diagnosis?.lookback_weeks;
+  const stamp = lookback ? `${lookback}wk` : '';
+
+  // Suppress the locale param: rule-based prose is single-language
+  // (the diagnosis route emits whichever language the user chose at
+  // sync time). The `locale` param is here for symmetry with
+  // `buildCoachFromInsight` — if the route is later split, we'll
+  // thread it through the markerFor / tFmt path.
+  void locale;
+
+  return {
+    stamp,
+    headline,
+    hasFindings: allFindings.length > 0,
+    findings: allFindings,
+    hasRecommendations: recommendations.length > 0,
+    recommendations,
+  };
+}
 
 interface ZoneRow {
   name: string;
@@ -140,20 +318,27 @@ interface ZoneRow {
   fillClass: string;
 }
 
-interface FindingRow {
-  className: string;
-  message: string;
-}
-
-interface SuggestionRow {
-  message: string;
-}
-
 interface SeriesPayload {
   label: string;
   color: string;
   values: (number | null)[];
   fill?: boolean;
+}
+
+interface StatCell {
+  /** `tsb` | `dist` | `load` | `volume` — drives the wx:key. */
+  id: string;
+  label: string;
+  value: string;
+  sub: string;
+  /** "ts-primary" | "ts-warning" | "ts-destructive" | "" — applied to
+   *  the value text. Web uses tone buckets at explicit thresholds
+   *  (TSB ≥5 fresh, ≥-10 productive, else fatigue; dist ≥85 / ≥70;
+   *  load 80-120 / <80 / >120). */
+  accent: string;
+  /** `%` suffix shown only for compliance/match cells. Composes with
+   *  the value as `{value}{unit}` so ts-value can keep tabular-nums. */
+  unit: string;
 }
 
 interface TrainingState {
@@ -164,68 +349,30 @@ interface TrainingState {
   hasResponse: boolean;
   hasAnyData: boolean;
 
-  hasVolume: boolean;
-  weeklyKm: string;
-  hasVolumeTrend: boolean;
-  volumeTrend: string;
+  /** "Last N weeks" eyebrow, e.g. "Last 6 weeks" / "近 6 周". */
+  diagnosisEyebrow: string;
 
-  hasLatestCp: boolean;
-  latestCpDisplay: string;
-  cpDataPointCount: number;
+  cells: StatCell[];
 
-  // Charts always render their card; sufficiency drives chart-vs-hint
-  // swap inside. Mirrors web/src/pages/Training.tsx <DataHint> usage.
-  cpSufficient: boolean;
-  cpHintMessage: string;
-  cpHintDetail: string;
-  cpTrendDates: string[];
-  cpTrendSeries: SeriesPayload[];
-  /** One-liner above the chart — "CP rising · +12W over 8 weeks" or
-   *  "CP holding steady". Empty string hides the line. */
-  cpTakeaway: string;
-  cpTakeawayAccent: string;
+  /** Active pill — drives which chart renders below the switcher. */
+  activePill: DiagnosisPill;
+  /** True iff the response contains any zone targets to render the
+   *  "Zones" pill against. Hides the pill (and skips it on persist
+   *  rehydrate) when there's nothing to show. */
+  hasZones: boolean;
 
+  // Form (Fitness/Fatigue) chart.
   ffSufficient: boolean;
   ffHintMessage: string;
   ffHintDetail: string;
   ffDates: string[];
   ffSeries: SeriesPayload[];
-  /** One-liner above the chart — "Fresh · TSB +6" / "Balanced · TSB -2" /
-   *  "Carrying fatigue · TSB -18". Empty string hides the line. */
-  ffTakeaway: string;
-  ffTakeawayAccent: string;
 
-  hasDistribution: boolean;
+  // Zone distribution.
   zoneSectionLabel: string;
   zoneRows: ZoneRow[];
 
-  hasConsistency: boolean;
-  consistencyLine: string;
-
-  hasFindings: boolean;
-  findings: FindingRow[];
-
-  hasSuggestions: boolean;
-  suggestions: SuggestionRow[];
-
-  refreshing: boolean;
-
-  // Sleep score vs Avg Power scatter (web parity, issue #76).
-  sleepSufficient: boolean;
-  sleepHintMessage: string;
-  sleepHintDetail: string;
-  sleepPerfTitle: string;
-  sleepPerfYLabel: string;
-  sleepPerfPairs: [number, number][];
-  sleepPerfYIsPace: boolean;
-  /** One-liner above the scatter — "Sleep helps performance · r=0.42". */
-  sleepTakeaway: string;
-  sleepTakeawayAccent: string;
-  /** Scatter is collapsed by default — the takeaway above answers the
-   *  90% question, the chart is the deeper dive. */
-  showSleepCorrelation: boolean;
-
-  // Weekly compliance bars (web parity, issue #76).
+  // Compliance bars.
   complianceSufficient: boolean;
   complianceHintMessage: string;
   complianceHintDetail: string;
@@ -235,16 +382,22 @@ interface TrainingState {
   compliancePlanned: number[];
   complianceActual: number[];
   complianceActualColors: string[];
-  /** One-liner above the bar chart — "On plan · 5/6 weeks within ±20%". */
-  complianceTakeaway: string;
-  complianceTakeawayAccent: string;
 
-  /** True iff a `training_review` AiInsight row exists. Toggles the
-   *  receipt block on and the rule-based Findings / Suggestions blocks
-   *  off — the receipt covers the same ground in a more specific voice. */
-  hasCoach: boolean;
-  coach: CoachReceipt | null;
-  coachTr: CoachTranslations | null;
+  // Coach Receipt — always populated (LLM if present, rule-based
+  // fallback otherwise). Web Training never nil-renders the receipt
+  // on the new page; mini matches.
+  coach: CoachReceipt;
+  coachTr: CoachTranslations;
+  /** Findings + recommendations are progressively disclosed; default
+   *  collapsed so the receipt reads as headline-first. The user opts
+   *  in to the structured detail. Mirrors web's AiInsightsCard. */
+  detailsOpen: boolean;
+  /** Pre-computed toggle button label — `{N} findings · {M} recs` when
+   *  collapsed, "Hide details" when expanded. Empty string hides the
+   *  toggle entirely (zero findings + zero recs). */
+  coachToggleLabel: string;
+
+  refreshing: boolean;
 }
 
 const initialData: TrainingState = {
@@ -255,56 +408,20 @@ const initialData: TrainingState = {
   hasResponse: false,
   hasAnyData: false,
 
-  hasVolume: false,
-  weeklyKm: '',
-  hasVolumeTrend: false,
-  volumeTrend: '',
+  diagnosisEyebrow: '',
+  cells: [],
 
-  hasLatestCp: false,
-  latestCpDisplay: '',
-  cpDataPointCount: 0,
-
-  cpSufficient: true,
-  cpHintMessage: '',
-  cpHintDetail: '',
-  cpTrendDates: [],
-  cpTrendSeries: [],
-  cpTakeaway: '',
-  cpTakeawayAccent: '',
+  activePill: 'form',
+  hasZones: false,
 
   ffSufficient: true,
   ffHintMessage: '',
   ffHintDetail: '',
   ffDates: [],
   ffSeries: [],
-  ffTakeaway: '',
-  ffTakeawayAccent: '',
 
-  hasDistribution: false,
-  zoneSectionLabel: t('Zone distribution'),
+  zoneSectionLabel: '',
   zoneRows: [],
-
-  hasConsistency: false,
-  consistencyLine: '',
-
-  hasFindings: false,
-  findings: [],
-
-  hasSuggestions: false,
-  suggestions: [],
-
-  refreshing: false,
-
-  sleepSufficient: true,
-  sleepHintMessage: '',
-  sleepHintDetail: '',
-  sleepPerfTitle: '',
-  sleepPerfYLabel: '',
-  sleepPerfPairs: [],
-  sleepPerfYIsPace: false,
-  sleepTakeaway: '',
-  sleepTakeawayAccent: '',
-  showSleepCorrelation: false,
 
   complianceSufficient: true,
   complianceHintMessage: '',
@@ -315,22 +432,24 @@ const initialData: TrainingState = {
   compliancePlanned: [],
   complianceActual: [],
   complianceActualColors: [],
-  complianceTakeaway: '',
-  complianceTakeawayAccent: '',
 
-  hasCoach: false,
-  coach: null,
-  coachTr: null,
+  coach: {
+    stamp: '',
+    headline: '',
+    hasFindings: false,
+    findings: [],
+    hasRecommendations: false,
+    recommendations: [],
+  },
+  coachTr: { mark: '', findings: '', recommendations: '', aria: '' },
+  detailsOpen: false,
+  coachToggleLabel: '',
+
+  refreshing: false,
 };
 
 function clampPct(v: number): number {
   return Math.max(0, Math.min(100, v));
-}
-
-function findingClassName(type: string | undefined): string {
-  if (type === 'positive') return 'train-finding ts-primary';
-  if (type === 'warning') return 'train-finding ts-warning';
-  return 'train-finding';
 }
 
 // Compliance band colors (web parity): primary green = on target, warning
@@ -338,9 +457,6 @@ function findingClassName(type: string | undefined): string {
 const COMPLIANCE_GREEN = '#00ff87';
 const COMPLIANCE_AMBER = '#f59e0b';
 const COMPLIANCE_RED = '#ef4444';
-// Used when a week has no plan to compare against — actual is shown
-// neutrally rather than coloring it green (which implied "on plan"
-// when there was no plan to be on).
 const COMPLIANCE_GRAY = '#8b93a7';
 
 function complianceColor(planned: number | null, actual: number | null): string {
@@ -353,212 +469,167 @@ function complianceColor(planned: number | null, actual: number | null): string 
 }
 
 /**
- * Compact one-liner above the CP-trend chart. Looks at the last ~8
- * non-null values, computes the simple delta, and reports a direction +
- * magnitude. Empty when we don't have enough data points to be useful
- * (so the WXML hides the line).
- *
- * Mini-program-only feature — web's TrainingPage carries this context
- * inline through DiagnosisCard's findings list, but on a phone-sized
- * screen those findings live below five charts and require scrolling.
- * The takeaway above the chart catches the eye.
+ * Compute the four stat-strip cells. Tone buckets mirror web's
+ * `Training.tsx` exactly so identical data renders the same color
+ * across surfaces:
+ *   TSB  : ≥5 primary (fresh) | ≥-10 muted | < -10 destructive
+ *   Dist : ≥85 primary (good match) | ≥70 amber | else destructive
+ *   Load : 80-120 primary (on plan) | <80 amber | >120 destructive
+ *   Vol  : no tone — volume is a context number, not a verdict
  */
-function buildCpTakeaway(values: (number | null)[]): { text: string; accent: string } {
-  const recent = values.filter((v): v is number => v != null).slice(-8);
-  if (recent.length < 4) return { text: '', accent: '' };
-  const delta = recent[recent.length - 1] - recent[0];
-  const span = recent.length;
-  if (Math.abs(delta) < 2) {
-    return {
-      text: detectShareLocale() === 'zh' ? 'CP 趋势平稳' : 'CP holding steady',
-      accent: 'ts-muted',
-    };
-  }
-  const sign = delta > 0 ? '+' : '';
-  const w = `${sign}${Math.round(delta)}W`;
-  const text =
-    detectShareLocale() === 'zh'
-      ? delta > 0
-        ? `CP 上升 · ${span} 周内 ${w}`
-        : `CP 下降 · ${span} 周内 ${w}`
-      : delta > 0
-        ? `CP rising · ${w} over ${span} weeks`
-        : `CP dropping · ${w} over ${span} weeks`;
-  return {
-    text,
-    accent: delta > 0 ? 'ts-primary' : 'ts-warning',
-  };
-}
+function buildStatCells(
+  response: TrainingResponse,
+  tr: ReturnType<typeof buildTrainingTr>,
+): StatCell[] {
+  const cells: StatCell[] = [];
 
-/**
- * Form (TSB) takeaway above the Fitness/Fatigue chart. Most actionable
- * single value on the page — captures whether the user is fresh,
- * balanced, or carrying fatigue.
- */
-function buildFfTakeaway(tsb: (number | null)[]): { text: string; accent: string } {
-  const lastTsb = [...tsb].reverse().find((v): v is number => v != null);
-  if (lastTsb == null) return { text: '', accent: '' };
-  const v = lastTsb >= 0 ? `+${lastTsb.toFixed(0)}` : lastTsb.toFixed(0);
-  const isZh = detectShareLocale() === 'zh';
-  if (lastTsb > 5) {
-    return {
-      text: isZh ? `状态良好 · TSB ${v}` : `Fresh · TSB ${v}`,
-      accent: 'ts-primary',
-    };
+  // TSB — current form (CTL − ATL). Last value of the fitness/fatigue
+  // tsb series.
+  const tsbSeries = response.fitness_fatigue?.tsb ?? [];
+  const tsbCurrent = tsbSeries.length
+    ? tsbSeries[tsbSeries.length - 1]
+    : null;
+  const tsbValue =
+    tsbCurrent != null
+      ? `${tsbCurrent >= 0 ? '+' : ''}${tsbCurrent.toFixed(1)}`
+      : '—';
+  let tsbAccent = '';
+  let tsbSub = tr.statTsbSubDefault;
+  if (tsbCurrent != null) {
+    if (tsbCurrent >= 5) {
+      tsbAccent = 'ts-primary';
+      tsbSub = tr.statTsbSubFresh;
+    } else if (tsbCurrent >= 0) {
+      tsbAccent = '';
+      tsbSub = tr.statTsbSubBalanced;
+    } else if (tsbCurrent >= -10) {
+      tsbAccent = '';
+      tsbSub = tr.statTsbSubProductive;
+    } else {
+      tsbAccent = 'ts-destructive';
+      tsbSub = tr.statTsbSubFatigue;
+    }
   }
-  if (lastTsb > -10) {
-    return {
-      text: isZh ? `状态平衡 · TSB ${v}` : `Balanced · TSB ${v}`,
-      accent: 'ts-muted',
-    };
-  }
-  return {
-    text: isZh ? `疲劳累积 · TSB ${v}` : `Carrying fatigue · TSB ${v}`,
-    accent: 'ts-warning',
-  };
-}
+  cells.push({
+    id: 'tsb',
+    label: tr.statTsbLabel,
+    value: tsbValue,
+    sub: tsbSub,
+    accent: tsbAccent,
+    unit: '',
+  });
 
-/**
- * Compliance takeaway above the Weekly Load chart. Counts how many of
- * the last N weeks were within ±20% of the planned load — that's the
- * threshold web's complianceColor uses for "ok" green vs "off" amber.
- *
- * Empty when there's no plan baseline to compare against (all planned
- * values are 0/null) so we don't claim "0/0 weeks on plan".
- */
-function buildComplianceTakeaway(
-  weeks: string[],
-  planned: number[],
-  actual: number[],
-): { text: string; accent: string } {
-  if (!weeks.length) return { text: '', accent: '' };
-  let comparable = 0;
-  let onPlan = 0;
-  for (let i = 0; i < weeks.length; i++) {
-    const p = planned[i];
-    const a = actual[i];
-    if (p == null || p <= 0 || a == null) continue;
-    comparable++;
-    const ratio = a / p;
-    if (ratio >= 0.8 && ratio <= 1.2) onPlan++;
+  // Distribution match — Bray-Curtis-style similarity over zone
+  // composition. 100% = identical to target, 0% = no overlap. Only
+  // computed when at least one zone has a target.
+  const distribution = response.diagnosis?.distribution ?? [];
+  const distWithTarget = distribution.filter((z) => z.target_pct != null);
+  const distMatch =
+    distWithTarget.length > 0
+      ? Math.max(
+          0,
+          Math.round(
+            100 -
+              distWithTarget.reduce(
+                (acc, z) => acc + Math.abs(z.actual_pct - (z.target_pct ?? 0)),
+                0,
+              ) /
+                2,
+          ),
+        )
+      : null;
+  let distAccent = '';
+  if (distMatch != null) {
+    if (distMatch >= 85) distAccent = 'ts-primary';
+    else if (distMatch >= 70) distAccent = 'ts-warning';
+    else distAccent = 'ts-destructive';
   }
-  if (comparable === 0) return { text: '', accent: '' };
-  const isZh = detectShareLocale() === 'zh';
-  const off = comparable - onPlan;
-  // Most actionable framing: lead with what's off vs on-plan.
-  if (off === 0) {
-    return {
-      text: isZh
-        ? `执行良好 · ${onPlan}/${comparable} 周达标`
-        : `On plan · ${onPlan}/${comparable} weeks within ±20%`,
-      accent: 'ts-primary',
-    };
-  }
-  if (off >= Math.ceil(comparable / 2)) {
-    return {
-      text: isZh
-        ? `偏离计划 · ${off}/${comparable} 周差距 >20%`
-        : `Off plan · ${off}/${comparable} weeks >20% off`,
-      accent: 'ts-warning',
-    };
-  }
-  return {
-    text: isZh
-      ? `多数达标 · ${onPlan}/${comparable} 周接近计划`
-      : `Mostly on · ${onPlan}/${comparable} weeks near plan`,
-    accent: 'ts-muted',
-  };
-}
+  const theoryName = response.diagnosis?.theory_name;
+  cells.push({
+    id: 'dist',
+    label: tr.statDistLabel,
+    value: distMatch != null ? `${distMatch}` : '—',
+    sub: theoryName
+      ? tFmt('vs {0}', theoryName)
+      : tr.statDistSubDefault,
+    accent: distAccent,
+    unit: distMatch != null ? '%' : '',
+  });
 
-/**
- * Sleep×Performance takeaway. Web's scatter doesn't compute a number,
- * but a one-line correlation hint makes the chart actionable on a
- * phone-sized screen where the trend is hard to read by eye.
- *
- * Uses Pearson r on the (sleep_score, metric) pairs. When metric is
- * pace (lower=better), invert the sign so "positive" always means
- * "better sleep → better performance" in the user-facing copy.
- */
-function buildSleepTakeaway(
-  pairs: [number, number][],
-  yIsPace: boolean,
-): { text: string; accent: string } {
-  if (pairs.length < 4) return { text: '', accent: '' };
-  const xs = pairs.map((p) => p[0]);
-  const ys = pairs.map((p) => p[1]);
-  const n = xs.length;
-  const mx = xs.reduce((s, v) => s + v, 0) / n;
-  const my = ys.reduce((s, v) => s + v, 0) / n;
-  let num = 0;
-  let dx2 = 0;
-  let dy2 = 0;
-  for (let i = 0; i < n; i++) {
-    const a = xs[i] - mx;
-    const b = ys[i] - my;
-    num += a * b;
-    dx2 += a * a;
-    dy2 += b * b;
+  // Load compliance — mean of weekly (actual / planned)*100 over
+  // weeks where a plan target existed.
+  const wr = response.weekly_review;
+  const loadRatios = (wr?.planned_load ?? [])
+    .map((p, i) => {
+      const a = wr?.actual_load?.[i] ?? 0;
+      return p > 0 ? (a / p) * 100 : null;
+    })
+    .filter((r): r is number => r != null);
+  const loadCompliance =
+    loadRatios.length > 0
+      ? Math.round(loadRatios.reduce((a, b) => a + b, 0) / loadRatios.length)
+      : null;
+  let loadAccent = '';
+  if (loadCompliance != null) {
+    if (loadCompliance >= 80 && loadCompliance <= 120) loadAccent = 'ts-primary';
+    else if (loadCompliance < 80) loadAccent = 'ts-warning';
+    else loadAccent = 'ts-destructive';
   }
-  if (dx2 === 0 || dy2 === 0) return { text: '', accent: '' };
-  let r = num / Math.sqrt(dx2 * dy2);
-  // Pace lower-is-better: a negative raw correlation means more sleep →
-  // faster pace, which is the *positive* outcome. Invert so the
-  // takeaway always reads in user-intuitive direction.
-  if (yIsPace) r = -r;
-  const isZh = detectShareLocale() === 'zh';
-  if (r >= 0.3) {
-    return {
-      text: isZh ? `睡眠与表现正相关 · r=${r.toFixed(2)}` : `Sleep helps performance · r=${r.toFixed(2)}`,
-      accent: 'ts-primary',
-    };
-  }
-  if (r <= -0.3) {
-    return {
-      text: isZh ? `睡眠与表现负相关 · r=${r.toFixed(2)}` : `Sleep vs performance · r=${r.toFixed(2)}`,
-      accent: 'ts-warning',
-    };
-  }
-  return {
-    text: isZh ? `相关性弱 · r=${r.toFixed(2)}` : `Weak correlation · r=${r.toFixed(2)}`,
-    accent: 'ts-muted',
-  };
+  cells.push({
+    id: 'load',
+    label: tr.statLoadLabel,
+    value: loadCompliance != null ? `${loadCompliance}` : '—',
+    sub: tr.statLoadSub,
+    accent: loadAccent,
+    unit: loadCompliance != null ? '%' : '',
+  });
+
+  // Volume — weekly average km. Foreground default tone (no verdict).
+  const weeklyKm = response.diagnosis?.volume?.weekly_avg_km;
+  const lookback = response.diagnosis?.lookback_weeks ?? 0;
+  cells.push({
+    id: 'volume',
+    label: tr.statVolumeLabel,
+    value: weeklyKm != null ? weeklyKm.toFixed(1) : '—',
+    sub: tFmt('km / week, {0}wk avg', lookback),
+    accent: '',
+    unit: '',
+  });
+
+  return cells;
 }
 
 function buildState(
   response: TrainingResponse,
   themeClass: string,
   insight: AiInsight | null,
+  activePill: DiagnosisPill,
+  tr: ReturnType<typeof buildTrainingTr>,
 ): Partial<TrainingState> {
-  const { diagnosis, cp_trend, fitness_fatigue, sleep_perf, weekly_review, data_meta } = response;
-  const weeklyKm = diagnosis?.volume?.weekly_avg_km;
-  const hasVolume = typeof weeklyKm === 'number';
-  const latestCp = cp_trend?.values?.length
-    ? cp_trend.values[cp_trend.values.length - 1]
-    : null;
+  const { diagnosis, fitness_fatigue, weekly_review, data_meta } = response;
   const distribution = diagnosis?.distribution ?? [];
-  const consistency = diagnosis?.consistency;
-  const findings = diagnosis?.diagnosis ?? [];
-  const suggestions = diagnosis?.suggestions ?? [];
+  const hasZones = distribution.some((z) => z.target_pct != null);
+  const dataDays = data_meta?.data_days ?? 0;
   const hasAnyData =
-    hasVolume || latestCp != null || distribution.length > 0;
+    !!diagnosis?.volume?.weekly_avg_km ||
+    distribution.length > 0 ||
+    (fitness_fatigue?.dates?.length ?? 0) > 0;
 
-  // Sufficiency flags mirror web/src/pages/Training.tsx <DataHint> props.
-  // Defaults to true when data_meta is missing so the charts attempt to
-  // render — matches web behavior of `data_meta?.X ?? true`.
-  const cpSufficient = data_meta?.cp_trend_sufficient ?? true;
+  // Sufficiency — countdown copy mirrors web's PR #280 wording.
   const ffSufficient = data_meta?.pmc_sufficient ?? true;
-  const complianceSufficient = (data_meta?.data_days ?? 0) >= 14;
-  const sleepSufficient = !!(
-    data_meta?.has_recovery && (sleep_perf?.pairs?.length ?? 0) >= 2
-  );
+  const daysToPmc = Math.max(0, 42 - dataDays);
+  const ffHintDetail = t(
+    'Banister PMC stabilises after about 42 days of activity. Need {daysToPmc} more days.',
+  ).replace('{daysToPmc}', String(daysToPmc));
+  const complianceSufficient = dataDays >= 14;
+  const daysToCompare = Math.max(0, 14 - dataDays);
+  const complianceHintDetail = t(
+    'Need 2 weeks of synced activity to compare planned vs actual. {daysToCompare} more days to go.',
+  ).replace('{daysToCompare}', String(daysToCompare));
 
   const zoneRows: ZoneRow[] = distribution.map((z) => {
     const actual = z.actual_pct ?? 0;
     const target = z.target_pct;
-    // Compliance buckets used by web's ZoneAnalysisCard: within ±5% of
-    // target reads as on-track; further off in either direction is a
-    // warning. With no target we leave the class empty and let the bar
-    // render as the default neutral color (no implicit green).
     let fillClass = '';
     if (target != null) {
       const delta = actual - target;
@@ -576,43 +647,49 @@ function buildState(
     };
   });
 
-  // Three-part one-liner. Translating inline keeps the data/glyph
-  // separators (· and the unit `d`) consistent across locales.
-  const consistencyLine = consistency
-    ? tFmt(
-        '{0} sessions · gaps ≥7d: {1} · longest: {2}d',
-        consistency.total_sessions ?? 0,
-        consistency.weeks_with_gaps ?? 0,
-        consistency.longest_gap_days ?? 0,
-      )
-    : '';
-
-  // Coach receipt: the LLM-generated training-review insight. Mirrors
-  // Today and Goal — when present, suppresses the rule-based Findings +
-  // Suggestions sections below so the user doesn't read the same idea
-  // twice in two voices. A throw inside buildCoachReceipt (e.g. a future
-  // schema change yields an unexpected finding shape) must not blank
-  // the whole page — degrade to "no receipt" and let the rule-based
-  // diagnosis prose re-appear.
+  // Coach receipt — always populated. AI takes precedence; rule-based
+  // fallback when no LLM row, generation cap hit, or transient
+  // /api/insights/training_review failure.
   const locale = detectLocale();
-  let coach: CoachReceipt | null = null;
+  let coach: CoachReceipt;
   if (insight) {
     try {
-      coach = buildCoachReceipt(insight, locale);
+      coach = buildCoachFromInsight(insight, locale);
     } catch (e) {
       // eslint-disable-next-line no-console
-      console.warn('[training] coach receipt build failed; suppressing receipt:', e);
+      console.warn('[training] AI receipt build failed; using rule-based fallback:', e);
+      coach = buildCoachFallback(diagnosis, locale);
     }
+  } else {
+    coach = buildCoachFallback(diagnosis, locale);
   }
-  const hasCoach = coach != null;
-  const coachTr: CoachTranslations | null = hasCoach
-    ? {
-        mark: t('Praxys Coach'),
-        findings: t('Findings'),
-        recommendations: t('Recommendations'),
-        aria: t('Praxys Coach insight'),
-      }
-    : null;
+  const coachTr: CoachTranslations = {
+    mark: tr.coachMark,
+    findings: tr.findings,
+    recommendations: tr.recommendations,
+    aria: tr.coachAria,
+  };
+  // Reset detailsOpen on every refetch — the receipt content has
+  // changed (different findings / recs), so showing the prior
+  // expanded state would surface a stale-looking detail block. Web's
+  // AiInsightsCard re-mounts on refetch and naturally lands closed.
+  const detailsOpen = false;
+  const coachToggleLabelText = coachToggleLabel(
+    coach.findings.length,
+    coach.recommendations.length,
+    detailsOpen,
+  );
+
+  // Active pill: if the persisted choice is `zones` but the response
+  // has no targets, fall back to `form`. Same defensive default web
+  // applies via the `?` chain on options.
+  const resolvedPill: DiagnosisPill =
+    activePill === 'zones' && !hasZones ? 'form' : activePill;
+
+  const lookback = diagnosis?.lookback_weeks;
+  const diagnosisEyebrow = lookback
+    ? tFmt('Last {0} weeks', lookback)
+    : tr.diagnosis;
 
   return {
     themeClass,
@@ -621,36 +698,15 @@ function buildState(
     hasResponse: true,
     hasAnyData,
 
-    hasVolume,
-    weeklyKm: hasVolume ? tFmt('{0} km/week', (weeklyKm as number).toFixed(1)) : '',
-    hasVolumeTrend: !!diagnosis?.volume?.trend,
-    volumeTrend: diagnosis?.volume?.trend
-      ? tFmt('trend: {0}', t(diagnosis.volume.trend))
-      : '',
+    diagnosisEyebrow,
+    cells: buildStatCells(response, tr),
 
-    hasLatestCp: latestCp != null,
-    latestCpDisplay: latestCp != null ? `${latestCp.toFixed(0)} W` : '',
-    cpDataPointCount: cp_trend?.values?.length ?? 0,
-
-    cpSufficient,
-    cpHintMessage: t('Not enough data to show CP trend'),
-    cpHintDetail: t('Need at least 3 activities with power data to plot a meaningful trend.'),
-    cpTrendDates: cp_trend?.dates ?? [],
-    cpTrendSeries: cp_trend
-      ? [{ label: 'CP', color: '#00ff87', values: cp_trend.values, fill: true }]
-      : [],
-    ...(cp_trend
-      ? (() => {
-          const tk = buildCpTakeaway(cp_trend.values);
-          return { cpTakeaway: tk.text, cpTakeawayAccent: tk.accent };
-        })()
-      : { cpTakeaway: '', cpTakeawayAccent: '' }),
+    activePill: resolvedPill,
+    hasZones,
 
     ffSufficient,
-    ffHintMessage: t('Not enough data for accurate fitness tracking'),
-    ffHintDetail: t(
-      'Sync at least 6 weeks of activity data to see meaningful fitness, fatigue, and form curves.',
-    ),
+    ffHintMessage: tr.pmcMessage,
+    ffHintDetail,
     ffDates: fitness_fatigue?.dates ?? [],
     ffSeries: fitness_fatigue
       ? [
@@ -659,72 +715,15 @@ function buildState(
           { label: t('Form (TSB)'), color: '#3b82f6', values: fitness_fatigue.tsb },
         ]
       : [],
-    ...(fitness_fatigue
-      ? (() => {
-          const tk = buildFfTakeaway(fitness_fatigue.tsb);
-          return { ffTakeaway: tk.text, ffTakeawayAccent: tk.accent };
-        })()
-      : { ffTakeaway: '', ffTakeawayAccent: '' }),
 
-    hasDistribution: zoneRows.length > 0,
     zoneSectionLabel: diagnosis?.theory_name
       ? tFmt('{0} · {1}', t('Zone distribution'), diagnosis.theory_name)
       : t('Zone distribution'),
     zoneRows,
 
-    hasConsistency: consistency != null,
-    consistencyLine,
-
-    // Suppress rule-based Findings + Suggestions when the LLM receipt
-    // is rendering. Web's Training page keeps both visible; on a
-    // phone-sized scroll the duplication reads as redundancy, so we
-    // gate them off and let the receipt carry that voice. They re-appear
-    // automatically when the receipt is absent (LLM disabled / no row).
-    hasFindings: !hasCoach && findings.length > 0,
-    findings: findings.map((f) => ({
-      className: findingClassName(f.type),
-      message: `• ${f.message}`,
-    })),
-
-    hasSuggestions: !hasCoach && suggestions.length > 0,
-    suggestions: suggestions.map((s, i) => ({ message: `${i + 1}. ${s}` })),
-
-    hasCoach,
-    coach,
-    coachTr,
-
-    // Sleep score vs metric scatter. Sufficiency mirrors web's check:
-    // requires recovery data + at least 2 pairs to be meaningful.
-    sleepSufficient,
-    sleepHintMessage: t('Not enough data to show sleep vs performance'),
-    sleepHintDetail: t(
-      'Sync activities together with sleep data (Garmin, Oura, or similar) so we can pair them by date.',
-    ),
-    // Compose the title from translated parts so 'Sleep Score' and the
-    // metric label stay in the active locale. Backend metric_label may
-    // already be localized; if not we substitute the translated default.
-    sleepPerfTitle: tFmt(
-      'Sleep Score vs {0}',
-      t(sleep_perf?.metric_label || 'Avg Power'),
-    ),
-    sleepPerfYLabel: sleep_perf
-      ? `${t(sleep_perf.metric_label || 'Avg Power')} (${sleep_perf.metric_unit || 'W'})`
-      : '',
-    sleepPerfPairs: sleep_perf?.pairs ?? [],
-    sleepPerfYIsPace: sleep_perf?.metric_unit === 'sec/km',
-    ...(sleep_perf
-      ? (() => {
-          const tk = buildSleepTakeaway(sleep_perf.pairs ?? [], sleep_perf.metric_unit === 'sec/km');
-          return { sleepTakeaway: tk.text, sleepTakeawayAccent: tk.accent };
-        })()
-      : { sleepTakeaway: '', sleepTakeawayAccent: '' }),
-
-    // Weekly compliance bars. Web threshold: 14 days of data.
     complianceSufficient,
-    complianceHintMessage: t('Not enough data for weekly load comparison'),
-    complianceHintDetail: t(
-      'Sync at least 2 weeks of data to compare planned vs actual training load.',
-    ),
+    complianceHintMessage: tr.loadMessage,
+    complianceHintDetail,
     hasComplianceEstimateNote: !!weekly_review?.planned_estimated,
     complianceEstimateNote: t(
       'Planned bars are estimated — your plan has no RSS targets for this base.',
@@ -740,40 +739,62 @@ function buildState(
           ),
         )
       : [],
-    ...(weekly_review
-      ? (() => {
-          const tk = buildComplianceTakeaway(
-            weekly_review.weeks ?? [],
-            weekly_review.planned_load ?? [],
-            weekly_review.actual_load ?? [],
-          );
-          return { complianceTakeaway: tk.text, complianceTakeawayAccent: tk.accent };
-        })()
-      : { complianceTakeaway: '', complianceTakeawayAccent: '' }),
+
+    coach,
+    coachTr,
+    detailsOpen,
+    coachToggleLabel: coachToggleLabelText,
   };
 }
 
-Page({
+function loadActivePill(): DiagnosisPill {
+  try {
+    const stored = wx.getStorageSync<string>(DIAGNOSIS_CHART_KEY);
+    if (stored === 'form' || stored === 'zones' || stored === 'compliance') {
+      return stored;
+    }
+  } catch {
+    // Storage unavailable on first launch is fine — fall through to default.
+  }
+  return 'form';
+}
+
+function persistActivePill(pill: DiagnosisPill): void {
+  try {
+    wx.setStorageSync(DIAGNOSIS_CHART_KEY, pill);
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn('[training] could not persist active pill:', e);
+  }
+}
+
+interface PageMethods extends WechatMiniprogram.IAnyObject {
+  onPickPill(e: WechatMiniprogram.TouchEvent): void;
+  onToggleCoachDetails(): void;
+  onScrollRefresh(): void;
+  onRetry(): void;
+  refetch(): Promise<void>;
+}
+
+Page<TrainingState & { tr: ReturnType<typeof buildTrainingTr> }, PageMethods>({
   data: { ...initialData, tr: buildTrainingTr() },
 
   onLoad() {
     const tc = themeClassName();
-    this.setData({ themeClass: tc, chartTheme: tc === 'theme-light' ? 'light' : 'dark', tr: buildTrainingTr() });
+    this.setData({
+      themeClass: tc,
+      chartTheme: tc === 'theme-light' ? 'light' : 'dark',
+      tr: buildTrainingTr(),
+      activePill: loadActivePill(),
+    });
     void this.refetch();
   },
 
   onShow() {
-    // Guarded theme update: other tabs can't be reached by getCurrentPages()
-    // from Settings, so if the user changed theme while on another tab,
-    // this is the first chance to apply it. Equality check prevents
-    // re-renders on normal tab switches where nothing changed.
     const tc = themeClassName();
     if (tc !== this.data.themeClass) {
       this.setData({ themeClass: tc, chartTheme: tc === 'theme-light' ? 'light' : 'dark' });
     }
-    // Locale guard: rebuilds tr when language changed while this tab
-    // was not active (same pattern as theme — globalData stores the
-    // active locale so we detect drift without a storage read).
     const curLocale = getApp<IAppOption>().globalData.locale;
     const pgMut = this as unknown as Record<string, unknown>;
     if (curLocale !== pgMut._locale) {
@@ -786,23 +807,37 @@ Page({
   },
 
   onShareAppMessage() {
-    const cp = (this.data.latestCpDisplay as string) || '';
-    const km = (this.data.weeklyKm as string) || '';
+    // Prefer the most actionable stat for the share blurb — TSB
+    // changes daily, so it's the most "now" framing. Volume is the
+    // weekly cadence number; both make recognizable share text.
+    const cells = this.data.cells as StatCell[];
+    const tsb = cells.find((c) => c.id === 'tsb');
+    const vol = cells.find((c) => c.id === 'volume');
     const locale = detectShareLocale();
-    if (cp && km) {
+    if (tsb && vol && tsb.value !== '—' && vol.value !== '—') {
       const lead = locale === 'zh' ? '本周训练' : 'Training';
-      return buildShareMessage(`${lead}: ${cp} CP · ${km}`, '/pages/training/index');
+      return buildShareMessage(
+        `${lead}: TSB ${tsb.value} · ${vol.value} km/wk`,
+        '/pages/training/index',
+      );
     }
     return getShareMessage(locale, '/pages/training/index');
   },
 
   onShareTimeline() {
-    const cp = (this.data.latestCpDisplay as string) || '';
-    const km = (this.data.weeklyKm as string) || '';
+    const cells = this.data.cells as StatCell[];
+    const tsb = cells.find((c) => c.id === 'tsb');
+    const vol = cells.find((c) => c.id === 'volume');
     const locale = detectShareLocale();
     const fallback =
-      locale === 'zh' ? '像专业选手一样训练，无论水平高低。' : 'Train like a pro. Whatever your level.';
-    return buildTimelineMessage(cp && km ? `${cp} CP · ${km}` : fallback);
+      locale === 'zh'
+        ? '像专业选手一样训练，无论水平高低。'
+        : 'Train like a pro. Whatever your level.';
+    return buildTimelineMessage(
+      tsb && vol && tsb.value !== '—' && vol.value !== '—'
+        ? `TSB ${tsb.value} · ${vol.value} km/wk`
+        : fallback,
+    );
   },
 
   onScrollRefresh() {
@@ -814,32 +849,56 @@ Page({
     void this.refetch();
   },
 
-  // The Sleep×Performance scatter is collapsed by default — the
-  // takeaway line answers "did sleep correlate with performance?"
-  // for 90% of glances. Tapping the toggle reveals the chart for
-  // users who want the underlying scatter.
-  toggleSleepCorrelation() {
-    this.setData({ showSleepCorrelation: !this.data.showSleepCorrelation });
+  /**
+   * Pill switcher tap. The `data-pill` attribute on the WXML tap
+   * surface carries the next chart id. Persist the choice so the user
+   * lands on their preferred chart on every visit, matching web's
+   * `localStorage.setItem(DIAGNOSIS_CHART_KEY, …)` behavior.
+   */
+  onPickPill(e: WechatMiniprogram.TouchEvent) {
+    const next = e.currentTarget.dataset.pill as DiagnosisPill | undefined;
+    if (!next || next === this.data.activePill) return;
+    if (next === 'zones' && !this.data.hasZones) return;
+    this.setData({ activePill: next });
+    persistActivePill(next);
+  },
+
+  /**
+   * Tap-toggle the Coach Receipt's findings + recommendations details.
+   * Recompute the toggle label so "{N} findings · {M} recs" flips to
+   * "Hide details" (and vice versa) without a re-render of the rest
+   * of the receipt body.
+   */
+  onToggleCoachDetails() {
+    const next = !this.data.detailsOpen;
+    const label = coachToggleLabel(
+      this.data.coach.findings.length,
+      this.data.coach.recommendations.length,
+      next,
+    );
+    this.setData({ detailsOpen: next, coachToggleLabel: label });
   },
 
   async refetch() {
     this.setData({ loading: true, errorMessage: '' });
     try {
-      // The training_review endpoint normally returns `{ insight: null }`
-      // when LLM is disabled. The `.catch` here is for a real transport
-      // / 5xx failure — the rule-based diagnosis Findings + Suggestions
-      // sections cover that case as deterministic fallback. Logged so a
-      // broken /api/insights/training_review is observable in DevTools
-      // / 实时日志 instead of silently regressing the receipt.
       const [response, insight] = await Promise.all([
         apiGet<TrainingResponse>('/api/training'),
         fetchInsight('training_review').catch((e) => {
           // eslint-disable-next-line no-console
-          console.warn('[training] training_review fetch failed; falling back to rule-based prose:', e);
+          console.warn('[training] training_review fetch failed; rule-based fallback active:', e);
           return null;
         }),
       ]);
-      this.setData(buildState(response, this.data.themeClass, insight) as Record<string, unknown>);
+      this.setData(
+        buildState(
+          response,
+          this.data.themeClass,
+          insight,
+          this.data.activePill,
+          this.data.tr,
+        ) as Record<string, unknown>,
+      );
     } catch (e) {
       const err = e as Partial<ApiError>;
       if (err?.code === 'UNAUTHENTICATED') {

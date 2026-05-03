@@ -12,6 +12,7 @@
  */
 import type { AiInsight, AiInsightTranslation } from '../types/api';
 import { request } from './api-client';
+import { t, tFmt } from './i18n';
 
 export type InsightView = AiInsightTranslation;
 
@@ -47,4 +48,38 @@ export async function fetchInsight(
     `/api/insights/${insightType}`,
   );
   return resp.insight ?? null;
+}
+
+/**
+ * Render the Coach Receipt's progressive-disclosure toggle label.
+ * Matches web's `AiInsightsCard` semantics:
+ *   - expanded (`detailsOpen: true`)  → "Hide details"
+ *   - collapsed + both fields present  → "{N} findings · {M} recommendations"
+ *   - collapsed + findings only        → "{N} findings"
+ *   - collapsed + recommendations only → "{M} recommendations"
+ *
+ * Web uses lingui ICU plural blocks (`# findings`); mini's `tFmt`
+ * is positional only, so the noun stays plural at count=1 — minor
+ * grammar imperfection vs. correctness, accepted because the count
+ * itself already reads as the salient signal.
+ *
+ * Returns an empty string when there's nothing to disclose; callers
+ * gate the toggle button on that.
+ */
+export function coachToggleLabel(
+  findingCount: number,
+  recommendationCount: number,
+  detailsOpen: boolean,
+): string {
+  if (findingCount + recommendationCount === 0) return '';
+  if (detailsOpen) return t('Hide details');
+  if (findingCount > 0 && recommendationCount > 0) {
+    return tFmt(
+      '{0} findings · {1} recommendations',
+      findingCount,
+      recommendationCount,
+    );
+  }
+  if (findingCount > 0) return tFmt('{0} findings', findingCount);
+  return tFmt('{0} recommendations', recommendationCount);
 }

@@ -271,8 +271,14 @@ const EN_TRAINING = {
   Volume: 'Volume',
   'Fitness & Fatigue': 'Fitness & Fatigue',
   Consistency: 'Consistency',
-  'Show correlation': 'Show correlation',
-  'Hide correlation': 'Hide correlation',
+  Zones: 'Zones',
+  Compliance: 'Compliance',
+  // Diagnosis section eyebrow — mini's reshape uses "Last N weeks"
+  // as the right-hand context after the "DIAGNOSIS" label. Web's
+  // Training surfaces "· last N weeks" inside a Trans block; mini
+  // builds it from a positional template so the digit can be
+  // interpolated without splitting the eyebrow into two text nodes.
+  'Last {0} weeks': 'Last {0} weeks',
   // Training page interpolated copy
   '{0} km/week': '{0} km/week',
   'trend: {0}': 'trend: {0}',
@@ -280,14 +286,23 @@ const EN_TRAINING = {
     '{0} sessions · gaps ≥7d: {1} · longest: {2}d',
   '{0} · {1}': '{0} · {1}',
   // Detail messages
-  'Need at least 3 activities with power data to plot a meaningful trend.':
-    'Need at least 3 activities with power data to plot a meaningful trend.',
   'Sync activities together with sleep data (Garmin, Oura, or similar) so we can pair them by date.':
     'Sync activities together with sleep data (Garmin, Oura, or similar) so we can pair them by date.',
   'Sync at least 2 weeks of data to compare planned vs actual training load.':
     'Sync at least 2 weeks of data to compare planned vs actual training load.',
   'Planned bars are estimated — your plan has no RSS targets for this base.':
     'Planned bars are estimated — your plan has no RSS targets for this base.',
+};
+
+// Praxys Coach receipt — progressive-disclosure toggle copy. Web's
+// AiInsightsCard uses lingui ICU `{n, plural, one {# finding} other
+// {# findings}}` blocks; mini's tFmt is positional only, so the noun
+// stays plural at count=1 (minor grammar imperfection accepted in
+// favour of simpler i18n).
+const EN_COACH = {
+  '{0} findings': '{0} findings',
+  '{0} recommendations': '{0} recommendations',
+  '{0} findings · {1} recommendations': '{0} findings · {1} recommendations',
 };
 
 const EN_HISTORY_SCIENCE = {
@@ -590,21 +605,26 @@ const ZH_TRAINING = {
   Volume: '训练量',
   'Fitness & Fatigue': '体能与疲劳',
   Consistency: '训练频率',
-  'Show correlation': '显示相关性',
-  'Hide correlation': '隐藏相关性',
+  Zones: '区间',
+  Compliance: '负荷',
+  'Last {0} weeks': '近 {0} 周',
   '{0} km/week': '{0} 公里/周',
   'trend: {0}': '趋势：{0}',
   '{0} sessions · gaps ≥7d: {1} · longest: {2}d':
     '{0} 次训练 · ≥7 天间隔：{1} 次 · 最长间隔：{2} 天',
   '{0} · {1}': '{0} · {1}',
-  'Need at least 3 activities with power data to plot a meaningful trend.':
-    '至少需要 3 次带功率数据的活动才能绘制有意义的趋势。',
   'Sync activities together with sleep data (Garmin, Oura, or similar) so we can pair them by date.':
     '请同时同步活动与睡眠数据 (Garmin、Oura 或类似设备)，以便按日期匹配。',
   'Sync at least 2 weeks of data to compare planned vs actual training load.':
     '请同步至少 2 周的数据，以便对比计划与实际训练负荷。',
   'Planned bars are estimated — your plan has no RSS targets for this base.':
     '计划数值为估算结果——您的训练计划在当前基准下未设置 RSS 目标。',
+};
+
+const ZH_COACH = {
+  '{0} findings': '{0} 条发现',
+  '{0} recommendations': '{0} 条建议',
+  '{0} findings · {1} recommendations': '{0} 条发现 · {1} 条建议',
 };
 
 const ZH_HISTORY_SCIENCE = {
@@ -681,6 +701,7 @@ export const I18N_EXTRA: Record<Locale, Record<string, string>> = {
     ...EN_GOAL,
     ...EN_TODAY,
     ...EN_TRAINING,
+    ...EN_COACH,
     ...EN_HISTORY_SCIENCE,
     ...EN_SETTINGS,
     ...EN_NAV_CHARTS,
@@ -690,6 +711,7 @@ export const I18N_EXTRA: Record<Locale, Record<string, string>> = {
     ...ZH_GOAL,
     ...ZH_TODAY,
     ...ZH_TRAINING,
+    ...ZH_COACH,
     ...ZH_HISTORY_SCIENCE,
     ...ZH_SETTINGS,
     ...ZH_NAV_CHARTS,
