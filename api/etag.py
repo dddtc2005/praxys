@@ -55,12 +55,16 @@ logger = logging.getLogger(__name__)
 #   /api/history     — activities + splits only; goal/recovery edits do
 #                      NOT bust the History page.
 #   /api/science     — config only; sync writes do NOT bust Science.
+#   /api/plan        — plan rows only. Stryd push/delete handlers also bump
+#                      ``plans`` so the JSON-file ``stryd_status`` field
+#                      isn't served stale via 304 after a push.
 ENDPOINT_SCOPES: dict[str, tuple[str, ...]] = {
     "today":    ("activities", "recovery", "plans", "fitness", "config"),
     "training": ("activities", "splits", "recovery", "plans", "fitness", "config"),
     "goal":     ("activities", "fitness", "config"),
     "history":  ("activities", "splits", "config"),
     "science":  ("config",),
+    "plan":     ("plans",),
 }
 
 
@@ -69,8 +73,10 @@ ENDPOINT_SCOPES: dict[str, tuple[str, ...]] = {
 # midnight, none of the DB scopes flip but the rendered framing is yesterday's
 # — without the date in the salt, a 304 would replay yesterday's body for
 # this morning's visit. ``/history`` and ``/science`` don't depend on the
-# server's date, so they stay unsalted on this axis.
-_DATE_SALTED_ENDPOINTS: frozenset[str] = frozenset({"today", "training", "goal"})
+# server's date, so they stay unsalted on this axis. ``/plan`` is salted
+# because the upcoming-workout filter (``date >= today``) shifts at midnight
+# even when no plan rows changed.
+_DATE_SALTED_ENDPOINTS: frozenset[str] = frozenset({"today", "training", "goal", "plan"})
 
 
 CACHE_CONTROL = "private, must-revalidate, max-age=0"
