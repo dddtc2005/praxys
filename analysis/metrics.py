@@ -5,6 +5,7 @@ import math
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Literal, TypedDict
 
+import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
@@ -1229,32 +1230,98 @@ def diagnose_training(
             recent_samples_filtered = s
             aids_with_samples = set(s["activity_id"].astype(str).unique())
 
+    # Vectorized zone classification — same semantics as the scalar
+    # ``_classify`` above but applied to whole arrays at once. The
+    # /api/training cold path used to spend seconds in an iterrows() loop
+    # over ~50k per-second sample rows; numpy turns that into a few
+    # millisecond-scale ufunc calls.
+    def _classify_array(
+        val_arr: np.ndarray, cp_arr: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Return (zone_idx, valid_mask) for arrays of values and per-row CP."""
+        valid = (
+            (val_arr > 0) & (cp_arr > 0)
+            & np.isfinite(val_arr) & np.isfinite(cp_arr)
+        )
+        zone_idx = np.zeros(val_arr.shape[0], dtype=np.int64)
+        if base == "pace" and inv_bounds:
+            ratio = np.zeros_like(val_arr, dtype=float)
+            np.divide(cp_arr, val_arr, out=ratio, where=valid)
+            # Preserve the original loop's first-match-from-high-index
+            # behavior bit-for-bit so any pace-base output stays stable.
+            unfilled = valid.copy()
+            for i in range(len(inv_bounds) - 1, -1, -1):
+                mask = unfilled & (ratio >= inv_bounds[i])
+                zone_idx[mask] = i + 1
+                unfilled[mask] = False
+        elif bounds:
+            ratio = np.zeros_like(val_arr, dtype=float)
+            np.divide(val_arr, cp_arr, out=ratio, where=valid)
+            # ``bounds`` is increasing; np.searchsorted with side='right'
+            # matches the original "highest i such that ratio >= bounds[i]"
+            # loop exactly: ratio < bounds[0] → 0, bounds[k-1] ≤ ratio <
+            # bounds[k] → k, ratio ≥ bounds[-1] → n_bounds.
+            searched = np.searchsorted(
+                np.asarray(bounds, dtype=float), ratio, side="right",
+            )
+            zone_idx = np.where(valid, searched, 0).astype(np.int64)
+        return zone_idx, valid
+
+    def _build_per_row_cp(aid_arr: np.ndarray) -> np.ndarray:
+        """Resolve per-activity CP via _cp_by_aid; default to current_cp."""
+        if not _cp_by_aid:
+            return np.full(aid_arr.shape[0], float(current_cp), dtype=float)
+        cp_map = pd.Series(_cp_by_aid, dtype=float)
+        return (
+            cp_map.reindex(aid_arr)
+            .fillna(float(current_cp))
+            .to_numpy(dtype=float)
+        )
+
     zone_time = [0.0] * n_zones
     total_time = 0.0
 
-    # Per-second path: 1 second per sample row
+    # Per-second path: 1 second per sample row.
     if not recent_samples_filtered.empty:
-        for _, srow in recent_samples_filtered.iterrows():
-            val = float(srow[sample_col])
-            aid = str(srow.get("activity_id", ""))
-            act_cp = _cp_by_aid.get(aid, current_cp)
-            zone_time[_classify(val, act_cp)] += 1
-            total_time += 1
+        s = recent_samples_filtered
+        val_arr = pd.to_numeric(s[sample_col], errors="coerce").to_numpy(dtype=float)
+        aid_arr = s["activity_id"].astype(str).to_numpy()
+        cp_arr = _build_per_row_cp(aid_arr)
+        zone_idx, valid = _classify_array(val_arr, cp_arr)
+        # Each valid row is 1 second of training time.
+        if valid.any():
+            counts = np.bincount(zone_idx[valid], minlength=n_zones)
+            for z in range(n_zones):
+                zone_time[z] += float(counts[z])
+            total_time += float(valid.sum())
 
-    # Split-duration fallback for activities that have no samples
+    # Split-duration fallback for activities that have no samples.
     if not recent_splits.empty:
         fallback_splits = recent_splits[
             ~recent_splits["activity_id"].astype(str).isin(aids_with_samples)
         ] if aids_with_samples else recent_splits
-        for _, srow in fallback_splits.iterrows():
-            val = srow.get(metric_col)
-            dur = srow.get("duration_sec")
-            if pd.isna(val) or pd.isna(dur) or val <= 0 or dur <= 0:
-                continue
-            aid = str(srow.get("activity_id", ""))
-            act_cp = _cp_by_aid.get(aid, current_cp)
-            zone_time[_classify(float(val), act_cp)] += float(dur)
-            total_time += float(dur)
+        if not fallback_splits.empty:
+            val_arr = pd.to_numeric(
+                fallback_splits[metric_col], errors="coerce",
+            ).to_numpy(dtype=float)
+            dur_arr = pd.to_numeric(
+                fallback_splits.get("duration_sec", 0), errors="coerce",
+            ).to_numpy(dtype=float)
+            aid_arr = fallback_splits["activity_id"].astype(str).to_numpy()
+            cp_arr = _build_per_row_cp(aid_arr)
+            zone_idx, valid = _classify_array(val_arr, cp_arr)
+            valid &= (dur_arr > 0) & np.isfinite(dur_arr)
+            if valid.any():
+                # bincount weighted by duration — accumulates split seconds
+                # into the zone bucket matching each split's classification.
+                weighted = np.bincount(
+                    zone_idx[valid],
+                    weights=dur_arr[valid],
+                    minlength=n_zones,
+                )
+                for z in range(n_zones):
+                    zone_time[z] += float(weighted[z])
+                total_time += float(dur_arr[valid].sum())
 
     resolution = "samples" if aids_with_samples else "splits"
 
