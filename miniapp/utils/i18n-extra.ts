@@ -36,6 +36,12 @@ import type { Locale } from './i18n-catalog';
 // ---------------------------------------------------------------------------
 
 const EN_AUTH = {
+  // Legacy tagline retained for the share card / timeline copy and any
+  // surface that still reads it. The login page itself uses the
+  // canonical brand-guide tagline ("Sports science that meets you
+  // where you are.") which is split into prefix/accent/suffix for the
+  // green-accent rendering and lives in `buildLoginTr` rather than
+  // here.
   'Train like a pro. Whatever your level.': 'Train like a pro. Whatever your level.',
   'Sign in with WeChat': 'Sign in with WeChat',
   'Signing you in…': 'Signing you in…',
@@ -48,7 +54,13 @@ const EN_AUTH = {
   email: 'email',
   password: 'password',
   'Email and password are required': 'Email and password are required',
+  // Old "Sign up at" footer copy retained for back-compat; the login
+  // page itself now uses the explicit "New here?" / "Have an
+  // invitation code?" rows below.
   'New here? Sign up at': 'New here? Sign up at',
+  'New here?': 'New here?',
+  'Have an invitation code?': 'Have an invitation code?',
+  'Back to sign in': 'Back to sign in',
   'tap to copy URL': 'tap to copy URL',
   'URL copied': 'URL copied',
   'Long press to save & share': 'Long press to save & share',
@@ -58,6 +70,28 @@ const EN_AUTH = {
   Cancel: 'Cancel',
   'Switch Praxys account': 'Switch Praxys account',
   'Unlinking…': 'Unlinking…',
+  // Login-page-only copy (waitlist + theme toggle aria + pillar copy).
+  // These have no web equivalent — web's Login uses <Trans> on richer
+  // JSX structures, while the miniapp builds plain-string segments
+  // because Skyline can't render mid-string colour spans inside a
+  // single text node.
+  "Today's signal.": "Today's signal.",
+  ' Go, modify, or rest.': ' Go, modify, or rest.',
+  'Diagnosis & forecast': 'Diagnosis & forecast',
+  ' you can verify.': ' you can verify.',
+  'Cited science.': 'Cited science.',
+  ' No hype.': ' No hype.',
+  'Sub-3 marathon · 100K · stay healthy…': 'Sub-3 marathon · 100K · stay healthy…',
+  // Waitlist success state — web's <Trans> bundles these into one
+  // string with `<strong>` + mailto markup; the miniapp surfaces them
+  // as a check + headline + detail trio so they need to live as
+  // separate translatable keys.
+  "You're on the list.": "You're on the list.",
+  "We'll reach out from support@praxys.run when a slot opens.":
+    "We'll reach out from support@praxys.run when a slot opens.",
+  'Light theme': 'Light theme',
+  'Dark theme': 'Dark theme',
+  'System theme': 'System theme',
   // "Sync" the noun (sync source / button label) — separate from the
   // verb "Sync now". Mini program currently uses both interchangeably.
   Sync: 'Sync',
@@ -326,7 +360,11 @@ const EN_NAV_CHARTS = {
 // ---------------------------------------------------------------------------
 
 const ZH_AUTH = {
-  // Brand tagline — canonical wording per docs/brand/index.html.
+  // Legacy share-card tagline (still consumed by share / timeline
+  // copy). Login page proper uses the canonical brand-guide tagline
+  // ("运动科学，知行合一。") split into prefix/accent/suffix in
+  // `buildLoginTr`, which can't ride this catalog because each
+  // segment must be its own coloured `<text>` node.
   'Train like a pro. Whatever your level.': '像专业选手一样训练，无论水平高低。',
   'Sign in with WeChat': '使用微信登录',
   'Signing you in…': '正在登录…',
@@ -340,6 +378,9 @@ const ZH_AUTH = {
   password: '密码',
   'Email and password are required': '请填写邮箱和密码',
   'New here? Sign up at': '没有账号？立即注册',
+  'New here?': '没有账号？',
+  'Have an invitation code?': '已有邀请码？',
+  'Back to sign in': '返回登录',
   'tap to copy URL': '点击复制链接',
   'URL copied': '链接已复制',
   'Long press to save & share': '长按保存并分享',
@@ -349,6 +390,21 @@ const ZH_AUTH = {
   Cancel: '取消',
   'Switch Praxys account': '切换 Praxys 账号',
   'Unlinking…': '正在解绑…',
+  // Login-page-only zh copy. Pillars use 您 (formal you) per the
+  // project-wide i18n terminology preference.
+  "Today's signal.": '今日信号。',
+  ' Go, modify, or rest.': '训练、调整或休息。',
+  'Diagnosis & forecast': '诊断与预测',
+  ' you can verify.': '可由您验证。',
+  'Cited science.': '有据可查的科学。',
+  ' No hype.': '不浮夸。',
+  'Sub-3 marathon · 100K · stay healthy…': '破三马拉松 · 100 公里 · 保持健康…',
+  "You're on the list.": '已加入等待名单。',
+  "We'll reach out from support@praxys.run when a slot opens.":
+    '名额开放时我们会通过 support@praxys.run 联系您。',
+  'Light theme': '浅色主题',
+  'Dark theme': '深色主题',
+  'System theme': '跟随系统',
   Sync: '同步',
   'Sync now': '立即同步',
   'Syncing…': '同步中…',

@@ -16,23 +16,115 @@
     >中</text>
   </view>
 
+  <!-- Theme toggle: top-LEFT just under the language pill. Three states
+       (auto / light / dark) cycle on tap; the active glyph is filled,
+       inactive sit muted. SVG masks (sun / moon / monitor) replace the
+       unicode glyphs we used to render — Skyline strokes them cleanly,
+       and they match the brand's "no emoji icons" rule. -->
+  <view class="login-theme-toggle">
+    <view
+      class="login-theme-opt {{themePref === 'light' ? 'login-theme-opt--active' : ''}}"
+      data-theme="light"
+      bindtap="onSwitchTheme"
+      aria-label="{{tr.themeLight}}"
+    >
+      <view class="login-theme-icon login-theme-icon--sun"></view>
+    </view>
+    <view
+      class="login-theme-opt {{themePref === 'dark' ? 'login-theme-opt--active' : ''}}"
+      data-theme="dark"
+      bindtap="onSwitchTheme"
+      aria-label="{{tr.themeDark}}"
+    >
+      <view class="login-theme-icon login-theme-icon--moon"></view>
+    </view>
+    <view
+      class="login-theme-opt {{themePref === 'auto' ? 'login-theme-opt--active' : ''}}"
+      data-theme="auto"
+      bindtap="onSwitchTheme"
+      aria-label="{{tr.themeAuto}}"
+    >
+      <view class="login-theme-icon login-theme-icon--monitor"></view>
+    </view>
+  </view>
+
   <block wx:if="{{stage === 'idle'}}">
     <view class="login-stack">
+      <!-- PRIVATE ALPHA · INVITATION ONLY eyebrow — surfaces the alpha
+           state on first touch. Cobalt = reasoning surface; the eyebrow
+           tells the user "this is a deliberate, scoped product, not a
+           closed-down site". Mirrors web's login-hero-eyebrow. -->
+      <view class="login-eyebrow fade-in" style="animation-delay: 0ms">
+        <view class="login-eyebrow-dot"></view>
+        <text class="login-eyebrow-text">{{tr.alphaEyebrow}}</text>
+      </view>
+
       <image class="login-mark fade-in" src="/assets/brand/mark.png" mode="aspectFit"
-             style="animation-delay: 0ms" />
-      <view class="login-wordmark fade-in" style="animation-delay: 80ms">
+             style="animation-delay: 60ms" />
+      <view class="login-wordmark fade-in" style="animation-delay: 120ms">
         <text class="login-wordmark__text">Pra<text class="login-wordmark__accent">x</text>ys</text>
       </view>
-      <text class="login-hero fade-in" style="animation-delay: 160ms">{{tr.hero}}</text>
-      <text class="login-description fade-in" style="animation-delay: 240ms">{{tr.description}}</text>
-      <button class="ts-button login-cta fade-in" style="animation-delay: 320ms"
+
+      <!-- Canonical brand-guide tagline. Split into prefix + green-accent
+           span + suffix because Skyline's text composition can't put a
+           coloured span inside a single text node — we render each
+           segment as its own <text>, inline-styled, and let the line wrap
+           naturally. en: "Sports science that <accent>meets you</accent>
+           where you are." / zh: "运动科学，<accent>知行合一</accent>。" -->
+      <view class="login-tagline fade-in" style="animation-delay: 200ms">
+        <text class="login-tagline-seg">{{tr.taglinePrefix}}</text>
+        <text class="login-tagline-seg login-tagline-accent">{{tr.taglineAccent}}</text>
+        <text class="login-tagline-seg">{{tr.taglineSuffix}}</text>
+      </view>
+
+      <button class="ts-button login-cta fade-in" style="animation-delay: 280ms"
               bindtap="onSignInTap">{{tr.signInWeChat}}</button>
+
+      <!-- Three structural pillars. Match web's login-pillars list:
+           "Today's signal · go, modify, or rest" / "Diagnosis & forecast
+           you can verify" / "Cited science. No hype." Strong half of
+           each pillar is rendered with full text colour; the rest is
+           muted so the eye scans the strong half first. -->
+      <view class="login-pillars fade-in" style="animation-delay: 360ms">
+        <view class="login-pillar">
+          <text class="login-pillar-num">01</text>
+          <view class="login-pillar-text">
+            <text class="login-pillar-strong">{{tr.pillar1Strong}}</text>
+            <text class="login-pillar-rest">{{tr.pillar1Rest}}</text>
+          </view>
+        </view>
+        <view class="login-pillar">
+          <text class="login-pillar-num">02</text>
+          <view class="login-pillar-text">
+            <text class="login-pillar-strong">{{tr.pillar2Strong}}</text>
+            <text class="login-pillar-rest">{{tr.pillar2Rest}}</text>
+          </view>
+        </view>
+        <view class="login-pillar">
+          <text class="login-pillar-num">03</text>
+          <view class="login-pillar-text">
+            <text class="login-pillar-strong">{{tr.pillar3Strong}}</text>
+            <text class="login-pillar-rest">{{tr.pillar3Rest}}</text>
+          </view>
+        </view>
+      </view>
     </view>
-    <view class="login-footer fade-in" style="animation-delay: 400ms">
-      <text class="login-newhere-label ts-muted">{{tr.newHere}}</text>
-      <view class="login-signup-row" bindtap="onCopySignupUrl">
-        <text class="login-signup-url ts-primary">praxys.run</text>
-        <text class="login-signup-hint ts-muted">·  {{tr.tapToCopyUrl}}</text>
+
+    <!-- Footer: waitlist link + invitation-code-on-web hint. The
+         waitlist replaces the prior "Sign up at praxys.run" copy-to-
+         clipboard handoff for users without a code. Per CLAUDE.md
+         registration boundary, the waitlist is the one registration-
+         adjacent write the miniapp owns; invitation-code redemption
+         + account creation + the platform-connection wizard all stay
+         on praxys.run. -->
+    <view class="login-footer fade-in" style="animation-delay: 440ms">
+      <view class="login-footer-row" bindtap="onWaitlistTap">
+        <text class="login-footer-label ts-muted">{{tr.newHere}}</text>
+        <text class="login-footer-link">{{tr.joinTheWaitlist}}</text>
+      </view>
+      <view class="login-footer-row" bindtap="onCopySignupUrl">
+        <text class="login-footer-label ts-muted">{{tr.haveInviteCode}}</text>
+        <text class="login-footer-link login-footer-link--mono">praxys.run</text>
       </view>
     </view>
   </block>
@@ -55,8 +147,8 @@
 
   <!-- Link form: WeChat is unbound on the backend. Same brand stack at
        top, then email + password inputs, then "Link to Praxys" CTA.
-       The "new here?" footer stays so a brand-new WeChat user can pivot
-       to the praxys.run signup flow without backing out. -->
+       The waitlist row stays accessible so a brand-new WeChat user
+       who landed here by mistake can pivot without backing out. -->
   <block wx:elif="{{stage === 'choose' || stage === 'link'}}">
     <view class="login-stack">
       <image class="login-mark" src="/assets/brand/mark.png" mode="aspectFit" />
@@ -103,11 +195,80 @@
       >{{tr.linkAction}}</button>
     </view>
     <view class="login-footer">
-      <text class="login-newhere-label ts-muted">{{tr.newHere}}</text>
-      <view class="login-signup-row" bindtap="onCopySignupUrl">
-        <text class="login-signup-url ts-primary">praxys.run</text>
-        <text class="login-signup-hint ts-muted">·  {{tr.tapToCopyUrl}}</text>
+      <view class="login-footer-row" bindtap="onWaitlistTap">
+        <text class="login-footer-label ts-muted">{{tr.newHere}}</text>
+        <text class="login-footer-link">{{tr.joinTheWaitlist}}</text>
       </view>
+    </view>
+  </block>
+
+  <!-- Waitlist signup. Calls POST /api/auth/waitlist with
+       { email, note?, locale }; per-IP rate-limited (5/hour) on the
+       backend. Success state shows the same "we'll reach out from
+       support@praxys.run when a slot opens" message web shows, then
+       a back-to-idle button. -->
+  <block wx:elif="{{stage === 'waitlist'}}">
+    <view class="login-stack">
+      <image class="login-mark" src="/assets/brand/mark.png" mode="aspectFit" />
+      <view class="login-eyebrow">
+        <view class="login-eyebrow-dot"></view>
+        <text class="login-eyebrow-text">{{tr.alphaEyebrow}}</text>
+      </view>
+      <text class="login-hero">{{tr.joinTheWaitlist}}</text>
+      <text class="login-description">{{tr.waitlistIntro}}</text>
+
+      <view class="login-field">
+        <view class="login-field__icon login-field__icon--mail"></view>
+        <input
+          class="login-field__input"
+          type="email"
+          placeholder="{{tr.emailPlaceholder}}"
+          placeholder-class="login-field__placeholder"
+          style="color: {{themeClass === 'theme-light' ? '#15192a' : '#e8ebf0'}}; text-align: left;"
+          cursor-spacing="{{40}}"
+          adjust-position="{{true}}"
+          confirm-type="next"
+          value="{{waitlistEmail}}"
+          bindinput="onWaitlistEmailInput"
+        />
+      </view>
+      <view class="login-field">
+        <view class="login-field__icon login-field__icon--note"></view>
+        <input
+          class="login-field__input"
+          type="text"
+          maxlength="{{500}}"
+          placeholder="{{tr.waitlistNotePlaceholder}}"
+          placeholder-class="login-field__placeholder"
+          style="color: {{themeClass === 'theme-light' ? '#15192a' : '#e8ebf0'}}; text-align: left;"
+          cursor-spacing="{{40}}"
+          adjust-position="{{true}}"
+          confirm-type="done"
+          value="{{waitlistNote}}"
+          bindinput="onWaitlistNoteInput"
+        />
+      </view>
+      <text wx:if="{{waitlistError}}" class="login-error ts-destructive">{{waitlistError}}</text>
+      <button
+        class="ts-button login-cta"
+        loading="{{waitlistSubmitting}}"
+        bindtap="onWaitlistSubmit"
+      >{{waitlistSubmitting ? tr.saving : tr.joinTheWaitlist}}</button>
+      <view class="login-back-row" bindtap="onWaitlistBack">
+        <text class="login-back-link ts-muted">{{tr.backToSignIn}}</text>
+      </view>
+    </view>
+  </block>
+
+  <block wx:elif="{{stage === 'waitlist-success'}}">
+    <view class="login-stack">
+      <image class="login-mark" src="/assets/brand/mark.png" mode="aspectFit" />
+      <view class="login-success">
+        <text class="login-success-mark">✓</text>
+        <text class="login-success-title">{{tr.waitlistSuccessTitle}}</text>
+      </view>
+      <text class="login-description">{{tr.waitlistSuccessDetail}}</text>
+      <button class="ts-button login-cta" bindtap="onWaitlistBack">{{tr.backToSignIn}}</button>
     </view>
   </block>
 </view>
