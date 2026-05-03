@@ -59,7 +59,10 @@ const CAPABILITY_LABELS: Record<string, MessageDescriptor> = {
 const PREFERENCE_CATEGORIES: { key: string; label: MessageDescriptor; desc: MessageDescriptor }[] = [
   { key: 'activities', label: msg`Activities`, desc: msg`Primary source for workout data` },
   { key: 'recovery', label: msg`Recovery`, desc: msg`Sleep, HRV, readiness` },
-  { key: 'plan', label: msg`Plan`, desc: msg`Training plan & targets` },
+  // Plan is always managed inside Praxys; this preference picks where
+  // Praxys pushes your authored plan to. Per-workout sync state
+  // (synced / mismatch / not synced) shows on each row in Training.
+  { key: 'plan', label: msg`Plan sync target`, desc: msg`Where Praxys pushes your plan. Per-workout sync state shows in Training.` },
 ];
 
 const BASE_CONFIG: Record<TrainingBase, { label: MessageDescriptor; desc: MessageDescriptor; icon: React.ReactNode }> = {
@@ -1108,10 +1111,59 @@ export default function Settings() {
         </CardHeader>
         <CardContent className="space-y-3">
           {PREFERENCE_CATEGORIES.map(({ key, label, desc }) => {
+            // Plan sync target is a write destination, not a read source —
+            // 'ai' isn't a target you can push to, only the platform names
+            // (currently just 'stryd') belong here. Activities/recovery
+            // keep their full provider lists.
             const providers = (availableProviders[key as keyof typeof availableProviders] || []).filter(
-              (p: string) => (connections as string[]).includes(p) || (key === 'plan' && p === 'ai')
+              (p: string) => (connections as string[]).includes(p),
             );
-            const current = (config.preferences as Record<string, string>)[key] || providers[0];
+            // Sanitise: a legacy DB row might have ``preferences.plan = 'ai'``
+            // from before the reframe. The toggle group renders one item per
+            // entry in ``providers``; if ``current`` doesn't match any of
+            // them, the whole group shows nothing selected and the user has
+            // to click to "fix" a state that's actually just stale config.
+            // Falling back to providers[0] surfaces the auto-selected target
+            // until the user explicitly picks otherwise (next save persists).
+            const rawCurrent = (config.preferences as Record<string, string>)[key];
+            const current = providers.includes(rawCurrent) ? rawCurrent : providers[0];
+
+            // No connection that can serve this category — surface the
+            // gap so the user knows why they can't pick anything, rather
+            // than rendering an empty toggle group with no affordance.
+            if (providers.length === 0) {
+              return (
+                <div key={key} className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground">{i18n._(label)}</p>
+                    <p className="text-xs text-muted-foreground">{i18n._(desc)}</p>
+                  </div>
+                  <span className="text-xs text-muted-foreground italic">
+                    <Trans>Connect a platform</Trans>
+                  </span>
+                </div>
+              );
+            }
+
+            // Single provider → no choice to make. Render a static
+            // "selected by default" badge so the user can see that this
+            // category is wired up, instead of a one-button toggle that
+            // looks deactivatable but isn't.
+            if (providers.length === 1) {
+              const only = providers[0];
+              const meta = PLATFORM_META[only];
+              return (
+                <div key={key} className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground">{i18n._(label)}</p>
+                    <p className="text-xs text-muted-foreground">{i18n._(desc)}</p>
+                  </div>
+                  <Badge variant="secondary" className="font-medium">
+                    {meta?.label || only}
+                  </Badge>
+                </div>
+              );
+            }
 
             return (
               <div key={key} className="flex items-center justify-between gap-4">

@@ -353,11 +353,17 @@ Paginated activity history.
 
 ### GET /api/plan
 
-Upcoming planned workouts plus the caller's Stryd push history.
+The user's AI plan within a window, plus per-row Stryd sync state and the
+caller's Stryd push history.
 
-The `stryd_status` field used to be its own `GET /api/plan/stryd-status`
-endpoint; it was folded into this response so the Training page only pays
-one cross-region round-trip on cold load.
+The canonical plan is the AI-authored one (`source='ai'`); Stryd plan rows
+in the same window are surfaced as a `sync_state` flag on each AI row and
+as `stryd_only_dates` for Stryd entries with no AI counterpart.
+
+**Query params:**
+- `start` *(YYYY-MM-DD, default = today)* — window start.
+- `end` *(YYYY-MM-DD, default = `start + 14 days`)* — window end. Inverted
+  or longer-than-365-day windows return 400.
 
 **Response:**
 ```json
@@ -370,15 +376,29 @@ one cross-region round-trip on cold load.
       "distance_km": 11.0,
       "power_min": 235,
       "power_max": 255,
-      "description": "WU 10min, 2x20min @235-255W..."
+      "description": "WU 10min, 2x20min @235-255W...",
+      "sync_state": "synced"
     }
   ],
-  "cp_current": 247.8,
   "stryd_status": {
     "2026-04-11": { "workout_id": "stryd_123", "pushed_at": "...", "status": "pushed" }
-  }
+  },
+  "sync_target": "stryd",
+  "stryd_only_dates": ["2026-04-13"],
+  "window": { "start": "2026-04-11", "end": "2026-04-25" }
 }
 ```
+
+`sync_state` is one of:
+- `synced` — Stryd has a matching workout whose id equals the one we
+  logged on push (a re-push is a no-op).
+- `mismatch` — Stryd has a workout on this date but we don't recognise
+  its id (user-edited on Stryd, or never pushed). The UI confirms before
+  overwriting.
+- `not_synced` — No Stryd workout on this date.
+
+`sync_target` is `"stryd"` when the user has a Stryd connection, else
+`null` — clients can hide the entire sync column when it's `null`.
 
 ### POST /api/plan/push-stryd
 

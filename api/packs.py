@@ -563,15 +563,17 @@ def get_signal_pack(ctx: RequestContext) -> dict:
         data_dir=None, latest_cp_watts=ctx.latest_cp_watts,
     )
 
-    display_days = 60
-    date_range = pd.date_range(
-        ctx.today - timedelta(days=display_days), ctx.today,
-    )
-    display_tsb = fs["tsb"].iloc[-len(date_range):]
-    ff_dates = [d.strftime("%Y-%m-%d") for d in date_range]
+    # Sparkline uses the last 14 days of TSB. Take the tail directly
+    # off the series (no synthetic date_range) so dates and values
+    # always come from the same source — same fix as get_fitness_pack.
+    tsb_window = fs["tsb"].iloc[-14:]
+    ff_dates = [
+        (d.strftime("%Y-%m-%d") if hasattr(d, "strftime") else str(d))
+        for d in tsb_window.index
+    ]
     tsb_sparkline = {
-        "dates": ff_dates[-14:],
-        "values": [round(float(v), 1) for v in display_tsb.values][-14:],
+        "dates": ff_dates,
+        "values": [round(float(v), 1) for v in tsb_window.values],
         "projected_dates": proj["dates"][:7],
         "projected_values": proj["tsb"][:7],
     }
@@ -630,18 +632,29 @@ def get_fitness_pack(ctx: RequestContext) -> dict:
     fs = ctx.fitness_series
     proj = ctx.projection
     display_days = 60
-    date_range = pd.date_range(
-        ctx.today - timedelta(days=display_days), ctx.today,
-    )
-    display_ctl = fs["ctl"].iloc[-len(date_range):]
-    display_atl = fs["atl"].iloc[-len(date_range):]
-    display_tsb = fs["tsb"].iloc[-len(date_range):]
-    ff_dates = [d.strftime("%Y-%m-%d") for d in date_range]
+    # Pair dates with values from the same source — fs["ctl"]'s own
+    # index. The previous code took dates from a synthetic
+    # ``pd.date_range(today-60d, today)`` (61 entries) and values
+    # from ``fs["ctl"].iloc[-61:]`` — fine when the user has ≥61
+    # days of data, but for users whose history is shorter the
+    # dates list is longer than the values list and they get paired
+    # off by index, dragging values 12+ days back in time. Visually
+    # that showed up as the FF lines trailing off ~12 days before
+    # today on a stale-data account. iloc-tail keeps the same
+    # alignment guarantee without a date-vs-Timestamp comparison
+    # that would throw on mixed-dtype indexes.
+    ctl_window = fs["ctl"].iloc[-display_days:]
+    atl_window = fs["atl"].iloc[-display_days:]
+    tsb_window = fs["tsb"].iloc[-display_days:]
+    ff_dates = [
+        (d.strftime("%Y-%m-%d") if hasattr(d, "strftime") else str(d))
+        for d in ctl_window.index
+    ]
     fitness_fatigue = {
         "dates": ff_dates,
-        "ctl": [round(float(v), 1) for v in display_ctl.values],
-        "atl": [round(float(v), 1) for v in display_atl.values],
-        "tsb": [round(float(v), 1) for v in display_tsb.values],
+        "ctl": [round(float(v), 1) for v in ctl_window.values],
+        "atl": [round(float(v), 1) for v in atl_window.values],
+        "tsb": [round(float(v), 1) for v in tsb_window.values],
         "projected_dates": proj["dates"],
         "projected_ctl": proj["ctl"],
         "projected_atl": proj["atl"],
@@ -742,61 +755,8 @@ def get_science_pack(ctx: RequestContext) -> dict:
     }
 
 
-def get_plan_pack(ctx: RequestContext) -> dict:
-    """Upcoming workouts + today's planned power_max for /api/plan.
-
-    Used by ``/api/plan``. Reads only the ``training_plans`` rows already
-    loaded by ``RequestContext._data`` — no fitness series, recovery,
-    diagnosis, projection, or activity-list build. The pre-pack route
-    called ``get_dashboard_data`` to extract these two fields, which paid
-    the full dashboard compute (~22 top-level steps including the
-    deduplication pass and per-second ``activity_samples`` load) just to
-    discard everything except ``plan`` and one row of ``signal``.
-
-    ``cp_current`` preserves the legacy field name even though it carries
-    today's planned ``target_power_max`` (the upper bound of today's
-    workout, not the user's current CP). Renaming would be a frontend
-    contract change for a field nothing currently reads — left as-is.
-    """
-    plan_df = ctx.plan
-    today = ctx.today
-
-    workouts: list[dict] = []
-    if not plan_df.empty:
-        upcoming = plan_df[plan_df["date"] >= today].sort_values("date")
-        for _, row in upcoming.iterrows():
-            row_date = row["date"]
-            workout: dict = {
-                "date": (
-                    row_date.isoformat()
-                    if hasattr(row_date, "isoformat")
-                    else str(row_date)
-                ),
-                "workout_type": row.get("workout_type", ""),
-            }
-            for field, csv_col in (
-                ("duration_min", "planned_duration_min"),
-                ("distance_km", "planned_distance_km"),
-                ("power_min", "target_power_min"),
-                ("power_max", "target_power_max"),
-                ("description", "workout_description"),
-            ):
-                val = row.get(csv_col)
-                if pd.notna(val) and val != "":
-                    workout[field] = (
-                        str(val) if field == "description" else float(val)
-                    )
-            workouts.append(workout)
-
-    cp_current: float | None = None
-    if not plan_df.empty:
-        today_plan = plan_df[plan_df["date"] == today]
-        if not today_plan.empty:
-            val = today_plan.iloc[0].get("target_power_max")
-            if pd.notna(val) and val != "":
-                try:
-                    cp_current = float(val)
-                except (ValueError, TypeError):
-                    pass
-
-    return {"workouts": workouts, "cp_current": cp_current}
+# NOTE: ``get_plan_pack`` was retired with the /api/plan reshape.
+# The route now does its own (window-aware, source-filtered, sync-state-
+# aware) projection of ``ctx.plan`` — see api/routes/plan.py. The pack
+# only ever served two endpoints (this one) and its ``cp_current`` field
+# was dead on the frontend, so the indirection wasn't earning its keep.

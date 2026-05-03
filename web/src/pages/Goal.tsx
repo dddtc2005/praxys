@@ -2,13 +2,13 @@ import { useState, type ReactNode } from 'react';
 import { useApi } from '@/hooks/useApi';
 import { useAuth } from '@/hooks/useAuth';
 import { useSettings } from '@/contexts/SettingsContext';
-import type { AiInsight, GoalResponse } from '@/types/api';
+import type { GoalResponse } from '@/types/api';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import GoalEditor from '@/components/GoalEditor';
-import AiInsightsCard from '@/components/AiInsightsCard';
+import AiInsightsCard, { type CoachFallback } from '@/components/AiInsightsCard';
 import CpTrendChart from '@/components/charts/CpTrendChart';
 import DataHint from '@/components/DataHint';
 import ScienceNote from '@/components/ScienceNote';
@@ -97,7 +97,7 @@ interface StripCell {
   tone?: StripTone;
 }
 
-function TrajectoryGoal({ data, hasCoachForecast }: { data: GoalResponse; hasCoachForecast: boolean }) {
+function TrajectoryGoal({ data }: { data: GoalResponse }) {
   const { t, i18n } = useLingui();
   const predictionNote = usePredictionNote();
   const ultraNote = useUltraNote();
@@ -326,7 +326,17 @@ function TrajectoryGoal({ data, hasCoachForecast }: { data: GoalResponse; hasCoa
       <div className="goal-cols">
         <div className="goal-col-chart">{chart}</div>
         <div className="goal-col-coach">
-          <AiInsightsCard insightType="race_forecast" attribution={attribution} />
+          {/* Praxys Coach receipt — single canonical narrative
+              surface. AI race-forecast insight when available, the
+              deterministic `trend_note` (rule-based reality-check
+              prose) otherwise. The receipt always renders so the user
+              sees a "why" beneath the headline regardless of AI
+              availability. */}
+          <AiInsightsCard
+            insightType="race_forecast"
+            attribution={attribution}
+            fallback={rCheck.trend_note ? { headline: rCheck.trend_note } as CoachFallback : undefined}
+          />
         </div>
       </div>
 
@@ -369,10 +379,6 @@ function TrajectoryGoal({ data, hasCoachForecast }: { data: GoalResponse; hasCoa
           </div>
         )}
 
-      {!hasCoachForecast && rCheck.trend_note && (
-        <p className="goal-rationale">{rCheck.trend_note}</p>
-      )}
-
       <ScienceNote text={note.text} sourceUrl={note.url} sourceLabel={t`Source`} />
       {isUltra && <ScienceNote text={ultraNote()} sourceUrl={SCIENCE_ULTRA_URL} sourceLabel={t`Discussion`} />}
     </div>
@@ -399,11 +405,6 @@ function GoalSkeleton() {
 
 export default function Goal() {
   const { data, loading, error, refetch } = useApi<GoalResponse>('/api/goal');
-  // Same query key as AiInsightsCard, dedupes via React Query.
-  const { data: forecastData } = useApi<{ insight: AiInsight | null }>(
-    '/api/insights/race_forecast',
-  );
-  const hasCoachForecast = forecastData?.insight != null;
   const { isDemo } = useAuth();
   const { config, updateSettings } = useSettings();
   const [isEditing, setIsEditing] = useState(false);
@@ -456,7 +457,7 @@ export default function Goal() {
         />
       )}
 
-      {data && <TrajectoryGoal data={data} hasCoachForecast={hasCoachForecast} />}
+      {data && <TrajectoryGoal data={data} />}
     </div>
   );
 }

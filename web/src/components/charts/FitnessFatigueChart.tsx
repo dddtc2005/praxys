@@ -15,7 +15,6 @@ import type { TimeSeriesData } from '@/types/api';
 import ScienceNote from '@/components/ScienceNote';
 import ZoneLegend from '@/components/charts/ZoneLegend';
 import { useScience, tsbZoneFromConfig } from '@/contexts/ScienceContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useChartColors } from '@/hooks/useChartColors';
 import { Trans, useLingui } from '@lingui/react/macro';
 
@@ -42,7 +41,7 @@ function CustomTooltip({ active, payload, label, tsbZones, chartColors }: any) {
       <div className="flex items-center gap-2 mb-2">
         <span className="text-[11px] text-muted-foreground font-data">{label}</span>
         {isProjected && (
-          <span className="text-[9px] uppercase tracking-wider text-accent-purple font-semibold px-1.5 py-0.5 rounded bg-accent-purple/10">
+          <span className="text-[9px] uppercase tracking-wider text-accent-cobalt font-semibold px-1.5 py-0.5 rounded bg-accent-cobalt/10">
             <Trans>Projected</Trans>
           </span>
         )}
@@ -147,26 +146,60 @@ export default function FitnessFatigueChart({ data, scienceNote }: Props) {
     };
   }, [data]);
 
-  const projectionStartDate = data.dates[data.dates.length - 1];
+  // Anchor the "today" reference line to actual today, not the last
+  // data point — those drift apart when the user hasn't trained recently
+  // (or hasn't synced), and the label "today" sitting on a 10-day-old
+  // date is misleading. We snap to the nearest categorical x in
+  // chartData because Recharts ReferenceLine requires a category match.
+  //
+  // ISO dates parsed with explicit ``T00:00:00`` for consistency with
+  // the rest of the codebase (UpcomingPlanCard.formatDate). Bare
+  // ``YYYY-MM-DD`` parses as UTC in modern V8 but as local on some
+  // older runtimes — pinning the time avoids the gap calculation
+  // wandering across a midnight boundary on a slow machine clock.
+  const todayMarkerDate = useMemo(() => {
+    if (!chartData.length) return undefined;
+    const parseIso = (s: string) => new Date(`${s}T00:00:00`).getTime();
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const exact = chartData.find((d) => d.date === todayIso);
+    if (exact) return exact.date;
+    const todayMs = parseIso(todayIso);
+    let nearest = chartData[0];
+    let nearestGap = Math.abs(parseIso(nearest.date) - todayMs);
+    for (const row of chartData) {
+      const gap = Math.abs(parseIso(row.date) - todayMs);
+      if (gap < nearestGap) {
+        nearest = row;
+        nearestGap = gap;
+      }
+    }
+    // If the nearest point is more than ~10 days off, the chart's
+    // window doesn't actually include today — drop the marker rather
+    // than pinning it to the edge with a misleading "today" label.
+    return nearestGap <= 10 * 24 * 60 * 60 * 1000 ? nearest.date : undefined;
+  }, [chartData]);
 
   return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between space-y-0">
-        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          <Trans>Fitness / Fatigue / Form</Trans>
-        </CardTitle>
-        <div className="flex items-center gap-4 text-[11px]">
+    // Borderless content block (no Card chrome) — used inside the
+    // Diagnosis chart switcher tab. Section identity comes from the
+    // switcher tab label above; no own header eyebrow needed.
+    <section>
+      <div className="flex flex-row items-center justify-end mb-4">
+        {/* Legend pairs each acronym with its plain-English meaning.
+            Power users keep CTL/ATL/TSB anchors; first-timers get
+            meaning. */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-0.5 rounded-full" style={{ backgroundColor: chartColors.fitness }} />
-            <span className="text-muted-foreground">CTL</span>
+            <span className="text-muted-foreground"><Trans>Fitness</Trans> <span className="font-data">CTL</span></span>
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-0.5 rounded-full" style={{ backgroundColor: chartColors.fatigue }} />
-            <span className="text-muted-foreground">ATL</span>
+            <span className="text-muted-foreground"><Trans>Fatigue</Trans> <span className="font-data">ATL</span></span>
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-0.5 rounded-full" style={{ backgroundColor: chartColors.form }} />
-            <span className="text-muted-foreground">TSB</span>
+            <span className="text-muted-foreground"><Trans>Form</Trans> <span className="font-data">TSB</span></span>
           </span>
           {hasProjection && (
             <span className="flex items-center gap-1.5">
@@ -175,8 +208,8 @@ export default function FitnessFatigueChart({ data, scienceNote }: Props) {
             </span>
           )}
         </div>
-      </CardHeader>
-      <CardContent>
+      </div>
+      <div>
         <ResponsiveContainer width="100%" height={380}>
           <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -5, bottom: 5 }}>
             <defs>
@@ -207,13 +240,20 @@ export default function FitnessFatigueChart({ data, scienceNote }: Props) {
 
             <ReferenceLine y={0} stroke={chartColors.tick} strokeWidth={1} strokeDasharray="4 3" />
 
-            {hasProjection && (
+            {todayMarkerDate && (
               <ReferenceLine
-                x={projectionStartDate}
+                x={todayMarkerDate}
                 stroke={chartColors.projection}
                 strokeWidth={1}
                 strokeDasharray="3 3"
-                label={{ value: t`Today`, position: 'top', fill: chartColors.projection, fontSize: 10 }}
+                label={{
+                  value: t`Today`,
+                  position: 'insideTop',
+                  offset: 6,
+                  fill: chartColors.projection,
+                  fontSize: 10,
+                  fontFamily: 'JetBrains Mono Variable, monospace',
+                }}
               />
             )}
 
@@ -250,6 +290,7 @@ export default function FitnessFatigueChart({ data, scienceNote }: Props) {
                 <Line type="monotone" dataKey="proj_tsb" stroke={chartColors.projection} strokeWidth={2} strokeDasharray="6 4" dot={false} connectNulls={false} isAnimationActive={false} />
               </>
             )}
+
           </ComposedChart>
         </ResponsiveContainer>
 
@@ -261,7 +302,7 @@ export default function FitnessFatigueChart({ data, scienceNote }: Props) {
           sourceUrl={scienceNote?.citations?.[0]?.url || "https://help.trainingpeaks.com/hc/en-us/articles/204071944"}
           sourceLabel={scienceNote?.citations?.[0]?.label || "TrainingPeaks PMC"}
         />
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }
