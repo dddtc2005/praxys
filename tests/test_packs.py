@@ -256,6 +256,93 @@ def test_packs_share_cache_across_calls(db_with_seeded_user, monkeypatch):
     )
 
 
+def _count_load_data_from_db(monkeypatch) -> dict:
+    """Patch ``load_data_from_db`` everywhere it can be reached and
+    return a {'n': int} call counter.
+
+    Patching only ``api.packs.load_data_from_db`` (the eager top-level
+    import) misses lazy ``from analysis.data_loader import load_data_from_db``
+    statements buried inside ``_compute_threshold_data`` and
+    ``_build_threshold_trend_chart``. Those lazy imports resolve against
+    ``analysis.data_loader`` at call time, so a future regression that
+    reintroduced a re-load via the deps.py path would slip past a single-
+    site patch. Patch both modules so any code path counts.
+    """
+    from api import packs as packs_mod
+    import analysis.data_loader as loader_mod
+
+    real_loader = loader_mod.load_data_from_db
+    calls = {"n": 0}
+
+    def counting_loader(uid, _db):
+        calls["n"] += 1
+        return real_loader(uid, _db)
+
+    monkeypatch.setattr(loader_mod, "load_data_from_db", counting_loader)
+    monkeypatch.setattr(packs_mod, "load_data_from_db", counting_loader)
+    return calls
+
+
+@pytest.mark.parametrize("training_base", ["hr", "pace"])
+def test_threshold_helpers_dont_reload_on_hr_pace_base(
+    db_with_seeded_user, monkeypatch, training_base,
+):
+    """``_compute_threshold_data`` and ``_build_threshold_trend_chart``
+    used to call ``load_data_from_db`` a second time inside the request
+    on HR/pace base — bypassing ``RequestContext._data`` and paying for
+    a full re-load of activities + splits + recovery + fitness + plan
+    just to read the wide-fitness frame they already had upstream.
+
+    With ``fitness_data`` threaded through both helpers, this regression
+    is silenced. The test exercises both ``threshold_data`` and
+    ``cp_trend_chart`` cached_properties (the two consumers) and asserts
+    the loader still runs exactly once.
+    """
+    from db.models import UserConfig as UserConfigModel
+
+    db, user_id = db_with_seeded_user
+    db.add(UserConfigModel(user_id=user_id, training_base=training_base))
+    db.commit()
+
+    calls = _count_load_data_from_db(monkeypatch)
+
+    from api import packs as packs_mod
+    ctx = packs_mod.RequestContext(user_id=user_id, db=db)
+    _ = ctx.threshold_data
+    _ = ctx.cp_trend_chart
+
+    assert calls["n"] == 1, (
+        f"expected loader to run exactly once per request on "
+        f"training_base={training_base!r}, got {calls['n']}"
+    )
+
+
+@pytest.mark.parametrize("training_base", ["hr", "pace"])
+def test_get_dashboard_data_does_not_double_load_on_hr_pace_base(
+    db_with_seeded_user, monkeypatch, training_base,
+):
+    """The legacy ``get_dashboard_data`` path (still wired in for CLI /
+    skill scripts and a handful of tests) ran the threshold helpers with
+    the same pre-fix double-load pattern. Cover it explicitly so the
+    fallback path can't silently regress.
+    """
+    from db.models import UserConfig as UserConfigModel
+
+    db, user_id = db_with_seeded_user
+    db.add(UserConfigModel(user_id=user_id, training_base=training_base))
+    db.commit()
+
+    calls = _count_load_data_from_db(monkeypatch)
+
+    from api.deps import get_dashboard_data
+    get_dashboard_data(user_id=user_id, db=db)
+
+    assert calls["n"] == 1, (
+        f"get_dashboard_data on training_base={training_base!r} ran the "
+        f"loader {calls['n']} times — expected 1."
+    )
+
+
 def test_today_route_payload_includes_as_of_date(db_with_seeded_user):
     """The /api/today payload must carry the server-local calendar date.
 

@@ -988,11 +988,16 @@ def _build_activities_list(
 def _compute_threshold_data(
     merged: pd.DataFrame, config, data_dir: str = None,
     user_id: str = None, db=None,
+    fitness_data: pd.DataFrame | None = None,
 ) -> tuple[float | None, dict, pd.Series, list[tuple[float, float]]]:
     """Compute active threshold value, trend data, CP values, and power-pace pairs.
 
     Returns (latest_threshold, trend_data, cp_values, power_pace_pairs).
-    When user_id and db are provided, uses DB-based fitness data for HR/pace trends.
+    When user_id and db are provided, queries fitness_data for CP estimates.
+    When ``fitness_data`` is also provided (the wide-pivoted DataFrame from
+    :func:`load_data_from_db`'s ``"fitness"`` key), it's used for the HR/pace
+    threshold trend; otherwise the helper re-runs ``load_data_from_db`` as a
+    fallback for callers that don't already hold the frame.
     """
     cp_values = (
         pd.to_numeric(merged["cp_estimate"], errors="coerce")
@@ -1075,11 +1080,14 @@ def _compute_threshold_data(
         from analysis.metrics import compute_threshold_trend
         col = "lthr_bpm" if config.training_base == "hr" else "lt_pace_sec_km"
 
-        lt_df = pd.DataFrame()
-        if user_id and db:
+        if fitness_data is not None:
+            lt_df = fitness_data
+        elif user_id and db:
             from analysis.data_loader import load_data_from_db
             db_data = load_data_from_db(user_id, db)
             lt_df = db_data.get("fitness", pd.DataFrame())
+        else:
+            lt_df = pd.DataFrame()
 
         if not lt_df.empty and col in lt_df.columns:
             lt_df = lt_df.sort_values("date")
@@ -1201,10 +1209,13 @@ def _compute_recovery_analysis(recovery: pd.DataFrame) -> tuple[dict, float | No
 def _build_threshold_trend_chart(
     merged: pd.DataFrame, config, data_dir: str = None,
     user_id: str = None, db=None,
+    fitness_data: pd.DataFrame | None = None,
 ) -> dict:
     """Build threshold trend chart data based on training base.
 
-    When user_id and db are provided, uses DB-based fitness data.
+    For HR/pace base, ``fitness_data`` (the wide-pivoted DataFrame from
+    :func:`load_data_from_db`'s ``"fitness"`` key) is used when supplied;
+    otherwise the helper re-runs ``load_data_from_db`` as a fallback.
     """
     chart: dict = {"dates": [], "values": []}
     if config.training_base == "power":
@@ -1215,11 +1226,14 @@ def _build_threshold_trend_chart(
                 "values": [round(float(v), 1) for v in cp_data["cp_estimate"].values],
             }
     elif config.training_base in ("hr", "pace"):
-        lt_df = pd.DataFrame()
-        if user_id and db:
+        if fitness_data is not None:
+            lt_df = fitness_data
+        elif user_id and db:
             from analysis.data_loader import load_data_from_db
             db_data = load_data_from_db(user_id, db)
             lt_df = db_data.get("fitness", pd.DataFrame())
+        else:
+            lt_df = pd.DataFrame()
 
         if not lt_df.empty:
             lt_df = lt_df.sort_values("date")
@@ -1403,6 +1417,7 @@ def get_dashboard_data(user_id: str = None, db=None) -> dict:
     # base-native threshold: watts for power, bpm for HR, sec/km for pace.
     latest_cp, cp_trend_data, cp_values, power_pace_pairs = _compute_threshold_data(
         merged, config, data_dir=data_dir, user_id=user_id, db=db,
+        fitness_data=data.get("fitness"),
     )
 
     # CP-in-watts for power-based formulas. HR/pace users' ``latest_cp`` is
@@ -1500,6 +1515,7 @@ def get_dashboard_data(user_id: str = None, db=None) -> dict:
     }
     cp_trend_chart = _build_threshold_trend_chart(
         merged, config, data_dir=data_dir, user_id=user_id, db=db,
+        fitness_data=data.get("fitness"),
     )
 
     # Supplementary data

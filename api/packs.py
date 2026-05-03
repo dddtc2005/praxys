@@ -252,9 +252,14 @@ class RequestContext:
 
     @cached_property
     def threshold_data(self) -> dict:
+        # ``fitness_data`` is the wide-pivoted fitness frame already loaded
+        # by ``self._data``. Passing it through keeps HR/pace requests off
+        # a second ``load_data_from_db`` round-trip; power requests don't
+        # consult it but the kwarg is still cheap to forward.
         latest, trend, cp_values, pairs = _compute_threshold_data(
             self.merged_activities, self.config,
             user_id=self.user_id, db=self.db,
+            fitness_data=self._data.get("fitness"),
         )
         return {
             "latest": latest,
@@ -268,6 +273,7 @@ class RequestContext:
         return _build_threshold_trend_chart(
             self.merged_activities, self.config,
             user_id=self.user_id, db=self.db,
+            fitness_data=self._data.get("fitness"),
         )
 
     @cached_property
