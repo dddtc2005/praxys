@@ -30,7 +30,7 @@ Garmin/Stryd/Oura APIs → sync/*.py → db/sync_writer.py → SQLite (trainsigh
 | `frontend_server/` | Static SPA host on its own App Service site (`praxys-frontend`) | `main.py` (`create_app(dist_dir)` factory, `SPAStaticFiles` with 404→`index.html` fallback for non-asset paths, cache-control middleware, `/healthz`). Decoupled from `api/` so the same `web/dist/` artifact can later sit on Tencent COS (CN audience, post-ICP) without Azure-specific glue. |
 | `web/src/` | React SPA | `pages/` (Today, Training, Goal, History, Science, Settings, Admin, Login, Setup), `components/`, `hooks/`, `contexts/`, `types/api.ts`, `lib/` |
 | `miniapp/` | WeChat Mini Program (native + Skyline + TypeScript) | `pages/` (login WebView, plus Skyline pages: today, training, goal, history, settings, science), `components/` (`nav-bar` custom Skyline header, `line-chart` Canvas 2D), `utils/` (`api-client.ts` wx.request + JWT, `auth.ts` wx.login flow, `format.ts`/`share.ts`/`theme.ts`), `types/api.ts` auto-synced from `web/src/types/api.ts` by `scripts/sync-types.cjs` (runs on `npm run typecheck`). Build: WeChat DevTools handles TypeScript + Sass via `project.config.json` `useCompilerPlugins` — no webpack/babel toolchain. Open `miniapp/` as the DevTools project root; only devDeps are `miniprogram-api-typings` + `typescript` for `tsc --noEmit` CI checks. **Mini program position**: a view + manage companion to the web app. New users register and run the platform-connection wizard on praxys.run; the mini program links an existing account by email/password and then handles day-to-day use (signal, training, goal, sync, theory, training-base, theme/language). The mini program login page surfaces a "new here? Sign up at praxys.run" row that copies the URL to clipboard rather than embedding the registration flow itself. |
-| `plugins/praxys/` | Praxys plugin | `skills/` (8 SKILL.md), `mcp-server/` (local + remote MCP) |
+| `plugins/praxys/` | Praxys plugin (**git submodule** of public [`dddtc2005/praxys-coach-plugin`](https://github.com/dddtc2005/praxys-coach-plugin), MIT) | `skills/` (8 SKILL.md), `mcp-server/` (local + remote MCP). Edits to anything inside `plugins/praxys/` are commits in the plugin repo, not this one — PRs there, then bump the submodule pointer here. |
 | `tests/` | pytest suite | |
 | `data/` | Fixtures + science YAML | `sample/` (test CSVs — not live data), `science/` (theory YAMLs) |
 | `scripts/` | Utility + skill helpers | |
@@ -124,6 +124,12 @@ When a metric ships **rule-based prose** (`reason`, `assessment`, `suggestions`)
 Always use the project venv at `.venv/` for Python commands.
 
 ```bash
+# First time: clone with submodules so plugins/praxys/ is populated
+# (the plugin is its own public repo, dddtc2005/praxys-coach-plugin)
+git clone --recurse-submodules https://github.com/dddtc2005/praxys.git
+cd praxys
+# (already cloned without --recurse-submodules? run: git submodule update --init)
+
 # First time: copy .env and generate encryption key
 cp .env.example .env
 python -c "from cryptography.fernet import Fernet; print(f'PRAXYS_LOCAL_ENCRYPTION_KEY={Fernet.generate_key().decode()}')" >> .env
@@ -238,7 +244,7 @@ Automations live in `.claude/` and are committed so every contributor using Clau
 
 ## AI Skills
 
-8 skills in `plugins/praxys/skills/` expose training features via the Praxys plugin (MCP server + skills):
+8 skills in `plugins/praxys/skills/` (submodule from public [`dddtc2005/praxys-coach-plugin`](https://github.com/dddtc2005/praxys-coach-plugin)) expose training features via the Praxys plugin (MCP server + skills):
 
 | Skill | Purpose |
 |-------|---------|

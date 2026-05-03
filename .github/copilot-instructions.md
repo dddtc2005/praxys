@@ -12,7 +12,7 @@ sync/*.py → db/sync_writer.py → SQLite → analysis/metrics.py → api/deps.
 - **analysis/data_loader.py**: All data loading lives here
 - **api/deps.py**: Data layer — `get_dashboard_data()` is the central function
 - **api/routes/**: Thin wrappers calling deps, all under `/api/` prefix; **all endpoints require JWT auth** except `/api/register` and `/api/token`
-- **plugins/praxys/**: Skills (8 SKILL.md files) and MCP server
+- **plugins/praxys/**: Skills (8 SKILL.md files) and MCP server. **Submodule** of the public [`dddtc2005/praxys-coach-plugin`](https://github.com/dddtc2005/praxys-coach-plugin) repo — edits land there, then the submodule pointer is bumped here
 - **web/src/**: React + TypeScript + Tailwind v4 + Recharts
 
 ## Critical Rule: Split-Level Power Analysis

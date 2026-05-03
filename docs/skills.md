@@ -10,7 +10,18 @@ Praxys includes 8 AI skills that provide access to all training features via Cla
 
 ## Plugin Installation
 
-Skills are packaged as a Claude Code plugin in `plugins/praxys/`.
+Skills are packaged as a Claude Code plugin. The plugin lives in its own public repo, [`dddtc2005/praxys-coach-plugin`](https://github.com/dddtc2005/praxys-coach-plugin) (MIT), and is vendored into this repo as a git submodule at `plugins/praxys/` for local-mode development.
+
+**End users** (running against praxys.run) install it as any Claude Code plugin:
+
+```
+/plugin marketplace add github:dddtc2005/praxys-coach-plugin
+/plugin install praxys
+```
+
+Then run the `login` MCP tool with your praxys.run credentials.
+
+**Local-mode developers** (running against a local backend with `PRAXYS_LOCAL=1`) get the plugin via the submodule when they clone Praxys with `git clone --recurse-submodules`. The local marketplace at `plugins/marketplace.json` still works for ad-hoc Claude Code registration:
 
 ```bash
 # Register the local marketplace (one-time)
