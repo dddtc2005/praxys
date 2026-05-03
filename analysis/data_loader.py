@@ -392,19 +392,57 @@ def load_activity_samples(
     will be present but NaN.
 
     If activity_ids is provided, only samples for those activities are
-    returned — pass the recent activity IDs from the loaded activities
-    DataFrame to avoid loading all historical samples on every request.
+    returned. The filter is pushed into SQL (``AND activity_id IN (...)``)
+    so users with months of streamed history don't pay to load every row
+    just to discard everything outside the recent window in Python — the
+    /api/training cold path is bound by this load on a fresh cache.
+
+    Passing an empty list returns an empty DataFrame without touching the
+    DB. Passing ``None`` preserves the legacy "all-history" behavior for
+    callers that need it (e.g. backfill / one-off scripts).
     """
-    df = pd.read_sql(
+    base_sql = (
         "SELECT activity_id, t_sec, power_watts, hr_bpm, pace_sec_km, source "
-        "FROM activity_samples WHERE user_id = :uid",
-        db.bind,
-        params={"uid": user_id},
+        "FROM activity_samples WHERE user_id = :uid"
     )
-    if activity_ids is not None and not df.empty:
-        ids_set = {str(a) for a in activity_ids}
-        df = df[df["activity_id"].astype(str).isin(ids_set)]
-    return df
+    params: dict[str, object] = {"uid": user_id}
+
+    if activity_ids is None:
+        return pd.read_sql(base_sql, db.bind, params=params)
+
+    if not activity_ids:
+        return pd.DataFrame(
+            columns=[
+                "activity_id", "t_sec", "power_watts",
+                "hr_bpm", "pace_sec_km", "source",
+            ]
+        )
+
+    # Deduplicate as strings — DB stores activity_id as VARCHAR.
+    unique_ids = list({str(a) for a in activity_ids})
+
+    # Chunk under SQLite's default ~999 host-parameter limit. Realistic
+    # callers stay well below this (e.g. 8 weeks of activities ≈ 30-50
+    # ids), but the chunked path is a cheap belt for backfill / power
+    # users with very long lookbacks.
+    chunk_size = 500
+    frames: list[pd.DataFrame] = []
+    for start in range(0, len(unique_ids), chunk_size):
+        chunk = unique_ids[start:start + chunk_size]
+        placeholders = ",".join(f":a{i}" for i in range(len(chunk)))
+        chunk_params = {**params, **{f"a{i}": v for i, v in enumerate(chunk)}}
+        frames.append(
+            pd.read_sql(
+                f"{base_sql} AND activity_id IN ({placeholders})",
+                db.bind,
+                params=chunk_params,
+            )
+        )
+    if not frames:
+        return pd.DataFrame()
+    if len(frames) == 1:
+        return frames[0]
+    return pd.concat(frames, ignore_index=True)
 
 
 def _pivot_fitness(raw: pd.DataFrame) -> pd.DataFrame:
