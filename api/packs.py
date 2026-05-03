@@ -563,15 +563,17 @@ def get_signal_pack(ctx: RequestContext) -> dict:
         data_dir=None, latest_cp_watts=ctx.latest_cp_watts,
     )
 
-    display_days = 60
-    date_range = pd.date_range(
-        ctx.today - timedelta(days=display_days), ctx.today,
-    )
-    display_tsb = fs["tsb"].iloc[-len(date_range):]
-    ff_dates = [d.strftime("%Y-%m-%d") for d in date_range]
+    # Sparkline uses the last 14 days of TSB. Take the tail directly
+    # off the series (no synthetic date_range) so dates and values
+    # always come from the same source — same fix as get_fitness_pack.
+    tsb_window = fs["tsb"].iloc[-14:]
+    ff_dates = [
+        (d.strftime("%Y-%m-%d") if hasattr(d, "strftime") else str(d))
+        for d in tsb_window.index
+    ]
     tsb_sparkline = {
-        "dates": ff_dates[-14:],
-        "values": [round(float(v), 1) for v in display_tsb.values][-14:],
+        "dates": ff_dates,
+        "values": [round(float(v), 1) for v in tsb_window.values],
         "projected_dates": proj["dates"][:7],
         "projected_values": proj["tsb"][:7],
     }
@@ -638,11 +640,12 @@ def get_fitness_pack(ctx: RequestContext) -> dict:
     # dates list is longer than the values list and they get paired
     # off by index, dragging values 12+ days back in time. Visually
     # that showed up as the FF lines trailing off ~12 days before
-    # today on a stale-data account.
-    cutoff = ctx.today - timedelta(days=display_days)
-    ctl_window = fs["ctl"][fs["ctl"].index >= cutoff]
-    atl_window = fs["atl"][fs["atl"].index >= cutoff]
-    tsb_window = fs["tsb"][fs["tsb"].index >= cutoff]
+    # today on a stale-data account. iloc-tail keeps the same
+    # alignment guarantee without a date-vs-Timestamp comparison
+    # that would throw on mixed-dtype indexes.
+    ctl_window = fs["ctl"].iloc[-display_days:]
+    atl_window = fs["atl"].iloc[-display_days:]
+    tsb_window = fs["tsb"].iloc[-display_days:]
     ff_dates = [
         (d.strftime("%Y-%m-%d") if hasattr(d, "strftime") else str(d))
         for d in ctl_window.index
