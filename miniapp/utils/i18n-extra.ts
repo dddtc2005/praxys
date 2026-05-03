@@ -60,6 +60,9 @@ const EN_AUTH = {
   'New here? Sign up at': 'New here? Sign up at',
   'New here?': 'New here?',
   'Have an invitation code?': 'Have an invitation code?',
+  'Register on praxys.run': 'Register on praxys.run',
+  'Then come back and sign in with WeChat above.':
+    'Then come back and sign in with WeChat above.',
   'Back to sign in': 'Back to sign in',
   'tap to copy URL': 'tap to copy URL',
   'URL copied': 'URL copied',
@@ -380,6 +383,9 @@ const ZH_AUTH = {
   'New here? Sign up at': '没有账号？立即注册',
   'New here?': '没有账号？',
   'Have an invitation code?': '已有邀请码？',
+  'Register on praxys.run': '前往 praxys.run 注册',
+  'Then come back and sign in with WeChat above.':
+    '注册完成后，返回此页面用上方的微信登录按钮即可。',
   'Back to sign in': '返回登录',
   'tap to copy URL': '点击复制链接',
   'URL copied': '链接已复制',

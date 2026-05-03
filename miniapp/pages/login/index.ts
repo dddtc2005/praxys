@@ -92,6 +92,8 @@ function buildLoginTr(locale: Locale) {
 
     newHere: t('New here?'),
     haveInviteCode: t('Have an invitation code?'),
+    registerOnPraxys: t('Register on praxys.run'),
+    thenSignInWithWeChat: t('Then come back and sign in with WeChat above.'),
     joinTheWaitlist: t('Join the waitlist'),
     backToSignIn: t('Back to sign in'),
 

@@ -122,9 +122,16 @@
         <text class="login-footer-label ts-muted">{{tr.newHere}}</text>
         <text class="login-footer-link">{{tr.joinTheWaitlist}}</text>
       </view>
-      <view class="login-footer-row" bindtap="onCopySignupUrl">
-        <text class="login-footer-label ts-muted">{{tr.haveInviteCode}}</text>
-        <text class="login-footer-link login-footer-link--mono">praxys.run</text>
+      <view class="login-footer-block">
+        <view class="login-footer-row" bindtap="onCopySignupUrl">
+          <text class="login-footer-label ts-muted">{{tr.haveInviteCode}}</text>
+          <text class="login-footer-link">{{tr.registerOnPraxys}}</text>
+        </view>
+        <!-- Helper line clarifies the two-step flow: invitation-code
+             redemption + account creation + the platform-connection
+             wizard happen on web, then the user returns here and binds
+             that account to WeChat via the link-with-password path. -->
+        <text class="login-footer-helper ts-muted">{{tr.thenSignInWithWeChat}}</text>
       </view>
     </view>
   </block>

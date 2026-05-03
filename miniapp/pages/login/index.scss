@@ -378,6 +378,25 @@
   font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
 }
 
+// "Have an invitation code?" path is a two-step flow: register on web
+// first, then return here and sign in with WeChat. The block groups
+// the action row + helper line so the user reads them as one
+// instruction, not two unrelated rows.
+.login-footer-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.login-footer-helper {
+  font-size: 22rpx;
+  line-height: 1.4;
+  margin-top: 2rpx;
+  text-align: center;
+  max-width: 460rpx;
+}
+
 // Top-LEFT language toggle — unchanged from prior version. WeChat's
 // `... | ⊙` capsule reserves the top-right; top-LEFT below the status
 // bar is fully ours. Visual treatment: a single pill with two
