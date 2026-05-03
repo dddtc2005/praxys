@@ -26,16 +26,65 @@
 
     <block wx:else>
       <!--
-        Stale-data / timezone advisory. Empty `stalenessText` hides the
-        block (Skyline's wx:if treats `''` as falsy). Sits between the
-        date eyebrow and the signal hero so the user reads the caveat
-        before interpreting the verdict. Same wording as
-        web/src/pages/Today.tsx for cross-surface consistency.
+        Page-level data-staleness banner — fires when `data_as_of`'s
+        local-TZ calendar date is older than today. Anchors on the
+        actual data timestamp, not the sync attempt. The action pair
+        (Sync now / Show anyway) is the user's escape hatch.
+        Suppressed once dismissed — the chip below takes over.
+      -->
+      <view
+        wx:if="{{dataStale && !staleDismissed}}"
+        class="today-data-stale-banner"
+      >
+        <view class="today-data-stale-text">
+          <text class="today-data-stale-headline">{{staleHeadline}}</text>
+          <text class="today-data-stale-detail ts-value">{{staleDetail}}</text>
+        </view>
+        <view class="today-data-stale-actions">
+          <view
+            class="today-data-stale-btn today-data-stale-btn--primary {{staleSyncing ? 'today-data-stale-btn--disabled' : ''}}"
+            bindtap="onStaleSyncNow"
+            hover-class="today-data-stale-btn--press"
+          >
+            <text>{{staleSyncing ? staleSyncingLabel : staleSyncLabel}}</text>
+          </view>
+          <view
+            class="today-data-stale-btn today-data-stale-btn--ghost"
+            bindtap="onStaleShowAnyway"
+            hover-class="today-data-stale-btn--press"
+          >
+            <text>{{staleShowAnywayLabel}}</text>
+          </view>
+        </view>
+      </view>
+      <!--
+        Compact chip variant — shown after Show anyway. Same anchor as
+        the banner (data_as_of timestamp) so the page never lies about
+        the data's age, even when the user has chosen to view it.
+      -->
+      <view
+        wx:if="{{dataStale && staleDismissed}}"
+        class="today-data-stale-chip"
+      >
+        <view class="today-data-stale-chip-dot"></view>
+        <text class="today-data-stale-chip-text">{{staleChipText}}</text>
+        <view
+          class="today-data-stale-chip-link {{staleSyncing ? 'today-data-stale-btn--disabled' : ''}}"
+          bindtap="onStaleSyncNow"
+          hover-class="today-data-stale-btn--press"
+        >
+          <text>{{staleSyncing ? staleSyncingLabel : staleSyncLabel}}</text>
+        </view>
+      </view>
+      <!--
+        Recovery-only staleness advisory (PR #254 surface). Suppressed
+        when the page-level banner is up — the page-level signal is
+        strictly more general, so showing both would just be noise.
       -->
       <view wx:if="{{stalenessText}}" class="today-staleness-banner">
         <text class="today-staleness-text">{{stalenessText}}</text>
       </view>
-      <view class="ts-card signal-hero">
+      <view class="ts-card signal-hero {{dataStale && !staleDismissed ? 'is-sync-stale' : ''}}">
         <view
           class="signal-share-fab"
           bindtap="onShareCardToggle"
@@ -60,7 +109,7 @@
         is a flat cobalt-banner block so it reads as a separate
         interpretive voice rather than another metric tile.
       -->
-      <view wx:if="{{hasCoach}}" class="coach-receipt" aria-label="{{coachTr.aria}}">
+      <view wx:if="{{hasCoach}}" class="coach-receipt {{dataStale && !staleDismissed ? 'is-sync-stale' : ''}}" aria-label="{{coachTr.aria}}">
         <view class="coach-banner">
           <text class="coach-mark">{{coachTr.mark}}</text>
           <text wx:if="{{coach.stamp}}" class="coach-stamp ts-value">{{coach.stamp}}</text>
@@ -111,7 +160,7 @@
         always present once `hasResponse` is true, so no `wx:if` guard
         wraps the block.
       -->
-      <view class="today-supporting">
+      <view class="today-supporting {{dataStale && !staleDismissed ? 'is-sync-stale' : ''}}">
         <view
           wx:for="{{cells}}"
           wx:key="id"

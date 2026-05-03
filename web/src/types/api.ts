@@ -185,6 +185,12 @@ export interface PlanData {
   description?: string;
 }
 
+/** Per-row Stryd sync state, derived server-side by joining the AI plan
+ *  against (a) Praxys's push log and (b) Stryd-imported plan rows on
+ *  the same date. The frontend overlays transient `pushing` and
+ *  `error` states locally; these three are persistent. */
+export type SyncState = 'synced' | 'not_synced' | 'mismatch';
+
 export interface PlannedWorkout {
   date: string;
   workout_type: string;
@@ -193,14 +199,24 @@ export interface PlannedWorkout {
   power_min?: number;
   power_max?: number;
   description?: string;
+  /** Optional in legacy responses; required on the new /api/plan
+   *  contract. Drives the per-row sync icon. */
+  sync_state?: SyncState;
 }
 
 export interface PlanResponse {
   workouts: PlannedWorkout[];
-  /** Server emits the key on every response with `null` when CP is unknown. */
-  cp_current: number | null;
   /** Stryd push history. Used to be served by GET /api/plan/stryd-status. */
   stryd_status: StrydPushStatus;
+  /** Platform Praxys pushes the plan to. Currently always "stryd";
+   *  Garmin push is future work. */
+  sync_target?: 'stryd' | 'garmin';
+  /** Dates where Stryd has a workout but Praxys's AI plan doesn't.
+   *  Informational; frontend can surface as a footnote. */
+  stryd_only_dates?: string[];
+  /** Echoed window the server resolved the request to (clamped to 90d).
+   *  Useful for the frontend to confirm the response matches its pill. */
+  window?: { start: string; end: string };
 }
 
 export type StrydPushResult =
@@ -300,6 +316,14 @@ export interface TodayResponse {
    *  `recovery_analysis.is_stale` / `latest_date` to label the actual
    *  reading date when sync lags. */
   as_of_date: string;
+  /** ISO datetime of the most recent material data update — anchor for
+   *  the page-level staleness banner. Composed server-side as
+   *  `max(insight.generated_at, recovery latest date EOD, last activity
+   *  date EOD)`. A successful sync that pulls no new rows leaves this
+   *  value alone, so the banner correctly stays up. `null` when no data
+   *  exists yet (fresh user before any sync) — frontend suppresses the
+   *  banner in that case. */
+  data_as_of: string | null;
   signal: TrainingSignal;
   tsb_sparkline: TsbSparkline;
   warnings: string[];

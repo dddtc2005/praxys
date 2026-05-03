@@ -274,6 +274,121 @@ def test_today_route_payload_includes_as_of_date(db_with_seeded_user):
     assert payload["as_of_date"] == date.today().isoformat()
 
 
+def test_today_route_payload_includes_data_as_of(db_with_seeded_user):
+    """The /api/today payload must carry an ISO datetime anchoring page
+    staleness. The signal must come from the actual data — not the sync
+    attempt time — so a sync that pulled no new rows correctly leaves
+    the value alone and the banner stays up.
+
+    Composition is `max(insight.generated_at, recovery latest_date EOD,
+    last activity date EOD)`. With seeded activities and recovery rows
+    but no AiInsight, the value should be EOD on the latest seeded date.
+    """
+    from api.routes.today import _build_today_payload
+
+    db, user_id = db_with_seeded_user
+    payload = _build_today_payload(user_id, db)
+
+    assert "data_as_of" in payload
+    assert payload["data_as_of"] is not None
+    # Seeded activities + recovery extend through `today - 1` (the loop
+    # writes i=0..13 against `today - timedelta(days=14 - i)`), so the
+    # latest data row is yesterday's date. With no AiInsight row, the
+    # anchor is yesterday at noon UTC. Noon UTC is the symmetry point
+    # for date-only rows so a single row dated D appears as local-date
+    # D for every realistic timezone (±12h from UTC).
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    assert payload["data_as_of"] == f"{yesterday}T12:00:00Z"
+
+
+def test_data_as_of_uses_insight_generated_at_when_newest(db_with_seeded_user):
+    """When an AiInsight row exists and is newer than the latest data
+    rows, its generated_at is the anchor. This is the common steady
+    state — post-sync, the runner regenerates the brief, which advances
+    the timestamp past the noon-UTC date anchors that the recovery and
+    activity rows produce.
+
+    The fixture seeds activity/recovery rows ending at ``today - 1``,
+    which anchor at ``yesterday T12:00:00Z``. We pick a timestamp
+    strictly later than that (``today T03:00:00`` — past noon UTC of
+    yesterday) so the assertion can't tie on insertion order inside
+    ``max()``.
+    """
+    from datetime import datetime, time
+    from api.routes.today import _build_today_payload
+    from db.models import AiInsight
+
+    db, user_id = db_with_seeded_user
+    fixed = datetime.combine(date.today(), time(3, 0, 0))
+    db.add(AiInsight(
+        user_id=user_id,
+        insight_type="daily_brief",
+        headline="t",
+        summary="t",
+        findings=[],
+        recommendations=[],
+        generated_at=fixed,
+    ))
+    db.commit()
+
+    payload = _build_today_payload(user_id, db)
+    # Server normalizes naive UTC datetimes to ISO + trailing `Z` so the
+    # browser doesn't re-interpret as local time at the day boundary.
+    assert payload["data_as_of"] == fixed.isoformat() + "Z"
+
+
+def test_data_as_of_uses_noon_utc_for_date_only_rows(db_with_seeded_user):
+    """Date-only rows (recovery, activity) MUST anchor at ``T12:00:00Z``,
+    not start-of-day or end-of-day.
+
+    Why this matters: a row dated ``2026-05-02`` represents a calendar
+    day in some real-world timezone, but the row's storage layer doesn't
+    record which one. End-of-day UTC would push the row's local date
+    forward by up to 14 hours — a Beijing user (UTC+8) would see
+    yesterday's row as today's. Start-of-day breaks symmetrically for
+    Pacific users. Noon UTC is the symmetry point: ±12 hours from any
+    realistic timezone, the row's local date is preserved.
+
+    The assertion is exact, not just startswith, so a future tweak to
+    23:59 / 00:00 / arbitrary noon-adjacent time fails loudly.
+    """
+    from api.routes.today import _build_today_payload
+    db, user_id = db_with_seeded_user
+    payload = _build_today_payload(user_id, db)
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    assert payload["data_as_of"] == f"{yesterday}T12:00:00Z"
+
+
+def test_data_as_of_is_none_with_no_data(monkeypatch):
+    """Fresh user with no data anywhere — data_as_of is null and the
+    frontend suppresses the banner (nothing to anchor on)."""
+    import tempfile
+
+    tmpdir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+    monkeypatch.setenv("DATA_DIR", tmpdir.name)
+    monkeypatch.setenv(
+        "PRAXYS_LOCAL_ENCRYPTION_KEY",
+        "JKkx_5SVHKQDr0HSMrwl0KQHcA0pl5pxsYSLEAQDB4o=",
+    )
+    from db import session as db_session
+    db_session.engine = None
+    db_session.SessionLocal = None
+    db_session.async_engine = None
+    db_session.AsyncSessionLocal = None
+    db_session.init_db()
+
+    from db.models import User
+    user_id = "fresh-user"
+    db = db_session.SessionLocal()
+    db.add(User(id=user_id, email="fresh@example.com", hashed_password="x"))
+    db.commit()
+
+    from api.routes.today import _build_today_payload
+    payload = _build_today_payload(user_id, db)
+    assert payload["data_as_of"] is None
+    db.close()
+
+
 def test_dashboard_data_and_packs_agree_on_signal(db_with_seeded_user):
     """Behavioral equivalence: signal_pack output equals dashboard_data['signal'].
 

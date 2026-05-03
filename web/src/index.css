@@ -362,6 +362,114 @@
 .today-spread > .today-staleness-banner {
   grid-column: 1 / -1;
 }
+
+/* Page-level data-staleness banner — anchored on the actual data
+ * timestamp (data_as_of), not the sync-attempt time. Sits between the
+ * eyebrow and the verdict; supersedes the older .today-staleness-banner
+ * pattern (which only fires for ≥2-day-old recovery rows) by also
+ * catching the more common "no new data overnight" case. */
+.today-spread > .today-data-stale-banner {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+  background: color-mix(in oklch, var(--accent-amber-val) 8%, var(--card));
+  border: 1px solid color-mix(in oklch, var(--accent-amber-val) 35%, var(--card));
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.today-spread > .today-data-stale-banner > .stale-text {
+  display: grid;
+  gap: 2px;
+}
+.today-spread > .today-data-stale-banner .stale-headline {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-amber-val);
+  line-height: 1.3;
+}
+.today-spread > .today-data-stale-banner .stale-detail {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent-amber-val);
+  opacity: 0.85;
+  letter-spacing: 0.01em;
+}
+.today-spread > .today-data-stale-banner > .stale-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+@media (max-width: 600px) {
+  .today-spread > .today-data-stale-banner {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Compact chip variant — shown after the user clicks "Show anyway".
+ * Same anchor (data_as_of), distilled to a single line so the page
+ * still tells the truth about the data's age without dominating. */
+.today-spread > .today-data-stale-chip {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 6px 8px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--accent-amber-val) 8%, var(--card));
+  border: 1px solid color-mix(in oklch, var(--accent-amber-val) 30%, var(--card));
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.01em;
+  color: var(--accent-amber-val);
+  width: fit-content;
+}
+.today-spread > .today-data-stale-chip > .stale-chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-amber-val);
+}
+.today-spread > .today-data-stale-chip > .stale-chip-link {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 11px;
+  border: none;
+  border-left: 1px solid color-mix(in oklch, var(--accent-amber-val) 35%, transparent);
+  padding-left: 8px;
+  margin-left: 2px;
+  background: none;
+  color: var(--accent-amber-val);
+  cursor: pointer;
+}
+.today-spread > .today-data-stale-chip > .stale-chip-link:hover {
+  text-decoration: underline;
+}
+
+/* Sync-zone greying — when the page-level data-staleness banner is up,
+ * the verdict + Coach receipt + supporting cells dim so the eye doesn't
+ * land on yesterday's numbers. Eyebrow, banner, and Plan footer stay
+ * full-opacity (eyebrow + banner are honest about the staleness;
+ * Plan is user-managed and not gated by sync). The modifier dims,
+ * never disables — content stays selectable, the banner carries the
+ * call to action. */
+.today-spread.sync-stale > .today-verdict,
+.today-spread.sync-stale > .coach-receipt,
+.today-spread.sync-stale > .today-supporting {
+  opacity: 0.42;
+  filter: saturate(0.55);
+  transition:
+    opacity 220ms cubic-bezier(0.215, 0.61, 0.355, 1),
+    filter 220ms cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .today-spread.sync-stale > .today-verdict,
+  .today-spread.sync-stale > .coach-receipt,
+  .today-spread.sync-stale > .today-supporting {
+    transition: none;
+  }
+}
 .today-spread > .today-verdict {
   grid-column: 1 / 2;
   align-self: start;
@@ -520,6 +628,10 @@
   color: var(--foreground);
   margin: 0 0 12px 0;
   line-height: 1.35;
+  /* Cap headline at ~50ch so it never sets a line longer than the eye
+     can scan in one beat. The receipt is full-bleed on Training/Goal —
+     without this cap, headlines stretch to 100+ char on a wide laptop. */
+  max-width: 50ch;
 }
 .coach-receipt > .coach-body > .coach-summary {
   font-size: 12.5px;
@@ -527,6 +639,12 @@
   color: var(--muted-foreground);
   margin: 0 0 12px 0;
   white-space: pre-line;
+  /* Cap prose at the readability range. The receipt is full-bleed on
+     Training/Goal where it stretches to 1075px (≈170ch); without the
+     cap, body text reads more like a dense paragraph than a coach's
+     note. Today.tsx is unaffected — its `today-spread` grid already
+     gives the receipt a constrained column. */
+  max-width: 65ch;
 }
 .coach-receipt > .coach-body > .coach-summary a {
   color: var(--accent-cobalt-val);

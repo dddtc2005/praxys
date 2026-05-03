@@ -286,7 +286,10 @@ def _goal_context(context: dict) -> dict:
 def _daily_brief_inputs(context: dict) -> dict:
     rs = context.get("recovery_state") or {}
     cf = context.get("current_fitness") or {}
-    plan = context.get("current_plan") or []
+    # `planned_today` is the plan row for today's date, or None when today
+    # has no scheduled workout (rest). Don't fall back to current_plan[0]
+    # — when today is unscheduled, that's the next future workout, and the
+    # LLM would advise on a session that isn't on today's docket.
     return {
         "today": {
             "hrv_ms": rs.get("hrv_ms"),
@@ -299,7 +302,7 @@ def _daily_brief_inputs(context: dict) -> dict:
             "atl": cf.get("atl"),
             "tsb": cf.get("tsb"),
         },
-        "planned_workout": plan[0] if plan else None,
+        "planned_workout": context.get("planned_today"),
         **_goal_context(context),
     }
 

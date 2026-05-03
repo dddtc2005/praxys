@@ -15,7 +15,7 @@ calls multiple packs.
 from __future__ import annotations
 
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from functools import cached_property
 
 import pandas as pd
@@ -274,6 +274,113 @@ class RequestContext:
     def recovery_analysis(self) -> dict:
         analysis, _, _, _ = _compute_recovery_analysis(self.recovery)
         return analysis
+
+    @cached_property
+    def data_as_of(self) -> str | None:
+        """ISO-8601 timestamp of the most recent material data update.
+
+        The Today page surface is "stale" when the user's local calendar
+        date is past this timestamp's calendar date. The anchor is the
+        actual data — not the time a sync attempt ran — so a successful
+        sync that pulls no new rows correctly leaves the page labelled
+        as showing yesterday's snapshot.
+
+        Composition (newest wins):
+        - ``AiInsight.generated_at`` for the user's ``daily_brief`` row.
+          Updates whenever the post-sync runner regenerates the brief
+          (i.e. when the dataset hash changes), so it tracks "the last
+          time the page narrative materially shifted." The runner upserts
+          one row per (user, insight_type), so a single ``.first()`` is
+          unambiguous; ``order_by`` + ``limit(1)`` are belt-and-braces
+          against a future schema that adds versioning.
+        - Latest recovery row's date, anchored at ``T12:00:00Z`` (noon UTC).
+        - Latest activity's date, anchored at ``T12:00:00Z`` (noon UTC).
+
+        Why noon UTC for date-only rows: a row dated ``2026-05-02`` covers
+        a calendar day in some real-world timezone, but the row's storage
+        layer doesn't tell us which one. End-of-day UTC anchors push the
+        row's local date forward by up to 14 hours, so a Beijing user
+        (UTC+8) sees yesterday's row as today's. Start-of-day UTC pushes
+        backward symmetrically and breaks Pacific (UTC-8) users. Noon UTC
+        is the symmetry point — within ±12 hours, a row dated D appears
+        as local-date D for every timezone that exists. Edge cases at
+        ±13/14h offsets (Samoa, Kiribati) shift by one day, which is
+        acceptable; nobody is running a global app from there.
+
+        Cache invalidation: ``/api/today`` is L3-cached with date-salted
+        ``source_version`` keyed on ``activities, recovery, plans,
+        fitness, config`` revisions. The post-sync insight runner only
+        regenerates ``AiInsight`` when those upstream sources changed
+        (the dataset hash projection draws from them), so by the time the
+        runner advances ``generated_at``, the cache row's source_version
+        is already stale and the next read recomputes ``data_as_of``
+        cleanly. Don't bump cache scopes from inside the runner — that
+        would duplicate the invalidation path.
+
+        Returns ``None`` when no data exists yet (fresh user before any
+        sync). Frontend treats null as "nothing to anchor on" and
+        suppresses the staleness banner.
+        """
+        # Imported lazily because db.models pulls in the ORM mapper graph
+        # and packs.py is imported at FastAPI startup; avoiding the
+        # top-level import keeps the import order flexible.
+        from db.models import AiInsight
+
+        # All timestamps normalized to UTC. Trailing 'Z' on the emitted
+        # ISO string is load-bearing: without it, JavaScript's
+        # ``new Date()`` interprets the value as the device's local time,
+        # which would land the comparison in the wrong calendar date for
+        # users east or west of UTC at the day boundary. ``insight.generated_at``
+        # is stored via ``datetime.utcnow()`` (naive UTC); we attach
+        # ``timezone.utc`` so the iso output carries the offset.
+        candidates: list[datetime] = []
+
+        insight_row = (
+            self.db.query(AiInsight.generated_at)
+            .filter(
+                AiInsight.user_id == self.user_id,
+                AiInsight.insight_type == "daily_brief",
+            )
+            .order_by(AiInsight.generated_at.desc())
+            .limit(1)
+            .first()
+        )
+        if insight_row and insight_row[0] is not None:
+            ts = insight_row[0]
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            candidates.append(ts)
+
+        # Noon-UTC anchor for date-only rows — see docstring for rationale.
+        date_anchor = time(12, 0, 0)
+
+        recovery = self.recovery
+        if hasattr(recovery, "empty") and not recovery.empty and "date" in recovery.columns:
+            latest = pd.to_datetime(recovery["date"], errors="coerce").max()
+            if pd.notna(latest):
+                candidates.append(
+                    datetime.combine(
+                        latest.date(), date_anchor, tzinfo=timezone.utc
+                    )
+                )
+
+        merged = self.merged_activities
+        if not merged.empty and "date" in merged.columns:
+            latest_a = pd.to_datetime(merged["date"], errors="coerce").max()
+            if pd.notna(latest_a):
+                candidates.append(
+                    datetime.combine(
+                        latest_a.date(), date_anchor, tzinfo=timezone.utc
+                    )
+                )
+
+        if not candidates:
+            return None
+        # Format with explicit `Z` suffix instead of `+00:00` — both are
+        # valid ISO-8601 but `Z` is the conventional shorthand and matches
+        # what the rest of the API uses for UTC timestamps.
+        out = max(candidates).astimezone(timezone.utc).replace(tzinfo=None)
+        return out.isoformat() + "Z"
 
     @cached_property
     def data_meta(self) -> dict:
