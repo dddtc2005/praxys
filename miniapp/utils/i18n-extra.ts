@@ -318,6 +318,19 @@ const EN_NAV_CHARTS = {
   'No data': 'No data',
   // Scatter chart tooltip
   'Sleep {0} · {1}': 'Sleep {0} · {1}',
+  // Mini-program-only Training-page strings — the web side has reworded
+  // these into countdowns ("Need N more days") that need the
+  // ``data_meta.data_days`` field, which the mini program's training pack
+  // doesn't surface yet. Until the mini program adopts the countdown
+  // wording, keep its existing messages here so check-i18n is happy.
+  'Weekly Load Compliance': 'Weekly Load Compliance',
+  'Not enough data for accurate fitness tracking': 'Not enough data for accurate fitness tracking',
+  'Sync at least 6 weeks of activity data to see meaningful fitness, fatigue, and form curves.':
+    'Sync at least 6 weeks of activity data to see meaningful fitness, fatigue, and form curves.',
+  'Not enough data to show sleep vs performance':
+    'Not enough data to show sleep vs performance',
+  'Not enough data for weekly load comparison':
+    'Not enough data for weekly load comparison',
 };
 
 // ---------------------------------------------------------------------------
@@ -589,6 +602,15 @@ const ZH_NAV_CHARTS = {
   'Not enough data': '数据不足',
   'No data': '暂无数据',
   'Sleep {0} · {1}': '睡眠 {0} · {1}',
+  // Mini-program-only Training-page strings — see EN_NAV_CHARTS for context.
+  'Weekly Load Compliance': '每周负荷合规度',
+  'Not enough data for accurate fitness tracking': '数据不足，暂无法准确跟踪体能',
+  'Sync at least 6 weeks of activity data to see meaningful fitness, fatigue, and form curves.':
+    '请至少同步 6 周的活动数据以显示有意义的体能、疲劳和状态曲线。',
+  'Not enough data to show sleep vs performance':
+    '数据不足，暂无法显示睡眠与表现的关系',
+  'Not enough data for weekly load comparison':
+    '数据不足，暂无法对比每周负荷',
 };
 
 export const I18N_EXTRA: Record<Locale, Record<string, string>> = {
