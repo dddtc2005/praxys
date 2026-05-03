@@ -51,21 +51,18 @@
         <view class="sci-detail">
           <text class="sci-detail-question">{{detail.question}}</text>
 
-          <!-- Chiclet switcher. Same canonical Skyline pattern as the tab
-               strip — type="list" + enable-flex + list-item on each
-               child. -->
-          <scroll-view
-            scroll-x="{{true}}"
-            type="list"
-            enable-flex="{{true}}"
-            show-scrollbar="{{false}}"
-            class="sci-chiclets-wrap"
-          >
+          <!-- Chiclet switcher. Web wraps with `flex-wrap`; the previous
+               miniapp version used `scroll-x` but bilingual theory
+               names like "Banister PMC 表现管理模型" make a single row
+               wider than the viewport, and horizontal scroll on a
+               touch device is poor affordance compared to wrapping to
+               a second row. Use a plain wrapping flex view to match
+               web. -->
+          <view class="sci-chiclets-wrap">
             <view
               wx:for="{{detail.chiclets}}"
               wx:key="id"
               wx:for-item="chip"
-              list-item
               class="sci-chiclet {{chip.modifier}}"
               data-id="{{chip.id}}"
               bindtap="onChicletTap"
@@ -77,7 +74,7 @@
               <text wx:elif="{{chip.isPreviewing}}" class="sci-chiclet-tag sci-chiclet-tag--previewing">·&#160;{{tr.previewingTag}}</text>
               <text wx:elif="{{chip.isRecommended}}" class="sci-chiclet-tag sci-chiclet-tag--recommended">·&#160;{{tr.recommendedTag}}</text>
             </view>
-          </scroll-view>
+          </view>
 
           <!-- Recommendation hint -->
           <view wx:if="{{detail.hasRecHint}}" class="sci-rec-hint">

@@ -138,20 +138,17 @@
 // a swap" state, so cobalt = "the system is showing you why"); rec halo
 // = amber border before commit.
 
-// Same Skyline pattern as the tab strip: scroll-view = flex container
-// via `enable-flex` (set in WXML), explicit height so it reserves
-// vertical space, `flex-shrink: 0` on chiclets so their natural width
-// is preserved and the row overflows horizontally instead of
-// compressing each pill (which was making "Banister PMC" wrap to
-// two lines).
+// Wrapping flex row to match web (`flex-wrap`). With two bilingual
+// theory names per pillar (e.g. "Banister PMC 表现管理模型"), a
+// non-wrapping row exceeds the viewport on a phone — wrapping to a
+// second line preserves both pills without horizontal-scroll
+// affordance issues.
 .sci-chiclets-wrap {
   display: flex;
   flex-direction: row;
-  align-items: center;
+  flex-wrap: wrap;
   gap: 12rpx;
-  margin: 0 -32rpx 24rpx;
-  padding: 0 32rpx;
-  height: 88rpx; // chiclet min-height 64rpx + breathing room.
+  margin-bottom: 24rpx;
 }
 
 .sci-chiclet {
@@ -418,33 +415,24 @@
     border-radius: 4rpx;
   }
 
-  // GFM tables — tight rules, mono-style header. Avoids the SaaS
-  // "card with shadow" treatment that would clash with the flat-paper
-  // surface of the rest of the page.
-  table {
-    width: 100%;
-    margin: 16rpx 0 20rpx;
-    border-collapse: collapse;
-    font-size: 24rpx;
-  }
-  th {
-    text-align: left;
+  // GFM tables are lowered to <p class="md-table-head"> + <ul
+  // class="md-table-body"> in `parseMarkdown` because Skyline doesn't
+  // implement `display: table`. The header reads as a mono-uppercase
+  // eyebrow above a list of records; each list item leads with the
+  // bolded first cell ("Distance", "Zone") followed by em-dash
+  // separated values.
+  .md-table-head {
     font-family: var(--font-mono, monospace);
     font-size: 20rpx;
     font-weight: 600;
     letter-spacing: 1rpx;
     text-transform: uppercase;
     color: var(--text-muted);
-    padding: 8rpx 12rpx;
-    border-bottom: 2rpx solid var(--border);
+    margin: 16rpx 0 8rpx;
   }
-  td {
-    padding: 10rpx 12rpx;
-    border-bottom: 1rpx solid var(--border-subtle);
-    vertical-align: top;
-  }
-  tr:last-child td {
-    border-bottom: none;
+  .md-table-body {
+    margin: 0 0 20rpx;
+    padding-left: 32rpx;
   }
 }
 

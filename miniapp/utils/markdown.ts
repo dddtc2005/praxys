@@ -138,30 +138,38 @@ export function parseMarkdown(md: string): ParsedMarkdown {
     }
 
     // GFM table: a header row followed immediately by a separator row.
-    // We check this before the paragraph fallback so `| col | col |`
-    // lines don't render as raw text. Body rows continue until the
-    // first non-table line.
+    // Emit as a definition-style list (header on top in mono caps,
+    // body rows as <li> with the first cell bolded as the row label).
+    // Skyline's rich-text strips `<table>`/`<th>`/`<td>` because the
+    // engine doesn't implement `display: table`, which renders the
+    // cells as run-on text — so we lower tables to a list shape that
+    // Skyline does render. The data is preserved; the column grid
+    // isn't, but the science-theory tables are short label-value lists
+    // ("Distance | CP %", "Zone | TSB Range | Interpretation") that
+    // read fine as bulleted records.
     const headerCells = splitTableRow(line);
     if (headerCells && i + 1 < lines.length && isTableSeparator(lines[i + 1])) {
       flushParagraph();
       closeList();
-      const headHtml = headerCells
-        .map((cell) => `<th>${applyInline(escapeHtml(cell), links)}</th>`)
-        .join('');
-      let bodyHtml = '';
+      const headerLabel = headerCells.join(' · ');
+      blocks.push(
+        `<p class="md-table-head">${applyInline(escapeHtml(headerLabel), links)}</p>`,
+      );
+      blocks.push('<ul class="md-table-body">'); // i18n-allow
       let j = i + 2;
       while (j < lines.length) {
         const rowCells = splitTableRow(lines[j]);
         if (!rowCells) break;
-        const cellsHtml = rowCells
-          .map((cell) => `<td>${applyInline(escapeHtml(cell), links)}</td>`)
-          .join('');
-        bodyHtml += `<tr>${cellsHtml}</tr>`;
+        const [first, ...rest] = rowCells;
+        const firstHtml = `<strong>${applyInline(escapeHtml(first ?? ''), links)}</strong>`;
+        const restHtml = rest
+          .map((cell) => applyInline(escapeHtml(cell), links))
+          .join(' — ');
+        const liInner = rest.length > 0 ? `${firstHtml} — ${restHtml}` : firstHtml;
+        blocks.push(`<li>${liInner}</li>`);
         j++;
       }
-      blocks.push(
-        `<table><thead><tr>${headHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`,
-      );
+      blocks.push('</ul>');
       i = j - 1; // for-loop's i++ steps to the line after the table.
       continue;
     }
