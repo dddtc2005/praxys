@@ -2,12 +2,13 @@
 import json
 import logging
 import os
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 
 import pandas as pd
 import requests
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -15,6 +16,9 @@ logger = logging.getLogger(__name__)
 
 from api.auth import get_data_user_id, require_write_access
 from api.deps import get_dashboard_data
+from api.etag import CACHE_CONTROL, ETagGuard, etag_guard_for_endpoint
+from api.packs import RequestContext, get_plan_pack
+from db.cache_revision import bump_revisions
 from db.session import get_db
 
 router = APIRouter()
@@ -41,9 +45,10 @@ def _stryd_push_status_path(user_id: str) -> str:
 
 @router.get("/plan")
 def get_plan(
+    guard: ETagGuard = Depends(etag_guard_for_endpoint("plan")),
     user_id: str = Depends(get_data_user_id),
     db: Session = Depends(get_db),
-) -> dict:
+):
     """Return all upcoming planned workouts plus the caller's Stryd push status.
 
     The push-status field used to be its own endpoint (GET /plan/stryd-status)
@@ -51,46 +56,27 @@ def get_plan(
     Training-page cold load paid an extra cross-GFW round-trip. Folding it
     into this response saves one request without measurably changing the
     cost of /plan itself — _load_push_status is a single small JSON read.
+
+    The body is built from L1 ``get_plan_pack`` (only the ``training_plans``
+    rows the response actually consumes) rather than the legacy
+    ``get_dashboard_data`` recompute, plus the caller-scoped Stryd push
+    status JSON file. L2 ETag/304 sits on top — push/delete handlers bump
+    the ``plans`` scope so a fresh push is never served stale via 304.
     """
-    data = get_dashboard_data(user_id=user_id, db=db)
-    plan_df: pd.DataFrame = data.get("plan", pd.DataFrame())
-    today = date.today()
-
-    stryd_status = _load_push_status(user_id)
-
-    if plan_df.empty:
-        return {"workouts": [], "cp_current": None, "stryd_status": stryd_status}
-
-    # Filter for today onwards — return all (frontend handles pagination)
-    upcoming = plan_df[plan_df["date"] >= today].sort_values("date")
-
-    workouts = []
-    for _, row in upcoming.iterrows():
-        workout = {
-            "date": row["date"].isoformat() if hasattr(row["date"], "isoformat") else str(row["date"]),
-            "workout_type": row.get("workout_type", ""),
-        }
-        for field, csv_col in [
-            ("duration_min", "planned_duration_min"),
-            ("distance_km", "planned_distance_km"),
-            ("power_min", "target_power_min"),
-            ("power_max", "target_power_max"),
-            ("description", "workout_description"),
-        ]:
-            val = row.get(csv_col)
-            if pd.notna(val) and val != "":
-                workout[field] = float(val) if field != "description" else str(val)
-        workouts.append(workout)
-
-    # Get current CP from the latest activity data if available
-    cp_current = None
-    signal = data.get("signal", {})
-    if isinstance(signal, dict):
-        plan = signal.get("plan", {})
-        if isinstance(plan, dict) and plan.get("power_max"):
-            cp_current = plan.get("power_max")
-
-    return {"workouts": workouts, "cp_current": cp_current, "stryd_status": stryd_status}
+    if guard.is_match:
+        return guard.not_modified()
+    ctx = RequestContext(user_id=user_id, db=db)
+    pack = get_plan_pack(ctx)
+    body = {
+        "workouts": pack["workouts"],
+        "cp_current": pack["cp_current"],
+        "stryd_status": _load_push_status(user_id),
+    }
+    return Response(
+        content=json.dumps(body),
+        media_type="application/json",
+        headers={"ETag": guard.etag, "Cache-Control": CACHE_CONTROL},
+    )
 
 
 def _load_push_status(user_id: str) -> dict:
@@ -273,6 +259,17 @@ def push_plan_to_stryd(
         _save_push_status(current_user_id, push_status)
     except OSError as e:
         logger.warning("Failed to save push status: %s", e)
+    else:
+        # Bump ``plans`` so /api/plan's ETag flips and the new push status is
+        # served on the next read instead of a stale 304. ``stryd_status``
+        # lives in a JSON file outside the DB scopes, so without this bump
+        # the L2 cache layer would have no signal that the response changed.
+        try:
+            bump_revisions(db, current_user_id, ["plans"])
+            db.commit()
+        except Exception as e:
+            logger.warning("Failed to bump cache revision after push: %s", e)
+            db.rollback()
 
     return {"results": results}
 
@@ -315,5 +312,16 @@ def delete_stryd_workout(
     for d in to_remove:
         del push_status[d]
     _save_push_status(current_user_id, push_status)
+
+    # Bump ``plans`` so /api/plan's ETag flips and the cleared push status is
+    # served on the next read instead of a stale 304. Mirror the bump in
+    # push_plan_to_stryd — ``stryd_status`` lives outside the DB scopes.
+    if to_remove:
+        try:
+            bump_revisions(db, current_user_id, ["plans"])
+            db.commit()
+        except Exception as e:
+            logger.warning("Failed to bump cache revision after delete: %s", e)
+            db.rollback()
 
     return {"deleted": True, "workout_id": workout_id}

@@ -82,7 +82,7 @@ def api_client(monkeypatch, tmp_path):
         tmpdir.cleanup()
 
 
-def test_plan_stryd_status_returns_only_current_users_data(api_client, monkeypatch):
+def test_plan_stryd_status_returns_only_current_users_data(api_client):
     """User B's /plan GET must not surface user A's push status writes via
     the embedded `stryd_status` field. (This used to be its own
     /plan/stryd-status route; the isolation invariant must survive the
@@ -93,13 +93,11 @@ def test_plan_stryd_status_returns_only_current_users_data(api_client, monkeypat
     _save_push_status("alice", {"2026-05-01": {"workout_id": "alice-only"}})
     _save_push_status("bob", {"2026-06-15": {"workout_id": "bob-only"}})
 
-    # /plan invokes get_dashboard_data which would otherwise touch DB tables
-    # this test isn't populating. Stub it to return an empty plan so we can
-    # exercise stryd_status isolation in isolation.
-    monkeypatch.setattr(
-        "api.routes.plan.get_dashboard_data",
-        lambda user_id, db: {"plan": pd.DataFrame(), "signal": {}},
-    )
+    # No need to stub the data layer — the test DB is fresh, so the L1 plan
+    # pack naturally returns an empty workouts list. The legacy stub on
+    # ``api.routes.plan.get_dashboard_data`` is no longer required because
+    # the GET path uses ``RequestContext`` instead of the monolithic
+    # dashboard recompute.
 
     api_client["current"]["value"] = "bob"
     res = api_client["client"].get("/api/plan")
@@ -107,8 +105,111 @@ def test_plan_stryd_status_returns_only_current_users_data(api_client, monkeypat
     assert res.json()["stryd_status"] == {"2026-06-15": {"workout_id": "bob-only"}}
 
     api_client["current"]["value"] = "alice"
-    res = api_client["client"].get("/api/plan")
+    # Bypass the cache by sending an If-None-Match the server doesn't have —
+    # ETag is keyed on (user_id, plans-rev, date) and Bob's earlier 200
+    # populated the browser-side ETag for Bob, not Alice. Both 200s are
+    # fresh, so this is a sanity check that user-id is in the ETag salt.
+    res = api_client["client"].get(
+        "/api/plan", headers={"If-None-Match": '"never-matches"'},
+    )
     assert res.json()["stryd_status"] == {"2026-05-01": {"workout_id": "alice-only"}}
+
+
+def test_plan_get_does_not_call_get_dashboard_data(api_client, monkeypatch):
+    """Regression guard: GET /api/plan used to recompute the entire dashboard
+    just to extract the upcoming-workouts list, and was perceptibly slower
+    than the cached /api/today and /api/training surfaces. After the L1
+    plan-pack rewrite, the GET path must not touch ``get_dashboard_data``.
+
+    A future regression that re-introduces the call (e.g. someone pulls
+    ``latest_cp`` from there to fix a downstream bug) would silently
+    re-inflate cold-load latency — this test fails fast in that case.
+    """
+    sentinel: dict[str, int] = {"calls": 0}
+
+    def _explode(user_id, db):
+        sentinel["calls"] += 1
+        raise AssertionError(
+            "GET /api/plan called get_dashboard_data — perf regression. "
+            "Use the L1 plan pack via RequestContext instead."
+        )
+
+    monkeypatch.setattr("api.routes.plan.get_dashboard_data", _explode)
+
+    api_client["current"]["value"] = "alice"
+    res = api_client["client"].get("/api/plan")
+    assert res.status_code == 200, res.text
+    assert sentinel["calls"] == 0
+
+
+def test_plan_get_returns_304_on_warm_revalidation(api_client):
+    """GET /api/plan honors If-None-Match so warm visits skip re-serving the
+    body. This piggybacks on the ENDPOINT_SCOPES["plan"] = ("plans",) entry;
+    a future change that drops the ETag guard from the route would replay
+    the full body on every page load.
+    """
+    api_client["current"]["value"] = "dora"
+    cold = api_client["client"].get("/api/plan")
+    assert cold.status_code == 200, cold.text
+    etag = cold.headers.get("etag")
+    assert etag, "cold response must carry an ETag"
+
+    warm = api_client["client"].get("/api/plan", headers={"If-None-Match": etag})
+    assert warm.status_code == 304
+    assert warm.content == b""
+
+
+def test_plan_get_etag_flips_after_stryd_push(api_client, monkeypatch):
+    """A Stryd push writes to a JSON file outside the DB scopes, so the
+    ETag wouldn't bust on its own. The push handler must bump the ``plans``
+    scope so the next GET delivers the updated ``stryd_status`` instead of
+    serving a stale 304.
+    """
+    monkeypatch.setenv("STRYD_EMAIL", "stub@example.com")
+    monkeypatch.setenv("STRYD_PASSWORD", "stub")
+    monkeypatch.setattr(
+        "sync.stryd_sync._login_api", lambda e, p: ("sid", "tok"),
+    )
+    monkeypatch.setattr(
+        "sync.stryd_sync.build_workout_blocks", lambda workout, cp: [],
+    )
+    monkeypatch.setattr(
+        "sync.stryd_sync.create_workout_api",
+        lambda **kw: {"id": f"new-{kw.get('workout_date')}"},
+    )
+
+    plan_df = pd.DataFrame([{
+        "date": "2026-05-07", "workout_type": "easy_run",
+        "planned_duration_min": 45, "workout_description": "easy",
+        "target_power_min": 200, "target_power_max": 230,
+    }])
+    monkeypatch.setattr(
+        "api.routes.plan.get_dashboard_data",
+        lambda user_id, db: {
+            "plan": plan_df, "latest_cp": 260.0, "activities": pd.DataFrame(),
+            "signal": {}, "training_base": "power",
+        },
+    )
+
+    api_client["current"]["value"] = "erin"
+    cold = api_client["client"].get("/api/plan")
+    pre_etag = cold.headers["etag"]
+    assert cold.json()["stryd_status"] == {}
+
+    push_res = api_client["client"].post(
+        "/api/plan/push-stryd", json={"workout_dates": ["2026-05-07"]},
+    )
+    assert push_res.status_code == 200, push_res.text
+
+    after = api_client["client"].get(
+        "/api/plan", headers={"If-None-Match": pre_etag},
+    )
+    # The pre-push ETag must NOT match — otherwise the user would see a 304
+    # and miss the push status they just created.
+    assert after.status_code == 200, (
+        "ETag did not flip after Stryd push — stryd_status served stale via 304"
+    )
+    assert "2026-05-07" in after.json()["stryd_status"]
 
 
 def test_push_endpoint_persists_under_calling_user(api_client, monkeypatch):

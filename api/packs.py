@@ -633,3 +633,63 @@ def get_science_pack(ctx: RequestContext) -> dict:
         "science_notes": ctx.science_notes,
         "tsb_zones": ctx.tsb_zones,
     }
+
+
+def get_plan_pack(ctx: RequestContext) -> dict:
+    """Upcoming workouts + today's planned power_max for /api/plan.
+
+    Used by ``/api/plan``. Reads only the ``training_plans`` rows already
+    loaded by ``RequestContext._data`` — no fitness series, recovery,
+    diagnosis, projection, or activity-list build. The pre-pack route
+    called ``get_dashboard_data`` to extract these two fields, which paid
+    the full dashboard compute (~22 top-level steps including the
+    deduplication pass and per-second ``activity_samples`` load) just to
+    discard everything except ``plan`` and one row of ``signal``.
+
+    ``cp_current`` preserves the legacy field name even though it carries
+    today's planned ``target_power_max`` (the upper bound of today's
+    workout, not the user's current CP). Renaming would be a frontend
+    contract change for a field nothing currently reads — left as-is.
+    """
+    plan_df = ctx.plan
+    today = ctx.today
+
+    workouts: list[dict] = []
+    if not plan_df.empty:
+        upcoming = plan_df[plan_df["date"] >= today].sort_values("date")
+        for _, row in upcoming.iterrows():
+            row_date = row["date"]
+            workout: dict = {
+                "date": (
+                    row_date.isoformat()
+                    if hasattr(row_date, "isoformat")
+                    else str(row_date)
+                ),
+                "workout_type": row.get("workout_type", ""),
+            }
+            for field, csv_col in (
+                ("duration_min", "planned_duration_min"),
+                ("distance_km", "planned_distance_km"),
+                ("power_min", "target_power_min"),
+                ("power_max", "target_power_max"),
+                ("description", "workout_description"),
+            ):
+                val = row.get(csv_col)
+                if pd.notna(val) and val != "":
+                    workout[field] = (
+                        str(val) if field == "description" else float(val)
+                    )
+            workouts.append(workout)
+
+    cp_current: float | None = None
+    if not plan_df.empty:
+        today_plan = plan_df[plan_df["date"] == today]
+        if not today_plan.empty:
+            val = today_plan.iloc[0].get("target_power_max")
+            if pd.notna(val) and val != "":
+                try:
+                    cp_current = float(val)
+                except (ValueError, TypeError):
+                    pass
+
+    return {"workouts": workouts, "cp_current": cp_current}
