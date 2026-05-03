@@ -274,6 +274,96 @@ def test_today_route_payload_includes_as_of_date(db_with_seeded_user):
     assert payload["as_of_date"] == date.today().isoformat()
 
 
+def test_today_route_payload_includes_data_as_of(db_with_seeded_user):
+    """The /api/today payload must carry an ISO datetime anchoring page
+    staleness. The signal must come from the actual data — not the sync
+    attempt time — so a sync that pulled no new rows correctly leaves
+    the value alone and the banner stays up.
+
+    Composition is `max(insight.generated_at, recovery latest_date EOD,
+    last activity date EOD)`. With seeded activities and recovery rows
+    but no AiInsight, the value should be EOD on the latest seeded date.
+    """
+    from api.routes.today import _build_today_payload
+
+    db, user_id = db_with_seeded_user
+    payload = _build_today_payload(user_id, db)
+
+    assert "data_as_of" in payload
+    assert payload["data_as_of"] is not None
+    # Seeded activities + recovery extend through `today - 1` (the loop
+    # writes i=0..13 against `today - timedelta(days=14 - i)`), so the
+    # latest data row is yesterday's EOD. With no AiInsight row, that
+    # date is the anchor.
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    assert payload["data_as_of"].startswith(yesterday)
+
+
+def test_data_as_of_uses_insight_generated_at_when_newest(db_with_seeded_user):
+    """When an AiInsight row exists and is newer than the latest data
+    rows, its generated_at is the anchor. This is the common steady
+    state — post-sync, the runner regenerates the brief, which advances
+    the timestamp past EOD-of-row-date."""
+    from datetime import datetime
+    from api.routes.today import _build_today_payload
+    from db.models import AiInsight
+
+    db, user_id = db_with_seeded_user
+    # Seed an insight written one minute ago — strictly newer than any
+    # date EOD anchor that today's recovery / activity rows could
+    # produce (those land at 23:59:59 of `date.today()`, but only if
+    # `now() > 23:59:59` are they not the maximum — by construction of
+    # this test, `now()` is after their EOD compare anchor only on the
+    # last second of the day, so we mock around that by setting the
+    # insight slightly in the future-of-now).
+    fixed = datetime.combine(date.today(), datetime.max.time()).replace(microsecond=0)
+    db.add(AiInsight(
+        user_id=user_id,
+        insight_type="daily_brief",
+        headline="t",
+        summary="t",
+        findings=[],
+        recommendations=[],
+        generated_at=fixed,
+    ))
+    db.commit()
+
+    payload = _build_today_payload(user_id, db)
+    # Server normalizes naive UTC datetimes to ISO + trailing `Z` so the
+    # browser doesn't re-interpret as local time at the day boundary.
+    assert payload["data_as_of"] == fixed.isoformat() + "Z"
+
+
+def test_data_as_of_is_none_with_no_data(monkeypatch):
+    """Fresh user with no data anywhere — data_as_of is null and the
+    frontend suppresses the banner (nothing to anchor on)."""
+    import tempfile
+
+    tmpdir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+    monkeypatch.setenv("DATA_DIR", tmpdir.name)
+    monkeypatch.setenv(
+        "PRAXYS_LOCAL_ENCRYPTION_KEY",
+        "JKkx_5SVHKQDr0HSMrwl0KQHcA0pl5pxsYSLEAQDB4o=",
+    )
+    from db import session as db_session
+    db_session.engine = None
+    db_session.SessionLocal = None
+    db_session.async_engine = None
+    db_session.AsyncSessionLocal = None
+    db_session.init_db()
+
+    from db.models import User
+    user_id = "fresh-user"
+    db = db_session.SessionLocal()
+    db.add(User(id=user_id, email="fresh@example.com", hashed_password="x"))
+    db.commit()
+
+    from api.routes.today import _build_today_payload
+    payload = _build_today_payload(user_id, db)
+    assert payload["data_as_of"] is None
+    db.close()
+
+
 def test_dashboard_data_and_packs_agree_on_signal(db_with_seeded_user):
     """Behavioral equivalence: signal_pack output equals dashboard_data['signal'].
 

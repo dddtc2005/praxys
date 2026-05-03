@@ -168,3 +168,54 @@ def test_review_session_significant_change_invalidates_hash():
     ctx_b["recent_training"]["sessions"][0]["avg_power"] = 230
     assert compute_dataset_hash(ctx_a, "training_review", science_pillars=PILLARS) != \
            compute_dataset_hash(ctx_b, "training_review", science_pillars=PILLARS)
+
+
+# ---------------------------------------------------------------------------
+# daily_brief: planned_today, not current_plan[0]
+# ---------------------------------------------------------------------------
+
+
+def test_daily_brief_hash_keys_off_planned_today_not_current_plan():
+    """When today is rest, the hash must not entangle with whichever
+    future workout happens to be next in the plan. Otherwise a plan
+    tweak two weeks out would burn an LLM regen for today's brief."""
+    base = _ctx_daily()
+    base["planned_today"] = None
+    base["current_plan"] = [
+        {"workout_type": "easy", "planned_duration_min": 45,
+         "target_power_min": 180, "target_power_max": 210},
+    ]
+    h_a = compute_dataset_hash(base, "daily_brief", science_pillars=PILLARS)
+
+    # Future workout swap — today is still rest. Hash must not change.
+    swapped = {**base, "current_plan": [
+        {"workout_type": "threshold", "planned_duration_min": 90,
+         "target_power_min": 240, "target_power_max": 280},
+    ]}
+    h_b = compute_dataset_hash(swapped, "daily_brief", science_pillars=PILLARS)
+    assert h_a == h_b
+
+
+def test_daily_brief_hash_changes_when_planned_today_changes():
+    """When today's plan slot itself changes (rest → easy run, or workout
+    type swap), the hash MUST change so the runner regenerates the brief."""
+    rest = _ctx_daily()
+    rest["planned_today"] = None
+    rest["current_plan"] = []
+    h_rest = compute_dataset_hash(rest, "daily_brief", science_pillars=PILLARS)
+
+    easy = _ctx_daily()
+    easy["planned_today"] = {
+        "workout_type": "easy", "planned_duration_min": 45,
+        "target_power_min": 180, "target_power_max": 210,
+    }
+    easy["current_plan"] = [easy["planned_today"]]
+    h_easy = compute_dataset_hash(easy, "daily_brief", science_pillars=PILLARS)
+    assert h_rest != h_easy
+
+    threshold = {**easy, "planned_today": {
+        "workout_type": "threshold", "planned_duration_min": 60,
+        "target_power_min": 240, "target_power_max": 280,
+    }}
+    h_threshold = compute_dataset_hash(threshold, "daily_brief", science_pillars=PILLARS)
+    assert h_easy != h_threshold

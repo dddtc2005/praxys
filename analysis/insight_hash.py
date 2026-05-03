@@ -47,21 +47,11 @@ def compute_dataset_hash(
     if insight_type == "daily_brief":
         rs = context.get("recovery_state", {}) or {}
         cf = context.get("current_fitness", {}) or {}
-        plan_list = context.get("current_plan") or []
-        # Sort defensively before taking the first entry: upstream plan
-        # ordering isn't part of the dashboard contract — a future filter
-        # change or two workouts sharing a date could swap positions and
-        # burn an LLM call. Date strings here are already ISO-style
-        # (api/ai.py wraps them in ``str(date_obj)``), so lex sort matches
-        # chronological sort.
-        plan_first = (
-            sorted(
-                (p for p in plan_list if isinstance(p, dict)),
-                key=lambda p: str(p.get("date") or ""),
-            )[0]
-            if plan_list
-            else None
-        )
+        # Hash projects today's workout slot — same input the LLM sees for
+        # daily_brief. Falling back to current_plan[0] (the next future
+        # workout when today is rest) would entangle the rest-day cache
+        # with whichever workout happens to be next, so a plan tweak two
+        # weeks out would burn a regen for today.
         proj: dict[str, Any] = {
             "hrv_ms": _round(rs.get("hrv_ms"), 0.5),
             "hrv_trend_pct": _round(rs.get("hrv_trend_pct"), 1.0),
@@ -70,7 +60,7 @@ def compute_dataset_hash(
             "tsb": _round(cf.get("tsb"), 0.5),
             "atl": _round(cf.get("atl"), 0.5),
             "ctl": _round(cf.get("ctl"), 0.5),
-            "plan_first": _project_plan_entry(plan_first),
+            "planned_today": _project_plan_entry(context.get("planned_today")),
             "pillars": pillar_set,
         }
     elif insight_type == "training_review":

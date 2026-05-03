@@ -276,6 +276,82 @@ class RequestContext:
         return analysis
 
     @cached_property
+    def data_as_of(self) -> str | None:
+        """ISO-8601 timestamp of the most recent material data update.
+
+        The Today page surface is "stale" when the user's local calendar
+        date is past this timestamp's calendar date. The anchor is the
+        actual data — not the time a sync attempt ran — so a successful
+        sync that pulls no new rows correctly leaves the page labelled
+        as showing yesterday's snapshot.
+
+        Composition (newest wins):
+        - ``AiInsight.generated_at`` for the user's ``daily_brief`` row.
+          Updates whenever the post-sync runner regenerates the brief
+          (i.e. when the dataset hash changes), so it tracks "the last
+          time the page narrative materially shifted."
+        - Latest recovery row's date (end-of-day UTC).
+        - Latest activity's date (end-of-day UTC).
+
+        Returns ``None`` when no data exists yet (fresh user before any
+        sync). Frontend treats null as "nothing to anchor on" and
+        suppresses the staleness banner.
+        """
+        from datetime import datetime, time, timezone
+        from db.models import AiInsight
+
+        # All timestamps normalized to UTC. Trailing 'Z' on the emitted
+        # ISO string is load-bearing: without it, JavaScript's
+        # ``new Date()`` interprets the value as the device's local time,
+        # which would land the comparison in the wrong calendar date for
+        # users east or west of UTC at the day boundary. ``insight.generated_at``
+        # is stored via ``datetime.utcnow()`` (naive UTC); we attach
+        # ``timezone.utc`` so the iso output carries the offset.
+        candidates: list[datetime] = []
+
+        insight_row = (
+            self.db.query(AiInsight.generated_at)
+            .filter(
+                AiInsight.user_id == self.user_id,
+                AiInsight.insight_type == "daily_brief",
+            )
+            .first()
+        )
+        if insight_row and insight_row[0] is not None:
+            ts = insight_row[0]
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            candidates.append(ts)
+
+        recovery = self.recovery
+        if hasattr(recovery, "empty") and not recovery.empty and "date" in recovery.columns:
+            latest = pd.to_datetime(recovery["date"], errors="coerce").max()
+            if pd.notna(latest):
+                candidates.append(
+                    datetime.combine(
+                        latest.date(), time(23, 59, 59), tzinfo=timezone.utc
+                    )
+                )
+
+        merged = self.merged_activities
+        if not merged.empty and "date" in merged.columns:
+            latest_a = pd.to_datetime(merged["date"], errors="coerce").max()
+            if pd.notna(latest_a):
+                candidates.append(
+                    datetime.combine(
+                        latest_a.date(), time(23, 59, 59), tzinfo=timezone.utc
+                    )
+                )
+
+        if not candidates:
+            return None
+        # Format with explicit `Z` suffix instead of `+00:00` — both are
+        # valid ISO-8601 but `Z` is the conventional shorthand and matches
+        # what the rest of the API uses for UTC timestamps.
+        out = max(candidates).astimezone(timezone.utc).replace(tzinfo=None)
+        return out.isoformat() + "Z"
+
+    @cached_property
     def data_meta(self) -> dict:
         merged = self.merged_activities
         recovery = self.recovery

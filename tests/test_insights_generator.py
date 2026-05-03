@@ -238,6 +238,45 @@ def test_daily_brief_user_payload_includes_goal_context(monkeypatch):
     assert user_msg.get("race_countdown", {}).get("days_left") == 124
 
 
+def test_daily_brief_planned_workout_reads_planned_today_only(monkeypatch):
+    """Daily brief's planned_workout MUST be today's plan entry, not the
+    next future workout. Falling back to current_plan[0] silently surfaces
+    the next workout when today is rest, and the LLM then advises on a
+    session the athlete isn't supposed to do."""
+    fake = _FakeClient(json.dumps(_valid_bilingual_response()))
+    monkeypatch.setattr(llm, "get_client", lambda: fake)
+
+    ctx = _fake_context()
+    # Today is rest (no planned_today); current_plan still carries a
+    # future workout the planner intends for some other day.
+    ctx["planned_today"] = None
+    ctx["current_plan"] = [
+        {"workout_type": "threshold", "planned_duration_min": 90,
+         "target_power_min": 240, "target_power_max": 280},
+    ]
+    insights_generator.generate_daily_brief(ctx, PILLARS)
+    user_msg = json.loads(fake.chat.completions.last_call["messages"][1]["content"])
+    assert user_msg["planned_workout"] is None, (
+        "planned_workout must be None when today is unscheduled — "
+        "do not surface the next future workout as today's session"
+    )
+
+    # When planned_today is set, that exact entry is what the LLM sees.
+    ctx2 = _fake_context()
+    ctx2["planned_today"] = {
+        "workout_type": "easy", "planned_duration_min": 30,
+        "target_power_min": 180, "target_power_max": 200,
+    }
+    ctx2["current_plan"] = [
+        ctx2["planned_today"],
+        {"workout_type": "threshold", "planned_duration_min": 90},
+    ]
+    insights_generator.generate_daily_brief(ctx2, PILLARS)
+    user_msg2 = json.loads(fake.chat.completions.last_call["messages"][1]["content"])
+    assert user_msg2["planned_workout"]["workout_type"] == "easy"
+    assert user_msg2["planned_workout"]["planned_duration_min"] == 30
+
+
 def test_training_review_user_payload_includes_goal_context(monkeypatch):
     """Training review needs goal context to avoid recommending a brand-new
     block when the athlete is closing in on a target race."""

@@ -143,6 +143,83 @@ class TestValidatePlan:
 
 
 # ---------------------------------------------------------------------------
+# _build_context_from_data — planned_today resolution
+# ---------------------------------------------------------------------------
+
+
+class TestPlannedTodayContext:
+    """`_build_context_from_data` must surface today's plan row as
+    ``planned_today`` so the daily-brief LLM input doesn't fall back to
+    the next future workout when today is unscheduled (rest)."""
+
+    @staticmethod
+    def _empty_data(plan_rows):
+        """Build the minimum dashboard-data shape the context builder reads."""
+        return {
+            "plan": pd.DataFrame(plan_rows),
+            "fitness_fatigue": {"ctl": [], "atl": [], "tsb": []},
+            "activities": [],
+            "diagnosis": {},
+        }
+
+    def test_planned_today_set_when_today_in_plan(self, monkeypatch):
+        from api.ai import _build_context_from_data
+        from analysis.config import UserConfig
+
+        cfg = UserConfig()
+        monkeypatch.setattr("api.ai.load_config", lambda: cfg)
+
+        today = date.today()
+        data = self._empty_data([
+            {"date": today, "workout_type": "easy",
+             "planned_duration_min": 45, "target_power_min": 180,
+             "target_power_max": 210},
+            {"date": today + timedelta(days=2), "workout_type": "threshold",
+             "planned_duration_min": 90, "target_power_min": 240,
+             "target_power_max": 280},
+        ])
+        ctx = _build_context_from_data(data)
+        assert ctx["planned_today"] is not None
+        assert ctx["planned_today"]["workout_type"] == "easy"
+        assert ctx["planned_today"]["date"] == today.isoformat()
+
+    def test_planned_today_none_when_today_is_rest(self, monkeypatch):
+        """Today has no plan row — planned_today MUST be None even when
+        a future entry is the first thing in current_plan. This is the
+        bug that surfaced 'continue 30 min easy' on a rest day."""
+        from api.ai import _build_context_from_data
+        from analysis.config import UserConfig
+
+        cfg = UserConfig()
+        monkeypatch.setattr("api.ai.load_config", lambda: cfg)
+
+        today = date.today()
+        data = self._empty_data([
+            {"date": today + timedelta(days=3), "workout_type": "test",
+             "planned_duration_min": 60, "target_power_min": 200,
+             "target_power_max": 280},
+        ])
+        ctx = _build_context_from_data(data)
+        assert ctx["planned_today"] is None
+        # current_plan still carries the future workout — useful for the
+        # forward-looking surfaces, but daily_brief must not key off it.
+        assert len(ctx["current_plan"]) == 1
+        assert ctx["current_plan"][0]["workout_type"] == "test"
+
+    def test_planned_today_none_when_plan_empty(self, monkeypatch):
+        from api.ai import _build_context_from_data
+        from analysis.config import UserConfig
+
+        cfg = UserConfig()
+        monkeypatch.setattr("api.ai.load_config", lambda: cfg)
+
+        data = self._empty_data([])
+        ctx = _build_context_from_data(data)
+        assert ctx["planned_today"] is None
+        assert ctx["current_plan"] == []
+
+
+# ---------------------------------------------------------------------------
 # AiPlanProvider tests
 # ---------------------------------------------------------------------------
 

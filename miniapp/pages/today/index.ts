@@ -1,6 +1,6 @@
 import { setTabBarSelected } from '../../utils/tabbar';
 import type { IAppOption } from '../../app';
-import { apiGet } from '../../utils/api-client';
+import { apiGet, apiPost } from '../../utils/api-client';
 import { generateShareCard } from '../../utils/share-image';
 import type { ApiError } from '../../utils/api-client';
 import type {
@@ -284,10 +284,35 @@ interface RenderState {
    *  device's local date for the loading skeleton (so the skeleton
    *  renders something reasonable rather than blank). */
   today: string;
-  /** Stale-data / timezone-mismatch advisory shown above the signal
-   *  hero. Empty string means hide the banner. The string already
-   *  carries the localized reading-date when relevant. */
+  /** Recovery-only staleness advisory (PR #254 surface) — fires only
+   *  when recovery rows are ≥2 days behind. Empty string hides the
+   *  banner. Suppressed when `dataStale` is also true so the
+   *  page-level banner below is the single voice on the surface. */
   stalenessText: string;
+  /** Page-level data-staleness state — true when the freshest data
+   *  point's calendar date in the user's local TZ is older than today.
+   *  Anchored on `data_as_of` (not the sync attempt) so a successful
+   *  sync that pulled no rows correctly leaves this on. */
+  dataStale: boolean;
+  /** Pre-formatted "Sat 9:00 PM" / "周六 21:00" stamp for the banner. */
+  dataAsOfLabel: string;
+  /** Pre-translated headline for the banner — already carries the
+   *  formatted timestamp. */
+  staleHeadline: string;
+  /** Pre-translated detail line. */
+  staleDetail: string;
+  /** Pre-translated chip text — "From {label}". */
+  staleChipText: string;
+  /** Pre-translated button labels — split out so WXML stays stringless
+   *  and the i18n-check linter doesn't flag the template. */
+  staleSyncLabel: string;
+  staleSyncingLabel: string;
+  staleShowAnywayLabel: string;
+  /** "Show anyway" escape-hatch state — component-scoped (not
+   *  storage). Each fresh page load re-prompts. */
+  staleDismissed: boolean;
+  /** Manual-sync in-flight. Toggles button text and disables. */
+  staleSyncing: boolean;
   loading: boolean;
   errorMessage: string;
   hasResponse: boolean;
@@ -361,11 +386,49 @@ function buildStalenessText(
   );
 }
 
+// Format the `data_as_of` server timestamp for the banner — local-TZ
+// weekday + clock time ("Sat 9:00 PM" / "周六 21:00"). The server emits
+// the value with a trailing `Z` so `new Date()` interprets it as UTC
+// and renders in the user's local timezone, which is what we want them
+// to read. Returns '' on parse failure so the WXML guard hides the
+// banner cleanly rather than rendering "Invalid Date".
+function formatDataAsOf(iso: string, locale: 'en' | 'zh'): string {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString(locale === 'zh' ? 'zh-CN' : 'en-US', {
+      weekday: 'short',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn('[today] formatDataAsOf failed; hiding banner:', iso, e);
+    return '';
+  }
+}
+
+// Decide whether the page-level banner fires. The data row's calendar
+// date in the user's local TZ is compared to local today — if older,
+// the banner goes up. Returns false for null/invalid input so we don't
+// render a banner when there's nothing to anchor on (fresh user).
+function isDataStaleNow(dataAsOf: string | null | undefined): boolean {
+  if (!dataAsOf) return false;
+  const d = new Date(dataAsOf);
+  if (Number.isNaN(d.getTime())) return false;
+  const dataLocal = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const now = new Date();
+  const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  return dataLocal < todayLocal;
+}
+
 function buildRenderState(
   response: TodayResponse | null,
   themeClass: string,
   today: string,
   insight: AiInsight | null,
+  staleDismissed = false,
+  staleSyncing = false,
 ): Partial<RenderState> {
   if (!response) {
     return {};
@@ -379,10 +442,34 @@ function buildRenderState(
   // load is replaced once the response arrives.
   const localeForDate = detectLocale();
   const eyebrowDate = formatIsoDateLong(response.as_of_date, localeForDate);
-  const stalenessText = buildStalenessText(
-    response.recovery_analysis ?? null,
-    localeForDate,
-  );
+
+  // Page-level data-staleness — anchored on the actual data timestamp
+  // (`data_as_of`), not on the sync attempt time. Suppresses the
+  // older recovery-only banner when active (the page-level signal is
+  // strictly more general — fires for any stale data, not just
+  // recovery ≥2 days behind).
+  const dataStale = isDataStaleNow(response.data_as_of);
+  const dataAsOfLabel = response.data_as_of
+    ? formatDataAsOf(response.data_as_of, localeForDate)
+    : '';
+  const dataStaleEffective = dataStale && !!dataAsOfLabel;
+
+  const stalenessText = dataStaleEffective
+    ? ''
+    : buildStalenessText(response.recovery_analysis ?? null, localeForDate);
+
+  const staleHeadline = dataStaleEffective
+    ? tFmt(
+        "Showing yesterday's snapshot. Last reading {0}.",
+        dataAsOfLabel,
+      )
+    : '';
+  const staleDetail = dataStaleEffective
+    ? t('No new HRV, sleep, or activity since.')
+    : '';
+  const staleChipText = dataStaleEffective
+    ? tFmt('From {0}', dataAsOfLabel)
+    : '';
 
   // Coach receipt: the LLM-generated daily brief, rendered between the
   // signal hero and the supporting cells. When present, suppresses the
@@ -424,6 +511,16 @@ function buildRenderState(
     themeClass,
     today: eyebrowDate,
     stalenessText,
+    dataStale: dataStaleEffective,
+    dataAsOfLabel,
+    staleHeadline,
+    staleDetail,
+    staleChipText,
+    staleSyncLabel: t('Sync now'),
+    staleSyncingLabel: t('Syncing…'),
+    staleShowAnywayLabel: t('Show anyway'),
+    staleDismissed,
+    staleSyncing,
     loading: false,
     errorMessage: '',
     hasResponse: true,
@@ -488,6 +585,16 @@ const initialData: RenderState & RefreshState = {
   chartTheme: 'light',
   today: '',
   stalenessText: '',
+  dataStale: false,
+  dataAsOfLabel: '',
+  staleHeadline: '',
+  staleDetail: '',
+  staleChipText: '',
+  staleSyncLabel: '',
+  staleSyncingLabel: '',
+  staleShowAnywayLabel: '',
+  staleDismissed: false,
+  staleSyncing: false,
   loading: true,
   errorMessage: '',
   hasResponse: false,
@@ -617,6 +724,52 @@ Page({
     void this.refetch();
   },
 
+  /** "Show anyway" handler — dismisses the staleness banner for the
+   *  current page session. Re-renders from cached `_todayResponse` so
+   *  the chip variant takes its place without a network round-trip. */
+  onStaleShowAnyway() {
+    this.setData({ staleDismissed: true });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cached = (this as unknown as Record<string, any>)._todayResponse;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cachedInsight = (this as unknown as Record<string, any>)._dailyBriefInsight;
+    if (cached) {
+      this.setData(
+        buildRenderState(
+          cached,
+          this.data.themeClass,
+          this.data.today,
+          cachedInsight ?? null,
+          true,
+          this.data.staleSyncing as boolean,
+        ) as Record<string, unknown>,
+      );
+    }
+  },
+
+  /** "Sync now" handler — kicks the existing /api/sync route and
+   *  refetches the today payload after a brief delay. data_as_of will
+   *  advance only if the sync pulled new rows; on a no-op sync, the
+   *  banner correctly stays up. Errors swallow at this layer because
+   *  the failure mode the user cares about — "did the data refresh?"
+   *  — is observable from the banner staying or going away. */
+  async onStaleSyncNow() {
+    if (this.data.staleSyncing) return;
+    this.setData({ staleSyncing: true });
+    try {
+      try {
+        await apiPost('/api/sync');
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('[today] manual sync kick failed; refetching anyway:', e);
+      }
+      await new Promise((r) => setTimeout(r, 6000));
+      await this.refetch();
+    } finally {
+      this.setData({ staleSyncing: false });
+    }
+  },
+
   noop() { /* backdrop catchtap — prevents overlay close when tapping the card */ },
 
   onShareCardToggle() {
@@ -678,11 +831,21 @@ Page({
           return null;
         }),
       ]);
-      // Cache raw response so renderShareCard can access it on first FAB tap.
+      // Cache raw response so renderShareCard / onStaleShowAnyway can
+      // access it without a second network round-trip.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (this as unknown as Record<string, any>)._todayResponse = response;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (this as unknown as Record<string, any>)._dailyBriefInsight = insight;
       this.setData(
-        buildRenderState(response, this.data.themeClass, this.data.today, insight) as Record<string, unknown>,
+        buildRenderState(
+          response,
+          this.data.themeClass,
+          this.data.today,
+          insight,
+          this.data.staleDismissed as boolean,
+          this.data.staleSyncing as boolean,
+        ) as Record<string, unknown>,
       );
       // Share card is rendered lazily on first FAB tap. Clear any stale
       // path so the old signal's card doesn't show for the new signal.

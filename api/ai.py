@@ -140,14 +140,25 @@ def _build_context_from_data(data: dict, *, user_id: str | None = None, db=None)
     }
 
     # -- Current plan --
+    # `current_plan`: today + future entries, used by surfaces that need a
+    #   forward-looking view (training plan skill, future planners).
+    # `planned_today`: only the row matching today's date, or None when
+    #   today has no scheduled workout (rest day). Daily-brief consumers
+    #   must use this — taking `current_plan[0]` as "today's workout"
+    #   silently surfaces the next future workout when today is rest,
+    #   which made the LLM advise on the wrong session.
     plan_df = data.get("plan")
     current_plan: list[dict] = []
+    planned_today: dict | None = None
     if isinstance(plan_df, pd.DataFrame) and not plan_df.empty:
         plan_future = plan_df[plan_df["date"] >= today]
         for _, row in plan_future.iterrows():
             wp = {k: (v if pd.notna(v) else None) for k, v in row.to_dict().items()}
-            wp["date"] = str(wp.get("date", ""))
+            row_date = wp.get("date")
+            wp["date"] = str(row_date) if row_date is not None else ""
             current_plan.append(wp)
+            if planned_today is None and row_date == today:
+                planned_today = wp
 
     return {
         "generated_at": datetime.now().isoformat(),
@@ -157,6 +168,7 @@ def _build_context_from_data(data: dict, *, user_id: str | None = None, db=None)
         "recent_training": recent_training,
         "recovery_state": recovery_state,
         "current_plan": current_plan,
+        "planned_today": planned_today,
     }
 
 

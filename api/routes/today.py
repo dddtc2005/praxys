@@ -42,6 +42,12 @@ def _build_today_payload(user_id: str, db: Session) -> dict:
         # (and vice versa). Pair with `recovery_analysis.is_stale` /
         # `latest_date` to label the actual reading date when sync lags.
         "as_of_date": ctx.today.isoformat(),
+        # ISO datetime of the most recent material data update — anchor for
+        # the page-level staleness banner. Frontend compares its calendar
+        # date in the user's local TZ to today's local date; if older, the
+        # sync-zone is dimmed and the banner names *when the data is from*.
+        # See `RequestContext.data_as_of` for composition.
+        "data_as_of": ctx.data_as_of,
         "signal": signal["signal"],
         "tsb_sparkline": signal["tsb_sparkline"],
         "warnings": signal["warnings"],

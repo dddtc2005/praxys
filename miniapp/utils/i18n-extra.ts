@@ -219,6 +219,13 @@ const EN_TODAY = {
   // pages/today/index.ts:buildStalenessText.
   "Recovery data hasn't synced yet. Showing the latest reading from {0}.":
     "Recovery data hasn't synced yet. Showing the latest reading from {0}.",
+  // Page-level data-staleness banner copy. Same shape as the web side
+  // but uses positional `{0}` because tFmt only supports those.
+  "Showing yesterday's snapshot. Last reading {0}.":
+    "Showing yesterday's snapshot. Last reading {0}.",
+  'No new HRV, sleep, or activity since.': 'No new HRV, sleep, or activity since.',
+  'Show anyway': 'Show anyway',
+  'From {0}': 'From {0}',
 };
 
 const EN_TRAINING = {
@@ -493,6 +500,13 @@ const ZH_TODAY = {
   // ("Apr 24" / "4月24日") supplied by tFmt.
   "Recovery data hasn't synced yet. Showing the latest reading from {0}.":
     '今日恢复数据尚未同步，显示的是 {0} 的最近读数。',
+  // Page-level data-staleness banner — anchored on data_as_of timestamp.
+  // `{0}` is the localized "Sat 9:00 PM" / "周六 21:00" stamp.
+  "Showing yesterday's snapshot. Last reading {0}.":
+    '显示的是昨天的快照。最近一次读数 {0}。',
+  'No new HRV, sleep, or activity since.': '此后无新的 HRV、睡眠或活动数据。',
+  'Show anyway': '仍要查看',
+  'From {0}': '数据自 {0}',
 };
 
 const ZH_TRAINING = {

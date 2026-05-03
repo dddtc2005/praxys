@@ -1,4 +1,5 @@
-import { useApi } from '@/hooks/useApi';
+import { useState } from 'react';
+import { useApi, API_BASE, getAuthHeaders } from '@/hooks/useApi';
 import type { AiInsight, TodayResponse, TrainingSignal } from '@/types/api';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -160,6 +161,36 @@ function formatIsoDateShort(isoDate: string, locale: string): string {
   );
 }
 
+// Format the data_as_of timestamp for the staleness banner — local-TZ
+// weekday + clock time ("Sat 9:00 PM" / "周六 21:00"). The server emits
+// the timestamp with a trailing `Z`, so `new Date()` interprets it as
+// UTC and renders in the user's local timezone, which is what we want
+// the user to read.
+function formatDataAsOf(iso: string, locale: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString(locale === 'zh' ? 'zh-CN' : 'en-US', {
+    weekday: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+// Decide whether the page-level "yesterday's snapshot" banner should
+// fire. The data row's calendar date in the user's local timezone is
+// compared to the local today — if older, the banner goes up. Returns
+// false on null data_as_of (fresh user, nothing to anchor on) and on
+// invalid timestamps (don't lie when the server emits something weird).
+function isDataStale(dataAsOf: string | null | undefined): boolean {
+  if (!dataAsOf) return false;
+  const d = new Date(dataAsOf);
+  if (Number.isNaN(d.getTime())) return false;
+  const dataLocalDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const now = new Date();
+  const todayLocalDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  return dataLocalDate < todayLocalDate;
+}
+
 function formatPlan(plan: TrainingSignal['plan']): string | null {
   if (!plan?.workout_type) return null;
   const parts: string[] = [plan.workout_type];
@@ -177,6 +208,14 @@ export default function Today() {
   const { data: briefData } = useApi<{ insight: AiInsight | null }>('/api/insights/daily_brief');
   const { locale } = useLocale();
   const { i18n } = useLingui();
+
+  // Page-level data-staleness state. ``dismissed`` is the "Show anyway"
+  // escape hatch — component-scoped (not localStorage) so each fresh
+  // page load re-prompts. ``syncing`` flips while a manual sync is
+  // running so the button can render a loading state without blocking
+  // the rest of the page.
+  const [dismissed, setDismissed] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   if (loading) return <TodaySkeleton />;
 
@@ -257,10 +296,86 @@ export default function Today() {
   const loadNoteName = data.science_notes?.load?.name;
   const attribution = [recoveryNoteName, loadNoteName].filter(Boolean).join(' · ');
 
+  // Page-level data-staleness — the user is looking at yesterday's
+  // snapshot when the freshest data row's calendar date in their local
+  // TZ is older than today. Anchors on the actual data timestamp, not
+  // the sync-attempt time, so a successful sync that pulled no rows
+  // correctly leaves the banner up. Suppresses the older recovery-only
+  // banner when active, since this signal is strictly more general
+  // (it fires for any stale data, not just recovery ≥2 days behind).
+  const dataStale = isDataStale(data.data_as_of);
+  const dataAsOfLabel = data.data_as_of ? formatDataAsOf(data.data_as_of, locale) : null;
+  const showStaleBanner = dataStale && !!dataAsOfLabel && !dismissed;
+  const showStaleChip = dataStale && !!dataAsOfLabel && dismissed;
+  const showRecoveryBanner = !dataStale && recoveryStale && !!recoveryLatestLabel;
+
+  // Manual sync — kicks the existing /api/sync route (background
+  // tasks). After ~6 seconds we refetch /api/today; on a successful
+  // pull, ``data_as_of`` advances and the banner disappears. On a sync
+  // that returns no new rows, ``data_as_of`` stays put and the banner
+  // remains, which is the honest behavior. Polling /api/sync/status to
+  // wait for completion would be more precise but ETags + the cache's
+  // date salt mean a refetch within 6s already reflects the new state.
+  const handleSyncNow = async () => {
+    setSyncing(true);
+    try {
+      await fetch(`${API_BASE}/api/sync`, {
+        method: 'POST',
+        headers: getAuthHeaders() as Record<string, string>,
+      });
+      await new Promise((r) => setTimeout(r, 6_000));
+      await refetch();
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   return (
-    <div className="today-spread">
+    <div className={`today-spread ${showStaleBanner ? 'sync-stale' : ''}`.trim()}>
       <h1 className="today-eyebrow font-data"><Trans>Today</Trans> · {dateStr}</h1>
-      {recoveryStale && recoveryLatestLabel && (
+      {showStaleBanner && (
+        <div role="status" aria-live="polite" className="today-data-stale-banner">
+          <div className="stale-text">
+            <span className="stale-headline">
+              <Trans>Showing yesterday's snapshot. Last reading {dataAsOfLabel}.</Trans>
+            </span>
+            <span className="stale-detail font-data">
+              <Trans>No new HRV, sleep, or activity since.</Trans>
+            </span>
+          </div>
+          <div className="stale-actions">
+            <Button
+              size="sm"
+              onClick={handleSyncNow}
+              disabled={syncing}
+            >
+              {syncing ? <Trans>Syncing…</Trans> : <Trans>Sync now</Trans>}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setDismissed(true)}
+            >
+              <Trans>Show anyway</Trans>
+            </Button>
+          </div>
+        </div>
+      )}
+      {showStaleChip && (
+        <div className="today-data-stale-chip" role="status">
+          <span className="stale-chip-dot" aria-hidden="true" />
+          <span><Trans>From {dataAsOfLabel}</Trans></span>
+          <button
+            type="button"
+            className="stale-chip-link"
+            onClick={handleSyncNow}
+            disabled={syncing}
+          >
+            {syncing ? <Trans>Syncing…</Trans> : <Trans>Sync now</Trans>}
+          </button>
+        </div>
+      )}
+      {showRecoveryBanner && (
         <div
           role="status"
           className="today-staleness-banner rounded-lg border border-dashed border-accent-amber/40 bg-accent-amber/5 px-3 py-2 text-xs text-accent-amber"
