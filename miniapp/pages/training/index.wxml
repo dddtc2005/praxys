@@ -22,6 +22,50 @@
     <block wx:elif="{{hasResponse}}">
       <state-card wx:if="{{!hasAnyData}}" type="empty" headline="{{tr.noData}}" />
 
+      <!-- Praxys Coach receipt — conditional on training_review insight.
+           Sits at the top so the LLM diagnosis frames the per-section
+           data below. Nil-renders when LLM is disabled or no row exists,
+           in which case the rule-based Findings + Suggestions sections
+           at the bottom remain visible as the deterministic fallback. -->
+      <view wx:if="{{hasCoach}}" class="coach-receipt" aria-label="{{coachTr.aria}}">
+        <view class="coach-banner">
+          <text class="coach-mark">{{coachTr.mark}}</text>
+          <text wx:if="{{coach.stamp}}" class="coach-stamp ts-value">{{coach.stamp}}</text>
+        </view>
+        <view class="coach-body">
+          <text class="coach-headline">{{coach.headline}}</text>
+
+          <block wx:if="{{coach.hasFindings}}">
+            <text class="coach-label">{{coachTr.findings}}</text>
+            <view
+              wx:for="{{coach.findings}}"
+              wx:key="id"
+              class="coach-row coach-row--{{item.tone}}"
+            >
+              <text class="coach-tag">{{item.marker}}</text>
+              <text class="coach-text">{{item.text}}</text>
+            </view>
+          </block>
+
+          <view
+            wx:if="{{coach.hasFindings && coach.hasRecommendations}}"
+            class="coach-rule"
+          ></view>
+
+          <block wx:if="{{coach.hasRecommendations}}">
+            <text class="coach-label">{{coachTr.recommendations}}</text>
+            <view
+              wx:for="{{coach.recommendations}}"
+              wx:key="index"
+              class="coach-row"
+            >
+              <text class="coach-tag coach-tag--rec">{{item.index}}.</text>
+              <text class="coach-text">{{item.text}}</text>
+            </view>
+          </block>
+        </view>
+      </view>
+
       <view wx:if="{{hasVolume}}" class="ts-section">
         <text class="ts-section-label">{{tr.volume}}</text>
         <view class="train-hero">

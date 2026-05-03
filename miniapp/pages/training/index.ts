@@ -2,9 +2,10 @@ import { setTabBarSelected } from '../../utils/tabbar';
 import type { IAppOption } from '../../app';
 import { apiGet } from '../../utils/api-client';
 import type { ApiError } from '../../utils/api-client';
-import type { TrainingResponse } from '../../types/api';
+import type { AiInsight, AiInsightFinding, TrainingResponse } from '../../types/api';
 import { applyThemeChrome, themeClassName } from '../../utils/theme';
-import { t, tFmt } from '../../utils/i18n';
+import { detectLocale, t, tFmt } from '../../utils/i18n';
+import { fetchInsight, localizedInsight } from '../../utils/insights';
 
 function buildTrainingTr() {
   return {
@@ -31,6 +32,92 @@ function buildTrainingTr() {
     dataPoints: t('data points'),
     showCorrelation: t('Show correlation'),
     hideCorrelation: t('Hide correlation'),
+  };
+}
+
+// ---- Praxys Coach receipt (training_review) ----
+//
+// Same shape used by Today (daily_brief) and Goal (race_forecast). When
+// the LLM training-review row is present, the receipt replaces the
+// rule-based Findings + Suggestions sections at the bottom of the page —
+// they cover the same ground in a less specific voice. When the row is
+// absent (LLM disabled, generation cap hit, transient endpoint failure),
+// the receipt nil-renders and the rule-based sections remain visible as
+// the deterministic fallback.
+
+type CoachMarker = '[+]' | '[!]' | '[·]';
+
+interface CoachFindingRow {
+  /** Stable unique key for `wx:key` — array index, not text, because two
+   *  findings can carry identical copy across reviews and Skyline's
+   *  reconciler would collide on duplicate keys. */
+  id: string;
+  marker: CoachMarker;
+  tone: AiInsightFinding['type'];
+  text: string;
+}
+
+interface CoachRecRow {
+  /** 1-based ordinal as a string for WXML rendering and `wx:key`. */
+  index: string;
+  text: string;
+}
+
+interface CoachReceipt {
+  /** "2h ago" / "5分钟前". Empty when no `generated_at` (legacy rows). */
+  stamp: string;
+  headline: string;
+  hasFindings: boolean;
+  findings: CoachFindingRow[];
+  hasRecommendations: boolean;
+  recommendations: CoachRecRow[];
+}
+
+/** Pre-translated coach-receipt copy. Captured in render state so WXML
+ *  stays stringless and `check-i18n.cjs` doesn't flag the template. */
+interface CoachTranslations {
+  mark: string;
+  findings: string;
+  recommendations: string;
+  aria: string;
+}
+
+function timeAgo(isoDate: string, locale: 'en' | 'zh'): string {
+  try {
+    const diff = Date.now() - new Date(isoDate).getTime();
+    const rtf = new Intl.RelativeTimeFormat(locale === 'zh' ? 'zh-CN' : 'en-US', { style: 'short' });
+    const mins = Math.floor(diff / 60_000);
+    if (mins < 60) return rtf.format(-mins, 'minute');
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return rtf.format(-hours, 'hour');
+    const days = Math.floor(hours / 24);
+    return rtf.format(-days, 'day');
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn('[training] timeAgo failed; dropping stamp:', isoDate, e);
+    return '';
+  }
+}
+
+function buildCoachReceipt(insight: AiInsight, locale: 'en' | 'zh'): CoachReceipt {
+  const view = localizedInsight(insight, locale);
+  const findings: CoachFindingRow[] = view.findings.map((f, i) => ({
+    id: `${i}`,
+    marker: f.type === 'positive' ? '[+]' : f.type === 'warning' ? '[!]' : '[·]',
+    tone: f.type,
+    text: f.text,
+  }));
+  const recommendations: CoachRecRow[] = view.recommendations.map((r, i) => ({
+    index: `${i + 1}`,
+    text: r,
+  }));
+  return {
+    stamp: insight.generated_at ? timeAgo(insight.generated_at, locale) : '',
+    headline: view.headline,
+    hasFindings: findings.length > 0,
+    findings,
+    hasRecommendations: recommendations.length > 0,
+    recommendations,
   };
 }
 import {
@@ -151,6 +238,13 @@ interface TrainingState {
   /** One-liner above the bar chart — "On plan · 5/6 weeks within ±20%". */
   complianceTakeaway: string;
   complianceTakeawayAccent: string;
+
+  /** True iff a `training_review` AiInsight row exists. Toggles the
+   *  receipt block on and the rule-based Findings / Suggestions blocks
+   *  off — the receipt covers the same ground in a more specific voice. */
+  hasCoach: boolean;
+  coach: CoachReceipt | null;
+  coachTr: CoachTranslations | null;
 }
 
 const initialData: TrainingState = {
@@ -223,6 +317,10 @@ const initialData: TrainingState = {
   complianceActualColors: [],
   complianceTakeaway: '',
   complianceTakeawayAccent: '',
+
+  hasCoach: false,
+  coach: null,
+  coachTr: null,
 };
 
 function clampPct(v: number): number {
@@ -426,7 +524,11 @@ function buildSleepTakeaway(
   };
 }
 
-function buildState(response: TrainingResponse, themeClass: string): Partial<TrainingState> {
+function buildState(
+  response: TrainingResponse,
+  themeClass: string,
+  insight: AiInsight | null,
+): Partial<TrainingState> {
   const { diagnosis, cp_trend, fitness_fatigue, sleep_perf, weekly_review, data_meta } = response;
   const weeklyKm = diagnosis?.volume?.weekly_avg_km;
   const hasVolume = typeof weeklyKm === 'number';
@@ -484,6 +586,33 @@ function buildState(response: TrainingResponse, themeClass: string): Partial<Tra
         consistency.longest_gap_days ?? 0,
       )
     : '';
+
+  // Coach receipt: the LLM-generated training-review insight. Mirrors
+  // Today and Goal — when present, suppresses the rule-based Findings +
+  // Suggestions sections below so the user doesn't read the same idea
+  // twice in two voices. A throw inside buildCoachReceipt (e.g. a future
+  // schema change yields an unexpected finding shape) must not blank
+  // the whole page — degrade to "no receipt" and let the rule-based
+  // diagnosis prose re-appear.
+  const locale = detectLocale();
+  let coach: CoachReceipt | null = null;
+  if (insight) {
+    try {
+      coach = buildCoachReceipt(insight, locale);
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('[training] coach receipt build failed; suppressing receipt:', e);
+    }
+  }
+  const hasCoach = coach != null;
+  const coachTr: CoachTranslations | null = hasCoach
+    ? {
+        mark: t('Praxys Coach'),
+        findings: t('Findings'),
+        recommendations: t('Recommendations'),
+        aria: t('Praxys Coach insight'),
+      }
+    : null;
 
   return {
     themeClass,
@@ -546,14 +675,23 @@ function buildState(response: TrainingResponse, themeClass: string): Partial<Tra
     hasConsistency: consistency != null,
     consistencyLine,
 
-    hasFindings: findings.length > 0,
+    // Suppress rule-based Findings + Suggestions when the LLM receipt
+    // is rendering. Web's Training page keeps both visible; on a
+    // phone-sized scroll the duplication reads as redundancy, so we
+    // gate them off and let the receipt carry that voice. They re-appear
+    // automatically when the receipt is absent (LLM disabled / no row).
+    hasFindings: !hasCoach && findings.length > 0,
     findings: findings.map((f) => ({
       className: findingClassName(f.type),
       message: `• ${f.message}`,
     })),
 
-    hasSuggestions: suggestions.length > 0,
+    hasSuggestions: !hasCoach && suggestions.length > 0,
     suggestions: suggestions.map((s, i) => ({ message: `${i + 1}. ${s}` })),
+
+    hasCoach,
+    coach,
+    coachTr,
 
     // Sleep score vs metric scatter. Sufficiency mirrors web's check:
     // requires recovery data + at least 2 pairs to be meaningful.
@@ -687,8 +825,21 @@ Page({
   async refetch() {
     this.setData({ loading: true, errorMessage: '' });
     try {
-      const response = await apiGet<TrainingResponse>('/api/training');
-      this.setData(buildState(response, this.data.themeClass) as Record<string, unknown>);
+      // The training_review endpoint normally returns `{ insight: null }`
+      // when LLM is disabled. The `.catch` here is for a real transport
+      // / 5xx failure — the rule-based diagnosis Findings + Suggestions
+      // sections cover that case as deterministic fallback. Logged so a
+      // broken /api/insights/training_review is observable in DevTools
+      // / 实时日志 instead of silently regressing the receipt.
+      const [response, insight] = await Promise.all([
+        apiGet<TrainingResponse>('/api/training'),
+        fetchInsight('training_review').catch((e) => {
+          // eslint-disable-next-line no-console
+          console.warn('[training] training_review fetch failed; falling back to rule-based prose:', e);
+          return null;
+        }),
+      ]);
+      this.setData(buildState(response, this.data.themeClass, insight) as Record<string, unknown>);
     } catch (e) {
       const err = e as Partial<ApiError>;
       if (err?.code === 'UNAUTHENTICATED') {
