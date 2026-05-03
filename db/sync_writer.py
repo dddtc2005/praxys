@@ -609,6 +609,11 @@ def write_training_plan(user_id: str, rows: list[dict], source: str,
         ).first()
         if existing:
             # Backfill external_id on rows that pre-date the column.
+            # Intentionally one-way: once an ``external_id`` is set we
+            # never clear it (``new_external_id`` only overwrites when
+            # it's truthy). A future Stryd response that omits the id
+            # for the same workout — older API revision, partial
+            # response — must not drop known data on a transient gap.
             if new_external_id and existing.external_id != new_external_id:
                 existing.external_id = new_external_id
                 count += 1

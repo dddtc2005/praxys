@@ -47,9 +47,13 @@ def _stryd_push_status_path(user_id: str) -> str:
 # for any UI that wants a few months of plan view, tight enough that an
 # abusive ``?end=2099-12-31`` can't force the server to ship years of rows.
 _MAX_WINDOW_DAYS = 365
-# Default window when neither bound is supplied. Two weeks matches the
-# longest pill the Training page surfaces.
-_DEFAULT_WINDOW_DAYS = 14
+# Default forward offset when no ``end`` is supplied. ``end`` is
+# inclusive, so a forward offset of 14 returns 15 calendar days
+# ([today, today+14]). Frontend pills mirror this offset semantic
+# (1wk = +6, 2wk = +13, 4wk = +27 if exact 7/14/28-day inclusive
+# windows are needed; current frontend uses +N which yields N+1 days
+# inclusive — accepted for the eyebrow's "≈ N weeks" framing).
+_DEFAULT_FORWARD_DAYS = 14
 
 
 def _resolve_window(start: str | None, end: str | None) -> tuple[date, date]:
@@ -57,7 +61,7 @@ def _resolve_window(start: str | None, end: str | None) -> tuple[date, date]:
 
     Accepts ISO ``YYYY-MM-DD`` for both bounds. Either or both may be
     omitted: missing ``start`` defaults to today; missing ``end`` defaults
-    to ``start + _DEFAULT_WINDOW_DAYS``. Inverted or oversized windows
+    to ``start + _DEFAULT_FORWARD_DAYS``. Inverted or oversized windows
     raise 400 — silently clamping would mask bad client input.
     """
     today = date.today()
@@ -70,7 +74,7 @@ def _resolve_window(start: str | None, end: str | None) -> tuple[date, date]:
     try:
         end_d = (
             date.fromisoformat(end) if end
-            else start_d + timedelta(days=_DEFAULT_WINDOW_DAYS)
+            else start_d + timedelta(days=_DEFAULT_FORWARD_DAYS)
         )
     except ValueError as exc:
         raise HTTPException(
@@ -93,19 +97,31 @@ def _compute_ai_sync_state(
 ) -> str:
     """Sync state of an AI plan row against the user's Stryd calendar.
 
-    - ``synced``     — A Stryd row exists at this date and its
-                       ``external_id`` equals the ``workout_id`` we logged
-                       when the user last pushed this date.
+    - ``synced``     — Either (a) a Stryd row exists at this date and
+                       its ``external_id`` matches the ``workout_id`` we
+                       logged on push, or (b) the push log has the
+                       workout but the next Stryd sync hasn't pulled
+                       the row back in yet. Both cases mean "Praxys's
+                       version is on Stryd"; the latter is the brief
+                       window after a successful POST /plan/push-stryd
+                       and before the user's next Stryd sync, and a
+                       consumer that doesn't share the frontend's
+                       optimistic ``pushStatus`` map (mini-program,
+                       MCP) would otherwise see ``not_synced`` and
+                       offer to push again.
     - ``mismatch``   — A Stryd row exists at this date but its
                        ``external_id`` is unknown to us (user-edited on
                        Stryd, or we never pushed). The UI uses this to
                        warn before overwriting.
-    - ``not_synced`` — No Stryd row at this date.
+    - ``not_synced`` — No Stryd row, no push log entry: nothing has
+                       ever pushed to Stryd for this date.
     """
     stryd_row = stryd_by_date.get(date_str)
-    if stryd_row is None:
-        return "not_synced"
     pushed_id = (push_status.get(date_str) or {}).get("workout_id")
+
+    if stryd_row is None:
+        return "synced" if pushed_id else "not_synced"
+
     stryd_external = stryd_row.get("external_id")
     if (
         pushed_id
@@ -192,27 +208,50 @@ def get_plan(
             if has_source else windowed.iloc[0:0]
         )
 
-        stryd_by_date: dict[str, pd.Series] = {}
+        # Stryd allows multiple workouts on the same date (AM run +
+        # PM strides, race + shakeout). Group rows-per-date so the
+        # AI sync_state derivation can pick the best match by
+        # workout_type instead of arbitrarily collapsing to the
+        # last-iterated row.
+        stryd_by_date: dict[str, list[pd.Series]] = {}
         for _, srow in stryd_rows.iterrows():
             sd = srow["date"]
             key = sd.isoformat() if hasattr(sd, "isoformat") else str(sd)
-            stryd_by_date[key] = srow
+            stryd_by_date.setdefault(key, []).append(srow)
+
+        def _best_stryd_match(rows: list[pd.Series], wt: str) -> pd.Series:
+            """Pick the Stryd row whose workout_type matches ``wt``,
+            falling back to the first row when nothing matches. AI
+            plans are typically one-per-date, so a match means we're
+            comparing apples to apples."""
+            wt_lower = (wt or "").lower()
+            for r in rows:
+                if str(r.get("workout_type", "")).lower() == wt_lower:
+                    return r
+            return rows[0]
 
         ai_dates: set[str] = set()
         for _, row in ai_rows.sort_values("date").iterrows():
             workout = _row_to_workout(row, source="ai")
+            ai_wt = workout.get("workout_type", "")
+            stryd_match_by_date = {
+                d: _best_stryd_match(rows, ai_wt)
+                for d, rows in stryd_by_date.items()
+            }
             workout["sync_state"] = _compute_ai_sync_state(
-                workout["date"], push_status, stryd_by_date,
+                workout["date"], push_status, stryd_match_by_date,
             )
             ai_dates.add(workout["date"])
             workouts.append(workout)
 
-        # Stryd rows on dates the AI plan doesn't cover — show them so the
-        # user still sees their imported / coach-authored Stryd workouts.
-        for date_str, srow in stryd_by_date.items():
+        # Stryd rows on dates the AI plan doesn't cover — show them
+        # all (each as its own row) so the user still sees their
+        # imported / coach-authored Stryd workouts.
+        for date_str, srows in stryd_by_date.items():
             if date_str in ai_dates:
                 continue
-            workouts.append(_row_to_workout(srow, source="stryd"))
+            for srow in srows:
+                workouts.append(_row_to_workout(srow, source="stryd"))
 
         workouts.sort(key=lambda w: w["date"])
 

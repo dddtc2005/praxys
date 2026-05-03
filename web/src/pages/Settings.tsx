@@ -1118,7 +1118,15 @@ export default function Settings() {
             const providers = (availableProviders[key as keyof typeof availableProviders] || []).filter(
               (p: string) => (connections as string[]).includes(p),
             );
-            const current = (config.preferences as Record<string, string>)[key] || providers[0];
+            // Sanitise: a legacy DB row might have ``preferences.plan = 'ai'``
+            // from before the reframe. The toggle group renders one item per
+            // entry in ``providers``; if ``current`` doesn't match any of
+            // them, the whole group shows nothing selected and the user has
+            // to click to "fix" a state that's actually just stale config.
+            // Falling back to providers[0] surfaces the auto-selected target
+            // until the user explicitly picks otherwise (next save persists).
+            const rawCurrent = (config.preferences as Record<string, string>)[key];
+            const current = providers.includes(rawCurrent) ? rawCurrent : providers[0];
 
             // No connection that can serve this category — surface the
             // gap so the user knows why they can't pick anything, rather

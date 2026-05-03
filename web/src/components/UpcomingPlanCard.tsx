@@ -467,13 +467,24 @@ export default function UpcomingPlanCard() {
     [],
   );
 
-  // Push a single workout (or re-push by deleting old one first)
+  // Push a single workout (or re-push by deleting old one first).
+  //
+  // Edge case worth knowing: when re-pushing (existing workout_id), we
+  // DELETE first, then POST. If the DELETE succeeds but the POST fails,
+  // the user lands in ``error`` state with the prior workout already
+  // gone from Stryd. Re-clicking is the correct recovery — the second
+  // attempt skips the DELETE branch (pushStatus was cleared) and just
+  // creates a fresh workout. The user's intent ("overwrite the Stryd
+  // version with mine") is consistent across the failure modes; we
+  // surface the partial failure via the error pill rather than try to
+  // be clever about rolling back.
   const pushSingle = useCallback(
     async (date: string) => {
       if (pushingDates.has(date)) return;
 
       setPushingDates((prev) => new Set(prev).add(date));
 
+      let deleted = false;
       try {
         // If already pushed, delete the old workout from Stryd first
         const existing = pushStatus[date];
@@ -483,6 +494,7 @@ export default function UpcomingPlanCard() {
             const err = await resp.json().catch(() => ({ detail: `HTTP ${resp.status}` }));
             throw new Error(err.detail || `HTTP ${resp.status}`);
           }
+          deleted = true;
           setPushStatus((prev) => {
             const next = { ...prev };
             delete next[date];
@@ -493,9 +505,12 @@ export default function UpcomingPlanCard() {
         const { results } = await pushDatesToStryd([date]);
         handlePushResults(results, [date]);
       } catch (e) {
+        const baseMsg = e instanceof Error ? e.message : 'Push failed';
         setPushErrors((prev) => ({
           ...prev,
-          [date]: e instanceof Error ? e.message : 'Push failed',
+          [date]: deleted
+            ? `${baseMsg} (the previous Stryd workout was deleted before the new one failed — click Sync to upload again)`
+            : baseMsg,
         }));
       } finally {
         setPushingDates((prev) => {
@@ -508,12 +523,23 @@ export default function UpcomingPlanCard() {
     [pushingDates, pushStatus, handlePushResults],
   );
 
-  // Push all unpushed workouts
+  // Push all unpushed AI workouts. Mirrors the ``aiPushable`` filter
+  // used to render the count beside the button — both must agree, or
+  // the button will offer to push N rows then push N±k after a
+  // round-trip. Specifically: must be ``source='ai'`` (Stryd-native
+  // rows would create *duplicates* on Stryd if pushed back),
+  // non-rest, and either not yet synced (``not_synced``) or diverged
+  // (``mismatch`` — re-push to overwrite).
   const pushAll = useCallback(async () => {
     if (!data) return;
 
     const datesToPush = data.workouts
-      .filter((w) => !pushStatus[w.date] && w.workout_type.toLowerCase() !== 'rest')
+      .filter(
+        (w) => w.source === 'ai'
+          && w.workout_type.toLowerCase() !== 'rest'
+          && (w.sync_state === 'not_synced' || w.sync_state === 'mismatch')
+          && !pushStatus[w.date],
+      )
       .map((w) => w.date);
 
     if (datesToPush.length === 0) return;

@@ -207,6 +207,61 @@ def test_sync_state_mismatch_when_external_id_diverges(api_client):
     assert body["workouts"][0]["sync_state"] == "mismatch"
 
 
+def test_sync_state_synced_when_pushed_but_stryd_not_yet_resynced(api_client):
+    """The brief window after a successful push but before the next
+    Stryd sync pulls the row back in: push log has the workout_id but
+    no Stryd row exists yet. Must read as ``synced`` for consumers
+    that don't share the frontend's optimistic ``pushStatus`` map
+    (mini-program, MCP). Otherwise they'd offer to push again.
+    """
+    from api.routes.plan import _save_push_status
+
+    client, user_id = api_client
+    target = date.today() + timedelta(days=6)
+    _save_push_status(user_id, {
+        target.isoformat(): {"workout_id": "stryd-just-pushed", "status": "pushed"},
+    })
+    _seed_rows(user_id, [
+        {"date": target, "source": "ai", "workout_type": "easy"},
+    ])
+    body = client.get("/api/plan").json()
+    assert body["workouts"][0]["sync_state"] == "synced"
+
+
+def test_sync_state_uses_workout_type_match_when_multiple_stryd_rows(api_client):
+    """Stryd allows multiple workouts on the same date (AM run + PM
+    strides, race + shakeout). The AI sync_state derivation must
+    pick the row whose ``workout_type`` matches the AI row, not
+    arbitrarily the last-iterated one.
+    """
+    from api.routes.plan import _save_push_status
+
+    client, user_id = api_client
+    target = date.today() + timedelta(days=2)
+    _save_push_status(user_id, {
+        target.isoformat(): {"workout_id": "stryd-threshold", "status": "pushed"},
+    })
+    _seed_rows(user_id, [
+        # AI plan: a threshold workout.
+        {"date": target, "source": "ai", "workout_type": "threshold"},
+        # Stryd has *both* the matched threshold (with our pushed id)
+        # AND an unrelated easy run added by the user. Without the
+        # workout_type-match, the easy row could collapse the threshold
+        # row in stryd_by_date and the AI row would mis-read mismatch.
+        {
+            "date": target, "source": "stryd",
+            "workout_type": "easy", "external_id": "stryd-other-easy",
+        },
+        {
+            "date": target, "source": "stryd",
+            "workout_type": "threshold", "external_id": "stryd-threshold",
+        },
+    ])
+    body = client.get("/api/plan").json()
+    ai_row = next(w for w in body["workouts"] if w["source"] == "ai")
+    assert ai_row["sync_state"] == "synced"
+
+
 def test_sync_state_not_synced_when_no_stryd_row(api_client):
     client, user_id = api_client
     target = date.today() + timedelta(days=5)
@@ -285,6 +340,19 @@ def test_invalid_window_returns_400(api_client):
 
     bad_format = client.get("/api/plan?start=not-a-date")
     assert bad_format.status_code == 400
+
+
+def test_oversized_window_returns_400(api_client):
+    """Cap is 365 days. ``?end=2099-12-31`` against today shouldn't
+    force the server to ship a multi-year payload — the cap should
+    reject it with a clear 400 instead of silently clamping."""
+    client, _ = api_client
+    today = date.today()
+    huge = client.get(
+        f"/api/plan?start={today.isoformat()}&end={(today + timedelta(days=400)).isoformat()}"
+    )
+    assert huge.status_code == 400, huge.text
+    assert "365" in huge.text
 
 
 def test_sync_target_reflects_stryd_connection(api_client, monkeypatch):

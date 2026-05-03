@@ -151,16 +151,23 @@ export default function FitnessFatigueChart({ data, scienceNote }: Props) {
   // (or hasn't synced), and the label "today" sitting on a 10-day-old
   // date is misleading. We snap to the nearest categorical x in
   // chartData because Recharts ReferenceLine requires a category match.
+  //
+  // ISO dates parsed with explicit ``T00:00:00`` for consistency with
+  // the rest of the codebase (UpcomingPlanCard.formatDate). Bare
+  // ``YYYY-MM-DD`` parses as UTC in modern V8 but as local on some
+  // older runtimes — pinning the time avoids the gap calculation
+  // wandering across a midnight boundary on a slow machine clock.
   const todayMarkerDate = useMemo(() => {
     if (!chartData.length) return undefined;
+    const parseIso = (s: string) => new Date(`${s}T00:00:00`).getTime();
     const todayIso = new Date().toISOString().slice(0, 10);
     const exact = chartData.find((d) => d.date === todayIso);
     if (exact) return exact.date;
-    const todayMs = new Date(todayIso).getTime();
+    const todayMs = parseIso(todayIso);
     let nearest = chartData[0];
-    let nearestGap = Math.abs(new Date(nearest.date).getTime() - todayMs);
+    let nearestGap = Math.abs(parseIso(nearest.date) - todayMs);
     for (const row of chartData) {
-      const gap = Math.abs(new Date(row.date).getTime() - todayMs);
+      const gap = Math.abs(parseIso(row.date) - todayMs);
       if (gap < nearestGap) {
         nearest = row;
         nearestGap = gap;
