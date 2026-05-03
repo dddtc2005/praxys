@@ -20,7 +20,7 @@ msgstr " · "
 #. placeholder {0}: data.diagnosis.lookback_weeks
 #: src/pages/Training.tsx:310
 msgid "· last {0} weeks"
-msgstr ""
+msgstr "· 最近 {0} 周"
 
 #: src/pages/Setup.tsx:606
 msgid "(Garmin rate limits apply)"
@@ -41,7 +41,7 @@ msgid "{0, plural, one {# recommendation} other {# recommendations}}"
 msgstr "{0, plural, other {# 条建议}}"
 
 #. placeholder {0}: data.workouts.length
-#: src/components/UpcomingPlanCard.tsx:617
+#: src/components/UpcomingPlanCard.tsx:591
 msgid "{0, plural, one {# workout} other {# workouts}}"
 msgstr "{0, plural, other {# 次训练}}"
 
@@ -58,7 +58,7 @@ msgstr "第 {0} 步，共 {1} 步"
 #. placeholder {4}: d.target
 #: src/pages/Training.tsx:184
 msgid "{0}: {1}% ({2}pp {3} {4}% target)"
-msgstr ""
+msgstr "{0}：{1}%（{2}pp {3} 目标 {4}%）"
 
 #: src/pages/Goal.tsx:214
 msgid "{abbrev} is <0>{dirLabel}</0>. Add more activities for a race-time prediction."
@@ -115,9 +115,9 @@ msgstr "约 {estimatedActivities} 项活动，约 {estimatedMinutes} 分钟"
 msgid "1 month"
 msgstr "1 个月"
 
-#: src/components/UpcomingPlanCard.tsx:367
+#: src/components/UpcomingPlanCard.tsx:341
 msgid "1 wk"
-msgstr ""
+msgstr "1 周"
 
 #: src/pages/Setup.tsx:182
 msgid "1 year"
@@ -148,9 +148,9 @@ msgstr "10公里"
 msgid "1Y"
 msgstr "1年"
 
-#: src/components/UpcomingPlanCard.tsx:368
+#: src/components/UpcomingPlanCard.tsx:342
 msgid "2 wk"
-msgstr ""
+msgstr "2 周"
 
 #: src/pages/Setup.tsx:180
 msgid "3 months"
@@ -160,9 +160,9 @@ msgstr "3 个月"
 msgid "3M"
 msgstr "3月"
 
-#: src/components/UpcomingPlanCard.tsx:369
+#: src/components/UpcomingPlanCard.tsx:343
 msgid "4 wk"
-msgstr ""
+msgstr "4 周"
 
 #: src/components/GoalEditor.tsx:56
 msgid "50 Mi"
@@ -247,7 +247,7 @@ msgstr "实际"
 
 #: src/pages/Training.tsx:368
 msgid "actual vs planned, avg"
-msgstr ""
+msgstr "实际 vs 计划，平均"
 
 #: src/components/SignalHero.tsx:22
 #: src/pages/Today.tsx:69
@@ -273,9 +273,9 @@ msgstr "有氧"
 msgid "All"
 msgstr "全部"
 
-#: src/components/UpcomingPlanCard.tsx:636
+#: src/components/UpcomingPlanCard.tsx:610
 msgid "All synced"
-msgstr ""
+msgstr "全部已同步"
 
 #: src/pages/Login.tsx:60
 msgid "An unexpected error occurred."
@@ -331,11 +331,11 @@ msgstr "同步历史数据..."
 
 #: src/pages/Training.tsx:333
 msgid "balanced"
-msgstr ""
+msgstr "均衡"
 
 #: src/pages/Training.tsx:406
 msgid "Banister PMC stabilises after about 42 days of activity. Need {daysToPmc} more days."
-msgstr ""
+msgstr "Banister PMC 模型大约需要 42 天活动数据才能稳定。还需 {daysToPmc} 天。"
 
 #. placeholder {0}: recommendedTheory.name
 #. placeholder {1}: recommendation!.reason
@@ -446,8 +446,8 @@ msgid "Click to copy"
 msgstr "点击复制"
 
 #: src/components/UpcomingPlanCard.tsx:205
-msgid "click to retry"
-msgstr "点击重试"
+#~ msgid "click to retry"
+#~ msgstr "点击重试"
 
 #: src/pages/Admin.tsx:371
 msgid "Code"
@@ -468,7 +468,7 @@ msgstr "完成这些步骤以解锁您的训练解读"
 
 #: src/components/charts/ComplianceChart.tsx:171
 msgid "Compliance compares the load you actually accumulated each week (Actual) against the load your plan called for (Planned). The percentage above each bar shows how close you came: green for 80–120% (on target), amber under 80%, red over 120%. The load metric (RSS or W-equivalent) is set by your training base."
-msgstr ""
+msgstr "合规度对比您每周实际累积的负荷（实际）与计划要求的负荷（计划）。每根柱子上方的百分比显示完成程度：80–120% 为绿色（达标）、低于 80% 为琥珀色、高于 120% 为红色。负荷指标（RSS 或当量瓦特）由您的训练基准决定。"
 
 #: src/pages/Settings.tsx:558
 msgid "Configure your training system"
@@ -686,11 +686,15 @@ msgstr "降级为普通用户"
 #: src/pages/Training.tsx:305
 #: src/pages/Training.tsx:308
 msgid "Diagnosis"
-msgstr ""
+msgstr "诊断"
+
+#: src/components/UpcomingPlanCard.tsx:198
+msgid "Differs · overwrite"
+msgstr "存在差异 · 覆盖"
 
 #: src/components/UpcomingPlanCard.tsx:171
-msgid "Differs on Stryd — click to re-push and overwrite."
-msgstr ""
+#~ msgid "Differs on Stryd — click to re-push and overwrite."
+#~ msgstr ""
 
 #: src/pages/Goal.tsx:294
 msgid "Direction"
@@ -724,7 +728,7 @@ msgstr "距离"
 
 #: src/pages/Training.tsx:341
 msgid "Distribution match"
-msgstr ""
+msgstr "分布匹配度"
 
 #: src/pages/Settings.tsx:1273
 msgid "Drive your zone calculations and training load. Values come from connected sources; pick which source to use when you have more than one."
@@ -867,7 +871,7 @@ msgstr "加载设置失败"
 msgid "Failed to load training data"
 msgstr "训练数据加载失败"
 
-#: src/components/UpcomingPlanCard.tsx:583
+#: src/components/UpcomingPlanCard.tsx:557
 msgid "Failed to load training plan"
 msgstr "训练计划加载失败"
 
@@ -886,7 +890,7 @@ msgstr "疲劳"
 
 #: src/pages/Training.tsx:336
 msgid "fatigue accumulating"
-msgstr ""
+msgstr "疲劳累积中"
 
 #: src/components/charts/FormSparkline.tsx:30
 msgid "Fatigue is climbing — watch recovery before adding load."
@@ -936,7 +940,7 @@ msgstr "竞技状态"
 
 #: src/pages/Training.tsx:329
 msgid "form (CTL−ATL)"
-msgstr ""
+msgstr "状态（CTL−ATL）"
 
 #: src/components/charts/FormSparkline.tsx:119
 msgid "Form (TSB)"
@@ -956,7 +960,7 @@ msgstr "充分恢复"
 
 #: src/pages/Training.tsx:331
 msgid "fresh, primed"
-msgstr ""
+msgstr "状态良好"
 
 #: src/components/charts/FormSparkline.tsx:26
 msgid "Freshened up — good window for racing or testing."
@@ -970,9 +974,9 @@ msgstr "数据自 {dataAsOfLabel}"
 msgid "From activities"
 msgstr "来自活动"
 
-#: src/components/UpcomingPlanCard.tsx:147
+#: src/components/UpcomingPlanCard.tsx:159
 msgid "From Stryd"
-msgstr ""
+msgstr "来自 Stryd"
 
 #: src/pages/Goal.tsx:262
 #: src/pages/Goal.tsx:272
@@ -1159,7 +1163,7 @@ msgstr "邀请码"
 #. placeholder {0}: data.diagnosis.lookback_weeks
 #: src/pages/Training.tsx:381
 msgid "km / week, {0}wk avg"
-msgstr ""
+msgstr "公里 / 周，{0} 周均值"
 
 #: src/lib/display-labels.ts:59
 msgid "Lactate Threshold HR"
@@ -1225,11 +1229,11 @@ msgstr "直播演示 — 真实训练数据，只读"
 
 #: src/components/charts/ComplianceChart.tsx:61
 msgid "load ({label})"
-msgstr ""
+msgstr "负荷（{label}）"
 
 #: src/components/charts/ComplianceChart.tsx:60
 msgid "load (Running Stress Score)"
-msgstr ""
+msgstr "负荷（跑步压力分 RSS）"
 
 #: src/pages/Science.tsx:25
 msgid "Load & Fitness"
@@ -1238,7 +1242,7 @@ msgstr "负荷与体能"
 #: src/pages/Training.tsx:359
 #: src/pages/Training.tsx:433
 msgid "Load compliance"
-msgstr ""
+msgstr "负荷合规度"
 
 #: src/pages/Login.tsx:71
 msgid "Log in to connect your CLI plugin"
@@ -1315,14 +1319,14 @@ msgstr "月"
 #. placeholder {2}: worstDeviation.target
 #: src/pages/Training.tsx:190
 msgid "Most over-target: {0} at {1}% (target {2}%). Shift 1-2 sessions next week toward an under-target zone."
-msgstr ""
+msgstr "最超标区间：{0} 为 {1}%（目标 {2}%）。下周将 1-2 次训练转向欠达标区间。"
 
 #. placeholder {0}: tDisplay(worstDeviation.name, i18n)
 #. placeholder {1}: worstDeviation.actual
 #. placeholder {2}: worstDeviation.target
 #: src/pages/Training.tsx:193
 msgid "Most under-target: {0} at {1}% (target {2}%). Add 1-2 sessions in this zone next week."
-msgstr ""
+msgstr "最欠达标区间：{0} 为 {1}%（目标 {2}%）。下周在此区间增加 1-2 次训练。"
 
 #. placeholder {0}: primaryPrompt?.category
 #: src/pages/Setup.tsx:976
@@ -1331,7 +1335,7 @@ msgstr "多个平台提供 <0>{0}</0> 数据。应将哪个作为主要来源？
 
 #: src/pages/Training.tsx:441
 msgid "Need 2 weeks of synced activity to compare planned vs actual. {daysToCompare} more days to go."
-msgstr ""
+msgstr "需要 2 周已同步的活动数据才能对比计划与实际。还差 {daysToCompare} 天。"
 
 #: src/pages/Training.tsx:112
 #~ msgid "Need at least 3 activities with power data to plot a meaningful trend."
@@ -1408,9 +1412,9 @@ msgstr "没有可用的分段数据。"
 msgid "No Workout"
 msgstr "无训练"
 
-#: src/components/UpcomingPlanCard.tsx:658
+#: src/components/UpcomingPlanCard.tsx:632
 msgid "No workouts scheduled in this window."
-msgstr ""
+msgstr "此窗口内暂无安排的训练。"
 
 #: src/pages/Today.tsx:125
 msgid "normal"
@@ -1443,11 +1447,11 @@ msgstr "数据不足以显示 CP 趋势"
 
 #: src/pages/Training.tsx:405
 msgid "Not enough data yet for accurate fitness tracking"
-msgstr ""
+msgstr "数据不足，暂无法准确跟踪体能"
 
 #: src/pages/Training.tsx:440
 msgid "Not enough data yet for weekly load comparison"
-msgstr ""
+msgstr "数据不足，暂无法对比每周负荷"
 
 #: src/pages/Settings.tsx:1306
 msgid "Not set"
@@ -1489,6 +1493,10 @@ msgstr "其他信号"
 msgid "overnight score"
 msgstr "夜间评分"
 
+#: src/components/UpcomingPlanCard.tsx:194
+msgid "Overwrite Stryd with Praxys version"
+msgstr "用 Praxys 版本覆盖 Stryd"
+
 #: src/components/ActivityCard.tsx:121
 #: src/components/SplitBreakdown.tsx:50
 #: src/lib/display-labels.ts:56
@@ -1519,11 +1527,11 @@ msgstr "计划"
 
 #: src/pages/Settings.tsx:65
 msgid "Plan sync target"
-msgstr ""
+msgstr "计划同步目标"
 
-#: src/components/UpcomingPlanCard.tsx:374
+#: src/components/UpcomingPlanCard.tsx:348
 msgid "Plan window"
-msgstr ""
+msgstr "计划时间窗口"
 
 #: src/components/charts/ComplianceChart.tsx:107
 #: src/components/charts/ComplianceChart.tsx:151
@@ -1603,7 +1611,7 @@ msgstr "训练数据的主要来源"
 
 #: src/pages/Training.tsx:335
 msgid "productive load"
-msgstr ""
+msgstr "负荷富有成效"
 
 #: src/pages/Settings.tsx:583
 msgid "Profile"
@@ -1637,12 +1645,19 @@ msgstr "拉取您最近的活动、功率数据和恢复指标"
 #~ msgstr "全部推送"
 
 #: src/components/UpcomingPlanCard.tsx:205
-msgid "Push failed"
-msgstr "推送失败"
+#~ msgid "Push failed"
+#~ msgstr "推送失败"
 
-#: src/components/UpcomingPlanCard.tsx:248
-#: src/components/UpcomingPlanCard.tsx:256
-#: src/components/UpcomingPlanCard.tsx:641
+#: src/components/UpcomingPlanCard.tsx:178
+msgid "Push failed — click to retry"
+msgstr "推送失败 — 点击重试"
+
+#: src/components/UpcomingPlanCard.tsx:227
+msgid "Push this workout to your Stryd calendar."
+msgstr "将此训练推送至您的 Stryd 日历。"
+
+#: src/components/UpcomingPlanCard.tsx:228
+#: src/components/UpcomingPlanCard.tsx:615
 msgid "Push to Stryd"
 msgstr "推送到 Stryd"
 
@@ -1650,9 +1665,9 @@ msgstr "推送到 Stryd"
 #~ msgid "Pushing..."
 #~ msgstr "正在推送..."
 
-#: src/components/UpcomingPlanCard.tsx:631
+#: src/components/UpcomingPlanCard.tsx:605
 msgid "Pushing…"
-msgstr ""
+msgstr "推送中…"
 
 #: src/lib/display-labels.ts:74
 #: src/pages/Goal.tsx:109
@@ -1686,8 +1701,7 @@ msgstr "比赛预测"
 #~ msgid "Range"
 #~ msgstr "范围"
 
-#: src/components/UpcomingPlanCard.tsx:222
-#: src/components/UpcomingPlanCard.tsx:231
+#: src/components/UpcomingPlanCard.tsx:212
 msgid "Re-push to Stryd"
 msgstr "重新推送到 Stryd"
 
@@ -1813,7 +1827,8 @@ msgstr "休息日。今日无训练安排。"
 msgid "Resting HR"
 msgstr "静息心率"
 
-#: src/components/UpcomingPlanCard.tsx:586
+#: src/components/UpcomingPlanCard.tsx:183
+#: src/components/UpcomingPlanCard.tsx:560
 #: src/pages/Goal.tsx:443
 #: src/pages/History.tsx:53
 #: src/pages/Settings.tsx:319
@@ -1822,7 +1837,7 @@ msgstr "静息心率"
 msgid "Retry"
 msgstr "重试"
 
-#: src/components/UpcomingPlanCard.tsx:197
+#: src/components/UpcomingPlanCard.tsx:179
 msgid "Retry push to Stryd"
 msgstr "重试推送到 Stryd"
 
@@ -2071,14 +2086,23 @@ msgstr "同步历史"
 msgid "Sync now"
 msgstr "立即同步"
 
+#: src/components/UpcomingPlanCard.tsx:232
+msgid "Sync to Stryd"
+msgstr "同步至 Stryd"
+
 #: src/components/SetupChecklist.tsx:55
 #: src/pages/Setup.tsx:566
 msgid "Sync your data"
 msgstr "同步数据"
 
+#: src/components/UpcomingPlanCard.tsx:217
 #: src/pages/Settings.tsx:808
 msgid "Synced"
 msgstr "已同步"
+
+#: src/components/UpcomingPlanCard.tsx:211
+msgid "Synced to Stryd. Click to re-push."
+msgstr "已同步至 Stryd。点击重新推送。"
 
 #: src/pages/Settings.tsx:805
 msgid "Syncing"
@@ -2088,6 +2112,7 @@ msgstr "同步中"
 msgid "Syncing..."
 msgstr "同步中..."
 
+#: src/components/UpcomingPlanCard.tsx:168
 #: src/pages/Today.tsx:367
 #: src/pages/Today.tsx:389
 msgid "Syncing…"
@@ -2139,6 +2164,14 @@ msgstr "主题"
 msgid "This will permanently delete <0>{0}</0> and all their data (activities, config, connections, plans). This cannot be undone."
 msgstr "这将永久删除 <0>{0}</0> 及其所有数据（活动、配置、连接、计划）。此操作无法撤销。"
 
+#: src/components/UpcomingPlanCard.tsx:193
+msgid "This workout differs on Stryd — click to overwrite with the Praxys version."
+msgstr "Stryd 上的此训练有差异 — 点击用 Praxys 版本覆盖。"
+
+#: src/components/UpcomingPlanCard.tsx:157
+msgid "This workout was imported from Stryd."
+msgstr "此训练来自 Stryd 导入。"
+
 #: src/lib/display-labels.ts:45
 #: src/lib/phase-label.ts:15
 msgid "Threshold"
@@ -2177,7 +2210,7 @@ msgstr "距目标"
 msgid "Today"
 msgstr "今日"
 
-#: src/components/UpcomingPlanCard.tsx:301
+#: src/components/UpcomingPlanCard.tsx:275
 msgid "TODAY"
 msgstr "今日"
 
@@ -2236,7 +2269,7 @@ msgstr "将训练应激转化为体能。"
 
 #: src/pages/Training.tsx:320
 msgid "TSB"
-msgstr ""
+msgstr "TSB"
 
 #: src/components/charts/FitnessFatigueChart.tsx:276
 msgid "TSB (Form)"
@@ -2250,7 +2283,7 @@ msgstr "超长距离功率分数（50K+）为估算值，研究支持有限。Ri
 msgid "Units"
 msgstr "单位"
 
-#: src/components/UpcomingPlanCard.tsx:610
+#: src/components/UpcomingPlanCard.tsx:584
 msgid "Upcoming Plan"
 msgstr "即将到来的计划"
 
@@ -2308,12 +2341,12 @@ msgstr "VO2max、CP、LTHR、训练状态"
 
 #: src/pages/Training.tsx:373
 msgid "Volume"
-msgstr ""
+msgstr "里程"
 
 #. placeholder {0}: data.diagnosis.theory_name
 #: src/pages/Training.tsx:351
 msgid "vs {0}"
-msgstr ""
+msgstr "vs {0}"
 
 #. placeholder {0}: hrv.baseline_mean_ln.toFixed(2)
 #: src/pages/Today.tsx:269
@@ -2322,11 +2355,11 @@ msgstr "对比基准 {0}"
 
 #: src/components/ZoneAnalysisCard.tsx:78
 msgid "vs {theoryName}"
-msgstr ""
+msgstr "vs {theoryName}"
 
 #: src/pages/Training.tsx:353
 msgid "vs target zones"
-msgstr ""
+msgstr "vs 目标区间"
 
 #: src/pages/Setup.tsx:162
 msgid "Walking"
@@ -2338,7 +2371,7 @@ msgstr "热身"
 
 #: src/pages/Training.tsx:209
 msgid "Weekly diagnosis ready."
-msgstr ""
+msgstr "周度诊断已就绪。"
 
 #: src/components/WeeklyLoadMini.tsx:30
 msgid "Weekly Load"
@@ -2362,15 +2395,15 @@ msgstr "您的目标时间是多少？留空则仅追踪趋势"
 
 #: src/pages/Settings.tsx:65
 msgid "Where Praxys pushes your plan. Per-workout sync state shows in Training."
-msgstr ""
+msgstr "Praxys 将计划推送到的目标平台。每个训练的同步状态显示在训练页。"
 
 #: src/pages/Setup.tsx:800
 msgid "Will sync:"
 msgstr "将同步："
 
 #: src/components/UpcomingPlanCard.tsx:162
-msgid "Workout differs on Stryd — re-push to overwrite"
-msgstr ""
+#~ msgid "Workout differs on Stryd — re-push to overwrite"
+#~ msgstr ""
 
 #: src/pages/Admin.tsx:268
 msgid "you"
@@ -2403,15 +2436,15 @@ msgstr "你的 Strava API 客户端密钥"
 
 #: src/lib/display-labels.ts:50
 msgid "Zone 1 (Easy)"
-msgstr ""
+msgstr "第 1 区（轻松）"
 
 #: src/lib/display-labels.ts:51
 msgid "Zone 2 (Moderate)"
-msgstr ""
+msgstr "第 2 区（中等）"
 
 #: src/lib/display-labels.ts:52
 msgid "Zone 3 (Hard)"
-msgstr ""
+msgstr "第 3 区（高强度）"
 
 #: src/components/ZoneAnalysisCard.tsx:53
 #~ msgid "Zone Analysis"
@@ -2419,7 +2452,7 @@ msgstr ""
 
 #: src/pages/Training.tsx:419
 msgid "Zone distribution"
-msgstr ""
+msgstr "区间分布"
 
 #: src/pages/Science.tsx:186
 msgid "Zone labels"

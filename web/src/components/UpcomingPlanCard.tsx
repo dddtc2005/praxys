@@ -3,7 +3,6 @@ import { useApi, API_BASE, getAuthHeaders } from '@/hooks/useApi';
 import type { PlanResponse, PlannedWorkout, StrydPushStatus, StrydPushResult } from '@/types/api';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Trans, useLingui, Plural } from '@lingui/react/macro';
 import { useLocale } from '@/contexts/LocaleContext';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -125,6 +124,18 @@ const WarningIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+// Always-visible labeled pill for the per-row sync state. The earlier
+// design hid action affordances behind hover (`group-hover:text-…`), so
+// users on touch devices and anyone scanning the list at a glance had
+// no way to see what to do — the only way to discover "push" was to
+// hover every row. Showing the action explicitly trades a few px of
+// horizontal space for a clearer single-click CTA.
+const PILL_BASE =
+  'inline-flex items-center gap-1.5 shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ' +
+  'transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+const PILL_CLICKABLE = 'cursor-pointer';
+const PILL_STATIC = 'cursor-default';
+
 function StrydStatusBadge({
   state,
   error,
@@ -140,123 +151,86 @@ function StrydStatusBadge({
   if (!showStryd) return null;
 
   if (state === 'native') {
-    // Workout came from Stryd directly — nothing to push, just show
-    // the source as a quiet label so the user knows where it lives.
     return (
-      <span className="text-[10px] font-data uppercase tracking-wider text-muted-foreground shrink-0">
+      <span
+        className={`${PILL_BASE} ${PILL_STATIC} bg-muted text-muted-foreground`}
+        title={t`This workout was imported from Stryd.`}
+      >
         <Trans>From Stryd</Trans>
       </span>
     );
   }
 
-  if (state === 'mismatch') {
-    return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger
-            render={(
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onPush}
-                aria-label={t`Workout differs on Stryd — re-push to overwrite`}
-                className="w-6 h-6 shrink-0 text-accent-amber hover:text-accent-amber/80"
-              >
-                <WarningIcon className="h-3.5 w-3.5" />
-              </Button>
-            )}
-          />
-          <TooltipContent side="left">
-            <p className="text-xs">
-              <Trans>Differs on Stryd — click to re-push and overwrite.</Trans>
-            </p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
-  }
-
   if (state === 'pushing') {
     return (
-      <div className="w-6 h-6 flex items-center justify-center shrink-0">
-        <SpinnerIcon className="h-3.5 w-3.5 text-muted-foreground" />
-      </div>
+      <span className={`${PILL_BASE} ${PILL_STATIC} bg-accent-cobalt/10 text-accent-cobalt`}>
+        <SpinnerIcon className="h-3 w-3" />
+        <Trans>Syncing…</Trans>
+      </span>
     );
   }
 
   if (state === 'error') {
     return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger
-            render={(
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onPush}
-                aria-label={t`Retry push to Stryd`}
-                className="w-6 h-6 shrink-0 text-destructive hover:text-destructive/80"
-              >
-                <ErrorIcon className="h-3.5 w-3.5" />
-              </Button>
-            )}
-          />
-          <TooltipContent side="left">
-            <p className="text-xs">{error || <Trans>Push failed</Trans>} — <Trans>click to retry</Trans></p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <button
+        type="button"
+        onClick={onPush}
+        title={error || t`Push failed — click to retry`}
+        aria-label={t`Retry push to Stryd`}
+        className={`${PILL_BASE} ${PILL_CLICKABLE} bg-destructive/10 text-destructive hover:bg-destructive/15`}
+      >
+        <ErrorIcon className="h-3 w-3" />
+        <Trans>Retry</Trans>
+      </button>
+    );
+  }
+
+  if (state === 'mismatch') {
+    return (
+      <button
+        type="button"
+        onClick={onPush}
+        title={t`This workout differs on Stryd — click to overwrite with the Praxys version.`}
+        aria-label={t`Overwrite Stryd with Praxys version`}
+        className={`${PILL_BASE} ${PILL_CLICKABLE} bg-accent-amber/10 text-accent-amber hover:bg-accent-amber/15`}
+      >
+        <WarningIcon className="h-3 w-3" />
+        <Trans>Differs · overwrite</Trans>
+      </button>
     );
   }
 
   if (state === 'pushed') {
+    // Synced — clicking re-pushes (after deleting the prior workout
+    // server-side). Keep a soft hover state so the affordance is
+    // discoverable without screaming for attention.
     return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger
-            render={(
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onPush}
-                aria-label={t`Re-push to Stryd`}
-                className="w-6 h-6 shrink-0 text-primary [&>svg.check]:block [&>svg.refresh]:hidden hover:[&>svg.check]:hidden hover:[&>svg.refresh]:block hover:text-accent-amber"
-              >
-                <CheckIcon className="check h-3.5 w-3.5" />
-                <RefreshIcon className="refresh h-3.5 w-3.5" />
-              </Button>
-            )}
-          />
-          <TooltipContent side="left">
-            <p className="text-xs"><Trans>Re-push to Stryd</Trans></p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <button
+        type="button"
+        onClick={onPush}
+        title={t`Synced to Stryd. Click to re-push.`}
+        aria-label={t`Re-push to Stryd`}
+        className={`${PILL_BASE} ${PILL_CLICKABLE} bg-primary/10 text-primary hover:bg-primary/15 [&>svg.check]:inline [&>svg.refresh]:hidden hover:[&>svg.check]:hidden hover:[&>svg.refresh]:inline`}
+      >
+        <CheckIcon className="check h-3 w-3" />
+        <RefreshIcon className="refresh h-3 w-3" />
+        <Trans>Synced</Trans>
+      </button>
     );
   }
 
-  // state === 'none' — show push button on hover
+  // state === 'none' — never pushed. The clear primary CTA: click to push.
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger
-          render={(
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onPush}
-              aria-label={t`Push to Stryd`}
-              className="w-6 h-6 shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground hover:!text-primary"
-            >
-              <UploadIcon className="h-3.5 w-3.5" />
-            </Button>
-          )}
-        />
-        <TooltipContent side="left">
-          <p className="text-xs"><Trans>Push to Stryd</Trans></p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <button
+      type="button"
+      onClick={onPush}
+      title={t`Push this workout to your Stryd calendar.`}
+      aria-label={t`Push to Stryd`}
+      className={`${PILL_BASE} ${PILL_CLICKABLE} bg-accent-cobalt/10 text-accent-cobalt hover:bg-accent-cobalt/20`}
+    >
+      <UploadIcon className="h-3 w-3" />
+      <Trans>Sync to Stryd</Trans>
+    </button>
   );
 }
 

@@ -630,18 +630,28 @@ def get_fitness_pack(ctx: RequestContext) -> dict:
     fs = ctx.fitness_series
     proj = ctx.projection
     display_days = 60
-    date_range = pd.date_range(
-        ctx.today - timedelta(days=display_days), ctx.today,
-    )
-    display_ctl = fs["ctl"].iloc[-len(date_range):]
-    display_atl = fs["atl"].iloc[-len(date_range):]
-    display_tsb = fs["tsb"].iloc[-len(date_range):]
-    ff_dates = [d.strftime("%Y-%m-%d") for d in date_range]
+    # Pair dates with values from the same source — fs["ctl"]'s own
+    # index. The previous code took dates from a synthetic
+    # ``pd.date_range(today-60d, today)`` (61 entries) and values
+    # from ``fs["ctl"].iloc[-61:]`` — fine when the user has ≥61
+    # days of data, but for users whose history is shorter the
+    # dates list is longer than the values list and they get paired
+    # off by index, dragging values 12+ days back in time. Visually
+    # that showed up as the FF lines trailing off ~12 days before
+    # today on a stale-data account.
+    cutoff = ctx.today - timedelta(days=display_days)
+    ctl_window = fs["ctl"][fs["ctl"].index >= cutoff]
+    atl_window = fs["atl"][fs["atl"].index >= cutoff]
+    tsb_window = fs["tsb"][fs["tsb"].index >= cutoff]
+    ff_dates = [
+        (d.strftime("%Y-%m-%d") if hasattr(d, "strftime") else str(d))
+        for d in ctl_window.index
+    ]
     fitness_fatigue = {
         "dates": ff_dates,
-        "ctl": [round(float(v), 1) for v in display_ctl.values],
-        "atl": [round(float(v), 1) for v in display_atl.values],
-        "tsb": [round(float(v), 1) for v in display_tsb.values],
+        "ctl": [round(float(v), 1) for v in ctl_window.values],
+        "atl": [round(float(v), 1) for v in atl_window.values],
+        "tsb": [round(float(v), 1) for v in tsb_window.values],
         "projected_dates": proj["dates"],
         "projected_ctl": proj["ctl"],
         "projected_atl": proj["atl"],
