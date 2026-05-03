@@ -49,6 +49,8 @@ How to extend Praxys with new features.
 
 ## Adding a New Skill
 
+> **Plugin lives in its own repo.** `plugins/praxys/` is a git submodule of the public [`dddtc2005/praxys-coach-plugin`](https://github.com/dddtc2005/praxys-coach-plugin) repo. Skill changes are PRed there; once merged, bump the submodule pointer in this repo (`git submodule update --remote plugins/praxys && git add plugins/praxys && git commit`).
+
 1. **Create skill directory** `plugins/praxys/skills/{skill-name}/`
 
 2. **Write `SKILL.md`** with frontmatter:

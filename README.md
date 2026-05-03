@@ -13,7 +13,7 @@ Sports science that meets you where you are. Praxys syncs data from Garmin, Stry
 | Web app | [`www.praxys.run`](https://www.praxys.run) | React SPA on Azure App Service; apex `praxys.run` redirects here. |
 | Backend API | [`api.praxys.run`](https://api.praxys.run) | FastAPI on Azure App Service (East Asia). JWT-auth on every route except `/api/register` and `/api/token`. |
 | WeChat Mini Program | `miniapp/` (Taro 4 + React) | Authenticates against the same backend via `/api/auth/wechat/*`. Build with `npm run build:weapp` and load `dist/` in WeChat DevTools. |
-| AI plugin | `plugins/praxys/` | 8 skills + a dual-mode MCP server (local SQLite, or remote against `api.praxys.run`). |
+| AI plugin | `plugins/praxys/` ([dddtc2005/praxys-coach-plugin](https://github.com/dddtc2005/praxys-coach-plugin), MIT, public) | 8 skills + a dual-mode MCP server (local SQLite, or remote against `api.praxys.run`). Vendored here as a git submodule; install with `git clone --recurse-submodules` (or run `git submodule update --init` after a plain clone). |
 
 **Cloud app (recommended):** register, connect your platforms, sync data, view the dashboard from anywhere. AI features are available via the Praxys plugin in remote mode.
 
@@ -22,6 +22,10 @@ Sports science that meets you where you are. Praxys syncs data from Garmin, Stry
 ## Quick Start (Local Development)
 
 ```bash
+# 0. Clone with submodules (the AI plugin lives in its own public repo)
+git clone --recurse-submodules https://github.com/dddtc2005/praxys.git
+cd praxys
+
 # 1. Install Python dependencies
 pip install -r requirements.txt
 

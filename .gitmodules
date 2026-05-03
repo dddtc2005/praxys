@@ -1,0 +1,3 @@
+[submodule "plugins/praxys"]
+	path = plugins/praxys
+	url = https://github.com/dddtc2005/praxys-coach-plugin.git
