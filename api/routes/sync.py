@@ -236,11 +236,7 @@ def _run_sync(user_id: str, source: str, creds: dict,
                 logger.exception("Activity-derived CP refresh failed for user %s", user_id)
                 db.rollback()
 
-        # Update last_sync on the connection record. Clear any prior
-        # backoff state so a previously-failed connection that the user
-        # successfully synced manually (or that recovered on its own)
-        # rejoins the regular schedule immediately.
-        from db.sync_scheduler import reset_connection_backoff
+        # Update last_sync on the connection record
         conn = db.query(UserConnection).filter(
             UserConnection.user_id == user_id,
             UserConnection.platform == source,
@@ -248,7 +244,6 @@ def _run_sync(user_id: str, source: str, creds: dict,
         if conn:
             conn.last_sync = datetime.now(timezone.utc).replace(tzinfo=None)
             conn.status = "connected"
-            reset_connection_backoff(conn)
             db.commit()
 
         logger.info("Sync %s for user %s: %s", source, user_id, counts)
@@ -282,44 +277,126 @@ def _run_sync(user_id: str, source: str, creds: dict,
                 "last_sync": None,
                 "error": str(e),
             }
-        # Update connection status with classification + backoff so the
-        # background scheduler stops hammering a stuck connection.
-        # ``_record_sync_failure`` handles its own rollback and commit.
+        # Update connection status to error
         try:
-            from db.sync_scheduler import _record_sync_failure
             conn = db.query(UserConnection).filter(
                 UserConnection.user_id == user_id,
                 UserConnection.platform == source,
             ).first()
             if conn:
-                _record_sync_failure(conn, e, db)
+                conn.status = "error"
+                db.commit()
         except Exception:
             pass
     finally:
         db.close()
 
 
+_CN_DI_TOKEN_URL = "https://diauth.garmin.cn/di-oauth2-service/oauth/token"  # noqa: S105
+
+# Serializes any in-flight DI_TOKEN_URL rebind. Concurrent international
+# logins in the same process would otherwise race on the module-level
+# constant — see _patch_cn_di_exchange's docstring.
+_di_token_url_lock = threading.Lock()
+
+
+def _patch_cn_di_exchange(inner_client) -> None:
+    """Re-target DI Bearer token exchange to ``diauth.garmin.cn``.
+
+    ``garminconnect`` 0.3.x hardcodes ``DI_TOKEN_URL`` at
+    ``diauth.garmin.com``. Garmin's CN infrastructure has a parallel
+    service at ``diauth.garmin.cn`` that accepts the same client IDs and
+    the same (``.com``-shaped) ``grant_type`` identifier — verified via
+    ``scripts/garmin_diagnose.py grants``. Pointing the exchange at the
+    CN host is enough to make it issue real DI tokens for CN accounts;
+    after that, ``connectapi.garmin.cn`` accepts Bearer auth normally.
+
+    The method *bindings* are instance-scoped (``types.MethodType`` on
+    this ``Client`` only). The library resolves ``DI_TOKEN_URL`` from its
+    module globals at call time, so the override has to transiently
+    rebind the module constant during the call and restore it in
+    ``finally``. That window IS process-global, so we serialize all CN
+    swaps with ``_di_token_url_lock`` — a concurrent international login
+    whose own exchange call overlaps the window would otherwise read the
+    CN URL and fail.
+
+    Both exchange sites need the patch:
+    * ``_exchange_service_ticket`` — called during initial login, after
+      a CAS service ticket is issued.
+    * ``_refresh_di_token`` — called by ``_refresh_session`` when a
+      persisted DI token is close to expiry. Without this, a long backfill
+      that crosses the token TTL would refresh against ``.com``, fail, and
+      silently stall on 401 cascades.
+
+    Coupled to garminconnect 0.3.x internals (``DI_TOKEN_URL`` module name,
+    ``_exchange_service_ticket`` / ``_refresh_di_token`` method names).
+    Re-validate with ``scripts/garmin_diagnose.py grants`` after any
+    upstream bump — none of these symbols are part of the library's
+    public contract.
+    """
+    import types
+    from garminconnect import client as _gc_client
+
+    orig_exchange = inner_client._exchange_service_ticket
+    orig_refresh = inner_client._refresh_di_token
+
+    def _cn_exchange(self, ticket, service_url=None):
+        with _di_token_url_lock:
+            prev = _gc_client.DI_TOKEN_URL
+            _gc_client.DI_TOKEN_URL = _CN_DI_TOKEN_URL
+            try:
+                return orig_exchange.__func__(
+                    self, ticket, service_url=service_url,
+                )
+            finally:
+                _gc_client.DI_TOKEN_URL = prev
+
+    def _cn_refresh(self):
+        with _di_token_url_lock:
+            prev = _gc_client.DI_TOKEN_URL
+            _gc_client.DI_TOKEN_URL = _CN_DI_TOKEN_URL
+            try:
+                return orig_refresh.__func__(self)
+            finally:
+                _gc_client.DI_TOKEN_URL = prev
+
+    inner_client._exchange_service_ticket = types.MethodType(
+        _cn_exchange, inner_client,
+    )
+    inner_client._refresh_di_token = types.MethodType(
+        _cn_refresh, inner_client,
+    )
+
+
 def _login_garmin_with_cn_fallback(client, creds: dict, token_dir: str) -> None:
-    """Log in the Garmin client, working around the 0.3.x JWT_WEB CN bug.
+    """Log in the Garmin client, handling the 0.3.x library's CN blind spots.
 
-    **Mobile/widget strategies' JWT_WEB fallback is ``.com``-only.** The
-    first four login strategies can reach a point where the CAS ticket is
-    consumed against ``mobile.integration.garmin.com`` /
-    ``sso.garmin.com/sso/embed`` — for CN the DNS fails or no ``JWT_WEB``
-    cookie is set. The library re-raises that as an auth error and aborts
-    the chain *before* reaching the portal strategies (which do use the
-    domain-aware ``_portal_service_url``). When we see that specific
-    message we retry ``_portal_web_login_cffi`` directly. The message
-    match keeps real credential failures
-    (``"Invalid Username or Password"``) bubbling up.
+    Two upstream problems overlap here:
 
-    The sibling DI Bearer token bug (``DI_TOKEN_URL`` hardcoded to
-    ``.com``) was fixed upstream in garminconnect 0.3.4 (PR #360 —
-    ``_di_token_url`` is now a domain-aware instance attribute), so no
-    DI patching is needed here.
+    1. **DI Bearer exchange target is ``.com`` only.** The module-level
+       ``DI_TOKEN_URL`` points at ``diauth.garmin.com``, which has no
+       record of CN accounts (always 400/401). Without a DI token,
+       ``connectapi.garmin.cn`` rejects every API call with 403 — JWT_WEB
+       cookie auth isn't accepted on the API gateway. Pointing the
+       exchange at ``diauth.garmin.cn`` produces real Bearer tokens that
+       authenticate both regions. See ``_patch_cn_di_exchange``.
+
+    2. **Mobile/widget strategies' JWT_WEB fallback is ``.com``-only.**
+       The first four login strategies can reach a point where the CAS
+       ticket is consumed against ``mobile.integration.garmin.com`` /
+       ``sso.garmin.com/sso/embed`` — for CN the DNS fails or no
+       ``JWT_WEB`` cookie is set. The library re-raises that as an auth
+       error and aborts the chain *before* reaching the portal strategies
+       (which do use the domain-aware ``_portal_service_url``). When we
+       see that specific message we retry ``_portal_web_login_cffi``
+       directly. The message match keeps real credential failures
+       (``"Invalid Username or Password"``) bubbling up.
     """
     import contextlib
     from garminconnect import GarminConnectAuthenticationError
+
+    if getattr(client, "is_cn", False):
+        _patch_cn_di_exchange(client.client)
 
     try:
         client.login(token_dir)
@@ -334,8 +411,9 @@ def _login_garmin_with_cn_fallback(client, creds: dict, token_dir: str) -> None:
 
     inner = client.client
     inner._portal_web_login_cffi(creds["email"], creds["password"])
-    # ``Client.dump`` serializes DI state; persisting after the portal
-    # fallback lets subsequent syncs skip SSO entirely.
+    # With the CN DI patch in place this now produces real Bearer tokens
+    # for CN accounts; ``Client.dump`` serializes only DI state, so this
+    # persistence attempt is meaningful for both regions.
     with contextlib.suppress(Exception):
         inner.dump(token_dir)
 
@@ -897,8 +975,7 @@ def _sync_coros(user_id: str, creds: dict, from_date: str | None,
         fetch_daily_metrics,
         fetch_fitness_summary,
         parse_activities,
-        parse_fit_laps,
-        parse_fit_stream,
+        parse_splits,
         parse_daily_metrics as parse_daily,
         parse_fitness_summary as parse_fitness,
         mobile_login,
@@ -955,11 +1032,8 @@ def _sync_coros(user_id: str, creds: dict, from_date: str | None,
         row.setdefault("source", "coros")
     act_count = sync_writer.write_activities(user_id, activity_rows, db)
 
-    # Splits and per-second samples from the same activity detail call.
-    # parse_activity_stream() reads trackPoints when present; returns []
-    # otherwise (UNVERIFIED field names — needs real COROS data to confirm).
+    # Splits (per-activity laps)
     all_splits = []
-    all_samples = []
     total = len(raw_activities)
     for idx, raw_act in enumerate(raw_activities):
         act_id = str(raw_act.get("labelId") or raw_act.get("activityId") or "")
@@ -968,17 +1042,12 @@ def _sync_coros(user_id: str, creds: dict, from_date: str | None,
         with _sync_lock:
             status.setdefault("coros", {})["progress"] = f"Fetching splits: {idx + 1}/{total}"
         try:
-            sport_type = raw_act.get("sportType")
-            fit_bytes = fetch_activity_detail(access_token, region, act_id, sport_type)
-            if fit_bytes:
-                all_splits.extend(parse_fit_laps(act_id, fit_bytes))
-                all_samples.extend(parse_fit_stream(act_id, fit_bytes))
+            detail = fetch_activity_detail(access_token, region, act_id)
+            all_splits.extend(parse_splits(act_id, detail))
             time_mod.sleep(0.3)
         except Exception as e:
             logger.debug("COROS splits for %s: skipped (%s)", act_id, e)
     split_count = sync_writer.write_splits(user_id, all_splits, db)
-    sample_count = sync_writer.write_samples(user_id, all_samples, db)
-    logger.debug("COROS sync: %d splits, %d samples written", split_count, sample_count)
 
     # Daily metrics (HRV, resting HR, training load)
     # Fetch a wider window (90 days) to ensure enough HRV readings for
@@ -1076,7 +1145,6 @@ def get_sync_status(
 ) -> dict:
     """Return current sync status for this user's connected platforms."""
     from db.models import UserConnection
-    from db.sync_scheduler import ACTIVE_CONNECTION_STATUSES
 
     # Snapshot runtime status under lock to avoid reading partial updates.
     # _get_user_status acquires _sync_lock internally, so call it outside
@@ -1097,7 +1165,7 @@ def get_sync_status(
             "status": runtime.get("status", "idle"),
             "last_sync": utc_isoformat(conn.last_sync) or runtime.get("last_sync"),
             "error": runtime.get("error"),
-            "connected": conn.status in ACTIVE_CONNECTION_STATUSES,
+            "connected": conn.status in ("connected", "error"),
             "progress": runtime.get("progress"),
         }
 
