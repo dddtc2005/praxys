@@ -429,3 +429,23 @@ class SystemAnnouncement(Base):
     link_url = Column(String(500), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class WaitlistSignup(Base):
+    """Private-alpha waitlist captures.
+
+    Praxys is invitation-only during alpha; the login page lets prospective
+    users drop their email + a one-line note so we can reach back when a
+    slot opens. We store these locally rather than relying on the support
+    inbox alone — that way a busy inbox can't lose a lead.
+    """
+
+    __tablename__ = "waitlist_signups"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String(320), nullable=False, index=True)
+    note = Column(String(500), default="")
+    locale = Column(String(10), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    invited_at = Column(DateTime, nullable=True)
+    invitation_id = Column(Integer, ForeignKey("invitations.id"), nullable=True)

@@ -93,6 +93,22 @@ msgstr "距比赛日还有 <0>{days}</0> 天。当前预测 <1>{predicted}</1>�
 msgid "<0>{days}</0> days to race day. Today's prediction is <1>{predicted}</1>."
 msgstr "距比赛日还有 <0>{days}</0> 天。当前预测 <1>{predicted}</1>。"
 
+#: src/pages/Login.tsx:185
+msgid "<0>Cited science.</0> No hype."
+msgstr "<0>有据可查的科学。</0>不浮夸。"
+
+#: src/pages/Login.tsx:177
+msgid "<0>Diagnosis & forecast</0> you can verify."
+msgstr "<0>可验证的</0>诊断与预测。"
+
+#: src/pages/Login.tsx:169
+msgid "<0>Today's signal</0> · go, modify, or rest."
+msgstr "<0>今日信号</0> · 训练、调整或休息。"
+
+#: src/pages/Login.tsx:395
+msgid "<0>You're on the list.</0> We'll reach out from <1>{SUPPORT_EMAIL}</1> when a slot opens."
+msgstr "<0>已加入候补名单。</0>有空位时，我们会从 <1>{SUPPORT_EMAIL}</1> 与您联系。"
+
 #: src/pages/Setup.tsx:605
 msgid "~{estimatedActivities} activities, ~{estimatedMinutes} min"
 msgstr "约 {estimatedActivities} 项活动，约 {estimatedMinutes} 分钟"
@@ -172,6 +188,10 @@ msgstr "6月"
 msgid "7d Trend"
 msgstr "7天趋势"
 
+#: src/pages/Login.tsx:162
+msgid "A scientific training system that takes a position."
+msgstr "有立场的科学训练系统。"
+
 #: src/components/ZoneAnalysisCard.tsx:44
 msgid "above"
 msgstr "高于"
@@ -230,6 +250,9 @@ msgstr "调整训练"
 msgid "Admin"
 msgstr "管理"
 
+#: src/pages/Science.tsx:133
+#~ msgid "Advanced"
+#~ msgstr "详细"
 
 #: src/lib/phase-label.ts:13
 msgid "Aerobic"
@@ -240,7 +263,12 @@ msgstr "有氧"
 msgid "All"
 msgstr "全部"
 
-#: src/pages/Login.tsx:60
+#: src/pages/Login.tsx:378
+#: src/pages/Login.tsx:403
+msgid "Already have an invitation code?"
+msgstr "已有邀请码？"
+
+#: src/pages/Login.tsx:72
 msgid "An unexpected error occurred."
 msgstr "发生了意外错误。"
 
@@ -251,6 +279,10 @@ msgstr "亚洲/中国"
 #: src/components/charts/FitnessFatigueChart.tsx:242
 msgid "ATL (Fatigue)"
 msgstr "ATL（疲劳）"
+
+#: src/pages/Login.tsx:241
+msgid "Authentication mode"
+msgstr "登录方式"
 
 #: src/pages/Setup.tsx:198
 msgid "Authorize Praxys with Strava in your browser. Praxys only syncs activities from Strava."
@@ -298,6 +330,9 @@ msgstr "同步历史数据..."
 msgid "Based on your training, <0>{0}</0> may fit better — {1}"
 msgstr "根据您的训练，<0>{0}</0> 可能更合适 — {1}"
 
+#: src/pages/Science.tsx:156
+#~ msgid "Based on your training, we suggest <0>{0}</0> — {1}"
+#~ msgstr "根据您的训练，我们建议 <0>{0}</0> — {1}"
 
 #: src/components/RecoveryPanel.tsx:131
 msgid "Baseline"
@@ -485,6 +520,13 @@ msgstr "已配置持续提升"
 msgid "Cooldown"
 msgstr "放松"
 
+#: src/pages/Science.tsx:255
+#~ msgid "Cosmetic — changes names and colors without affecting calculations"
+#~ msgstr "仅外观——更改名称与颜色，不影响计算"
+
+#: src/pages/Login.tsx:102
+msgid "Could not save your email. Please email us instead."
+msgstr "无法保存您的邮箱，请直接发邮件联系我们。"
 
 #: src/components/charts/CpTrendChart.tsx:59
 #: src/lib/display-labels.ts:56
@@ -496,7 +538,7 @@ msgstr "CP 趋势"
 msgid "Create"
 msgstr "创建"
 
-#: src/pages/Login.tsx:164
+#: src/pages/Login.tsx:478
 msgid "Create account"
 msgstr "创建账号"
 
@@ -505,8 +547,12 @@ msgid "Created"
 msgstr "创建时间"
 
 #: src/pages/Login.tsx:164
-msgid "Creating account..."
-msgstr "创建中..."
+#~ msgid "Creating account..."
+#~ msgstr "创建中..."
+
+#: src/pages/Login.tsx:478
+msgid "Creating account…"
+msgstr "正在创建账户……"
 
 #: src/pages/Admin.tsx:475
 #: src/pages/Admin.tsx:594
@@ -643,6 +689,10 @@ msgstr "讨论"
 msgid "Dismissible banners shown to all users"
 msgstr "向所有用户显示的可关闭横幅"
 
+#: src/pages/Login.tsx:499
+msgid "Display preferences"
+msgstr "显示偏好"
+
 #: src/components/SplitBreakdown.tsx:46
 msgid "Dist"
 msgstr "距离"
@@ -730,15 +780,20 @@ msgstr "升高"
 
 #: src/pages/Admin.tsx:256
 #: src/pages/Admin.tsx:450
-#: src/pages/Login.tsx:90
-#: src/pages/Login.tsx:126
+#: src/pages/Login.tsx:273
+#: src/pages/Login.tsx:341
+#: src/pages/Login.tsx:427
 #: src/pages/Setup.tsx:206
 msgid "Email"
 msgstr "邮箱"
 
-#: src/pages/Login.tsx:37
+#: src/pages/Login.tsx:48
 msgid "Email and password are required."
 msgstr "请输入邮箱和密码。"
+
+#: src/pages/Login.tsx:81
+msgid "Email is required."
+msgstr "请输入邮箱。"
 
 #: src/lib/display-labels.ts:43
 msgid "Endurance"
@@ -782,6 +837,9 @@ msgstr "加载活动失败"
 msgid "Failed to load goal data"
 msgstr "目标数据加载失败"
 
+#: src/pages/Science.tsx:216
+#~ msgid "Failed to load science data"
+#~ msgstr "加载科学数据失败"
 
 #: src/pages/Science.tsx:83
 msgid "Failed to load science data."
@@ -859,6 +917,9 @@ msgstr "竞技状态"
 msgid "Form (TSB)"
 msgstr "竞技状态 (TSB)"
 
+#: src/pages/Science.tsx:229
+#~ msgid "Four pillars power your analysis. Each uses a published theory you can understand, verify, and change."
+#~ msgstr "四大支柱驱动您的分析。每一支柱都采用可理解、可验证、可更改的已发表理论。"
 
 #: src/pages/Science.tsx:170
 msgid "Four-pillar framework"
@@ -904,6 +965,10 @@ msgstr "生成"
 #: src/pages/Setup.tsx:200
 msgid "Generate a token at cloud.ouraring.com/personal-access-tokens."
 msgstr "请在 cloud.ouraring.com/personal-access-tokens 生成一个令牌。"
+
+#: src/pages/Login.tsx:232
+msgid "Get access"
+msgstr "申请加入"
 
 #: src/components/SetupChecklist.tsx:94
 msgid "Get started with Praxys"
@@ -980,9 +1045,21 @@ msgstr "徒步"
 msgid "Historical sync may take several minutes"
 msgstr "历史同步可能需要几分钟"
 
+#: src/pages/Science.tsx:26
+#~ msgid "How do we assess readiness to train?"
+#~ msgstr "如何评估训练准备度？"
 
+#: src/pages/Science.tsx:27
+#~ msgid "How do we estimate race potential?"
+#~ msgstr "如何估算比赛潜力？"
 
+#: src/pages/Science.tsx:25
+#~ msgid "How does training stress become fitness?"
+#~ msgstr "训练应激如何转化为体能？"
 
+#: src/pages/Science.tsx:28
+#~ msgid "How is intensity classified?"
+#~ msgstr "如何分类训练强度？"
 
 #: src/pages/Settings.tsx:724
 msgid "How often Praxys pulls new data in the background. Lower frequency uses less network and respects platform rate limits."
@@ -1042,13 +1119,23 @@ msgstr "国际"
 msgid "Invalid time format. Use H:MM:SS or H:MM"
 msgstr "时间格式无效。请使用 H:MM:SS 或 H:MM"
 
-#: src/pages/Login.tsx:149
-msgid "Invitation Code"
+#: src/pages/Login.tsx:460
+msgid "Invitation code"
 msgstr "邀请码"
+
+#: src/pages/Login.tsx:149
+#~ msgid "Invitation Code"
+#~ msgstr "邀请码"
 
 #: src/pages/Admin.tsx:334
 msgid "Invitation Codes"
 msgstr "邀请码"
+
+#: src/pages/Login.tsx:327
+#: src/pages/Login.tsx:374
+#: src/pages/Login.tsx:488
+msgid "Join the waitlist"
+msgstr "加入候补名单"
 
 #: src/lib/display-labels.ts:53
 msgid "Lactate Threshold HR"
@@ -1077,8 +1164,12 @@ msgid "Last synced {0}"
 msgstr "上次同步 {0}"
 
 #: src/pages/Login.tsx:160
-msgid "Leave blank for the first account. Required after that."
-msgstr "首个账号可留空，之后必填。"
+#~ msgid "Leave blank for the first account. Required after that."
+#~ msgstr "首个账号可留空，之后必填。"
+
+#: src/pages/Login.tsx:472
+msgid "Leave blank if this is the first account on a fresh install."
+msgstr "若是全新部署的首位用户，可留空。"
 
 #: src/components/GoalEditor.tsx:164
 msgid "Leave blank to track predicted time only"
@@ -1117,8 +1208,8 @@ msgid "Load & Fitness"
 msgstr "负荷与体能"
 
 #: src/pages/Login.tsx:71
-msgid "Log in to connect your CLI plugin"
-msgstr "登录以连接 CLI 插件"
+#~ msgid "Log in to connect your CLI plugin"
+#~ msgstr "登录以连接 CLI 插件"
 
 #: src/components/AppSidebar.tsx:193
 #: src/components/AppSidebar.tsx:195
@@ -1126,8 +1217,8 @@ msgid "Log out"
 msgstr "退出登录"
 
 #: src/pages/Login.tsx:78
-msgid "Login"
-msgstr "登录"
+#~ msgid "Login"
+#~ msgstr "登录"
 
 #: src/pages/Today.tsx:124
 msgid "low"
@@ -1199,6 +1290,10 @@ msgstr "需要至少 3 次带功率数据的活动才能绘制有意义的趋势
 msgid "Need at least 3 activities with power data."
 msgstr "需要至少 3 次带功率数据的活动。"
 
+#: src/pages/Login.tsx:497
+msgid "Need help? {SUPPORT_EMAIL}"
+msgstr "需要帮助？{SUPPORT_EMAIL}"
+
 #: src/pages/Goal.tsx:255
 msgid "Needed {abbrev}"
 msgstr "所需 {abbrev}"
@@ -1207,6 +1302,10 @@ msgstr "所需 {abbrev}"
 msgid "Network error. Is the server running?"
 msgstr "网络错误。服务器在运行吗？"
 
+#: src/pages/Login.tsx:108
+msgid "Network error. Please email {SUPPORT_EMAIL} directly."
+msgstr "网络错误，请直接发邮件至 {SUPPORT_EMAIL}。"
+
 #: src/pages/Admin.tsx:559
 msgid "New announcement"
 msgstr "新公告"
@@ -1214,6 +1313,10 @@ msgstr "新公告"
 #: src/pages/Admin.tsx:359
 msgid "New invitation code:"
 msgstr "新邀请码："
+
+#: src/pages/Login.tsx:310
+msgid "New to Praxys?"
+msgstr "第一次使用 Praxys？"
 
 #: src/pages/History.tsx:96
 msgid "Next"
@@ -1230,6 +1333,10 @@ msgstr "未找到活动。"
 #: src/pages/Admin.tsx:600
 msgid "No announcements yet"
 msgstr "还没有公告"
+
+#: src/pages/Login.tsx:482
+msgid "No code yet?"
+msgstr "还没有邀请码？"
 
 #: src/pages/Today.tsx:276
 #: src/pages/Today.tsx:427
@@ -1345,8 +1452,8 @@ msgid "Pace"
 msgstr "配速"
 
 #: src/pages/Admin.tsx:460
-#: src/pages/Login.tsx:102
-#: src/pages/Login.tsx:138
+#: src/pages/Login.tsx:290
+#: src/pages/Login.tsx:444
 #: src/pages/Setup.tsx:207
 msgid "Password"
 msgstr "密码"
@@ -1397,8 +1504,8 @@ msgid "Power metrics, Critical Power, training plans"
 msgstr "功率指标、阈值功率、训练计划"
 
 #: src/pages/Login.tsx:72
-msgid "Power-based training dashboard"
-msgstr "功率训练仪表盘"
+#~ msgid "Power-based training dashboard"
+#~ msgstr "功率训练仪表盘"
 
 #: src/components/AiInsightsCard.tsx:81
 msgid "Praxys Coach"
@@ -1407,6 +1514,14 @@ msgstr "Praxys 教练"
 #: src/components/AiInsightsCard.tsx:79
 msgid "Praxys Coach insight"
 msgstr "Praxys 教练分析"
+
+#: src/pages/Login.tsx:237
+msgid "Praxys is in private alpha."
+msgstr "Praxys 正处于内测阶段。"
+
+#: src/pages/Login.tsx:134
+msgid "Praxys race-flag mark"
+msgstr "Praxys 赛旗标识"
 
 #: src/pages/Goal.tsx:241
 #: src/pages/Goal.tsx:278
@@ -1439,6 +1554,10 @@ msgstr "作为 {0} 的主要来源"
 #: src/pages/Settings.tsx:60
 msgid "Primary source for workout data"
 msgstr "训练数据的主要来源"
+
+#: src/pages/Login.tsx:126
+msgid "Private alpha · Invitation only"
+msgstr "内测中 · 仅限邀请"
 
 #: src/pages/Settings.tsx:580
 msgid "Profile"
@@ -1611,8 +1730,8 @@ msgid "Region"
 msgstr "地区"
 
 #: src/pages/Login.tsx:79
-msgid "Register"
-msgstr "注册"
+#~ msgid "Register"
+#~ msgstr "注册"
 
 #: src/pages/Admin.tsx:258
 msgid "Registered"
@@ -1625,6 +1744,14 @@ msgstr "注册账号"
 #: src/lib/phase-label.ts:18
 msgid "Rep"
 msgstr "组"
+
+#: src/pages/Login.tsx:316
+msgid "Request an invite"
+msgstr "申请邀请"
+
+#: src/pages/Login.tsx:260
+msgid "Request invite"
+msgstr "申请邀请"
 
 #: src/lib/phase-label.ts:17
 msgid "Rest"
@@ -1696,6 +1823,10 @@ msgstr "保存目标"
 msgid "Saving..."
 msgstr "保存中..."
 
+#: src/pages/Login.tsx:374
+msgid "Saving…"
+msgstr "正在保存……"
+
 #: src/components/AppSidebar.tsx:115
 msgid "Science"
 msgstr "科学"
@@ -1766,14 +1897,27 @@ msgstr "显示"
 msgid "Showing yesterday's snapshot. Last reading {dataAsOfLabel}."
 msgstr "显示的是昨天的快照。最近一次读数 {dataAsOfLabel}。"
 
-#: src/pages/Login.tsx:113
+#: src/pages/Login.tsx:231
+#: src/pages/Login.tsx:250
+#: src/pages/Login.tsx:306
 msgid "Sign in"
 msgstr "登录"
 
-#: src/pages/Login.tsx:113
-msgid "Signing in..."
-msgstr "登录中..."
+#: src/pages/Login.tsx:224
+msgid "Sign in to connect your CLI plugin."
+msgstr "登录以连接 CLI 插件。"
 
+#: src/pages/Login.tsx:113
+#~ msgid "Signing in..."
+#~ msgstr "登录中..."
+
+#: src/pages/Login.tsx:306
+msgid "Signing in…"
+msgstr "正在登录……"
+
+#: src/pages/Science.tsx:132
+#~ msgid "Simple"
+#~ msgstr "简要"
 
 #: src/pages/Setup.tsx:779
 msgid "Skip for now"
@@ -1848,6 +1992,10 @@ msgstr "挑战目标"
 msgid "strongly positive"
 msgstr "状态极佳"
 
+#: src/pages/Login.tsx:364
+msgid "Sub-3 marathon · 100K · stay healthy…"
+msgstr "破三 · 百公里 · 保持健康……"
+
 #: src/components/DiagnosisCard.tsx:87
 msgid "Suggestions"
 msgstr "建议"
@@ -1855,6 +2003,11 @@ msgstr "建议"
 #: src/pages/Setup.tsx:160
 msgid "Swimming"
 msgstr "游泳"
+
+#: src/pages/Login.tsx:504
+#: src/pages/Login.tsx:505
+msgid "Switch language"
+msgstr "切换语言"
 
 #. placeholder {0}: previewedTheory.name
 #: src/pages/Science.tsx:428
@@ -2023,6 +2176,15 @@ msgstr "当前 <0>{distLabel}</0> 预测 <1>{predicted}</1>。{abbrev} 趋势 <2
 msgid "Today's recovery hasn't synced yet. Showing the latest reading from {latestDateLabel}."
 msgstr "今日的恢复尚未同步。显示 {latestDateLabel} 的最新读数。"
 
+#: src/pages/Login.tsx:516
+#: src/pages/Login.tsx:517
+msgid "Toggle theme"
+msgstr "切换主题"
+
+#: src/pages/Login.tsx:100
+msgid "Too many attempts from this network. Please email us instead."
+msgstr "当前网络请求次数过多，请直接发邮件联系我们。"
+
 #: src/pages/Goal.tsx:141
 msgid "Tracking"
 msgstr "跟踪"
@@ -2087,6 +2249,14 @@ msgstr "更新中..."
 msgid "US"
 msgstr "美国"
 
+#: src/pages/Login.tsx:384
+#: src/pages/Login.tsx:413
+msgid "Use it"
+msgstr "使用邀请码"
+
+#: src/pages/Science.tsx:175
+#~ msgid "Use this"
+#~ msgstr "使用此项"
 
 #: src/pages/Setup.tsx:197
 msgid "Use your Garmin Connect credentials."
@@ -2141,6 +2311,10 @@ msgstr "步行"
 msgid "Warmup"
 msgstr "热身"
 
+#: src/pages/Login.tsx:329
+msgid "We're inviting runners in waves while we tighten the science. Drop your email and we'll reach back when a slot opens."
+msgstr "我们正在分批邀请跑者，期间会持续打磨科学方法。留下邮箱，有空位时我们会与您联系。"
+
 #: src/components/WeeklyLoadMini.tsx:30
 msgid "Weekly Load"
 msgstr "周训练负荷"
@@ -2157,9 +2331,17 @@ msgstr "周度回顾"
 msgid "Weekly Volume"
 msgstr "周里程"
 
+#: src/pages/Login.tsx:236
+msgid "Welcome back."
+msgstr "欢迎回来。"
+
 #: src/components/GoalEditor.tsx:165
 msgid "What time are you working toward? Leave blank to track trend only"
 msgstr "您的目标时间是多少？留空则仅追踪趋势"
+
+#: src/pages/Login.tsx:358
+msgid "What's your training goal? (optional)"
+msgstr "您的训练目标是？（选填）"
 
 #: src/pages/Setup.tsx:800
 msgid "Will sync:"
@@ -2169,8 +2351,9 @@ msgstr "将同步："
 msgid "you"
 msgstr "您"
 
-#: src/pages/Login.tsx:94
-#: src/pages/Login.tsx:130
+#: src/pages/Login.tsx:279
+#: src/pages/Login.tsx:347
+#: src/pages/Login.tsx:433
 msgid "you@example.com"
 msgstr "you@example.com"
 
@@ -2202,6 +2385,9 @@ msgstr "区间分析"
 msgid "Zone labels"
 msgstr "区间标签"
 
+#: src/pages/Science.tsx:253
+#~ msgid "Zone Labels"
+#~ msgstr "区间标签"
 
 #: src/pages/Settings.tsx:68
 msgid "Zones & load from Critical Power"
@@ -2220,50 +2406,3 @@ msgstr "基于乳酸阈值心率的区间与负荷"
 #: src/pages/Setup.tsx:174
 msgid "Zones & load from Threshold Pace"
 msgstr "基于阈值配速的区间与负荷"
-#: src/pages/Science.tsx:133
-#~ msgid "Advanced"
-#~ msgstr "详细"
-
-#: src/pages/Science.tsx:156
-#~ msgid "Based on your training, we suggest <0>{0}</0> — {1}"
-#~ msgstr "根据您的训练，我们建议 <0>{0}</0> — {1}"
-
-#: src/pages/Science.tsx:255
-#~ msgid "Cosmetic — changes names and colors without affecting calculations"
-#~ msgstr "仅外观——更改名称与颜色，不影响计算"
-
-#: src/pages/Science.tsx:216
-#~ msgid "Failed to load science data"
-#~ msgstr "加载科学数据失败"
-
-#: src/pages/Science.tsx:229
-#~ msgid "Four pillars power your analysis. Each uses a published theory you can understand, verify, and change."
-#~ msgstr "四大支柱驱动您的分析。每一支柱都采用可理解、可验证、可更改的已发表理论。"
-
-#: src/pages/Science.tsx:26
-#~ msgid "How do we assess readiness to train?"
-#~ msgstr "如何评估训练准备度？"
-
-#: src/pages/Science.tsx:27
-#~ msgid "How do we estimate race potential?"
-#~ msgstr "如何估算比赛潜力？"
-
-#: src/pages/Science.tsx:25
-#~ msgid "How does training stress become fitness?"
-#~ msgstr "训练应激如何转化为体能？"
-
-#: src/pages/Science.tsx:28
-#~ msgid "How is intensity classified?"
-#~ msgstr "如何分类训练强度？"
-
-#: src/pages/Science.tsx:132
-#~ msgid "Simple"
-#~ msgstr "简要"
-
-#: src/pages/Science.tsx:175
-#~ msgid "Use this"
-#~ msgstr "使用此项"
-
-#: src/pages/Science.tsx:253
-#~ msgid "Zone Labels"
-#~ msgstr "区间标签"

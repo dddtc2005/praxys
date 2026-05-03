@@ -93,6 +93,22 @@ msgstr "<0>{days}</0> days to race day. Today's prediction is <1>{predicted}</1>
 msgid "<0>{days}</0> days to race day. Today's prediction is <1>{predicted}</1>."
 msgstr "<0>{days}</0> days to race day. Today's prediction is <1>{predicted}</1>."
 
+#: src/pages/Login.tsx:185
+msgid "<0>Cited science.</0> No hype."
+msgstr "<0>Cited science.</0> No hype."
+
+#: src/pages/Login.tsx:177
+msgid "<0>Diagnosis & forecast</0> you can verify."
+msgstr "<0>Diagnosis & forecast</0> you can verify."
+
+#: src/pages/Login.tsx:169
+msgid "<0>Today's signal</0> · go, modify, or rest."
+msgstr "<0>Today's signal</0> · go, modify, or rest."
+
+#: src/pages/Login.tsx:395
+msgid "<0>You're on the list.</0> We'll reach out from <1>{SUPPORT_EMAIL}</1> when a slot opens."
+msgstr "<0>You're on the list.</0> We'll reach out from <1>{SUPPORT_EMAIL}</1> when a slot opens."
+
 #: src/pages/Setup.tsx:605
 msgid "~{estimatedActivities} activities, ~{estimatedMinutes} min"
 msgstr "~{estimatedActivities} activities, ~{estimatedMinutes} min"
@@ -172,6 +188,10 @@ msgstr "6M"
 msgid "7d Trend"
 msgstr "7d Trend"
 
+#: src/pages/Login.tsx:162
+msgid "A scientific training system that takes a position."
+msgstr "A scientific training system that takes a position."
+
 #: src/components/ZoneAnalysisCard.tsx:44
 msgid "above"
 msgstr "above"
@@ -243,7 +263,12 @@ msgstr "Aerobic"
 msgid "All"
 msgstr "All"
 
-#: src/pages/Login.tsx:60
+#: src/pages/Login.tsx:378
+#: src/pages/Login.tsx:403
+msgid "Already have an invitation code?"
+msgstr "Already have an invitation code?"
+
+#: src/pages/Login.tsx:72
 msgid "An unexpected error occurred."
 msgstr "An unexpected error occurred."
 
@@ -254,6 +279,10 @@ msgstr "Asia/CN"
 #: src/components/charts/FitnessFatigueChart.tsx:242
 msgid "ATL (Fatigue)"
 msgstr "ATL (Fatigue)"
+
+#: src/pages/Login.tsx:241
+msgid "Authentication mode"
+msgstr "Authentication mode"
 
 #: src/pages/Setup.tsx:198
 msgid "Authorize Praxys with Strava in your browser. Praxys only syncs activities from Strava."
@@ -495,6 +524,10 @@ msgstr "Cooldown"
 #~ msgid "Cosmetic — changes names and colors without affecting calculations"
 #~ msgstr "Cosmetic — changes names and colors without affecting calculations"
 
+#: src/pages/Login.tsx:102
+msgid "Could not save your email. Please email us instead."
+msgstr "Could not save your email. Please email us instead."
+
 #: src/components/charts/CpTrendChart.tsx:59
 #: src/lib/display-labels.ts:56
 msgid "CP Trend"
@@ -505,7 +538,7 @@ msgstr "CP Trend"
 msgid "Create"
 msgstr "Create"
 
-#: src/pages/Login.tsx:164
+#: src/pages/Login.tsx:478
 msgid "Create account"
 msgstr "Create account"
 
@@ -514,8 +547,12 @@ msgid "Created"
 msgstr "Created"
 
 #: src/pages/Login.tsx:164
-msgid "Creating account..."
-msgstr "Creating account..."
+#~ msgid "Creating account..."
+#~ msgstr "Creating account..."
+
+#: src/pages/Login.tsx:478
+msgid "Creating account…"
+msgstr "Creating account…"
 
 #: src/pages/Admin.tsx:475
 #: src/pages/Admin.tsx:594
@@ -652,6 +689,10 @@ msgstr "Discussion"
 msgid "Dismissible banners shown to all users"
 msgstr "Dismissible banners shown to all users"
 
+#: src/pages/Login.tsx:499
+msgid "Display preferences"
+msgstr "Display preferences"
+
 #: src/components/SplitBreakdown.tsx:46
 msgid "Dist"
 msgstr "Dist"
@@ -739,15 +780,20 @@ msgstr "Elevated"
 
 #: src/pages/Admin.tsx:256
 #: src/pages/Admin.tsx:450
-#: src/pages/Login.tsx:90
-#: src/pages/Login.tsx:126
+#: src/pages/Login.tsx:273
+#: src/pages/Login.tsx:341
+#: src/pages/Login.tsx:427
 #: src/pages/Setup.tsx:206
 msgid "Email"
 msgstr "Email"
 
-#: src/pages/Login.tsx:37
+#: src/pages/Login.tsx:48
 msgid "Email and password are required."
 msgstr "Email and password are required."
+
+#: src/pages/Login.tsx:81
+msgid "Email is required."
+msgstr "Email is required."
 
 #: src/lib/display-labels.ts:43
 msgid "Endurance"
@@ -920,6 +966,10 @@ msgstr "Generate"
 msgid "Generate a token at cloud.ouraring.com/personal-access-tokens."
 msgstr "Generate a token at cloud.ouraring.com/personal-access-tokens."
 
+#: src/pages/Login.tsx:232
+msgid "Get access"
+msgstr "Get access"
+
 #: src/components/SetupChecklist.tsx:94
 msgid "Get started with Praxys"
 msgstr "Get started with Praxys"
@@ -1069,13 +1119,23 @@ msgstr "International"
 msgid "Invalid time format. Use H:MM:SS or H:MM"
 msgstr "Invalid time format. Use H:MM:SS or H:MM"
 
+#: src/pages/Login.tsx:460
+msgid "Invitation code"
+msgstr "Invitation code"
+
 #: src/pages/Login.tsx:149
-msgid "Invitation Code"
-msgstr "Invitation Code"
+#~ msgid "Invitation Code"
+#~ msgstr "Invitation Code"
 
 #: src/pages/Admin.tsx:334
 msgid "Invitation Codes"
 msgstr "Invitation Codes"
+
+#: src/pages/Login.tsx:327
+#: src/pages/Login.tsx:374
+#: src/pages/Login.tsx:488
+msgid "Join the waitlist"
+msgstr "Join the waitlist"
 
 #: src/lib/display-labels.ts:53
 msgid "Lactate Threshold HR"
@@ -1104,8 +1164,12 @@ msgid "Last synced {0}"
 msgstr "Last synced {0}"
 
 #: src/pages/Login.tsx:160
-msgid "Leave blank for the first account. Required after that."
-msgstr "Leave blank for the first account. Required after that."
+#~ msgid "Leave blank for the first account. Required after that."
+#~ msgstr "Leave blank for the first account. Required after that."
+
+#: src/pages/Login.tsx:472
+msgid "Leave blank if this is the first account on a fresh install."
+msgstr "Leave blank if this is the first account on a fresh install."
 
 #: src/components/GoalEditor.tsx:164
 msgid "Leave blank to track predicted time only"
@@ -1144,8 +1208,8 @@ msgid "Load & Fitness"
 msgstr "Load & Fitness"
 
 #: src/pages/Login.tsx:71
-msgid "Log in to connect your CLI plugin"
-msgstr "Log in to connect your CLI plugin"
+#~ msgid "Log in to connect your CLI plugin"
+#~ msgstr "Log in to connect your CLI plugin"
 
 #: src/components/AppSidebar.tsx:193
 #: src/components/AppSidebar.tsx:195
@@ -1153,8 +1217,8 @@ msgid "Log out"
 msgstr "Log out"
 
 #: src/pages/Login.tsx:78
-msgid "Login"
-msgstr "Login"
+#~ msgid "Login"
+#~ msgstr "Login"
 
 #: src/pages/Today.tsx:124
 msgid "low"
@@ -1226,6 +1290,10 @@ msgstr "Need at least 3 activities with power data to plot a meaningful trend."
 msgid "Need at least 3 activities with power data."
 msgstr "Need at least 3 activities with power data."
 
+#: src/pages/Login.tsx:497
+msgid "Need help? {SUPPORT_EMAIL}"
+msgstr "Need help? {SUPPORT_EMAIL}"
+
 #: src/pages/Goal.tsx:255
 msgid "Needed {abbrev}"
 msgstr "Needed {abbrev}"
@@ -1234,6 +1302,10 @@ msgstr "Needed {abbrev}"
 msgid "Network error. Is the server running?"
 msgstr "Network error. Is the server running?"
 
+#: src/pages/Login.tsx:108
+msgid "Network error. Please email {SUPPORT_EMAIL} directly."
+msgstr "Network error. Please email {SUPPORT_EMAIL} directly."
+
 #: src/pages/Admin.tsx:559
 msgid "New announcement"
 msgstr "New announcement"
@@ -1241,6 +1313,10 @@ msgstr "New announcement"
 #: src/pages/Admin.tsx:359
 msgid "New invitation code:"
 msgstr "New invitation code:"
+
+#: src/pages/Login.tsx:310
+msgid "New to Praxys?"
+msgstr "New to Praxys?"
 
 #: src/pages/History.tsx:96
 msgid "Next"
@@ -1257,6 +1333,10 @@ msgstr "No activities found."
 #: src/pages/Admin.tsx:600
 msgid "No announcements yet"
 msgstr "No announcements yet"
+
+#: src/pages/Login.tsx:482
+msgid "No code yet?"
+msgstr "No code yet?"
 
 #: src/pages/Today.tsx:276
 #: src/pages/Today.tsx:427
@@ -1372,8 +1452,8 @@ msgid "Pace"
 msgstr "Pace"
 
 #: src/pages/Admin.tsx:460
-#: src/pages/Login.tsx:102
-#: src/pages/Login.tsx:138
+#: src/pages/Login.tsx:290
+#: src/pages/Login.tsx:444
 #: src/pages/Setup.tsx:207
 msgid "Password"
 msgstr "Password"
@@ -1424,8 +1504,8 @@ msgid "Power metrics, Critical Power, training plans"
 msgstr "Power metrics, Critical Power, training plans"
 
 #: src/pages/Login.tsx:72
-msgid "Power-based training dashboard"
-msgstr "Power-based training dashboard"
+#~ msgid "Power-based training dashboard"
+#~ msgstr "Power-based training dashboard"
 
 #: src/components/AiInsightsCard.tsx:81
 msgid "Praxys Coach"
@@ -1434,6 +1514,14 @@ msgstr "Praxys Coach"
 #: src/components/AiInsightsCard.tsx:79
 msgid "Praxys Coach insight"
 msgstr "Praxys Coach insight"
+
+#: src/pages/Login.tsx:237
+msgid "Praxys is in private alpha."
+msgstr "Praxys is in private alpha."
+
+#: src/pages/Login.tsx:134
+msgid "Praxys race-flag mark"
+msgstr "Praxys race-flag mark"
 
 #: src/pages/Goal.tsx:241
 #: src/pages/Goal.tsx:278
@@ -1466,6 +1554,10 @@ msgstr "Primary for {0}"
 #: src/pages/Settings.tsx:60
 msgid "Primary source for workout data"
 msgstr "Primary source for workout data"
+
+#: src/pages/Login.tsx:126
+msgid "Private alpha · Invitation only"
+msgstr "Private alpha · Invitation only"
 
 #: src/pages/Settings.tsx:580
 msgid "Profile"
@@ -1638,8 +1730,8 @@ msgid "Region"
 msgstr "Region"
 
 #: src/pages/Login.tsx:79
-msgid "Register"
-msgstr "Register"
+#~ msgid "Register"
+#~ msgstr "Register"
 
 #: src/pages/Admin.tsx:258
 msgid "Registered"
@@ -1652,6 +1744,14 @@ msgstr "Registered accounts"
 #: src/lib/phase-label.ts:18
 msgid "Rep"
 msgstr "Rep"
+
+#: src/pages/Login.tsx:316
+msgid "Request an invite"
+msgstr "Request an invite"
+
+#: src/pages/Login.tsx:260
+msgid "Request invite"
+msgstr "Request invite"
 
 #: src/lib/phase-label.ts:17
 msgid "Rest"
@@ -1723,6 +1823,10 @@ msgstr "Save Goal"
 msgid "Saving..."
 msgstr "Saving..."
 
+#: src/pages/Login.tsx:374
+msgid "Saving…"
+msgstr "Saving…"
+
 #: src/components/AppSidebar.tsx:115
 msgid "Science"
 msgstr "Science"
@@ -1793,13 +1897,23 @@ msgstr "Showing"
 msgid "Showing yesterday's snapshot. Last reading {dataAsOfLabel}."
 msgstr "Showing yesterday's snapshot. Last reading {dataAsOfLabel}."
 
-#: src/pages/Login.tsx:113
+#: src/pages/Login.tsx:231
+#: src/pages/Login.tsx:250
+#: src/pages/Login.tsx:306
 msgid "Sign in"
 msgstr "Sign in"
 
+#: src/pages/Login.tsx:224
+msgid "Sign in to connect your CLI plugin."
+msgstr "Sign in to connect your CLI plugin."
+
 #: src/pages/Login.tsx:113
-msgid "Signing in..."
-msgstr "Signing in..."
+#~ msgid "Signing in..."
+#~ msgstr "Signing in..."
+
+#: src/pages/Login.tsx:306
+msgid "Signing in…"
+msgstr "Signing in…"
 
 #: src/pages/Science.tsx:132
 #~ msgid "Simple"
@@ -1878,6 +1992,10 @@ msgstr "Stretch"
 msgid "strongly positive"
 msgstr "strongly positive"
 
+#: src/pages/Login.tsx:364
+msgid "Sub-3 marathon · 100K · stay healthy…"
+msgstr "Sub-3 marathon · 100K · stay healthy…"
+
 #: src/components/DiagnosisCard.tsx:87
 msgid "Suggestions"
 msgstr "Suggestions"
@@ -1885,6 +2003,11 @@ msgstr "Suggestions"
 #: src/pages/Setup.tsx:160
 msgid "Swimming"
 msgstr "Swimming"
+
+#: src/pages/Login.tsx:504
+#: src/pages/Login.tsx:505
+msgid "Switch language"
+msgstr "Switch language"
 
 #. placeholder {0}: previewedTheory.name
 #: src/pages/Science.tsx:428
@@ -2053,6 +2176,15 @@ msgstr "Today's <0>{distLabel}</0> prediction is <1>{predicted}</1>. {abbrev} is
 msgid "Today's recovery hasn't synced yet. Showing the latest reading from {latestDateLabel}."
 msgstr "Today's recovery hasn't synced yet. Showing the latest reading from {latestDateLabel}."
 
+#: src/pages/Login.tsx:516
+#: src/pages/Login.tsx:517
+msgid "Toggle theme"
+msgstr "Toggle theme"
+
+#: src/pages/Login.tsx:100
+msgid "Too many attempts from this network. Please email us instead."
+msgstr "Too many attempts from this network. Please email us instead."
+
 #: src/pages/Goal.tsx:141
 msgid "Tracking"
 msgstr "Tracking"
@@ -2117,6 +2249,11 @@ msgstr "Updating..."
 msgid "US"
 msgstr "US"
 
+#: src/pages/Login.tsx:384
+#: src/pages/Login.tsx:413
+msgid "Use it"
+msgstr "Use it"
+
 #: src/pages/Science.tsx:175
 #~ msgid "Use this"
 #~ msgstr "Use this"
@@ -2174,6 +2311,10 @@ msgstr "Walking"
 msgid "Warmup"
 msgstr "Warmup"
 
+#: src/pages/Login.tsx:329
+msgid "We're inviting runners in waves while we tighten the science. Drop your email and we'll reach back when a slot opens."
+msgstr "We're inviting runners in waves while we tighten the science. Drop your email and we'll reach back when a slot opens."
+
 #: src/components/WeeklyLoadMini.tsx:30
 msgid "Weekly Load"
 msgstr "Weekly Load"
@@ -2190,9 +2331,17 @@ msgstr "Weekly Review"
 msgid "Weekly Volume"
 msgstr "Weekly Volume"
 
+#: src/pages/Login.tsx:236
+msgid "Welcome back."
+msgstr "Welcome back."
+
 #: src/components/GoalEditor.tsx:165
 msgid "What time are you working toward? Leave blank to track trend only"
 msgstr "What time are you working toward? Leave blank to track trend only"
+
+#: src/pages/Login.tsx:358
+msgid "What's your training goal? (optional)"
+msgstr "What's your training goal? (optional)"
 
 #: src/pages/Setup.tsx:800
 msgid "Will sync:"
@@ -2202,8 +2351,9 @@ msgstr "Will sync:"
 msgid "you"
 msgstr "you"
 
-#: src/pages/Login.tsx:94
-#: src/pages/Login.tsx:130
+#: src/pages/Login.tsx:279
+#: src/pages/Login.tsx:347
+#: src/pages/Login.tsx:433
 msgid "you@example.com"
 msgstr "you@example.com"
 
