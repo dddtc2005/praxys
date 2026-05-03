@@ -312,7 +312,7 @@
 .sci-cancel-btn {
   flex: 0 0 auto;
   font-size: 26rpx;
-  color: var(--text-muted);
+  // Color comes from .ts-button--ghost; no override needed here.
 }
 
 // --- Advanced disclosure ---
@@ -363,6 +363,12 @@
 }
 
 // --- Rich-text markdown rendering ---
+// `<rich-text>` accepts an HTML string but doesn't apply nested CSS the
+// way a normal DOM tree would, so we ship default-tag styles inline as
+// the fallback and target the wrapping class for additional spacing.
+// The science YAML uses GFM tables (TSB zone boundaries on Banister,
+// power fractions on Stryd) — keeping table rules tight here means the
+// methodology disclosure reads like a working notebook, not a dump.
 
 .sci-rich-text {
   display: block;
@@ -370,6 +376,76 @@
   font-size: 26rpx;
   color: var(--text);
   line-height: 1.65;
+
+  // Headings inside the methodology body. h1 is reserved for the page
+  // title elsewhere, so theory descriptions step down: h2 = section,
+  // h3 = subsection.
+  h2 {
+    font-size: 30rpx;
+    font-weight: 600;
+    margin: 32rpx 0 12rpx;
+    color: var(--text);
+  }
+  h3 {
+    font-size: 28rpx;
+    font-weight: 600;
+    margin: 24rpx 0 8rpx;
+    color: var(--text);
+  }
+
+  p {
+    margin: 0 0 16rpx;
+  }
+
+  ul, ol {
+    margin: 0 0 16rpx;
+    padding-left: 32rpx;
+  }
+  li {
+    margin-bottom: 6rpx;
+  }
+
+  strong {
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  code {
+    font-family: var(--font-mono, monospace);
+    font-size: 24rpx;
+    padding: 2rpx 6rpx;
+    background-color: var(--surface-subtle);
+    border-radius: 4rpx;
+  }
+
+  // GFM tables — tight rules, mono-style header. Avoids the SaaS
+  // "card with shadow" treatment that would clash with the flat-paper
+  // surface of the rest of the page.
+  table {
+    width: 100%;
+    margin: 16rpx 0 20rpx;
+    border-collapse: collapse;
+    font-size: 24rpx;
+  }
+  th {
+    text-align: left;
+    font-family: var(--font-mono, monospace);
+    font-size: 20rpx;
+    font-weight: 600;
+    letter-spacing: 1rpx;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 8rpx 12rpx;
+    border-bottom: 2rpx solid var(--border);
+  }
+  td {
+    padding: 10rpx 12rpx;
+    border-bottom: 1rpx solid var(--border-subtle);
+    vertical-align: top;
+  }
+  tr:last-child td {
+    border-bottom: none;
+  }
 }
 
 // --- Citations ---

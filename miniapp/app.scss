@@ -174,6 +174,19 @@ page {
   border: 2rpx solid var(--text-muted);
 }
 
+// Ghost variant — transparent background, muted ink, no border. Used as
+// the secondary action when there's already a primary on the same row
+// (e.g. the Science page's Cancel preview next to Switch). Matches
+// DESIGN.md's `button-ghost` spec; explicit transparent bg is required
+// because WeChat's native <button> defaults to green and `.ts-button`
+// then overrides to brand green — without this rule the cancel CTA
+// reads as a disabled primary.
+.ts-button--ghost {
+  background-color: transparent;
+  color: var(--text-muted);
+  border: none;
+}
+
 .ts-input {
   // Explicit hex fallback first, then CSS-var override. On real-device dark
   // mode WeChat's <input> sometimes ignores CSS custom properties — both

@@ -2,9 +2,9 @@
  * Tiny markdown → HTML converter sized for theory descriptions and
  * science-note copy. WeChat's <rich-text nodes="..."> consumes a small
  * subset of HTML — `<p>`, `<h1-h3>`, `<ul>`, `<ol>`, `<li>`, `<strong>`,
- * `<em>`, `<code>`, `<pre>`, `<a>` — and ignores click events on links,
- * so we also extract every `[text](url)` into a `links[]` list that the
- * caller can render as a separate tappable References section.
+ * `<em>`, `<code>`, `<pre>`, `<a>`, `<table>` — and ignores click events
+ * on links, so we also extract every `[text](url)` into a `links[]` list
+ * that the caller can render as a separate tappable References section.
  *
  * Supported markdown (the subset that shows up in our science YAML):
  *
@@ -14,11 +14,13 @@
  *   - / * unordered lists
  *   1. ordered lists
  *   [text](url) links — rendered as text + extracted to links[]
+ *   GFM tables (`| col | col |` + `|---|---|` separator)
  *   blank line = paragraph break
  *
- * Edge cases out of scope: tables, blockquotes, images, HTML pass-through,
- * nested lists. If the corpus ever needs them, switch to a real parser
- * like `marked` (5KB gzip) — for now this keeps the bundle at zero deps.
+ * Edge cases out of scope: blockquotes, images, HTML pass-through,
+ * nested lists, table cell alignment hints. If the corpus ever needs
+ * them, switch to a real parser like `marked` (5KB gzip) — for now
+ * this keeps the bundle at zero deps.
  */
 
 export interface ExtractedLink {
@@ -60,6 +62,29 @@ function applyInline(escaped: string, links: ExtractedLink[]): string {
   return out;
 }
 
+/** Split a `| a | b | c |` row into trimmed cell strings. Rejects the
+ * row if it doesn't start AND end with a pipe — that's the convention
+ * GFM tables follow and what our science YAMLs use. */
+function splitTableRow(line: string): string[] | null {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith('|') || !trimmed.endsWith('|')) return null;
+  return trimmed
+    .slice(1, -1)
+    .split('|')
+    .map((cell) => cell.trim());
+}
+
+/** A separator row is a pipe-bounded line whose cells are made of
+ * dashes (with optional leading/trailing colons for alignment hints we
+ * intentionally ignore). Matching it is what lets us tell a table
+ * header line apart from a regular paragraph that happens to contain
+ * pipe characters. */
+function isTableSeparator(line: string): boolean {
+  const cells = splitTableRow(line);
+  if (!cells || cells.length === 0) return false;
+  return cells.every((cell) => /^:?-+:?$/.test(cell));
+}
+
 export function parseMarkdown(md: string): ParsedMarkdown {
   if (!md) return { html: '', links: [] };
 
@@ -86,8 +111,8 @@ export function parseMarkdown(md: string): ParsedMarkdown {
     }
   };
 
-  for (const rawLine of lines) {
-    const line = rawLine ?? '';
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? '';
 
     if (/^```/.test(line)) {
       if (inFence) {
@@ -109,6 +134,35 @@ export function parseMarkdown(md: string): ParsedMarkdown {
     if (line.trim() === '') {
       flushParagraph();
       closeList();
+      continue;
+    }
+
+    // GFM table: a header row followed immediately by a separator row.
+    // We check this before the paragraph fallback so `| col | col |`
+    // lines don't render as raw text. Body rows continue until the
+    // first non-table line.
+    const headerCells = splitTableRow(line);
+    if (headerCells && i + 1 < lines.length && isTableSeparator(lines[i + 1])) {
+      flushParagraph();
+      closeList();
+      const headHtml = headerCells
+        .map((cell) => `<th>${applyInline(escapeHtml(cell), links)}</th>`)
+        .join('');
+      let bodyHtml = '';
+      let j = i + 2;
+      while (j < lines.length) {
+        const rowCells = splitTableRow(lines[j]);
+        if (!rowCells) break;
+        const cellsHtml = rowCells
+          .map((cell) => `<td>${applyInline(escapeHtml(cell), links)}</td>`)
+          .join('');
+        bodyHtml += `<tr>${cellsHtml}</tr>`;
+        j++;
+      }
+      blocks.push(
+        `<table><thead><tr>${headHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`,
+      );
+      i = j - 1; // for-loop's i++ steps to the line after the table.
       continue;
     }
 
