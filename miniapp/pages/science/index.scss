@@ -47,29 +47,32 @@
 // Focused tab gets a cobalt bottom edge — this whole page is the
 // "show your work / reasoning" surface, so cobalt is on-brand here.
 
+// `enable-flex` (set in WXML) makes scroll-view the flex container; we
+// merge the row layout into this class. Skyline does not auto-grow
+// scroll-view to its content's height, so an explicit height is
+// required — without it the strip collapses and the detail panel
+// underneath ends up rendering on top of the tabs. Skyline supports
+// only `block | flex | grid | none` for `display`; flex children with
+// `flex-shrink: 0` keep their natural width so the row overflows and
+// scrolls horizontally.
 .sci-tabs-wrap {
-  margin: 0 -32rpx 28rpx;
-  padding: 0;
-  border-bottom: 1rpx solid var(--border);
-}
-
-// Skyline does not implement `inline-flex`; the supported display values
-// are `block | flex | grid | none`. Use `flex` and `flex-shrink: 0` on
-// children so the natural widths add up and the scroll-view can pan.
-.sci-tabs {
   display: flex;
   flex-direction: row;
-  padding: 0 32rpx;
   gap: 8rpx;
+  margin: 0 -32rpx 28rpx;
+  padding: 0 32rpx;
+  height: 100rpx; // ≥ tab min-height + 4rpx focus underline + breathing room.
+  border-bottom: 1rpx solid var(--border);
 }
 
 .sci-tab {
   position: relative;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   align-items: flex-start;
   flex-shrink: 0;
-  padding: 16rpx 20rpx 18rpx;
+  padding: 0 20rpx;
   min-height: 88rpx; // ≥80rpx tap target.
   border-bottom: 4rpx solid transparent;
   transition: border-color 150ms ease-out, color 150ms ease-out;
@@ -135,19 +138,20 @@
 // a swap" state, so cobalt = "the system is showing you why"); rec halo
 // = amber border before commit.
 
+// Same Skyline pattern as the tab strip: scroll-view = flex container
+// via `enable-flex` (set in WXML), explicit height so it reserves
+// vertical space, `flex-shrink: 0` on chiclets so their natural width
+// is preserved and the row overflows horizontally instead of
+// compressing each pill (which was making "Banister PMC" wrap to
+// two lines).
 .sci-chiclets-wrap {
-  margin: 0 -32rpx 24rpx;
-  padding: 0;
-}
-
-// Same Skyline `inline-flex` constraint as the tab strip — use `flex`
-// + `flex-shrink: 0` so the row of pills grows past the viewport and
-// the scroll-view can pan instead of compressing each chiclet.
-.sci-chiclets {
   display: flex;
   flex-direction: row;
-  padding: 0 32rpx;
+  align-items: center;
   gap: 12rpx;
+  margin: 0 -32rpx 24rpx;
+  padding: 0 32rpx;
+  height: 88rpx; // chiclet min-height 64rpx + breathing room.
 }
 
 .sci-chiclet {
@@ -186,6 +190,7 @@
   font-size: 26rpx;
   font-weight: 500;
   color: var(--text);
+  white-space: nowrap;
 }
 
 .sci-chiclet-tag {
