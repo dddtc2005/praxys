@@ -44,6 +44,12 @@ const DISPLAY_LABEL_MAP: Record<string, MessageDescriptor> = {
   Tempo: msg`Tempo`,
   Threshold: msg`Threshold`,
   VO2max: msg`VO2max`,
+  // Polarized 3-zone names (Seiler) — surfaced by the zone-distribution
+  // chart on Training. The English labels come from the active science
+  // theory's zone_labels block; zh users get translated copies here.
+  'Zone 1 (Easy)': msg`Zone 1 (Easy)`,
+  'Zone 2 (Moderate)': msg`Zone 2 (Moderate)`,
+  'Zone 3 (Hard)': msg`Zone 3 (Hard)`,
   // Intensity metric labels
   Power: msg`Power`,
   'Heart Rate': msg`Heart Rate`,

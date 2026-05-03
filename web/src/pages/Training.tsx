@@ -459,10 +459,11 @@ export default function Training() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════════
-          PLAN · standalone section. Phase 5 will add window pills +
-          per-row sync states + mismatch dialog.
+          PLAN · standalone section. Owns its own eyebrow + window pills,
+          so the wrapper just provides vertical breathing room and a
+          hairline separator from Diagnosis above.
           ════════════════════════════════════════════════════════════════ */}
-      <div className="mt-12 border-t border-border pt-8">
+      <div className="mt-12 border-t border-border pt-10">
         <UpcomingPlanCard />
       </div>
     </div>
