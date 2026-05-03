@@ -17,55 +17,64 @@
         <text class="sci-eyebrow">{{tr.eyebrow}}</text>
         <text class="sci-intro">{{tr.intro}}</text>
 
-        <!-- Pillar tab strip -->
-        <scroll-view scroll-x="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}" class="sci-tabs-wrap">
-          <view class="sci-tabs">
-            <view
-              wx:for="{{tabs}}"
-              wx:key="pillar"
-              wx:for-item="tab"
-              class="sci-tab {{tab.isFocused ? 'sci-tab--focused' : ''}}"
-              data-pillar="{{tab.pillar}}"
-              bindtap="onSelectPillar"
-              hover-class="sci-tab--hover"
-              hover-stay-time="80"
-            >
-              <text class="sci-tab-num">{{tab.num}}</text>
-              <text class="sci-tab-label">{{tab.label}}</text>
-              <view wx:if="{{tab.recAvailable}}" class="sci-tab-rec-dot" aria-label="{{tr.recommendedTag}}"></view>
-            </view>
+        <!-- Pillar tab strip. Canonical Skyline horizontal-scroll pattern
+             (per the official `awesome-skyline` examples): scroll-view
+             with `type="list"` + `enable-flex`, each direct child marked
+             `list-item`, class supplies `display: flex; flex-direction:
+             row` and an explicit height. Without `type="list"` the
+             scroll-view's children stack vertically. -->
+        <scroll-view
+          scroll-x="{{true}}"
+          type="list"
+          enable-flex="{{true}}"
+          show-scrollbar="{{false}}"
+          class="sci-tabs-wrap"
+        >
+          <view
+            wx:for="{{tabs}}"
+            wx:key="pillar"
+            wx:for-item="tab"
+            list-item
+            class="sci-tab {{tab.isFocused ? 'sci-tab--focused' : ''}}"
+            data-pillar="{{tab.pillar}}"
+            bindtap="onSelectPillar"
+            hover-class="sci-tab--hover"
+            hover-stay-time="80"
+          >
+            <text class="sci-tab-num">{{tab.num}}</text>
+            <text class="sci-tab-label">{{tab.label}}</text>
+            <view wx:if="{{tab.recAvailable}}" class="sci-tab-rec-dot" aria-label="{{tr.recommendedTag}}"></view>
           </view>
         </scroll-view>
 
         <!-- Detail panel -->
         <view class="sci-detail">
-          <text class="sci-detail-eyebrow">
-            <text class="sci-detail-num">{{detail.num}}</text>
-            <text class="sci-detail-eyebrow-sep"> · </text>
-            {{detail.label}}
-          </text>
           <text class="sci-detail-question">{{detail.question}}</text>
 
-          <!-- Chiclet switcher -->
-          <scroll-view scroll-x="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}" class="sci-chiclets-wrap">
-            <view class="sci-chiclets">
-              <view
-                wx:for="{{detail.chiclets}}"
-                wx:key="id"
-                wx:for-item="chip"
-                class="sci-chiclet {{chip.modifier}}"
-                data-id="{{chip.id}}"
-                bindtap="onChicletTap"
-                hover-class="sci-chiclet--hover"
-                hover-stay-time="80"
-              >
-                <text class="sci-chiclet-name">{{chip.name}}</text>
-                <text wx:if="{{chip.isActive}}" class="sci-chiclet-tag sci-chiclet-tag--active">·&#160;{{tr.activeTag}}</text>
-                <text wx:elif="{{chip.isPreviewing}}" class="sci-chiclet-tag sci-chiclet-tag--previewing">·&#160;{{tr.previewingTag}}</text>
-                <text wx:elif="{{chip.isRecommended}}" class="sci-chiclet-tag sci-chiclet-tag--recommended">·&#160;{{tr.recommendedTag}}</text>
-              </view>
+          <!-- Chiclet switcher. Web wraps with `flex-wrap`; the previous
+               miniapp version used `scroll-x` but bilingual theory
+               names like "Banister PMC 表现管理模型" make a single row
+               wider than the viewport, and horizontal scroll on a
+               touch device is poor affordance compared to wrapping to
+               a second row. Use a plain wrapping flex view to match
+               web. -->
+          <view class="sci-chiclets-wrap">
+            <view
+              wx:for="{{detail.chiclets}}"
+              wx:key="id"
+              wx:for-item="chip"
+              class="sci-chiclet {{chip.modifier}}"
+              data-id="{{chip.id}}"
+              bindtap="onChicletTap"
+              hover-class="sci-chiclet--hover"
+              hover-stay-time="80"
+            >
+              <text class="sci-chiclet-name">{{chip.name}}</text>
+              <text wx:if="{{chip.isActive}}" class="sci-chiclet-tag sci-chiclet-tag--active">·&#160;{{tr.activeTag}}</text>
+              <text wx:elif="{{chip.isPreviewing}}" class="sci-chiclet-tag sci-chiclet-tag--previewing">·&#160;{{tr.previewingTag}}</text>
+              <text wx:elif="{{chip.isRecommended}}" class="sci-chiclet-tag sci-chiclet-tag--recommended">·&#160;{{tr.recommendedTag}}</text>
             </view>
-          </scroll-view>
+          </view>
 
           <!-- Recommendation hint -->
           <view wx:if="{{detail.hasRecHint}}" class="sci-rec-hint">

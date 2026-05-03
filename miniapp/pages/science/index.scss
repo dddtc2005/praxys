@@ -47,25 +47,32 @@
 // Focused tab gets a cobalt bottom edge — this whole page is the
 // "show your work / reasoning" surface, so cobalt is on-brand here.
 
+// `enable-flex` (set in WXML) makes scroll-view the flex container; we
+// merge the row layout into this class. Skyline does not auto-grow
+// scroll-view to its content's height, so an explicit height is
+// required — without it the strip collapses and the detail panel
+// underneath ends up rendering on top of the tabs. Skyline supports
+// only `block | flex | grid | none` for `display`; flex children with
+// `flex-shrink: 0` keep their natural width so the row overflows and
+// scrolls horizontally.
 .sci-tabs-wrap {
-  margin: 0 -32rpx 28rpx;
-  padding: 0;
-  white-space: nowrap;
-  border-bottom: 1rpx solid var(--border);
-}
-
-.sci-tabs {
-  display: inline-flex;
-  padding: 0 32rpx;
+  display: flex;
+  flex-direction: row;
   gap: 8rpx;
+  margin: 0 -32rpx 28rpx;
+  padding: 0 32rpx;
+  height: 100rpx; // ≥ tab min-height + 4rpx focus underline + breathing room.
+  border-bottom: 1rpx solid var(--border);
 }
 
 .sci-tab {
   position: relative;
-  display: inline-flex;
+  display: flex;
   flex-direction: column;
+  justify-content: center;
   align-items: flex-start;
-  padding: 16rpx 20rpx 18rpx;
+  flex-shrink: 0;
+  padding: 0 20rpx;
   min-height: 88rpx; // ≥80rpx tap target.
   border-bottom: 4rpx solid transparent;
   transition: border-color 150ms ease-out, color 150ms ease-out;
@@ -107,28 +114,13 @@
 }
 
 // --- Detail panel ---
+// On mobile the focused tab (cobalt underline + "01 / Load & Fitness")
+// already conveys which pillar is active, so we skip the eyebrow line
+// the web master-detail layout uses and lead the panel with the
+// pillar's question — the actual headline content.
 
 .sci-detail {
   margin-bottom: 32rpx;
-}
-
-.sci-detail-eyebrow {
-  display: block;
-  font-family: var(--font-mono, monospace);
-  font-size: 20rpx;
-  font-weight: 600;
-  letter-spacing: 3rpx;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-bottom: 8rpx;
-}
-
-.sci-detail-num {
-  color: var(--text);
-}
-
-.sci-detail-eyebrow-sep {
-  color: var(--text-placeholder);
 }
 
 .sci-detail-question {
@@ -146,21 +138,24 @@
 // a swap" state, so cobalt = "the system is showing you why"); rec halo
 // = amber border before commit.
 
+// Wrapping flex row to match web (`flex-wrap`). With two bilingual
+// theory names per pillar (e.g. "Banister PMC 表现管理模型"), a
+// non-wrapping row exceeds the viewport on a phone — wrapping to a
+// second line preserves both pills without horizontal-scroll
+// affordance issues.
 .sci-chiclets-wrap {
-  margin: 0 -32rpx 24rpx;
-  padding: 0;
-  white-space: nowrap;
-}
-
-.sci-chiclets {
-  display: inline-flex;
-  padding: 0 32rpx;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
   gap: 12rpx;
+  margin-bottom: 24rpx;
 }
 
 .sci-chiclet {
-  display: inline-flex;
+  display: flex;
+  flex-direction: row;
   align-items: center;
+  flex-shrink: 0;
   gap: 8rpx;
   padding: 12rpx 22rpx;
   border-radius: 999rpx;
@@ -192,6 +187,7 @@
   font-size: 26rpx;
   font-weight: 500;
   color: var(--text);
+  white-space: nowrap;
 }
 
 .sci-chiclet-tag {
@@ -313,7 +309,7 @@
 .sci-cancel-btn {
   flex: 0 0 auto;
   font-size: 26rpx;
-  color: var(--text-muted);
+  // Color comes from .ts-button--ghost; no override needed here.
 }
 
 // --- Advanced disclosure ---
@@ -324,8 +320,11 @@
   border-top: 1rpx solid var(--border);
 }
 
+// Full-width tap target on mobile is preferable for a disclosure row —
+// no need to shrink to content width like the web `inline-flex`.
 .sci-disclosure-trigger {
-  display: inline-flex;
+  display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 10rpx;
   padding: 8rpx 0;
@@ -336,12 +335,15 @@
   opacity: 0.7;
 }
 
+// Skyline supports only `block | flex | grid | none` for `display`, so
+// no `inline-block` here. The chevron is a flex child of the trigger
+// row, which blockifies it regardless of declared display — that's
+// enough to establish a transform context for the open-state rotation.
 .sci-disclosure-chevron {
   font-family: var(--font-mono, monospace);
   font-size: 28rpx;
   color: var(--accent-cobalt);
   transition: transform 200ms ease-out;
-  display: inline-block;
 }
 
 .sci-disclosure-chevron--open {
@@ -358,6 +360,12 @@
 }
 
 // --- Rich-text markdown rendering ---
+// `<rich-text>` accepts an HTML string but doesn't apply nested CSS the
+// way a normal DOM tree would, so we ship default-tag styles inline as
+// the fallback and target the wrapping class for additional spacing.
+// The science YAML uses GFM tables (TSB zone boundaries on Banister,
+// power fractions on Stryd) — keeping table rules tight here means the
+// methodology disclosure reads like a working notebook, not a dump.
 
 .sci-rich-text {
   display: block;
@@ -365,6 +373,67 @@
   font-size: 26rpx;
   color: var(--text);
   line-height: 1.65;
+
+  // Headings inside the methodology body. h1 is reserved for the page
+  // title elsewhere, so theory descriptions step down: h2 = section,
+  // h3 = subsection.
+  h2 {
+    font-size: 30rpx;
+    font-weight: 600;
+    margin: 32rpx 0 12rpx;
+    color: var(--text);
+  }
+  h3 {
+    font-size: 28rpx;
+    font-weight: 600;
+    margin: 24rpx 0 8rpx;
+    color: var(--text);
+  }
+
+  p {
+    margin: 0 0 16rpx;
+  }
+
+  ul, ol {
+    margin: 0 0 16rpx;
+    padding-left: 32rpx;
+  }
+  li {
+    margin-bottom: 6rpx;
+  }
+
+  strong {
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  code {
+    font-family: var(--font-mono, monospace);
+    font-size: 24rpx;
+    padding: 2rpx 6rpx;
+    background-color: var(--surface-subtle);
+    border-radius: 4rpx;
+  }
+
+  // GFM tables are lowered to <p class="md-table-head"> + <ul
+  // class="md-table-body"> in `parseMarkdown` because Skyline doesn't
+  // implement `display: table`. The header reads as a mono-uppercase
+  // eyebrow above a list of records; each list item leads with the
+  // bolded first cell ("Distance", "Zone") followed by em-dash
+  // separated values.
+  .md-table-head {
+    font-family: var(--font-mono, monospace);
+    font-size: 20rpx;
+    font-weight: 600;
+    letter-spacing: 1rpx;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 16rpx 0 8rpx;
+  }
+  .md-table-body {
+    margin: 0 0 20rpx;
+    padding-left: 32rpx;
+  }
 }
 
 // --- Citations ---
