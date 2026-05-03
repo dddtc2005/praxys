@@ -248,7 +248,14 @@ function buildDetail(
   let advancedHtml = '';
   let hasAdvanced = false;
   if (shownTheory) {
-    const src = shownTheory.advanced_description || shownTheory.description || '';
+    const raw = shownTheory.advanced_description || shownTheory.description || '';
+    // Strip the trailing References block — `**References:**` in EN
+    // YAML, `**参考文献：**` in ZH (note the full-width colon) — since
+    // the structured citations list rendered below carries journal +
+    // URL info the markdown bullets don't.
+    const src = raw
+      .replace(/\n+\s*\*\*(?:References|参考文献)[:：]?\*\*[\s\S]*$/i, '')
+      .trimEnd();
     const parsed = parseMarkdown(src);
     advancedHtml = parsed.html;
     hasAdvanced = !!advancedHtml;

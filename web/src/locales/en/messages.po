@@ -188,8 +188,8 @@ msgstr "Actions"
 msgid "Activate"
 msgstr "Activate"
 
-#: src/pages/Science.tsx:395
-#: src/pages/Science.tsx:543
+#: src/pages/Science.tsx:406
+#: src/pages/Science.tsx:554
 msgid "Active"
 msgstr "Active"
 
@@ -297,7 +297,7 @@ msgstr "Backfill..."
 
 #. placeholder {0}: recommendedTheory.name
 #. placeholder {1}: recommendation!.reason
-#: src/pages/Science.tsx:380
+#: src/pages/Science.tsx:391
 msgid "Based on your training, <0>{0}</0> may fit better — {1}"
 msgstr "Based on your training, <0>{0}</0> may fit better — {1}"
 
@@ -334,7 +334,7 @@ msgstr "Building toward {distLabel}. Current {abbrev} <0>{currentStr}{unit}</0>,
 msgid "Building toward <0>{0}</0> {distLabel}. Current {abbrev} <1>{currentStr}{unit}</1>, need <2>{targetStr}{unit}</2>."
 msgstr "Building toward <0>{0}</0> {distLabel}. Current {abbrev} <1>{currentStr}{unit}</1>, need <2>{targetStr}{unit}</2>."
 
-#: src/pages/Science.tsx:390
+#: src/pages/Science.tsx:401
 msgid "by"
 msgstr "by"
 
@@ -348,7 +348,7 @@ msgstr "by"
 msgid "Cancel"
 msgstr "Cancel"
 
-#: src/pages/Science.tsx:425
+#: src/pages/Science.tsx:436
 msgid "Cancel preview"
 msgstr "Cancel preview"
 
@@ -610,7 +610,7 @@ msgstr "Demo"
 msgid "Demo Accounts"
 msgstr "Demo Accounts"
 
-#: src/pages/Science.tsx:429
+#: src/pages/Science.tsx:440
 msgid "Demo mode — read only"
 msgstr "Demo mode — read only"
 
@@ -707,7 +707,7 @@ msgstr "e.g. 42:00"
 msgid "e.g. 8:00:00"
 msgstr "e.g. 8:00:00"
 
-#: src/pages/Science.tsx:165
+#: src/pages/Science.tsx:176
 msgid "Each pillar runs a published theory you can read, verify, and swap. Praxys interprets your data through whichever framework you choose."
 msgstr "Each pillar runs a published theory you can read, verify, and swap. Praxys interprets your data through whichever framework you choose."
 
@@ -795,7 +795,7 @@ msgstr "Failed to load goal data"
 #~ msgid "Failed to load science data"
 #~ msgstr "Failed to load science data"
 
-#: src/pages/Science.tsx:72
+#: src/pages/Science.tsx:83
 msgid "Failed to load science data."
 msgstr "Failed to load science data."
 
@@ -875,7 +875,7 @@ msgstr "Form (TSB)"
 #~ msgid "Four pillars power your analysis. Each uses a published theory you can understand, verify, and change."
 #~ msgstr "Four pillars power your analysis. Each uses a published theory you can understand, verify, and change."
 
-#: src/pages/Science.tsx:159
+#: src/pages/Science.tsx:170
 msgid "Four-pillar framework"
 msgstr "Four-pillar framework"
 
@@ -971,7 +971,7 @@ msgstr "Hide backfill"
 msgid "Hide details"
 msgstr "Hide details"
 
-#: src/pages/Science.tsx:452
+#: src/pages/Science.tsx:463
 msgid "Hide methodology details"
 msgstr "Hide methodology details"
 
@@ -1441,8 +1441,8 @@ msgstr "Predicted using Riegel's formula (T₂ = T₁ × (D₂/D₁)^1.06), trea
 msgid "Predicted using Stryd race power model (5K at 103.8% CP, marathon at 89.9% CP)."
 msgstr "Predicted using Stryd race power model (5K at 103.8% CP, marathon at 89.9% CP)."
 
-#: src/pages/Science.tsx:400
-#: src/pages/Science.tsx:548
+#: src/pages/Science.tsx:411
+#: src/pages/Science.tsx:559
 msgid "Previewing"
 msgstr "Previewing"
 
@@ -1556,7 +1556,7 @@ msgstr "Reads readiness from the body's signals."
 msgid "Realistic alternative targets"
 msgstr "Realistic alternative targets"
 
-#: src/pages/Science.tsx:209
+#: src/pages/Science.tsx:220
 msgid "Recommendation available"
 msgstr "Recommendation available"
 
@@ -1568,8 +1568,8 @@ msgstr "Recommendations"
 msgid "recommended"
 msgstr "recommended"
 
-#: src/pages/Science.tsx:378
-#: src/pages/Science.tsx:553
+#: src/pages/Science.tsx:389
+#: src/pages/Science.tsx:564
 #: src/pages/Setup.tsx:595
 #: src/pages/Setup.tsx:731
 msgid "Recommended"
@@ -1617,7 +1617,7 @@ msgstr "Redirecting..."
 msgid "Reduce Intensity"
 msgstr "Reduce Intensity"
 
-#: src/pages/Science.tsx:472
+#: src/pages/Science.tsx:483
 msgid "References"
 msgstr "References"
 
@@ -1719,7 +1719,7 @@ msgstr "Saving..."
 msgid "Science"
 msgstr "Science"
 
-#: src/pages/Science.tsx:212
+#: src/pages/Science.tsx:223
 msgid "Science pillars"
 msgstr "Science pillars"
 
@@ -1769,7 +1769,7 @@ msgstr "Show {0} more workouts"
 msgid "Show less"
 msgstr "Show less"
 
-#: src/pages/Science.tsx:454
+#: src/pages/Science.tsx:465
 msgid "Show methodology details"
 msgstr "Show methodology details"
 
@@ -1871,7 +1871,7 @@ msgid "Swimming"
 msgstr "Swimming"
 
 #. placeholder {0}: previewedTheory.name
-#: src/pages/Science.tsx:417
+#: src/pages/Science.tsx:428
 msgid "Switch to {0}"
 msgstr "Switch to {0}"
 
@@ -2055,7 +2055,7 @@ msgstr "Training Insights"
 msgid "Training plan & targets"
 msgstr "Training plan & targets"
 
-#: src/pages/Science.tsx:162
+#: src/pages/Science.tsx:173
 msgid "Training Science"
 msgstr "Training Science"
 
@@ -2119,7 +2119,7 @@ msgstr "User"
 msgid "Users"
 msgstr "Users"
 
-#: src/pages/Science.tsx:494
+#: src/pages/Science.tsx:505
 msgid "view"
 msgstr "view"
 
@@ -2205,7 +2205,7 @@ msgstr "Zone"
 msgid "Zone Analysis"
 msgstr "Zone Analysis"
 
-#: src/pages/Science.tsx:175
+#: src/pages/Science.tsx:186
 msgid "Zone labels"
 msgstr "Zone labels"
 
