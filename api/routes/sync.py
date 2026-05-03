@@ -937,12 +937,12 @@ def _sync_strava(user_id: str, creds: dict, from_date: str | None, db) -> dict:
             all_samples.extend(parse_strava_stream(str(activity_id), streams, start_utc))
             time_mod.sleep(0.2)
         except Exception as exc:
-            logger.debug("Strava streams for %s: skipped (%s)", activity_id, exc)
+            logger.info("Strava streams for %s: skipped (%s)", activity_id, exc)
     split_count = sync_writer.write_splits(user_id, all_splits, db)
     sample_count = sync_writer.write_samples(user_id, all_samples, db)
-    logger.debug("Strava sync: %d splits, %d samples written", split_count, sample_count)
+    logger.info("Strava sync: %d splits, %d samples written", split_count, sample_count)
 
-    return {"activities": act_count, "splits": split_count}
+    return {"activities": act_count, "splits": split_count, "samples": sample_count}
 
 
 def _sync_oura(user_id: str, creds: dict, from_date: str | None,
