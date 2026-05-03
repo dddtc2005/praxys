@@ -39,11 +39,6 @@
 
         <!-- Detail panel -->
         <view class="sci-detail">
-          <text class="sci-detail-eyebrow">
-            <text class="sci-detail-num">{{detail.num}}</text>
-            <text class="sci-detail-eyebrow-sep"> · </text>
-            {{detail.label}}
-          </text>
           <text class="sci-detail-question">{{detail.question}}</text>
 
           <!-- Chiclet switcher -->

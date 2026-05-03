@@ -50,21 +50,25 @@
 .sci-tabs-wrap {
   margin: 0 -32rpx 28rpx;
   padding: 0;
-  white-space: nowrap;
   border-bottom: 1rpx solid var(--border);
 }
 
+// Skyline does not implement `inline-flex`; the supported display values
+// are `block | flex | grid | none`. Use `flex` and `flex-shrink: 0` on
+// children so the natural widths add up and the scroll-view can pan.
 .sci-tabs {
-  display: inline-flex;
+  display: flex;
+  flex-direction: row;
   padding: 0 32rpx;
   gap: 8rpx;
 }
 
 .sci-tab {
   position: relative;
-  display: inline-flex;
+  display: flex;
   flex-direction: column;
   align-items: flex-start;
+  flex-shrink: 0;
   padding: 16rpx 20rpx 18rpx;
   min-height: 88rpx; // ≥80rpx tap target.
   border-bottom: 4rpx solid transparent;
@@ -107,28 +111,13 @@
 }
 
 // --- Detail panel ---
+// On mobile the focused tab (cobalt underline + "01 / Load & Fitness")
+// already conveys which pillar is active, so we skip the eyebrow line
+// the web master-detail layout uses and lead the panel with the
+// pillar's question — the actual headline content.
 
 .sci-detail {
   margin-bottom: 32rpx;
-}
-
-.sci-detail-eyebrow {
-  display: block;
-  font-family: var(--font-mono, monospace);
-  font-size: 20rpx;
-  font-weight: 600;
-  letter-spacing: 3rpx;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-bottom: 8rpx;
-}
-
-.sci-detail-num {
-  color: var(--text);
-}
-
-.sci-detail-eyebrow-sep {
-  color: var(--text-placeholder);
 }
 
 .sci-detail-question {
@@ -149,18 +138,23 @@
 .sci-chiclets-wrap {
   margin: 0 -32rpx 24rpx;
   padding: 0;
-  white-space: nowrap;
 }
 
+// Same Skyline `inline-flex` constraint as the tab strip — use `flex`
+// + `flex-shrink: 0` so the row of pills grows past the viewport and
+// the scroll-view can pan instead of compressing each chiclet.
 .sci-chiclets {
-  display: inline-flex;
+  display: flex;
+  flex-direction: row;
   padding: 0 32rpx;
   gap: 12rpx;
 }
 
 .sci-chiclet {
-  display: inline-flex;
+  display: flex;
+  flex-direction: row;
   align-items: center;
+  flex-shrink: 0;
   gap: 8rpx;
   padding: 12rpx 22rpx;
   border-radius: 999rpx;
@@ -324,8 +318,11 @@
   border-top: 1rpx solid var(--border);
 }
 
+// Full-width tap target on mobile is preferable for a disclosure row —
+// no need to shrink to content width like the web `inline-flex`.
 .sci-disclosure-trigger {
-  display: inline-flex;
+  display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 10rpx;
   padding: 8rpx 0;
