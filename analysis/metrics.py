@@ -1230,11 +1230,9 @@ def diagnose_training(
             recent_samples_filtered = s
             aids_with_samples = set(s["activity_id"].astype(str).unique())
 
-    # Vectorized zone classification — same semantics as the scalar
-    # ``_classify`` above but applied to whole arrays at once. The
-    # /api/training cold path used to spend seconds in an iterrows() loop
-    # over ~50k per-second sample rows; numpy turns that into a few
-    # millisecond-scale ufunc calls.
+    # Vectorized array form of the scalar ``_classify`` above —
+    # bit-for-bit equivalent on every supported base, exercised by
+    # tests/test_training_cold_start_perf.py against a scalar oracle.
     def _classify_array(
         val_arr: np.ndarray, cp_arr: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
@@ -1288,7 +1286,6 @@ def diagnose_training(
         aid_arr = s["activity_id"].astype(str).to_numpy()
         cp_arr = _build_per_row_cp(aid_arr)
         zone_idx, valid = _classify_array(val_arr, cp_arr)
-        # Each valid row is 1 second of training time.
         if valid.any():
             counts = np.bincount(zone_idx[valid], minlength=n_zones)
             for z in range(n_zones):
@@ -1312,8 +1309,6 @@ def diagnose_training(
             zone_idx, valid = _classify_array(val_arr, cp_arr)
             valid &= (dur_arr > 0) & np.isfinite(dur_arr)
             if valid.any():
-                # bincount weighted by duration — accumulates split seconds
-                # into the zone bucket matching each split's classification.
                 weighted = np.bincount(
                     zone_idx[valid],
                     weights=dur_arr[valid],
