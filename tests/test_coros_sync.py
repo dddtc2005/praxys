@@ -21,7 +21,10 @@ RAW_ACTIVITIES = [
     {
         "labelId": "abc123",
         "date": 20260415,
-        "sportType": 1,
+        # COROS sportType 100 = outdoor run; the legacy 1/2/3/4 codes
+        # were replaced with the real API codes in #234 but this fixture
+        # was missed.
+        "sportType": 100,
         "distance": 10000,
         "duration": 3000,
         "avgHeartRate": 155,
@@ -33,7 +36,7 @@ RAW_ACTIVITIES = [
     {
         "labelId": "def456",
         "date": 20260416,
-        "sportType": 4,
+        "sportType": 102,  # 102 = trail running (was 4 in the legacy map)
         "distance": 0,
         "duration": 1800,
         "avgHeartRate": 140,
