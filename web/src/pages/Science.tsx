@@ -30,6 +30,17 @@ const PILLARS: PillarMeta[] = [
 
 const PILLAR_KEYS = PILLARS.map((p) => p.key);
 
+/** Theory `advanced_description` markdown ends with a bold References
+ * heading (`**References:**` in EN YAML, `**参考文献：**` in ZH — note
+ * the full-width colon) followed by a bulleted list to end of string.
+ * That duplicates the structured `citations[]` we render below the
+ * markdown, so strip it before render. The structured list is the
+ * canonical source — it carries journal names and clickable URLs the
+ * markdown bullets don't. */
+function stripReferencesBlock(md: string): string {
+  return md.replace(/\n+\s*\*\*(?:References|参考文献)[:：]?\*\*[\s\S]*$/i, '').trimEnd();
+}
+
 function isPillarKey(s: string): s is SciencePillar {
   return (PILLAR_KEYS as string[]).includes(s);
 }
@@ -459,7 +470,7 @@ function PillarDetail({
           <div className="mt-5 max-w-prose">
             <div className="science-markdown text-[14px] leading-relaxed text-foreground/85">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {shown.advanced_description}
+                {stripReferencesBlock(shown.advanced_description)}
               </ReactMarkdown>
             </div>
           </div>
