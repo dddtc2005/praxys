@@ -443,7 +443,10 @@ class WaitlistSignup(Base):
     __tablename__ = "waitlist_signups"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    email = Column(String(320), nullable=False, index=True)
+    # unique=True is defense-in-depth: the route already does a check-then-
+    # update for idempotent refresh, but a unique index closes the race
+    # window for two near-simultaneous submits with the same address.
+    email = Column(String(320), nullable=False, unique=True, index=True)
     note = Column(String(500), default="")
     locale = Column(String(10), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
