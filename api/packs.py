@@ -57,6 +57,60 @@ from api.views import upcoming_workouts
 logger = logging.getLogger(__name__)
 
 
+def _dedup_activities_by_primary_source(
+    activities: pd.DataFrame, primary_source: str | None,
+) -> pd.DataFrame:
+    """Drop secondary-source duplicates of the same activity.
+
+    When two providers (Garmin + Stryd, COROS + Stryd, etc.) sync the
+    same workout, the rows share a date and have ``duration_sec`` within
+    10% of each other. Keep the row whose ``source`` matches
+    ``primary_source`` — typically the user's ``preferences.activities``,
+    but the /api/history route lets the request override it via a
+    ``?source=`` query param, which is why this is a free function.
+
+    No-op when ``primary_source`` is empty, the frame is empty, or the
+    frame doesn't carry a ``source`` column (the rest of the app expects
+    that column on real data, but tests and bare CSV imports may omit
+    it). Index is reset on the way out so iloc-based pagination is
+    contiguous.
+    """
+    if (
+        not primary_source
+        or activities.empty
+        or "source" not in activities.columns
+    ):
+        return activities
+
+    merged = activities.copy()
+    merged["_date"] = pd.to_datetime(merged["date"]).dt.date
+    merged["_dur"] = pd.to_numeric(
+        merged.get("duration_sec", 0), errors="coerce",
+    ).fillna(0)
+    merged["_is_primary"] = merged["source"] == primary_source
+
+    keep_mask = pd.Series(True, index=merged.index)
+    for _dt, group in merged.groupby("_date"):
+        if len(group) <= 1:
+            continue
+        primary = group[group["_is_primary"]]
+        others = group[~group["_is_primary"]]
+        for oidx, orow in others.iterrows():
+            for _, prow in primary.iterrows():
+                if prow["_dur"] > 0 and orow["_dur"] > 0:
+                    ratio = abs(prow["_dur"] - orow["_dur"]) / max(
+                        prow["_dur"], orow["_dur"]
+                    )
+                    if ratio < 0.10:
+                        keep_mask[oidx] = False
+                        break
+    return (
+        merged[keep_mask]
+        .drop(columns=["_date", "_dur", "_is_primary"], errors="ignore")
+        .reset_index(drop=True)
+    )
+
+
 # ---------------------------------------------------------------------------
 # Request-scoped cache
 # ---------------------------------------------------------------------------
@@ -90,43 +144,10 @@ class RequestContext:
 
     @cached_property
     def merged_activities(self) -> pd.DataFrame:
-        """Activities deduplicated by primary-source preference.
-
-        Mirrors the dedup pass at the top of the legacy
-        ``get_dashboard_data``: when the same activity is synced by two
-        sources (Garmin + Stryd, same date, durations within 10%), keep
-        the row whose source matches ``preferences.activities``.
-        """
-        merged = self._data["activities"]
-        primary_source = self.config.preferences.get("activities")
-        if not primary_source or merged.empty or "source" not in merged.columns:
-            return merged
-        merged = merged.copy()
-        merged["_date"] = pd.to_datetime(merged["date"]).dt.date
-        merged["_dur"] = pd.to_numeric(
-            merged.get("duration_sec", 0), errors="coerce"
-        ).fillna(0)
-        merged["_is_primary"] = merged["source"] == primary_source
-
-        keep_mask = pd.Series(True, index=merged.index)
-        for _dt, group in merged.groupby("_date"):
-            if len(group) <= 1:
-                continue
-            primary = group[group["_is_primary"]]
-            others = group[~group["_is_primary"]]
-            for oidx, orow in others.iterrows():
-                for _, prow in primary.iterrows():
-                    if prow["_dur"] > 0 and orow["_dur"] > 0:
-                        ratio = abs(prow["_dur"] - orow["_dur"]) / max(
-                            prow["_dur"], orow["_dur"]
-                        )
-                        if ratio < 0.10:
-                            keep_mask[oidx] = False
-                            break
-        return (
-            merged[keep_mask]
-            .drop(columns=["_date", "_dur", "_is_primary"], errors="ignore")
-            .reset_index(drop=True)
+        """Activities deduplicated by primary-source preference."""
+        return _dedup_activities_by_primary_source(
+            self._data["activities"],
+            self.config.preferences.get("activities"),
         )
 
     @cached_property
@@ -738,17 +759,83 @@ def get_race_pack(ctx: RequestContext) -> dict:
     }
 
 
-def get_history_pack(ctx: RequestContext) -> dict:
-    """Full activities list (with splits) for /api/history.
+def get_history_pack(
+    ctx: RequestContext,
+    *,
+    limit: int | None = None,
+    offset: int = 0,
+    source: str | None = None,
+) -> dict:
+    """Activities (with splits) for /api/history, paginated server-side.
 
-    Returns the only piece of data /api/history actually consumes — the
-    deduplication and pagination concerns stay in the route since they
-    depend on query parameters.
+    Pagination lives here, not in the route, so :func:`_build_activities_list`
+    only ever formats the requested page. The previous shape built every
+    activity (with its splits) and the route sliced afterwards; for a
+    user with hundreds of activities the discarded work was the dominant
+    cost on /api/history's cold path.
+
+    Parameters
+    ----------
+    limit
+        Page size. ``None`` (the default) returns every activity that
+        survives dedup — kept as the legacy contract for skill-side and
+        test callers that want the full list.
+    offset
+        Number of activities to skip from the start of the deduped,
+        date-descending list.
+    source
+        Override for the dedup pivot. ``None`` falls back to the user's
+        ``preferences.activities``. When the override differs from the
+        user's setting, dedup re-runs from the raw activities frame so
+        the wrong half of a duplicate pair isn't dropped.
+
+    Returns
+    -------
+    dict
+        ``{"activities": [...page], "total": <int>, "source_filter": <str|None>}``.
+        ``total`` is the post-dedup count so the client can render
+        "Showing 1-20 of N" without holding the full list itself.
     """
+    user_pref = ctx.config.preferences.get("activities")
+    primary = source or user_pref
+
+    if source and source != user_pref:
+        # Override: redo dedup from the raw frame so the right rows survive.
+        merged = _dedup_activities_by_primary_source(
+            ctx._data["activities"], primary,
+        )
+    else:
+        # Default fast path — request-scoped dedup is already cached.
+        merged = ctx.merged_activities
+
+    if not merged.empty and "date" in merged.columns:
+        merged = merged.sort_values("date", ascending=False)
+
+    total = len(merged)
+    if limit is None:
+        page_merged = merged
+    else:
+        page_merged = (
+            merged.iloc[offset : offset + limit]
+            if not merged.empty else merged
+        )
+
+    # Filter splits to the page's activity_ids only — the route would
+    # otherwise carry the full splits frame through ``_build_activities_list``
+    # only to discard splits whose activity wasn't on this page.
+    splits = ctx.splits
+    if not page_merged.empty and "activity_id" in page_merged.columns and (
+        not splits.empty and "activity_id" in splits.columns
+    ):
+        page_aids = set(page_merged["activity_id"].astype(str))
+        page_splits = splits[splits["activity_id"].astype(str).isin(page_aids)]
+    else:
+        page_splits = splits
+
     return {
-        "activities": _build_activities_list(
-            ctx.merged_activities, ctx.splits,
-        ),
+        "activities": _build_activities_list(page_merged, page_splits),
+        "total": total,
+        "source_filter": primary,
     }
 
 

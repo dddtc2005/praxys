@@ -208,13 +208,92 @@ def test_race_pack_returns_required_keys(db_with_seeded_user):
 
 
 def test_history_pack_returns_full_activity_list(db_with_seeded_user):
+    """Default call (no limit) returns every activity, with splits, plus
+    the pagination/source-filter metadata the route forwards.
+    """
     from api.packs import get_history_pack
     ctx = _ctx(db_with_seeded_user)
     out = get_history_pack(ctx)
-    assert set(out.keys()) == {"activities"}
+    assert set(out.keys()) == {"activities", "total", "source_filter"}
     assert len(out["activities"]) == 14, "all seeded activities should appear"
+    assert out["total"] == 14
     # Each activity carries its splits.
     assert all("splits" in a for a in out["activities"])
+
+
+def test_history_pack_paginates_without_building_dropped_activities(
+    db_with_seeded_user, monkeypatch,
+):
+    """``limit`` and ``offset`` slice activities BEFORE
+    ``_build_activities_list`` runs, so the formatter only ever sees the
+    requested page. The previous shape built every activity (with its
+    splits) and let the route discard the surplus — wasted work that
+    grew linearly with history size.
+    """
+    from api import packs as packs_mod
+
+    builder_call_sizes: list[int] = []
+    real_builder = packs_mod._build_activities_list
+
+    def counting_builder(merged, splits):
+        builder_call_sizes.append(len(merged))
+        return real_builder(merged, splits)
+
+    monkeypatch.setattr(packs_mod, "_build_activities_list", counting_builder)
+
+    ctx = _ctx(db_with_seeded_user)
+    out = packs_mod.get_history_pack(ctx, limit=5, offset=0)
+
+    assert len(out["activities"]) == 5
+    assert out["total"] == 14
+    assert builder_call_sizes == [5], (
+        "builder should receive only the page slice, not the full list "
+        f"(saw call sizes {builder_call_sizes})"
+    )
+
+
+def test_history_pack_offset_returns_correct_slice(db_with_seeded_user):
+    """``offset`` skips from the start of the date-descending list, so
+    page-2 of size-5 returns activities 6-10 of 14.
+    """
+    from api.packs import get_history_pack
+
+    ctx = _ctx(db_with_seeded_user)
+    page1 = get_history_pack(ctx, limit=5, offset=0)
+    page2 = get_history_pack(ctx, limit=5, offset=5)
+
+    assert page1["total"] == page2["total"] == 14
+    assert len(page1["activities"]) == 5
+    assert len(page2["activities"]) == 5
+    page1_ids = {a["activity_id"] for a in page1["activities"]}
+    page2_ids = {a["activity_id"] for a in page2["activities"]}
+    assert page1_ids.isdisjoint(page2_ids), (
+        "page 1 and page 2 must not overlap"
+    )
+    # Date order: page-1 dates strictly newer than (or equal at boundary)
+    # page-2 dates.
+    assert max(a["date"] for a in page2["activities"]) <= min(
+        a["date"] for a in page1["activities"]
+    )
+
+
+def test_history_pack_sliced_splits_match_full_build(db_with_seeded_user):
+    """Slicing splits to the page's activity_ids must produce the same
+    per-activity ``splits`` payload the legacy "build everything then
+    discard" path produced. Pinning this ensures the page-only filter
+    didn't drop a row that belonged to a kept activity.
+    """
+    from api.packs import get_history_pack
+
+    ctx = _ctx(db_with_seeded_user)
+    full = get_history_pack(ctx)
+    paged = get_history_pack(ctx, limit=5, offset=0)
+
+    # The first 5 entries of the full list (sorted date-desc) should
+    # equal the page-1 entries field-for-field, including each one's
+    # splits.
+    for full_act, paged_act in zip(full["activities"][:5], paged["activities"]):
+        assert paged_act == full_act
 
 
 def test_science_pack_returns_required_keys(db_with_seeded_user):
