@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Line,
   XAxis,
@@ -11,9 +10,8 @@ import {
   ComposedChart,
   ReferenceArea,
   ReferenceLine,
-  ReferenceDot,
 } from 'recharts';
-import type { TimeSeriesData, WorkoutFlag } from '@/types/api';
+import type { TimeSeriesData } from '@/types/api';
 import ScienceNote from '@/components/ScienceNote';
 import ZoneLegend from '@/components/charts/ZoneLegend';
 import { useScience, tsbZoneFromConfig } from '@/contexts/ScienceContext';
@@ -25,9 +23,6 @@ import type { ScienceNoteInfo } from '@/types/api';
 interface Props {
   data: TimeSeriesData;
   scienceNote?: ScienceNoteInfo;
-  /** Flagged workouts (good / bad). Rendered as small dots above the
-   *  bottom axis, clickable to drill through to /activities. Optional. */
-  workoutFlags?: WorkoutFlag[];
 }
 
 const ZONE_OPACITIES = [0.04, 0.07, 0.06, 0.04, 0.05];
@@ -85,18 +80,10 @@ function CustomTooltip({ active, payload, label, tsbZones, chartColors }: any) {
   );
 }
 
-export default function FitnessFatigueChart({ data, scienceNote, workoutFlags }: Props) {
+export default function FitnessFatigueChart({ data, scienceNote }: Props) {
   const chartColors = useChartColors();
   const { t } = useLingui();
   const { tsbZones } = useScience();
-  const navigate = useNavigate();
-  // Limit overlay dots to dates actually rendered on the chart so a
-  // "bad" flag from before the visible window doesn't render off-axis.
-  const visibleDates = useMemo(() => new Set(data.dates), [data.dates]);
-  const flags = useMemo(
-    () => (workoutFlags ?? []).filter((f) => visibleDates.has(f.date)),
-    [workoutFlags, visibleDates],
-  );
   const { chartData, yMin, yMax, hasProjection } = useMemo(() => {
     const hasProjData = !!(data.projected_dates?.length && data.projected_ctl?.length);
 
@@ -159,7 +146,31 @@ export default function FitnessFatigueChart({ data, scienceNote, workoutFlags }:
     };
   }, [data]);
 
-  const projectionStartDate = data.dates[data.dates.length - 1];
+  // Anchor the "today" reference line to actual today, not the last
+  // data point — those drift apart when the user hasn't trained recently
+  // (or hasn't synced), and the label "today" sitting on a 10-day-old
+  // date is misleading. We snap to the nearest categorical x in
+  // chartData because Recharts ReferenceLine requires a category match.
+  const todayMarkerDate = useMemo(() => {
+    if (!chartData.length) return undefined;
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const exact = chartData.find((d) => d.date === todayIso);
+    if (exact) return exact.date;
+    const todayMs = new Date(todayIso).getTime();
+    let nearest = chartData[0];
+    let nearestGap = Math.abs(new Date(nearest.date).getTime() - todayMs);
+    for (const row of chartData) {
+      const gap = Math.abs(new Date(row.date).getTime() - todayMs);
+      if (gap < nearestGap) {
+        nearest = row;
+        nearestGap = gap;
+      }
+    }
+    // If the nearest point is more than ~10 days off, the chart's
+    // window doesn't actually include today — drop the marker rather
+    // than pinning it to the edge with a misleading "today" label.
+    return nearestGap <= 10 * 24 * 60 * 60 * 1000 ? nearest.date : undefined;
+  }, [chartData]);
 
   return (
     // Borderless content block (no Card chrome) — used inside the
@@ -222,13 +233,20 @@ export default function FitnessFatigueChart({ data, scienceNote, workoutFlags }:
 
             <ReferenceLine y={0} stroke={chartColors.tick} strokeWidth={1} strokeDasharray="4 3" />
 
-            {hasProjection && (
+            {todayMarkerDate && (
               <ReferenceLine
-                x={projectionStartDate}
+                x={todayMarkerDate}
                 stroke={chartColors.projection}
                 strokeWidth={1}
                 strokeDasharray="3 3"
-                label={{ value: t`Today`, position: 'top', fill: chartColors.projection, fontSize: 10 }}
+                label={{
+                  value: t`Today`,
+                  position: 'insideTop',
+                  offset: 6,
+                  fill: chartColors.projection,
+                  fontSize: 10,
+                  fontFamily: 'JetBrains Mono Variable, monospace',
+                }}
               />
             )}
 
@@ -266,58 +284,8 @@ export default function FitnessFatigueChart({ data, scienceNote, workoutFlags }:
               </>
             )}
 
-            {flags.map((flag) => {
-              const tooltipText = `${flag.type === 'good' ? t`Good workout` : t`Bad workout`} \u00b7 ${flag.date}${flag.description ? `\n${flag.description}` : ''}`;
-              return (
-                <ReferenceDot
-                  key={`${flag.type}-${flag.date}`}
-                  x={flag.date}
-                  /* Sit ~6% above the chart floor so dots land on the
-                     visible plot area instead of crowding axis ticks. */
-                  y={yMin + (yMax - yMin) * 0.06}
-                  r={4}
-                  fill={flag.type === 'good' ? 'var(--primary)' : 'var(--destructive)'}
-                  stroke="var(--card)"
-                  strokeWidth={1.5}
-                  ifOverflow="hidden"
-                  shape={(props) => {
-                    const { cx, cy, fill, stroke, strokeWidth, r } = props as { cx: number; cy: number; fill: string; stroke: string; strokeWidth: number; r: number };
-                    return (
-                      <g
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => navigate('/activities')}
-                        role="button"
-                        aria-label={tooltipText}
-                      >
-                        <circle cx={cx} cy={cy} r={r} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
-                        {/* Larger transparent hit target so the small
-                            visual dot doesn't require pixel-precise aim. */}
-                        <circle cx={cx} cy={cy} r={r + 4} fill="transparent" />
-                        <title>{tooltipText}</title>
-                      </g>
-                    );
-                  }}
-                />
-              );
-            })}
           </ComposedChart>
         </ResponsiveContainer>
-
-        {flags.length > 0 && (
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px]">
-            <span className="font-data uppercase tracking-wider text-muted-foreground">
-              <Trans>Flagged</Trans>
-            </span>
-            <span className="flex items-center gap-1.5 text-muted-foreground">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" />
-              <Trans>good \u00b7 {flags.filter((f) => f.type === 'good').length}</Trans>
-            </span>
-            <span className="flex items-center gap-1.5 text-muted-foreground">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-destructive" />
-              <Trans>bad \u00b7 {flags.filter((f) => f.type === 'bad').length}</Trans>
-            </span>
-          </div>
-        )}
 
         <ZoneLegend zones={tsbZones} />
 

@@ -107,16 +107,21 @@ def _seed_rows(user_id: str, rows: list[dict]) -> None:
         db.close()
 
 
-def test_get_plan_returns_only_ai_rows_in_window(api_client):
+def test_get_plan_returns_window_with_source_tag(api_client):
+    """Both AI and Stryd plan rows in the window come back, each tagged
+    with its ``source`` so the UI can label them. Past and far-future
+    rows are clipped by the default [today, +14d] window.
+    """
     client, user_id = api_client
     today = date.today()
-    in_window = today + timedelta(days=2)
+    ai_day = today + timedelta(days=2)
+    stryd_day = today + timedelta(days=4)
     out_of_window = today + timedelta(days=30)
 
     _seed_rows(user_id, [
-        {"date": in_window, "source": "ai", "workout_type": "easy"},
-        {"date": in_window, "source": "stryd", "workout_type": "easy_stryd"},
-        # Past AI row — also out of the default forward window.
+        {"date": ai_day, "source": "ai", "workout_type": "easy"},
+        {"date": stryd_day, "source": "stryd", "workout_type": "tempo"},
+        # Past AI row — out of the default forward window.
         {"date": today - timedelta(days=2), "source": "ai", "workout_type": "rest"},
         # Future AI row beyond the default 14-day window.
         {"date": out_of_window, "source": "ai", "workout_type": "long_run"},
@@ -126,9 +131,11 @@ def test_get_plan_returns_only_ai_rows_in_window(api_client):
     assert res.status_code == 200, res.text
     body = res.json()
     workouts = body["workouts"]
-    # Only the in-window AI row survives the source + window filter.
-    assert [w["date"] for w in workouts] == [in_window.isoformat()]
-    assert workouts[0]["workout_type"] == "easy"
+    # Both in-window rows surface, sorted by date and tagged by source.
+    assert [(w["date"], w["source"]) for w in workouts] == [
+        (ai_day.isoformat(), "ai"),
+        (stryd_day.isoformat(), "stryd"),
+    ]
     # The retired ``cp_current`` field must not return.
     assert "cp_current" not in body
     # Window echo helps clients page without restating the math themselves.
@@ -136,6 +143,22 @@ def test_get_plan_returns_only_ai_rows_in_window(api_client):
         "start": today.isoformat(),
         "end": (today + timedelta(days=14)).isoformat(),
     }
+
+
+def test_ai_row_takes_precedence_when_date_collides(api_client):
+    """When both AI and Stryd schedule the same date, the AI row wins
+    as the visible workout and the Stryd row contributes only to
+    ``sync_state`` derivation."""
+    client, user_id = api_client
+    target = date.today() + timedelta(days=2)
+    _seed_rows(user_id, [
+        {"date": target, "source": "ai", "workout_type": "threshold"},
+        {"date": target, "source": "stryd", "workout_type": "tempo_stryd"},
+    ])
+    workouts = client.get("/api/plan").json()["workouts"]
+    assert len(workouts) == 1
+    assert workouts[0]["source"] == "ai"
+    assert workouts[0]["workout_type"] == "threshold"
 
 
 def test_sync_state_synced_when_external_id_matches_push_log(api_client):
@@ -157,7 +180,6 @@ def test_sync_state_synced_when_external_id_matches_push_log(api_client):
 
     body = client.get("/api/plan").json()
     assert body["workouts"][0]["sync_state"] == "synced"
-    assert body["stryd_only_dates"] == []
 
 
 def test_sync_state_mismatch_when_external_id_diverges(api_client):
@@ -195,10 +217,11 @@ def test_sync_state_not_synced_when_no_stryd_row(api_client):
     assert body["workouts"][0]["sync_state"] == "not_synced"
 
 
-def test_stryd_only_dates_lists_orphan_stryd_rows(api_client):
-    """Stryd row with no AI counterpart in the window surfaces in
-    ``stryd_only_dates`` — the UI uses this to warn that the user has
-    work scheduled on Stryd that Praxys didn't author.
+def test_stryd_only_row_surfaces_with_source_tag(api_client):
+    """A Stryd row with no AI counterpart still appears in ``workouts``
+    so the user sees their imported / coach-authored workouts. It carries
+    ``source='stryd'`` and no ``sync_state`` (it lives natively on Stryd
+    so the AI-vs-Stryd sync question doesn't apply).
     """
     client, user_id = api_client
     ai_day = date.today() + timedelta(days=2)
@@ -207,9 +230,12 @@ def test_stryd_only_dates_lists_orphan_stryd_rows(api_client):
         {"date": ai_day, "source": "ai", "workout_type": "easy"},
         {"date": orphan_day, "source": "stryd", "workout_type": "race"},
     ])
-    body = client.get("/api/plan").json()
-    assert [w["date"] for w in body["workouts"]] == [ai_day.isoformat()]
-    assert body["stryd_only_dates"] == [orphan_day.isoformat()]
+    workouts = client.get("/api/plan").json()["workouts"]
+    by_date = {w["date"]: w for w in workouts}
+    assert by_date[ai_day.isoformat()]["source"] == "ai"
+    stryd_row = by_date[orphan_day.isoformat()]
+    assert stryd_row["source"] == "stryd"
+    assert "sync_state" not in stryd_row
 
 
 def test_window_query_params_clamp_response(api_client):

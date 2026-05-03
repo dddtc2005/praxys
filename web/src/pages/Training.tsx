@@ -392,19 +392,26 @@ export default function Training() {
                 {
                   id: 'form',
                   label: <Trans>Fitness / Fatigue / Form</Trans>,
-                  render: () => (
-                    <DataHint
-                      sufficient={data.data_meta?.pmc_sufficient ?? true}
-                      message={t`Not enough data for accurate fitness tracking`}
-                      hint={t`Sync at least 6 weeks of activity data to see meaningful fitness, fatigue, and form curves.`}
-                    >
-                      <FitnessFatigueChart
-                        data={data.fitness_fatigue}
-                        scienceNote={data.science_notes?.load}
-                        workoutFlags={data.workout_flags}
-                      />
-                    </DataHint>
-                  ),
+                  render: () => {
+                    // PMC needs ~42 days of data before CTL stabilises;
+                    // until then the lines mostly trace recency bias and
+                    // mislead more than they help. Show the countdown so
+                    // the user knows when the chart will become useful.
+                    const dataDays = data.data_meta?.data_days ?? 0;
+                    const daysToPmc = Math.max(0, 42 - dataDays);
+                    return (
+                      <DataHint
+                        sufficient={data.data_meta?.pmc_sufficient ?? true}
+                        message={t`Not enough data yet for accurate fitness tracking`}
+                        hint={t`Banister PMC stabilises after about 42 days of activity. Need ${daysToPmc} more days.`}
+                      >
+                        <FitnessFatigueChart
+                          data={data.fitness_fatigue}
+                          scienceNote={data.science_notes?.load}
+                        />
+                      </DataHint>
+                    );
+                  },
                 },
                 ...(data.diagnosis.zone_ranges?.length > 0
                   ? [{
@@ -424,15 +431,19 @@ export default function Training() {
                 {
                   id: 'compliance',
                   label: <Trans>Load compliance</Trans>,
-                  render: () => (
-                    <DataHint
-                      sufficient={(data.data_meta?.data_days ?? 0) >= 14}
-                      message={t`Not enough data for weekly load comparison`}
-                      hint={t`Sync at least 2 weeks of data to compare planned vs actual training load.`}
-                    >
-                      <ComplianceChart data={data.weekly_review} loadLabel={activeDisplay?.load_label} />
-                    </DataHint>
-                  ),
+                  render: () => {
+                    const dataDays = data.data_meta?.data_days ?? 0;
+                    const daysToCompare = Math.max(0, 14 - dataDays);
+                    return (
+                      <DataHint
+                        sufficient={dataDays >= 14}
+                        message={t`Not enough data yet for weekly load comparison`}
+                        hint={t`Need 2 weeks of synced activity to compare planned vs actual. ${daysToCompare} more days to go.`}
+                      >
+                        <ComplianceChart data={data.weekly_review} loadLabel={activeDisplay?.load_label} />
+                      </DataHint>
+                    );
+                  },
                 },
               ]}
             />

@@ -186,10 +186,10 @@ export interface PlanData {
 }
 
 /**
- * Per-row Stryd sync state, derived server-side by joining the AI plan
- * against (a) Praxys's push log and (b) Stryd-imported plan rows on the
- * same date. The frontend overlays transient `pushing` / `error` states
- * locally; these three are persistent.
+ * Per-row Stryd sync state, derived server-side for AI-source rows by
+ * joining against (a) Praxys's push log and (b) Stryd-imported plan
+ * rows on the same date. Stryd-source rows omit this field — they live
+ * natively on Stryd, so the AI-vs-Stryd sync question doesn't apply.
  *
  * - `synced`     — Stryd has a workout on this date and its id matches
  *                  the one we logged on push (a re-push is a no-op).
@@ -200,6 +200,9 @@ export interface PlanData {
  */
 export type PlanSyncState = 'synced' | 'mismatch' | 'not_synced';
 
+/** Origin of a planned workout: AI/Praxys-authored or imported from Stryd. */
+export type PlanWorkoutSource = 'ai' | 'stryd';
+
 export interface PlannedWorkout {
   date: string;
   workout_type: string;
@@ -208,8 +211,10 @@ export interface PlannedWorkout {
   power_min?: number;
   power_max?: number;
   description?: string;
-  /** Drives the per-row sync icon. Optional only to tolerate cached
-   *  responses from before the /api/plan reshape. */
+  /** Authoring system. `'ai'` rows are Praxys-authored and may be pushed
+   *  to Stryd; `'stryd'` rows were imported from Stryd directly. */
+  source: PlanWorkoutSource;
+  /** Present only on AI-source rows. Drives the per-row sync icon. */
   sync_state?: PlanSyncState;
 }
 
@@ -220,9 +225,6 @@ export interface PlanResponse {
   /** Platform AI plan rows get pushed to. `null` when the user has no
    *  push target connected — UI hides sync chrome in that case. */
   sync_target: 'stryd' | null;
-  /** ISO dates within `window` where Stryd has a workout but the AI
-   *  plan does not (user-created on Stryd, or removed locally). */
-  stryd_only_dates: string[];
   /** Server-resolved query window — clients echo this back when paging. */
   window: { start: string; end: string };
 }

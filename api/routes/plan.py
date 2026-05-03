@@ -88,7 +88,7 @@ def _resolve_window(start: str | None, end: str | None) -> tuple[date, date]:
     return start_d, end_d
 
 
-def _compute_sync_state(
+def _compute_ai_sync_state(
     date_str: str, push_status: dict, stryd_by_date: dict,
 ) -> str:
     """Sync state of an AI plan row against the user's Stryd calendar.
@@ -142,14 +142,18 @@ def get_plan(
     user_id: str = Depends(get_data_user_id),
     db: Session = Depends(get_db),
 ):
-    """Return the AI plan window plus per-row Stryd sync state.
+    """Return all plan rows in a window with per-row sync state.
 
-    Source filter is hard-coded to ``ai`` — the canonical plan is the one
-    the user (or Praxys) authored. Stryd plan rows in the same window are
-    surfaced as ``sync_state`` flags on AI rows that share a date and as
-    ``stryd_only_dates`` for Stryd entries that have no AI counterpart
-    (user-created on Stryd, or workouts we removed locally but didn't
-    delete remotely).
+    Each workout carries its ``source`` (``ai`` | ``stryd``). When a date
+    has both an AI and a Stryd row, the AI row wins and the Stryd row is
+    used purely to derive ``sync_state`` (synced / mismatch / not_synced)
+    — that surfaces "did your Praxys-authored plan land on Stryd?" while
+    still showing the user every scheduled workout.
+
+    Stryd-only rows surface with ``source='stryd'`` and no ``sync_state``:
+    they live natively on Stryd, so the AI-vs-Stryd sync question doesn't
+    apply. The UI labels them by source so users who imported a coach's
+    plan from Stryd still see something here.
 
     Window framing is mixed into the ETag salt so two clients hitting
     different windows can't bleed cache into each other. Stryd push
@@ -174,7 +178,6 @@ def get_plan(
     sync_target = _resolve_sync_target(ctx)
 
     workouts: list[dict] = []
-    stryd_only_dates: list[str] = []
 
     if not plan_df.empty and "date" in plan_df.columns:
         windowed = plan_df[
@@ -195,46 +198,28 @@ def get_plan(
             key = sd.isoformat() if hasattr(sd, "isoformat") else str(sd)
             stryd_by_date[key] = srow
 
-        used_stryd_dates: set[str] = set()
+        ai_dates: set[str] = set()
         for _, row in ai_rows.sort_values("date").iterrows():
-            row_date = row["date"]
-            date_str = (
-                row_date.isoformat()
-                if hasattr(row_date, "isoformat")
-                else str(row_date)
+            workout = _row_to_workout(row, source="ai")
+            workout["sync_state"] = _compute_ai_sync_state(
+                workout["date"], push_status, stryd_by_date,
             )
-            workout: dict = {
-                "date": date_str,
-                "workout_type": row.get("workout_type", ""),
-            }
-            for field, csv_col in (
-                ("duration_min", "planned_duration_min"),
-                ("distance_km", "planned_distance_km"),
-                ("power_min", "target_power_min"),
-                ("power_max", "target_power_max"),
-                ("description", "workout_description"),
-            ):
-                val = row.get(csv_col)
-                if pd.notna(val) and val != "":
-                    workout[field] = (
-                        str(val) if field == "description" else float(val)
-                    )
-            workout["sync_state"] = _compute_sync_state(
-                date_str, push_status, stryd_by_date,
-            )
-            if date_str in stryd_by_date:
-                used_stryd_dates.add(date_str)
+            ai_dates.add(workout["date"])
             workouts.append(workout)
 
-        stryd_only_dates = sorted(
-            d for d in stryd_by_date if d not in used_stryd_dates
-        )
+        # Stryd rows on dates the AI plan doesn't cover — show them so the
+        # user still sees their imported / coach-authored Stryd workouts.
+        for date_str, srow in stryd_by_date.items():
+            if date_str in ai_dates:
+                continue
+            workouts.append(_row_to_workout(srow, source="stryd"))
+
+        workouts.sort(key=lambda w: w["date"])
 
     body = {
         "workouts": workouts,
         "stryd_status": push_status,
         "sync_target": sync_target,
-        "stryd_only_dates": stryd_only_dates,
         "window": {"start": start_d.isoformat(), "end": end_d.isoformat()},
     }
     return Response(
@@ -242,6 +227,30 @@ def get_plan(
         media_type="application/json",
         headers={"ETag": guard.etag, "Cache-Control": CACHE_CONTROL},
     )
+
+
+def _row_to_workout(row, *, source: str) -> dict:
+    """Project a single plan_df row into the JSON shape the UI consumes."""
+    row_date = row["date"]
+    date_str = (
+        row_date.isoformat() if hasattr(row_date, "isoformat") else str(row_date)
+    )
+    workout: dict = {
+        "date": date_str,
+        "source": source,
+        "workout_type": row.get("workout_type", ""),
+    }
+    for field, csv_col in (
+        ("duration_min", "planned_duration_min"),
+        ("distance_km", "planned_distance_km"),
+        ("power_min", "target_power_min"),
+        ("power_max", "target_power_max"),
+        ("description", "workout_description"),
+    ):
+        val = row.get(csv_col)
+        if pd.notna(val) and val != "":
+            workout[field] = str(val) if field == "description" else float(val)
+    return workout
 
 
 def _load_push_status(user_id: str) -> dict:

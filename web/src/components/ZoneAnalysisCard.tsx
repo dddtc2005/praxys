@@ -1,5 +1,4 @@
 import type { ZoneDistribution, ZoneRange, DisplayConfig } from '@/types/api';
-import DistributionBar from '@/components/DistributionBar';
 import { Trans, useLingui } from '@lingui/react/macro';
 import { tDisplay } from '@/lib/display-labels';
 
@@ -18,8 +17,15 @@ interface Props {
 // palette — no accent-blue/cobalt (cobalt is reserved for reasoning
 // surfaces), no primary green dominating the bar (primary is the action
 // signal, kept rare per the Restraint Rule). Aerobic zones stay in
-// tinted ink; caution (threshold) and high-intensity (vo2max) earn
-// warm color.
+// muted ink; threshold earns amber, high-intensity earns destructive.
+const ZONE_BAR_COLORS = [
+  'bg-muted-foreground/40',
+  'bg-muted-foreground/55',
+  'bg-foreground/65',
+  'bg-accent-amber',
+  'bg-destructive',
+];
+
 const ZONE_TEXT_COLORS = [
   'text-muted-foreground',
   'text-foreground/70',
@@ -28,22 +34,26 @@ const ZONE_TEXT_COLORS = [
   'text-destructive',
 ];
 
-function getZoneTextColor(index: number, total: number) {
-  const scaled = Math.round((index / Math.max(total - 1, 1)) * (ZONE_TEXT_COLORS.length - 1));
-  return ZONE_TEXT_COLORS[scaled] ?? ZONE_TEXT_COLORS[0];
+function scaledIndex(index: number, total: number, max: number) {
+  return Math.round((index / Math.max(total - 1, 1)) * (max - 1));
 }
 
 function formatRange(range: ZoneRange): string {
-  if (range.upper == null) return `> ${range.lower}${range.unit}`;
+  if (range.upper == null) return `≥ ${range.lower}${range.unit}`;
   if (range.lower === 0) return `< ${range.upper}${range.unit}`;
   return `${range.lower}–${range.upper}${range.unit}`;
 }
 
 /**
  * Zone distribution panel — borderless content block (no Card chrome).
- * Owns the full zone story: theory description (optional) + visual
- * proportion bar + numeric breakdown table. Used as a tab in the
- * Diagnosis chart switcher on Training; flat-by-default.
+ * One row per zone: name on the left, a horizontal "actual fills /
+ * target tick" bar in the middle, and `actual% / target%` on the right.
+ * Mirrors the WeChat Mini Program's zone-distribution layout so the
+ * two surfaces read the same.
+ *
+ * Why this and not a 4-col table: the bar makes "are you at, above,
+ * or below target?" a one-glance read. Numbers stay precise but stop
+ * being the only path to the answer.
  *
  * Note: deviation alerts that used to live here have moved into the
  * Praxys Coach receipt's rule-based fallback (single canonical
@@ -51,16 +61,18 @@ function formatRange(range: ZoneRange): string {
  */
 export default function ZoneAnalysisCard({ distribution, zoneRanges, theoryName, display, theoryDescription }: Props) {
   const { i18n } = useLingui();
-  const thresholdLabel = display ? `${display.threshold_abbrev}` : '';
-
-  const rows = [...distribution].reverse();
-  const ranges = [...zoneRanges].reverse();
+  const thresholdLabel = display ? display.threshold_abbrev : '';
+  // Zones come in ascending intensity from the API; the visual ladder
+  // reads better top-to-bottom from easiest to hardest, so keep order.
+  const rows = distribution.map((d, i) => ({
+    distribution: d,
+    range: zoneRanges[i],
+    barColor: ZONE_BAR_COLORS[scaledIndex(i, distribution.length, ZONE_BAR_COLORS.length)] ?? ZONE_BAR_COLORS[0],
+    textColor: ZONE_TEXT_COLORS[scaledIndex(i, distribution.length, ZONE_TEXT_COLORS.length)] ?? ZONE_TEXT_COLORS[0],
+  }));
 
   return (
     <div>
-      {/* Tab label above already says "Zone distribution" — render only
-          the theory attribution + threshold label here so the chart
-          carries its analytical context without duplicating the title. */}
       <div className="flex items-center justify-between mb-1">
         <p className="text-[11px] text-muted-foreground">
           <Trans>vs {theoryName}</Trans>
@@ -70,43 +82,54 @@ export default function ZoneAnalysisCard({ distribution, zoneRanges, theoryName,
         )}
       </div>
       {theoryDescription ? (
-        <p className="text-xs text-muted-foreground/80 leading-snug mb-4">
+        <p className="text-xs text-muted-foreground/80 leading-snug mb-5">
           {theoryDescription}
         </p>
       ) : (
-        <div className="mb-3" />
+        <div className="mb-4" />
       )}
 
-      {/* Visual bar above the numeric table — same dataset, two
-          presentations stacked: scan-fast bar on top, precise
-          breakdown below. */}
-      <div className="mb-5">
-        <DistributionBar distribution={distribution} />
-      </div>
-
-      <div className="grid grid-cols-[5rem_1fr_3.5rem_3.5rem] items-center pb-2 mb-2 border-b border-border">
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground"><Trans>Zone</Trans></span>
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground"><Trans>Range</Trans></span>
-        <span className="text-right text-[10px] uppercase tracking-wider text-muted-foreground"><Trans>Actual</Trans></span>
-        <span className="text-right text-[10px] uppercase tracking-wider text-muted-foreground"><Trans>Target</Trans></span>
-      </div>
-
-      <div className="space-y-1.5">
-        {rows.map((d, i) => {
-          const range = ranges[i];
-          const colorClass = getZoneTextColor(distribution.length - 1 - i, distribution.length);
+      <div className="space-y-4">
+        {rows.map(({ distribution: d, range, barColor, textColor }) => {
+          const actual = Math.max(0, Math.min(100, d.actual_pct));
+          const target = d.target_pct != null
+            ? Math.max(0, Math.min(100, d.target_pct))
+            : null;
           return (
-            <div key={d.name} className="grid grid-cols-[5rem_1fr_3.5rem_3.5rem] items-center">
-              <span className={`text-sm font-medium ${colorClass}`}>{tDisplay(d.name, i18n)}</span>
-              <span className="text-sm text-muted-foreground font-data tabular-nums truncate">
-                {range ? formatRange(range) : ''}
-              </span>
-              <span className="text-right text-sm font-semibold font-data tabular-nums text-foreground">
-                {d.actual_pct}%
-              </span>
-              <span className="text-right text-sm font-data tabular-nums text-muted-foreground">
-                {d.target_pct != null ? `${d.target_pct}%` : '—'}
-              </span>
+            <div key={d.name}>
+              <div className="flex items-baseline justify-between mb-1.5">
+                <div className="flex items-baseline gap-2">
+                  <span className={`text-sm font-medium ${textColor}`}>
+                    {tDisplay(d.name, i18n)}
+                  </span>
+                  {range && (
+                    <span className="text-[11px] text-muted-foreground/80 font-data tabular-nums">
+                      {formatRange(range)}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[12px] font-data tabular-nums">
+                  <span className="text-foreground font-semibold">{d.actual_pct}%</span>
+                  <span className="text-muted-foreground/70"> / {target != null ? `${target}%` : '—'}</span>
+                </span>
+              </div>
+              {/* Track + actual fill + target tick. The track is muted,
+                  the fill is the zone's semantic color at full opacity,
+                  and the tick is a thin foreground line at `target_pct`
+                  so over/under-target becomes visible at a glance. */}
+              <div className="relative h-2 rounded-full bg-muted/70 overflow-hidden">
+                <div
+                  className={`absolute inset-y-0 left-0 ${barColor} rounded-full transition-[width]`}
+                  style={{ width: `${actual}%` }}
+                />
+                {target != null && (
+                  <div
+                    className="absolute inset-y-0 w-px bg-foreground/70"
+                    style={{ left: `${target}%` }}
+                    aria-label={`target ${target}%`}
+                  />
+                )}
+              </div>
             </div>
           );
         })}

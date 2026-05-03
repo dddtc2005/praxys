@@ -495,7 +495,27 @@ export default function UpcomingPlanCard() {
     );
   }
 
-  if (!data || data.workouts.length === 0) return null;
+  if (!data) return null;
+  if (data.workouts.length === 0) {
+    // Render the empty state instead of disappearing — silent removal
+    // makes it look like the section is broken when it's just empty,
+    // and the user has no signal that they could pick a different
+    // window to find something.
+    return (
+      <Card>
+        <CardHeader className="flex-row items-baseline justify-between space-y-0">
+          <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <Trans>Upcoming Plan</Trans>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            <Trans>No workouts scheduled in the next two weeks.</Trans>
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const unpushedCount = data.workouts.filter(
     (w) => !pushStatus[w.date] && w.workout_type.toLowerCase() !== 'rest',
