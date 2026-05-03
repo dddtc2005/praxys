@@ -137,13 +137,16 @@ export default function Login() {
         </div>
 
         <div className="login-mark-row">
-          {/* h1 below provides the accessible name; mark is decorative */}
+          {/* h1 below provides the accessible name; mark is decorative.
+              stroke-width 3 matches the brand-guide construction spec for
+              this display-size band (16px favicon=4, 48px sidebar=3,
+              200px hero=1.8). */}
           <svg className="login-mark" viewBox="0 0 48 48" aria-hidden="true">
             <line
               className="login-mark-pole"
               x1="14" y1="42" x2="16" y2="5"
               stroke="var(--lg-cobalt)"
-              strokeWidth="3.5"
+              strokeWidth="3"
               strokeLinecap="round"
               fill="none"
             />
