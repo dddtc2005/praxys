@@ -2,12 +2,12 @@
 import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import pandas as pd
 import requests
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 
 from api.auth import get_data_user_id, require_write_access
 from api.deps import get_dashboard_data
-from api.etag import CACHE_CONTROL, ETagGuard, etag_guard_for_endpoint
-from api.packs import RequestContext, get_plan_pack
+from api.etag import CACHE_CONTROL, ENDPOINT_SCOPES, ETagGuard, compute_etag
+from api.packs import RequestContext
 from db.cache_revision import bump_revisions
 from db.session import get_db
 
@@ -43,34 +43,199 @@ def _stryd_push_status_path(user_id: str) -> str:
     return os.path.join(_STRYD_PUSH_STATUS_DIR, f"{user_id}.json")
 
 
+# Hard cap on how wide a window the client can request. Generous enough
+# for any UI that wants a few months of plan view, tight enough that an
+# abusive ``?end=2099-12-31`` can't force the server to ship years of rows.
+_MAX_WINDOW_DAYS = 365
+# Default window when neither bound is supplied. Two weeks matches the
+# longest pill the Training page surfaces.
+_DEFAULT_WINDOW_DAYS = 14
+
+
+def _resolve_window(start: str | None, end: str | None) -> tuple[date, date]:
+    """Parse / default the ?start=&end= query window.
+
+    Accepts ISO ``YYYY-MM-DD`` for both bounds. Either or both may be
+    omitted: missing ``start`` defaults to today; missing ``end`` defaults
+    to ``start + _DEFAULT_WINDOW_DAYS``. Inverted or oversized windows
+    raise 400 — silently clamping would mask bad client input.
+    """
+    today = date.today()
+    try:
+        start_d = date.fromisoformat(start) if start else today
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400, detail=f"Invalid start date: {start!r}"
+        ) from exc
+    try:
+        end_d = (
+            date.fromisoformat(end) if end
+            else start_d + timedelta(days=_DEFAULT_WINDOW_DAYS)
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400, detail=f"Invalid end date: {end!r}"
+        ) from exc
+    if end_d < start_d:
+        raise HTTPException(
+            status_code=400, detail="Window end must be on or after start",
+        )
+    if (end_d - start_d).days > _MAX_WINDOW_DAYS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Window cannot exceed {_MAX_WINDOW_DAYS} days",
+        )
+    return start_d, end_d
+
+
+def _compute_sync_state(
+    date_str: str, push_status: dict, stryd_by_date: dict,
+) -> str:
+    """Sync state of an AI plan row against the user's Stryd calendar.
+
+    - ``synced``     — A Stryd row exists at this date and its
+                       ``external_id`` equals the ``workout_id`` we logged
+                       when the user last pushed this date.
+    - ``mismatch``   — A Stryd row exists at this date but its
+                       ``external_id`` is unknown to us (user-edited on
+                       Stryd, or we never pushed). The UI uses this to
+                       warn before overwriting.
+    - ``not_synced`` — No Stryd row at this date.
+    """
+    stryd_row = stryd_by_date.get(date_str)
+    if stryd_row is None:
+        return "not_synced"
+    pushed_id = (push_status.get(date_str) or {}).get("workout_id")
+    stryd_external = stryd_row.get("external_id")
+    if (
+        pushed_id
+        and stryd_external is not None
+        and pd.notna(stryd_external)
+        and str(stryd_external) == str(pushed_id)
+    ):
+        return "synced"
+    return "mismatch"
+
+
+def _resolve_sync_target(ctx: RequestContext) -> str | None:
+    """Name of the platform AI plan rows get pushed to.
+
+    Today only Stryd is wired up as a write target; surfacing it as a
+    derived field (rather than free-form preference) lets the UI decide
+    whether to even render sync chrome without sniffing connections.
+    """
+    return "stryd" if "stryd" in (ctx.config.connections or []) else None
+
+
 @router.get("/plan")
 def get_plan(
-    guard: ETagGuard = Depends(etag_guard_for_endpoint("plan")),
+    request: Request,
+    response: Response,
+    start: str | None = Query(
+        None,
+        description="Window start (YYYY-MM-DD). Defaults to today.",
+    ),
+    end: str | None = Query(
+        None,
+        description="Window end (YYYY-MM-DD). Defaults to start + 14 days.",
+    ),
     user_id: str = Depends(get_data_user_id),
     db: Session = Depends(get_db),
 ):
-    """Return all upcoming planned workouts plus the caller's Stryd push status.
+    """Return the AI plan window plus per-row Stryd sync state.
 
-    The push-status field used to be its own endpoint (GET /plan/stryd-status)
-    but every UI surface that asked for /plan also needed it, so each
-    Training-page cold load paid an extra cross-GFW round-trip. Folding it
-    into this response saves one request without measurably changing the
-    cost of /plan itself — _load_push_status is a single small JSON read.
+    Source filter is hard-coded to ``ai`` — the canonical plan is the one
+    the user (or Praxys) authored. Stryd plan rows in the same window are
+    surfaced as ``sync_state`` flags on AI rows that share a date and as
+    ``stryd_only_dates`` for Stryd entries that have no AI counterpart
+    (user-created on Stryd, or workouts we removed locally but didn't
+    delete remotely).
 
-    The body is built from L1 ``get_plan_pack`` (only the ``training_plans``
-    rows the response actually consumes) rather than the legacy
-    ``get_dashboard_data`` recompute, plus the caller-scoped Stryd push
-    status JSON file. L2 ETag/304 sits on top — push/delete handlers bump
-    the ``plans`` scope so a fresh push is never served stale via 304.
+    Window framing is mixed into the ETag salt so two clients hitting
+    different windows can't bleed cache into each other. Stryd push
+    status comes from a per-user JSON file that lives outside the DB
+    revision counters; the push/delete handlers bump ``plans`` so a fresh
+    push is never served stale via 304.
     """
+    start_d, end_d = _resolve_window(start, end)
+
+    etag = compute_etag(
+        db, user_id, ENDPOINT_SCOPES["plan"],
+        salt=f"start={start_d.isoformat()}&end={end_d.isoformat()}",
+    )
+    guard = ETagGuard(etag, request.headers.get("if-none-match"))
     if guard.is_match:
         return guard.not_modified()
+    guard.apply(response)
+
     ctx = RequestContext(user_id=user_id, db=db)
-    pack = get_plan_pack(ctx)
+    plan_df = ctx.plan
+    push_status = _load_push_status(user_id)
+    sync_target = _resolve_sync_target(ctx)
+
+    workouts: list[dict] = []
+    stryd_only_dates: list[str] = []
+
+    if not plan_df.empty and "date" in plan_df.columns:
+        windowed = plan_df[
+            (plan_df["date"] >= start_d) & (plan_df["date"] <= end_d)
+        ]
+        has_source = "source" in windowed.columns
+        ai_rows = (
+            windowed[windowed["source"] == "ai"] if has_source else windowed
+        )
+        stryd_rows = (
+            windowed[windowed["source"] == "stryd"]
+            if has_source else windowed.iloc[0:0]
+        )
+
+        stryd_by_date: dict[str, pd.Series] = {}
+        for _, srow in stryd_rows.iterrows():
+            sd = srow["date"]
+            key = sd.isoformat() if hasattr(sd, "isoformat") else str(sd)
+            stryd_by_date[key] = srow
+
+        used_stryd_dates: set[str] = set()
+        for _, row in ai_rows.sort_values("date").iterrows():
+            row_date = row["date"]
+            date_str = (
+                row_date.isoformat()
+                if hasattr(row_date, "isoformat")
+                else str(row_date)
+            )
+            workout: dict = {
+                "date": date_str,
+                "workout_type": row.get("workout_type", ""),
+            }
+            for field, csv_col in (
+                ("duration_min", "planned_duration_min"),
+                ("distance_km", "planned_distance_km"),
+                ("power_min", "target_power_min"),
+                ("power_max", "target_power_max"),
+                ("description", "workout_description"),
+            ):
+                val = row.get(csv_col)
+                if pd.notna(val) and val != "":
+                    workout[field] = (
+                        str(val) if field == "description" else float(val)
+                    )
+            workout["sync_state"] = _compute_sync_state(
+                date_str, push_status, stryd_by_date,
+            )
+            if date_str in stryd_by_date:
+                used_stryd_dates.add(date_str)
+            workouts.append(workout)
+
+        stryd_only_dates = sorted(
+            d for d in stryd_by_date if d not in used_stryd_dates
+        )
+
     body = {
-        "workouts": pack["workouts"],
-        "cp_current": pack["cp_current"],
-        "stryd_status": _load_push_status(user_id),
+        "workouts": workouts,
+        "stryd_status": push_status,
+        "sync_target": sync_target,
+        "stryd_only_dates": stryd_only_dates,
+        "window": {"start": start_d.isoformat(), "end": end_d.isoformat()},
     }
     return Response(
         content=json.dumps(body),

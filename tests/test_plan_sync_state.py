@@ -1,0 +1,287 @@
+"""GET /api/plan window-framing + sync_state derivation.
+
+Covers the contract change in the Plan reshape:
+
+- The canonical plan is the AI-authored one (`source='ai'`); Stryd plan
+  rows in the same window become `sync_state` flags on AI rows that share
+  a date and `stryd_only_dates` for orphan Stryd rows.
+- ``?start=&end=`` clamps the response window and is salted into the
+  ETag so two clients on different windows can't bleed cache.
+- ``cp_current`` was retired — its presence here would mean a partial
+  revert of the reshape.
+"""
+import os
+import tempfile
+from datetime import date, timedelta
+
+import pytest
+
+
+@pytest.fixture
+def api_client(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    tmpdir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+    monkeypatch.setenv("DATA_DIR", tmpdir.name)
+    monkeypatch.setenv("PRAXYS_SYNC_SCHEDULER", "false")
+    monkeypatch.setenv(
+        "PRAXYS_LOCAL_ENCRYPTION_KEY",
+        "JKkx_5SVHKQDr0HSMrwl0KQHcA0pl5pxsYSLEAQDB4o=",
+    )
+    monkeypatch.setenv("PRAXYS_JWT_SECRET", "test-secret-plan-sync-state")
+
+    from db import session as db_session
+    db_session.engine = None
+    db_session.SessionLocal = None
+    db_session.async_engine = None
+    db_session.AsyncSessionLocal = None
+    db_session.init_db()
+
+    from api.routes import plan as plan_mod
+    scratch_root = os.path.join(tmpdir.name, "ai", "stryd_push_status")
+    monkeypatch.setattr(plan_mod, "_DATA_DIR", tmpdir.name)
+    monkeypatch.setattr(plan_mod, "_STRYD_PUSH_STATUS_DIR", scratch_root)
+
+    from api.main import app
+    from api.auth import (
+        get_current_user_id, get_data_user_id, require_write_access,
+    )
+    from db.session import get_db
+
+    user_id = "test-user-plan-sync-state"
+
+    def _override_user():
+        return user_id
+
+    def _override_db():
+        db = db_session.SessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_current_user_id] = _override_user
+    app.dependency_overrides[get_data_user_id] = _override_user
+    app.dependency_overrides[require_write_access] = _override_user
+    app.dependency_overrides[get_db] = _override_db
+
+    client = TestClient(app)
+    try:
+        yield client, user_id
+    finally:
+        app.dependency_overrides.clear()
+        if db_session.engine is not None:
+            db_session.engine.dispose()
+        if db_session.async_engine is not None:
+            import asyncio
+            try:
+                asyncio.run(db_session.async_engine.dispose())
+            except RuntimeError:
+                pass
+        db_session.engine = None
+        db_session.SessionLocal = None
+        db_session.async_engine = None
+        db_session.AsyncSessionLocal = None
+        tmpdir.cleanup()
+
+
+def _seed_rows(user_id: str, rows: list[dict]) -> None:
+    """Insert TrainingPlan rows. Each dict needs date/source/workout_type."""
+    from db import session as db_session
+    from db.models import TrainingPlan
+
+    db = db_session.SessionLocal()
+    try:
+        for r in rows:
+            db.add(TrainingPlan(
+                user_id=user_id,
+                date=r["date"],
+                source=r["source"],
+                workout_type=r.get("workout_type", ""),
+                workout_description=r.get("workout_description", ""),
+                external_id=r.get("external_id"),
+                planned_duration_min=r.get("planned_duration_min"),
+            ))
+        db.commit()
+    finally:
+        db.close()
+
+
+def test_get_plan_returns_only_ai_rows_in_window(api_client):
+    client, user_id = api_client
+    today = date.today()
+    in_window = today + timedelta(days=2)
+    out_of_window = today + timedelta(days=30)
+
+    _seed_rows(user_id, [
+        {"date": in_window, "source": "ai", "workout_type": "easy"},
+        {"date": in_window, "source": "stryd", "workout_type": "easy_stryd"},
+        # Past AI row — also out of the default forward window.
+        {"date": today - timedelta(days=2), "source": "ai", "workout_type": "rest"},
+        # Future AI row beyond the default 14-day window.
+        {"date": out_of_window, "source": "ai", "workout_type": "long_run"},
+    ])
+
+    res = client.get("/api/plan")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    workouts = body["workouts"]
+    # Only the in-window AI row survives the source + window filter.
+    assert [w["date"] for w in workouts] == [in_window.isoformat()]
+    assert workouts[0]["workout_type"] == "easy"
+    # The retired ``cp_current`` field must not return.
+    assert "cp_current" not in body
+    # Window echo helps clients page without restating the math themselves.
+    assert body["window"] == {
+        "start": today.isoformat(),
+        "end": (today + timedelta(days=14)).isoformat(),
+    }
+
+
+def test_sync_state_synced_when_external_id_matches_push_log(api_client):
+    """An AI row + Stryd row at the same date with matching ids → ``synced``."""
+    from api.routes.plan import _save_push_status
+
+    client, user_id = api_client
+    target = date.today() + timedelta(days=3)
+    _save_push_status(user_id, {
+        target.isoformat(): {"workout_id": "stryd-abc", "status": "pushed"},
+    })
+    _seed_rows(user_id, [
+        {"date": target, "source": "ai", "workout_type": "threshold"},
+        {
+            "date": target, "source": "stryd",
+            "workout_type": "threshold", "external_id": "stryd-abc",
+        },
+    ])
+
+    body = client.get("/api/plan").json()
+    assert body["workouts"][0]["sync_state"] == "synced"
+    assert body["stryd_only_dates"] == []
+
+
+def test_sync_state_mismatch_when_external_id_diverges(api_client):
+    """Stryd row exists but its id doesn't match the push log → ``mismatch``.
+
+    This is the case the UI must catch before re-pushing — typically the
+    user edited the workout directly inside Stryd's calendar.
+    """
+    from api.routes.plan import _save_push_status
+
+    client, user_id = api_client
+    target = date.today() + timedelta(days=4)
+    _save_push_status(user_id, {
+        target.isoformat(): {"workout_id": "stryd-old", "status": "pushed"},
+    })
+    _seed_rows(user_id, [
+        {"date": target, "source": "ai", "workout_type": "intervals"},
+        {
+            "date": target, "source": "stryd",
+            "workout_type": "intervals", "external_id": "stryd-edited",
+        },
+    ])
+
+    body = client.get("/api/plan").json()
+    assert body["workouts"][0]["sync_state"] == "mismatch"
+
+
+def test_sync_state_not_synced_when_no_stryd_row(api_client):
+    client, user_id = api_client
+    target = date.today() + timedelta(days=5)
+    _seed_rows(user_id, [
+        {"date": target, "source": "ai", "workout_type": "easy"},
+    ])
+    body = client.get("/api/plan").json()
+    assert body["workouts"][0]["sync_state"] == "not_synced"
+
+
+def test_stryd_only_dates_lists_orphan_stryd_rows(api_client):
+    """Stryd row with no AI counterpart in the window surfaces in
+    ``stryd_only_dates`` — the UI uses this to warn that the user has
+    work scheduled on Stryd that Praxys didn't author.
+    """
+    client, user_id = api_client
+    ai_day = date.today() + timedelta(days=2)
+    orphan_day = date.today() + timedelta(days=4)
+    _seed_rows(user_id, [
+        {"date": ai_day, "source": "ai", "workout_type": "easy"},
+        {"date": orphan_day, "source": "stryd", "workout_type": "race"},
+    ])
+    body = client.get("/api/plan").json()
+    assert [w["date"] for w in body["workouts"]] == [ai_day.isoformat()]
+    assert body["stryd_only_dates"] == [orphan_day.isoformat()]
+
+
+def test_window_query_params_clamp_response(api_client):
+    client, user_id = api_client
+    today = date.today()
+    near = today + timedelta(days=2)
+    far = today + timedelta(days=20)
+    _seed_rows(user_id, [
+        {"date": near, "source": "ai", "workout_type": "easy"},
+        {"date": far, "source": "ai", "workout_type": "long_run"},
+    ])
+
+    res = client.get(
+        f"/api/plan?start={today.isoformat()}&end={(today + timedelta(days=7)).isoformat()}"
+    )
+    assert res.status_code == 200
+    near_only = res.json()
+    assert [w["date"] for w in near_only["workouts"]] == [near.isoformat()]
+
+    res = client.get(
+        f"/api/plan?start={today.isoformat()}&end={far.isoformat()}"
+    )
+    assert res.status_code == 200
+    both = res.json()
+    assert [w["date"] for w in both["workouts"]] == [
+        near.isoformat(), far.isoformat(),
+    ]
+
+
+def test_window_etag_does_not_collide_across_windows(api_client):
+    """Different windows must hash to different ETags — otherwise a 304
+    revalidation would replay the wrong window's body."""
+    client, _ = api_client
+    today = date.today()
+    a = client.get(f"/api/plan?start={today.isoformat()}&end={(today + timedelta(days=7)).isoformat()}")
+    b = client.get(f"/api/plan?start={today.isoformat()}&end={(today + timedelta(days=21)).isoformat()}")
+    assert a.headers["etag"] != b.headers["etag"]
+
+
+def test_invalid_window_returns_400(api_client):
+    client, _ = api_client
+    today = date.today()
+    inverted = client.get(
+        f"/api/plan?start={today.isoformat()}&end={(today - timedelta(days=1)).isoformat()}"
+    )
+    assert inverted.status_code == 400
+
+    bad_format = client.get("/api/plan?start=not-a-date")
+    assert bad_format.status_code == 400
+
+
+def test_sync_target_reflects_stryd_connection(api_client, monkeypatch):
+    """``sync_target`` is ``"stryd"`` only when the user is actually
+    connected to Stryd — the Plan UI hides the sync column otherwise."""
+    client, _ = api_client
+
+    # No connections → sync_target null.
+    body = client.get("/api/plan").json()
+    assert body["sync_target"] is None
+
+    # Inject a stryd connection at the config layer.
+    from analysis import config as cfg_mod
+
+    real_loader = cfg_mod.load_config_from_db
+
+    def _with_stryd(user_id, db):
+        cfg = real_loader(user_id, db)
+        cfg.connections = list({*cfg.connections, "stryd"})
+        return cfg
+
+    monkeypatch.setattr("api.packs.load_config_from_db", _with_stryd)
+    body = client.get(
+        "/api/plan", headers={"If-None-Match": '"never"'},
+    ).json()
+    assert body["sync_target"] == "stryd"

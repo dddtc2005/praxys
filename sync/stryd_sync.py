@@ -413,6 +413,12 @@ def fetch_training_plan_api(
 
         description = " | ".join(desc_parts) if desc_parts else title
 
+        # Stryd's workout `id` is the external identifier we persist as
+        # `external_id`. Lets the /api/plan join logic distinguish
+        # "Stryd workout we pushed" (matches our push log's workout_id)
+        # from "Stryd workout the user manually scheduled" (mismatch).
+        external_id = item.get("id") or item.get("workout_id") or ""
+
         row = {
             "date": workout_date,
             "workout_type": workout_type,
@@ -421,8 +427,9 @@ def fetch_training_plan_api(
             "target_power_min": power_min,
             "target_power_max": power_max,
             "workout_description": description,
+            "external_id": str(external_id) if external_id else "",
         }
-        logger.debug(f"    {workout_date} — {workout_type} ({duration_min}min, {distance_km}km)")
+        logger.debug(f"    {workout_date} — {workout_type} ({duration_min}min, {distance_km}km) [id={external_id}]")
         rows.append(row)
 
     return rows

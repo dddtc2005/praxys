@@ -583,7 +583,15 @@ def write_samples(user_id: str, rows: list[dict], db: Session) -> int:
 
 def write_training_plan(user_id: str, rows: list[dict], source: str,
                         db: Session) -> int:
-    """Write training plan rows to DB. Returns count of new."""
+    """Write training plan rows to DB. Returns count of new + updated.
+
+    Existing rows on the same (user, date, source, workout_type) get
+    their `external_id` refreshed if the incoming row has one — needed
+    so `/api/plan` can detect mismatches against Stryd's calendar
+    after the `external_id` column was added. Without the refresh, all
+    pre-existing Stryd rows would stay null and look like external
+    user-created workouts forever.
+    """
     if not rows:
         return 0
     count = 0
@@ -592,13 +600,18 @@ def write_training_plan(user_id: str, rows: list[dict], source: str,
         if not d:
             continue
         wt = _str(row.get("workout_type"))
-        exists = db.query(TrainingPlan.id).filter(
+        new_external_id = _str(row.get("external_id")) or None
+        existing = db.query(TrainingPlan).filter(
             TrainingPlan.user_id == user_id,
             TrainingPlan.date == d,
             TrainingPlan.source == source,
             TrainingPlan.workout_type == wt,
         ).first()
-        if exists:
+        if existing:
+            # Backfill external_id on rows that pre-date the column.
+            if new_external_id and existing.external_id != new_external_id:
+                existing.external_id = new_external_id
+                count += 1
             continue
         db.add(TrainingPlan(
             user_id=user_id, date=d, source=source,
@@ -608,6 +621,7 @@ def write_training_plan(user_id: str, rows: list[dict], source: str,
             target_power_min=_float(row.get("target_power_min")),
             target_power_max=_float(row.get("target_power_max")),
             workout_description=_str(row.get("workout_description")),
+            external_id=new_external_id,
         ))
         count += 1
     if count > 0:
