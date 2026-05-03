@@ -37,23 +37,49 @@
 
 // ─── Stat strip ─────────────────────────────────────────────────────
 //
-// 4 cells stacked as a 2-col grid on phone width. Web uses
-// `sm:flex sm:flex-wrap` to lay them out in a row on desktop and
-// 2x2 on narrow viewports — mini program is always narrow, so we
-// pin to 2 cols. Cell padding is asymmetric: 12rpx vertical between
-// rows (so the strip reads as one block), 32rpx horizontal between
-// columns (so adjacent values don't crowd each other).
+// 4 cells laid out as a 2x2 grid. Web uses `sm:flex sm:flex-wrap` to
+// lay them out in a row on desktop and 2x2 on narrow viewports — mini
+// program is always narrow, so we pin to 2 cols.
+//
+// Implementation note: Skyline doesn't reliably honor `display: grid`
+// (and `grid-template-columns: 1fr 1fr` collapses to a single column
+// in the simulator and on some phone runtimes). We mirror Today's
+// `today-supporting` / `today-cell` pattern instead — `flex-wrap`
+// container plus `width: 50%` + `box-sizing: border-box` per cell.
+// Robust across both renderers.
 .train-stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24rpx 32rpx;
+  display: flex;
+  flex-wrap: wrap;
   margin-bottom: 36rpx;
+  border-top: 1rpx solid var(--border-subtle);
 }
 
 .train-stat-cell {
   display: flex;
   flex-direction: column;
   gap: 4rpx;
+  padding: 20rpx 0;
+  width: 50%;
+  // Without box-sizing the per-cell padding pushes width past 50%
+  // and the second cell wraps to its own row (the failure mode the
+  // user reported in the simulator).
+  box-sizing: border-box;
+  border-bottom: 1rpx solid var(--border-subtle);
+  // Min-width 0 lets long sub-text (e.g. "vs Seiler Polarized 3-Zone")
+  // shrink and wrap rather than forcing the cell wider than 50%.
+  min-width: 0;
+}
+
+// Hairline vertical rule between the two columns. Same treatment as
+// Today's supporting grid — odd cells get a right rule + right
+// padding; even cells absorb a matching left padding so the value /
+// label inside don't sit on the rule.
+.train-stat-cell:nth-child(odd) {
+  border-right: 1rpx solid var(--border-subtle);
+  padding-right: 28rpx;
+}
+.train-stat-cell:nth-child(even) {
+  padding-left: 28rpx;
 }
 
 .train-stat-label {
