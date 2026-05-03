@@ -127,6 +127,7 @@ Always use the project venv at `.venv/` for Python commands.
 # First time: clone with submodules so plugins/praxys/ is populated
 # (the plugin is its own public repo, dddtc2005/praxys-coach-plugin)
 git clone --recurse-submodules https://github.com/dddtc2005/praxys.git
+cd praxys
 # (already cloned without --recurse-submodules? run: git submodule update --init)
 
 # First time: copy .env and generate encryption key
