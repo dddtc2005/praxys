@@ -310,12 +310,16 @@ export default function Today() {
   const showRecoveryBanner = !dataStale && recoveryStale && !!recoveryLatestLabel;
 
   // Manual sync — kicks the existing /api/sync route (background
-  // tasks). After ~6 seconds we refetch /api/today; on a successful
-  // pull, ``data_as_of`` advances and the banner disappears. On a sync
-  // that returns no new rows, ``data_as_of`` stays put and the banner
-  // remains, which is the honest behavior. Polling /api/sync/status to
-  // wait for completion would be more precise but ETags + the cache's
-  // date salt mean a refetch within 6s already reflects the new state.
+  // tasks) and polls /api/sync/status until no source is still
+  // ``syncing``. A bare ``setTimeout(6s)`` would re-enable the button
+  // before Garmin's first-time fetch (30+ seconds for the initial
+  // backfill) finishes; the user would see the button bounce back to
+  // ``Sync now``, click again, and double-trigger. The 60s wall is the
+  // hard upper bound — beyond that we refetch anyway and let the
+  // banner re-arm if data_as_of didn't move (the honest "your sync is
+  // taking longer than expected, here's where the data still sits"
+  // signal). 2s polling cadence is the same one Settings.tsx uses
+  // post-sync; matches the L3 cache's date-salt invalidation latency.
   const handleSyncNow = async () => {
     setSyncing(true);
     try {
@@ -323,7 +327,25 @@ export default function Today() {
         method: 'POST',
         headers: getAuthHeaders() as Record<string, string>,
       });
-      await new Promise((r) => setTimeout(r, 6_000));
+      const deadline = Date.now() + 60_000;
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 2_000));
+        try {
+          const res = await fetch(
+            `${API_BASE}/api/sync/status`,
+            { headers: getAuthHeaders() as Record<string, string> },
+          );
+          if (!res.ok) break;
+          const status = (await res.json()) as Record<string, { status?: string }>;
+          const stillSyncing = Object.values(status).some(
+            (s) => s?.status === 'syncing',
+          );
+          if (!stillSyncing) break;
+        } catch {
+          // Transient network blip — keep polling. The deadline guards
+          // against an indefinitely-broken status endpoint.
+        }
+      }
       await refetch();
     } finally {
       setSyncing(false);
@@ -378,6 +400,7 @@ export default function Today() {
       {showRecoveryBanner && (
         <div
           role="status"
+          aria-live="polite"
           className="today-staleness-banner rounded-lg border border-dashed border-accent-amber/40 bg-accent-amber/5 px-3 py-2 text-xs text-accent-amber"
         >
           <Trans>

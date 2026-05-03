@@ -15,7 +15,7 @@ calls multiple packs.
 from __future__ import annotations
 
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from functools import cached_property
 
 import pandas as pd
@@ -289,15 +289,41 @@ class RequestContext:
         - ``AiInsight.generated_at`` for the user's ``daily_brief`` row.
           Updates whenever the post-sync runner regenerates the brief
           (i.e. when the dataset hash changes), so it tracks "the last
-          time the page narrative materially shifted."
-        - Latest recovery row's date (end-of-day UTC).
-        - Latest activity's date (end-of-day UTC).
+          time the page narrative materially shifted." The runner upserts
+          one row per (user, insight_type), so a single ``.first()`` is
+          unambiguous; ``order_by`` + ``limit(1)`` are belt-and-braces
+          against a future schema that adds versioning.
+        - Latest recovery row's date, anchored at ``T12:00:00Z`` (noon UTC).
+        - Latest activity's date, anchored at ``T12:00:00Z`` (noon UTC).
+
+        Why noon UTC for date-only rows: a row dated ``2026-05-02`` covers
+        a calendar day in some real-world timezone, but the row's storage
+        layer doesn't tell us which one. End-of-day UTC anchors push the
+        row's local date forward by up to 14 hours, so a Beijing user
+        (UTC+8) sees yesterday's row as today's. Start-of-day UTC pushes
+        backward symmetrically and breaks Pacific (UTC-8) users. Noon UTC
+        is the symmetry point — within ±12 hours, a row dated D appears
+        as local-date D for every timezone that exists. Edge cases at
+        ±13/14h offsets (Samoa, Kiribati) shift by one day, which is
+        acceptable; nobody is running a global app from there.
+
+        Cache invalidation: ``/api/today`` is L3-cached with date-salted
+        ``source_version`` keyed on ``activities, recovery, plans,
+        fitness, config`` revisions. The post-sync insight runner only
+        regenerates ``AiInsight`` when those upstream sources changed
+        (the dataset hash projection draws from them), so by the time the
+        runner advances ``generated_at``, the cache row's source_version
+        is already stale and the next read recomputes ``data_as_of``
+        cleanly. Don't bump cache scopes from inside the runner — that
+        would duplicate the invalidation path.
 
         Returns ``None`` when no data exists yet (fresh user before any
         sync). Frontend treats null as "nothing to anchor on" and
         suppresses the staleness banner.
         """
-        from datetime import datetime, time, timezone
+        # Imported lazily because db.models pulls in the ORM mapper graph
+        # and packs.py is imported at FastAPI startup; avoiding the
+        # top-level import keeps the import order flexible.
         from db.models import AiInsight
 
         # All timestamps normalized to UTC. Trailing 'Z' on the emitted
@@ -315,6 +341,8 @@ class RequestContext:
                 AiInsight.user_id == self.user_id,
                 AiInsight.insight_type == "daily_brief",
             )
+            .order_by(AiInsight.generated_at.desc())
+            .limit(1)
             .first()
         )
         if insight_row and insight_row[0] is not None:
@@ -323,13 +351,16 @@ class RequestContext:
                 ts = ts.replace(tzinfo=timezone.utc)
             candidates.append(ts)
 
+        # Noon-UTC anchor for date-only rows — see docstring for rationale.
+        date_anchor = time(12, 0, 0)
+
         recovery = self.recovery
         if hasattr(recovery, "empty") and not recovery.empty and "date" in recovery.columns:
             latest = pd.to_datetime(recovery["date"], errors="coerce").max()
             if pd.notna(latest):
                 candidates.append(
                     datetime.combine(
-                        latest.date(), time(23, 59, 59), tzinfo=timezone.utc
+                        latest.date(), date_anchor, tzinfo=timezone.utc
                     )
                 )
 
@@ -339,7 +370,7 @@ class RequestContext:
             if pd.notna(latest_a):
                 candidates.append(
                     datetime.combine(
-                        latest_a.date(), time(23, 59, 59), tzinfo=timezone.utc
+                        latest_a.date(), date_anchor, tzinfo=timezone.utc
                     )
                 )
 

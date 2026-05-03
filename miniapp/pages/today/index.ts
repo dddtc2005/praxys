@@ -748,11 +748,14 @@ Page({
   },
 
   /** "Sync now" handler — kicks the existing /api/sync route and
-   *  refetches the today payload after a brief delay. data_as_of will
-   *  advance only if the sync pulled new rows; on a no-op sync, the
-   *  banner correctly stays up. Errors swallow at this layer because
-   *  the failure mode the user cares about — "did the data refresh?"
-   *  — is observable from the banner staying or going away. */
+   *  polls /api/sync/status until no source reports ``syncing``.
+   *  data_as_of advances only if the sync pulled new rows; on a no-op
+   *  sync, the banner correctly stays up. The 60s deadline is the
+   *  hard upper bound — Garmin's first-time backfill can run 30+
+   *  seconds, so a bare 6s sleep would re-arm the button before sync
+   *  could plausibly finish. Errors swallow at this layer because the
+   *  failure mode the user cares about — "did the data refresh?" —
+   *  is observable from the banner staying or going away. */
   async onStaleSyncNow() {
     if (this.data.staleSyncing) return;
     this.setData({ staleSyncing: true });
@@ -763,7 +766,22 @@ Page({
         // eslint-disable-next-line no-console
         console.warn('[today] manual sync kick failed; refetching anyway:', e);
       }
-      await new Promise((r) => setTimeout(r, 6000));
+      const deadline = Date.now() + 60_000;
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 2_000));
+        try {
+          const status = await apiGet<Record<string, { status?: string }>>(
+            '/api/sync/status',
+          );
+          const stillSyncing = Object.values(status).some(
+            (s) => s?.status === 'syncing',
+          );
+          if (!stillSyncing) break;
+        } catch {
+          // Transient network blip — keep polling. Deadline guards
+          // against an indefinitely-broken status endpoint.
+        }
+      }
       await this.refetch();
     } finally {
       this.setData({ staleSyncing: false });

@@ -293,30 +293,33 @@ def test_today_route_payload_includes_data_as_of(db_with_seeded_user):
     assert payload["data_as_of"] is not None
     # Seeded activities + recovery extend through `today - 1` (the loop
     # writes i=0..13 against `today - timedelta(days=14 - i)`), so the
-    # latest data row is yesterday's EOD. With no AiInsight row, that
-    # date is the anchor.
+    # latest data row is yesterday's date. With no AiInsight row, the
+    # anchor is yesterday at noon UTC. Noon UTC is the symmetry point
+    # for date-only rows so a single row dated D appears as local-date
+    # D for every realistic timezone (±12h from UTC).
     yesterday = (date.today() - timedelta(days=1)).isoformat()
-    assert payload["data_as_of"].startswith(yesterday)
+    assert payload["data_as_of"] == f"{yesterday}T12:00:00Z"
 
 
 def test_data_as_of_uses_insight_generated_at_when_newest(db_with_seeded_user):
     """When an AiInsight row exists and is newer than the latest data
     rows, its generated_at is the anchor. This is the common steady
     state — post-sync, the runner regenerates the brief, which advances
-    the timestamp past EOD-of-row-date."""
-    from datetime import datetime
+    the timestamp past the noon-UTC date anchors that the recovery and
+    activity rows produce.
+
+    The fixture seeds activity/recovery rows ending at ``today - 1``,
+    which anchor at ``yesterday T12:00:00Z``. We pick a timestamp
+    strictly later than that (``today T03:00:00`` — past noon UTC of
+    yesterday) so the assertion can't tie on insertion order inside
+    ``max()``.
+    """
+    from datetime import datetime, time
     from api.routes.today import _build_today_payload
     from db.models import AiInsight
 
     db, user_id = db_with_seeded_user
-    # Seed an insight written one minute ago — strictly newer than any
-    # date EOD anchor that today's recovery / activity rows could
-    # produce (those land at 23:59:59 of `date.today()`, but only if
-    # `now() > 23:59:59` are they not the maximum — by construction of
-    # this test, `now()` is after their EOD compare anchor only on the
-    # last second of the day, so we mock around that by setting the
-    # insight slightly in the future-of-now).
-    fixed = datetime.combine(date.today(), datetime.max.time()).replace(microsecond=0)
+    fixed = datetime.combine(date.today(), time(3, 0, 0))
     db.add(AiInsight(
         user_id=user_id,
         insight_type="daily_brief",
@@ -332,6 +335,28 @@ def test_data_as_of_uses_insight_generated_at_when_newest(db_with_seeded_user):
     # Server normalizes naive UTC datetimes to ISO + trailing `Z` so the
     # browser doesn't re-interpret as local time at the day boundary.
     assert payload["data_as_of"] == fixed.isoformat() + "Z"
+
+
+def test_data_as_of_uses_noon_utc_for_date_only_rows(db_with_seeded_user):
+    """Date-only rows (recovery, activity) MUST anchor at ``T12:00:00Z``,
+    not start-of-day or end-of-day.
+
+    Why this matters: a row dated ``2026-05-02`` represents a calendar
+    day in some real-world timezone, but the row's storage layer doesn't
+    record which one. End-of-day UTC would push the row's local date
+    forward by up to 14 hours — a Beijing user (UTC+8) would see
+    yesterday's row as today's. Start-of-day breaks symmetrically for
+    Pacific users. Noon UTC is the symmetry point: ±12 hours from any
+    realistic timezone, the row's local date is preserved.
+
+    The assertion is exact, not just startswith, so a future tweak to
+    23:59 / 00:00 / arbitrary noon-adjacent time fails loudly.
+    """
+    from api.routes.today import _build_today_payload
+    db, user_id = db_with_seeded_user
+    payload = _build_today_payload(user_id, db)
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    assert payload["data_as_of"] == f"{yesterday}T12:00:00Z"
 
 
 def test_data_as_of_is_none_with_no_data(monkeypatch):
