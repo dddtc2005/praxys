@@ -188,9 +188,6 @@ msgstr "6月"
 msgid "7d Trend"
 msgstr "7天趋势"
 
-#: src/pages/Login.tsx:162
-#~ msgid "A scientific training system that takes a position."
-#~ msgstr "有立场的科学训练系统。"
 
 #: src/components/ZoneAnalysisCard.tsx:44
 msgid "above"
@@ -250,9 +247,6 @@ msgstr "调整训练"
 msgid "Admin"
 msgstr "管理"
 
-#: src/pages/Science.tsx:133
-#~ msgid "Advanced"
-#~ msgstr "详细"
 
 #: src/lib/phase-label.ts:13
 msgid "Aerobic"
@@ -330,9 +324,6 @@ msgstr "同步历史数据..."
 msgid "Based on your training, <0>{0}</0> may fit better — {1}"
 msgstr "根据您的训练，<0>{0}</0> 可能更合适 — {1}"
 
-#: src/pages/Science.tsx:156
-#~ msgid "Based on your training, we suggest <0>{0}</0> — {1}"
-#~ msgstr "根据您的训练，我们建议 <0>{0}</0> — {1}"
 
 #: src/components/RecoveryPanel.tsx:131
 msgid "Baseline"
@@ -520,9 +511,6 @@ msgstr "已配置持续提升"
 msgid "Cooldown"
 msgstr "放松"
 
-#: src/pages/Science.tsx:255
-#~ msgid "Cosmetic — changes names and colors without affecting calculations"
-#~ msgstr "仅外观——更改名称与颜色，不影响计算"
 
 #: src/pages/Login.tsx:112
 msgid "Could not save your email. Please email us instead."
@@ -546,9 +534,6 @@ msgstr "创建账号"
 msgid "Created"
 msgstr "创建时间"
 
-#: src/pages/Login.tsx:164
-#~ msgid "Creating account..."
-#~ msgstr "创建中..."
 
 #: src/pages/Login.tsx:488
 msgid "Creating account…"
@@ -841,9 +826,6 @@ msgstr "加载活动失败"
 msgid "Failed to load goal data"
 msgstr "目标数据加载失败"
 
-#: src/pages/Science.tsx:216
-#~ msgid "Failed to load science data"
-#~ msgstr "加载科学数据失败"
 
 #: src/pages/Science.tsx:83
 msgid "Failed to load science data."
@@ -921,9 +903,6 @@ msgstr "竞技状态"
 msgid "Form (TSB)"
 msgstr "竞技状态 (TSB)"
 
-#: src/pages/Science.tsx:229
-#~ msgid "Four pillars power your analysis. Each uses a published theory you can understand, verify, and change."
-#~ msgstr "四大支柱驱动您的分析。每一支柱都采用可理解、可验证、可更改的已发表理论。"
 
 #: src/pages/Science.tsx:170
 msgid "Four-pillar framework"
@@ -1049,21 +1028,9 @@ msgstr "徒步"
 msgid "Historical sync may take several minutes"
 msgstr "历史同步可能需要几分钟"
 
-#: src/pages/Science.tsx:26
-#~ msgid "How do we assess readiness to train?"
-#~ msgstr "如何评估训练准备度？"
 
-#: src/pages/Science.tsx:27
-#~ msgid "How do we estimate race potential?"
-#~ msgstr "如何估算比赛潜力？"
 
-#: src/pages/Science.tsx:25
-#~ msgid "How does training stress become fitness?"
-#~ msgstr "训练应激如何转化为体能？"
 
-#: src/pages/Science.tsx:28
-#~ msgid "How is intensity classified?"
-#~ msgstr "如何分类训练强度？"
 
 #: src/pages/Settings.tsx:724
 msgid "How often Praxys pulls new data in the background. Lower frequency uses less network and respects platform rate limits."
@@ -1127,9 +1094,6 @@ msgstr "时间格式无效。请使用 H:MM:SS 或 H:MM"
 msgid "Invitation code"
 msgstr "邀请码"
 
-#: src/pages/Login.tsx:149
-#~ msgid "Invitation Code"
-#~ msgstr "邀请码"
 
 #: src/pages/Admin.tsx:334
 msgid "Invitation Codes"
@@ -1167,13 +1131,7 @@ msgstr "上次同步失败：{0}"
 msgid "Last synced {0}"
 msgstr "上次同步 {0}"
 
-#: src/pages/Login.tsx:160
-#~ msgid "Leave blank for the first account. Required after that."
-#~ msgstr "首个账号可留空，之后必填。"
 
-#: src/pages/Login.tsx:489
-#~ msgid "Leave blank if this is the first account on a fresh install."
-#~ msgstr "若是全新部署的首位用户，可留空。"
 
 #: src/components/GoalEditor.tsx:164
 msgid "Leave blank to track predicted time only"
@@ -1215,18 +1173,12 @@ msgstr "直播演示 — 真实训练数据，只读"
 msgid "Load & Fitness"
 msgstr "负荷与体能"
 
-#: src/pages/Login.tsx:71
-#~ msgid "Log in to connect your CLI plugin"
-#~ msgstr "登录以连接 CLI 插件"
 
 #: src/components/AppSidebar.tsx:193
 #: src/components/AppSidebar.tsx:195
 msgid "Log out"
 msgstr "退出登录"
 
-#: src/pages/Login.tsx:78
-#~ msgid "Login"
-#~ msgstr "登录"
 
 #: src/pages/Today.tsx:124
 msgid "low"
@@ -1515,9 +1467,6 @@ msgstr "功率"
 msgid "Power metrics, Critical Power, training plans"
 msgstr "功率指标、阈值功率、训练计划"
 
-#: src/pages/Login.tsx:72
-#~ msgid "Power-based training dashboard"
-#~ msgstr "功率训练仪表盘"
 
 #: src/components/AiInsightsCard.tsx:81
 msgid "Praxys Coach"
@@ -1531,9 +1480,6 @@ msgstr "Praxys 教练分析"
 msgid "Praxys is in private alpha."
 msgstr "Praxys 正处于内测阶段。"
 
-#: src/pages/Login.tsx:134
-#~ msgid "Praxys race-flag mark"
-#~ msgstr "Praxys 赛旗标识"
 
 #: src/pages/Goal.tsx:241
 #: src/pages/Goal.tsx:278
@@ -1741,9 +1687,6 @@ msgstr "参考文献"
 msgid "Region"
 msgstr "地区"
 
-#: src/pages/Login.tsx:79
-#~ msgid "Register"
-#~ msgstr "注册"
 
 #: src/pages/Admin.tsx:258
 msgid "Registered"
@@ -1919,17 +1862,11 @@ msgstr "登录"
 msgid "Sign in to connect your CLI plugin."
 msgstr "登录以连接 CLI 插件。"
 
-#: src/pages/Login.tsx:113
-#~ msgid "Signing in..."
-#~ msgstr "登录中..."
 
 #: src/pages/Login.tsx:318
 msgid "Signing in…"
 msgstr "正在登录……"
 
-#: src/pages/Science.tsx:132
-#~ msgid "Simple"
-#~ msgstr "简要"
 
 #: src/pages/Setup.tsx:779
 msgid "Skip for now"
@@ -2208,10 +2145,6 @@ msgstr "当前 <0>{distLabel}</0> 预测 <1>{predicted}</1>。{abbrev} 趋势 <2
 msgid "Today's recovery hasn't synced yet. Showing the latest reading from {latestDateLabel}."
 msgstr "今日的恢复尚未同步。显示 {latestDateLabel} 的最新读数。"
 
-#: src/pages/Login.tsx:533
-#: src/pages/Login.tsx:534
-#~ msgid "Toggle theme"
-#~ msgstr "切换主题"
 
 #: src/pages/Login.tsx:98
 msgid "Too many attempts from this network. Please email us instead."
@@ -2286,9 +2219,6 @@ msgstr "美国"
 msgid "Use it"
 msgstr "使用邀请码"
 
-#: src/pages/Science.tsx:175
-#~ msgid "Use this"
-#~ msgstr "使用此项"
 
 #: src/pages/Setup.tsx:197
 msgid "Use your Garmin Connect credentials."
@@ -2417,9 +2347,6 @@ msgstr "区间分析"
 msgid "Zone labels"
 msgstr "区间标签"
 
-#: src/pages/Science.tsx:253
-#~ msgid "Zone Labels"
-#~ msgstr "区间标签"
 
 #: src/pages/Settings.tsx:68
 msgid "Zones & load from Critical Power"
@@ -2438,3 +2365,99 @@ msgstr "基于乳酸阈值心率的区间与负荷"
 #: src/pages/Setup.tsx:174
 msgid "Zones & load from Threshold Pace"
 msgstr "基于阈值配速的区间与负荷"
+#: src/pages/Login.tsx:162
+#~ msgid "A scientific training system that takes a position."
+#~ msgstr "有立场的科学训练系统。"
+
+#: src/pages/Science.tsx:133
+#~ msgid "Advanced"
+#~ msgstr "详细"
+
+#: src/pages/Science.tsx:156
+#~ msgid "Based on your training, we suggest <0>{0}</0> — {1}"
+#~ msgstr "根据您的训练，我们建议 <0>{0}</0> — {1}"
+
+#: src/pages/Science.tsx:255
+#~ msgid "Cosmetic — changes names and colors without affecting calculations"
+#~ msgstr "仅外观——更改名称与颜色，不影响计算"
+
+#: src/pages/Login.tsx:164
+#~ msgid "Creating account..."
+#~ msgstr "创建中..."
+
+#: src/pages/Science.tsx:216
+#~ msgid "Failed to load science data"
+#~ msgstr "加载科学数据失败"
+
+#: src/pages/Science.tsx:229
+#~ msgid "Four pillars power your analysis. Each uses a published theory you can understand, verify, and change."
+#~ msgstr "四大支柱驱动您的分析。每一支柱都采用可理解、可验证、可更改的已发表理论。"
+
+#: src/pages/Science.tsx:26
+#~ msgid "How do we assess readiness to train?"
+#~ msgstr "如何评估训练准备度？"
+
+#: src/pages/Science.tsx:27
+#~ msgid "How do we estimate race potential?"
+#~ msgstr "如何估算比赛潜力？"
+
+#: src/pages/Science.tsx:25
+#~ msgid "How does training stress become fitness?"
+#~ msgstr "训练应激如何转化为体能？"
+
+#: src/pages/Science.tsx:28
+#~ msgid "How is intensity classified?"
+#~ msgstr "如何分类训练强度？"
+
+#: src/pages/Login.tsx:149
+#~ msgid "Invitation Code"
+#~ msgstr "邀请码"
+
+#: src/pages/Login.tsx:160
+#~ msgid "Leave blank for the first account. Required after that."
+#~ msgstr "首个账号可留空，之后必填。"
+
+#: src/pages/Login.tsx:489
+#~ msgid "Leave blank if this is the first account on a fresh install."
+#~ msgstr "若是全新部署的首位用户，可留空。"
+
+#: src/pages/Login.tsx:71
+#~ msgid "Log in to connect your CLI plugin"
+#~ msgstr "登录以连接 CLI 插件"
+
+#: src/pages/Login.tsx:78
+#~ msgid "Login"
+#~ msgstr "登录"
+
+#: src/pages/Login.tsx:72
+#~ msgid "Power-based training dashboard"
+#~ msgstr "功率训练仪表盘"
+
+#: src/pages/Login.tsx:134
+#~ msgid "Praxys race-flag mark"
+#~ msgstr "Praxys 赛旗标识"
+
+#: src/pages/Login.tsx:79
+#~ msgid "Register"
+#~ msgstr "注册"
+
+#: src/pages/Login.tsx:113
+#~ msgid "Signing in..."
+#~ msgstr "登录中..."
+
+#: src/pages/Science.tsx:132
+#~ msgid "Simple"
+#~ msgstr "简要"
+
+#: src/pages/Login.tsx:533
+#: src/pages/Login.tsx:534
+#~ msgid "Toggle theme"
+#~ msgstr "切换主题"
+
+#: src/pages/Science.tsx:175
+#~ msgid "Use this"
+#~ msgstr "使用此项"
+
+#: src/pages/Science.tsx:253
+#~ msgid "Zone Labels"
+#~ msgstr "区间标签"
