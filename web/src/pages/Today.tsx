@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useApi, API_BASE, getAuthHeaders } from '@/hooks/useApi';
-import type { AiInsight, TodayResponse, TrainingSignal } from '@/types/api';
+import type { TodayResponse, TrainingSignal } from '@/types/api';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -8,7 +8,7 @@ import { msg } from '@lingui/core/macro';
 import { Trans, useLingui } from '@lingui/react/macro';
 import type { MessageDescriptor } from '@lingui/core';
 import { useLocale } from '@/contexts/LocaleContext';
-import AiInsightsCard from '@/components/AiInsightsCard';
+import AiInsightsCard, { type CoachFallback } from '@/components/AiInsightsCard';
 
 // Skeleton mirrors the today-spread layout shape so the page doesn't flash
 // from the old space-y-6 grid into the new asymmetric layout when data
@@ -204,8 +204,6 @@ function formatPlan(plan: TrainingSignal['plan']): string | null {
 
 export default function Today() {
   const { data, loading, error, refetch } = useApi<TodayResponse>('/api/today');
-  // Same query key as AiInsightsCard, so React Query dedupes the fetch.
-  const { data: briefData } = useApi<{ insight: AiInsight | null }>('/api/insights/daily_brief');
   const { locale } = useLocale();
   const { i18n } = useLingui();
 
@@ -260,11 +258,6 @@ export default function Today() {
   const verdictText = i18n._(VERDICT_LABEL[signal.recommendation] ?? VERDICT_LABEL.follow_plan);
   const verdictSubtitle = i18n._(VERDICT_SUBTITLE[signal.recommendation] ?? VERDICT_SUBTITLE.follow_plan);
   const tone = TONE_CLASSES[VERDICT_TONE[signal.recommendation] ?? 'amber'];
-  // AiInsightsCard self-fetches /api/insights/daily_brief; React Query
-  // dedupes against the briefData fetch above. Today only needs the
-  // boolean to know whether to suppress the rule-based reason fallback.
-  const hasCoachBrief = briefData?.insight != null;
-
   const hrv = ra?.hrv ?? null;
   const trendArrow = hrv ? TREND_ARROW[hrv.trend] : '—';
   const trendLabel = hrv ? i18n._(HRV_TREND_LABEL[hrv.trend]) : '—';
@@ -419,9 +412,20 @@ export default function Today() {
           </span>
         </div>
         <p className={`text-xl font-semibold ${tone.text}`}>{verdictSubtitle}</p>
-        {!hasCoachBrief && <p className="text-sm text-muted-foreground text-center max-w-sm">{signal.reason}</p>}
       </div>
-      <AiInsightsCard insightType="daily_brief" attribution={attribution} />
+      {/* Praxys Coach receipt — single canonical reasoning surface.
+          Uses the LLM `daily_brief` insight when available, the
+          deterministic `signal.reason` (with `signal.alternatives` as
+          recommendations) otherwise. The receipt always renders, so
+          the user never sees a verdict without a "why" beneath it. */}
+      <AiInsightsCard
+        insightType="daily_brief"
+        attribution={attribution}
+        fallback={{
+          headline: signal.reason,
+          recommendations: signal.alternatives,
+        } as CoachFallback}
+      />
       <div className={`today-supporting ${readinessScore != null ? 'today-supporting--6' : ''}`.trim()}>
         <div className="today-cell"><span className="today-cell-label">HRV (ln RMSSD)</span><span className="today-cell-value font-data">{hrv ? hrv.today_ln.toFixed(2) : '—'}</span><span className="today-cell-sub font-data">{hrv?.today_ms != null ? `${hrv.today_ms} ms · ` : ''}{baselineLabel}</span></div>
         <div className="today-cell"><span className="today-cell-label"><Trans>7d Trend</Trans></span><span className="today-cell-value font-data">{trendArrow}</span><span className="today-cell-sub font-data">{hrv ? `${trendLabel} · CV ${trendCv}` : i18n._(msg`no data`)}</span></div>

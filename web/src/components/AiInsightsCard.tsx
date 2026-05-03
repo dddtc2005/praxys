@@ -1,10 +1,31 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useApi } from '@/hooks/useApi';
-import type { AiInsight } from '@/types/api';
+import type { AiInsight, AiInsightFinding } from '@/types/api';
 import { msg } from '@lingui/core/macro';
 import { Trans, Plural, useLingui } from '@lingui/react/macro';
 import { useLocale } from '@/contexts/LocaleContext';
 import { linkifyScienceTerms } from '@/lib/science-links';
+
+/**
+ * Deterministic "Praxys Coach" content rendered when no LLM insight
+ * row exists for this slot. Lets the receipt remain the single
+ * narrative-interpretation surface across pages — the user always sees
+ * Praxys Coach, with AI content when it's there and rule-based content
+ * otherwise. Without it, AiInsightsCard returns null when the LLM is
+ * silent (legacy behavior).
+ */
+export interface CoachFallback {
+  /** Lead sentence shown in the receipt body. Accepts ReactNode so
+   *  callers can embed `<strong>` highlights for numbers (Goal does
+   *  this — "<strong>14</strong> days to race day…"). */
+  headline: ReactNode;
+  summary?: string;
+  findings?: AiInsightFinding[];
+  recommendations?: string[];
+  /** Stamp shown in the cobalt banner where AI insights show timeAgo
+   *  (e.g. "6wk" lookback for a weekly diagnosis). Optional. */
+  stamp?: string;
+}
 
 interface Props {
   /**
@@ -23,6 +44,12 @@ interface Props {
    * site.
    */
   attribution?: string;
+  /**
+   * Deterministic content shown when the LLM insight slot is empty.
+   * Without it, the component returns null on no AI insight (legacy
+   * behavior used by callers that don't have a rule-based equivalent).
+   */
+  fallback?: CoachFallback;
 }
 
 const PLUGIN_URL = 'https://github.com/dddtc2005/praxys';
@@ -41,17 +68,21 @@ function timeAgo(isoDate: string, locale: string): string {
 }
 
 /**
- * Renders an LLM-generated Praxys Coach insight as the canonical
- * coach-receipt component (square-cornered, flat cobalt banner,
- * structured findings + recommendations, embedded Claude Code skill
- * hint). Replaces the prior purple-bordered card pattern that has been
- * retired (see PR #245).
+ * Renders the Praxys Coach receipt — square-cornered, flat cobalt
+ * banner, structured findings + recommendations, embedded Claude Code
+ * skill hint. The single canonical narrative-interpretation surface
+ * across pages.
  *
- * Returns null when no insight row exists yet — the rule-based
- * fallback prose lives in the calling page (e.g. Today's signal.reason
- * suppressed under hasCoachBrief).
+ * Content source ordering:
+ *   1. LLM insight at /api/insights/{insightType} when present.
+ *   2. Caller-provided `fallback` when the LLM slot is empty.
+ *   3. null (component renders nothing) when neither is available.
+ *
+ * The receipt always carries the same brand banner regardless of
+ * source — users see Praxys Coach whether the analysis was
+ * AI-generated or computed from rule-based heuristics.
  */
-export default function AiInsightsCard({ insightType, attribution }: Props) {
+export default function AiInsightsCard({ insightType, attribution, fallback }: Props) {
   const { data } = useApi<{ insight: AiInsight | null }>(`/api/insights/${insightType}`);
   const { locale } = useLocale();
   const { i18n } = useLingui();
@@ -59,34 +90,54 @@ export default function AiInsightsCard({ insightType, attribution }: Props) {
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   const insight = data?.insight;
-  if (!insight) return null;
 
-  // Prefer the active-locale translation when present; fall back to the
-  // top-level English fields (Issue #103 contract).
-  const localized = (locale === 'zh' && insight.translations?.zh) || insight;
-  const headline = localized.headline;
-  const summary = localized.summary;
-  const findings = localized.findings ?? insight.findings ?? [];
-  const recommendations = localized.recommendations ?? insight.recommendations ?? [];
-  const hasDetails = findings.length > 0 || recommendations.length > 0;
+  // Prefer the active-locale translation when present; fall back to
+  // the top-level English fields (Issue #103 contract).
+  const localized = insight && ((locale === 'zh' && insight.translations?.zh) || insight);
+
+  // Resolve the actual content to render. AI takes precedence; fallback
+  // fills in when AI is silent. If neither exists the surface stays
+  // hidden — caller controls its own empty state.
+  const content = localized
+    ? {
+        headline: localized.headline as ReactNode,
+        summary: localized.summary,
+        findings: localized.findings ?? insight!.findings ?? [],
+        recommendations: localized.recommendations ?? insight!.recommendations ?? [],
+        stamp: insight!.generated_at ? timeAgo(insight!.generated_at, locale) : undefined,
+        isAi: true,
+      }
+    : fallback
+      ? {
+          headline: fallback.headline,
+          summary: fallback.summary,
+          findings: fallback.findings ?? [],
+          recommendations: fallback.recommendations ?? [],
+          stamp: fallback.stamp,
+          isAi: false,
+        }
+      : null;
+
+  if (!content) return null;
 
   // insightType -> plugin skill name mapping. The plugin's slash commands
   // use kebab-case (`/praxys:race-forecast`); insight rows in the DB use
   // snake_case (`race_forecast`). 1:1 transform.
   const skillName = insightType.replace(/_/g, '-');
+  const hasDetails = content.findings.length > 0 || content.recommendations.length > 0;
 
   return (
     <aside className="coach-receipt" aria-label={i18n._(msg`Praxys Coach insight`)}>
       <div className="coach-banner">
         <span className="coach-mark"><Trans>Praxys Coach</Trans></span>
-        {insight.generated_at && (
-          <span className="coach-stamp font-data">{timeAgo(insight.generated_at, locale)}</span>
+        {content.stamp && (
+          <span className="coach-stamp font-data">{content.stamp}</span>
         )}
       </div>
       <div className="coach-body">
-        <p className="coach-headline">{headline}</p>
-        {summary && (
-          <p className="coach-summary">{linkifyScienceTerms(summary)}</p>
+        <p className="coach-headline">{content.headline}</p>
+        {content.summary && (
+          <p className="coach-summary">{linkifyScienceTerms(content.summary)}</p>
         )}
         {hasDetails && (
           <button
@@ -100,17 +151,17 @@ export default function AiInsightsCard({ insightType, attribution }: Props) {
               <Trans>Hide details</Trans>
             ) : (
               <span>
-                {findings.length > 0 && (
+                {content.findings.length > 0 && (
                   <Plural
-                    value={findings.length}
+                    value={content.findings.length}
                     one="# finding"
                     other="# findings"
                   />
                 )}
-                {findings.length > 0 && recommendations.length > 0 && <Trans> · </Trans>}
-                {recommendations.length > 0 && (
+                {content.findings.length > 0 && content.recommendations.length > 0 && <Trans> · </Trans>}
+                {content.recommendations.length > 0 && (
                   <Plural
-                    value={recommendations.length}
+                    value={content.recommendations.length}
                     one="# recommendation"
                     other="# recommendations"
                   />
@@ -119,11 +170,11 @@ export default function AiInsightsCard({ insightType, attribution }: Props) {
             )}
           </button>
         )}
-        {detailsOpen && findings.length > 0 && (
+        {detailsOpen && content.findings.length > 0 && (
           <>
             <p className="coach-label"><Trans>Findings</Trans></p>
             <ul className="coach-list">
-              {findings.map((f, i) => (
+              {content.findings.map((f, i) => (
                 <li key={i} className={`coach-row coach-row-${f.type}`}>
                   <span className="coach-tag" aria-hidden="true">[{f.type === 'positive' ? '+' : f.type === 'warning' ? '!' : '·'}]</span>
                   <span className="coach-text">{linkifyScienceTerms(f.text)}</span>
@@ -132,12 +183,12 @@ export default function AiInsightsCard({ insightType, attribution }: Props) {
             </ul>
           </>
         )}
-        {detailsOpen && recommendations.length > 0 && (
+        {detailsOpen && content.recommendations.length > 0 && (
           <>
-            {findings.length > 0 && <hr className="coach-rule" />}
+            {content.findings.length > 0 && <hr className="coach-rule" />}
             <p className="coach-label"><Trans>Recommendations</Trans></p>
             <ol className="coach-list">
-              {recommendations.map((r, i) => (
+              {content.recommendations.map((r, i) => (
                 <li key={i} className="coach-row">
                   <span className="coach-tag coach-tag-rec" aria-hidden="true">→</span>
                   <span className="coach-text">{linkifyScienceTerms(r)}</span>
