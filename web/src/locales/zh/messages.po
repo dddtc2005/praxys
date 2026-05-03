@@ -230,9 +230,6 @@ msgstr "调整训练"
 msgid "Admin"
 msgstr "管理"
 
-#: src/pages/Science.tsx:133
-#~ msgid "Advanced"
-#~ msgstr "详细"
 
 #: src/lib/phase-label.ts:13
 msgid "Aerobic"
@@ -301,9 +298,6 @@ msgstr "同步历史数据..."
 msgid "Based on your training, <0>{0}</0> may fit better — {1}"
 msgstr "根据您的训练，<0>{0}</0> 可能更合适 — {1}"
 
-#: src/pages/Science.tsx:156
-#~ msgid "Based on your training, we suggest <0>{0}</0> — {1}"
-#~ msgstr "根据您的训练，我们建议 <0>{0}</0> — {1}"
 
 #: src/components/RecoveryPanel.tsx:131
 msgid "Baseline"
@@ -491,9 +485,6 @@ msgstr "已配置持续提升"
 msgid "Cooldown"
 msgstr "放松"
 
-#: src/pages/Science.tsx:255
-#~ msgid "Cosmetic — changes names and colors without affecting calculations"
-#~ msgstr "仅外观——更改名称与颜色，不影响计算"
 
 #: src/components/charts/CpTrendChart.tsx:59
 #: src/lib/display-labels.ts:56
@@ -791,9 +782,6 @@ msgstr "加载活动失败"
 msgid "Failed to load goal data"
 msgstr "目标数据加载失败"
 
-#: src/pages/Science.tsx:216
-#~ msgid "Failed to load science data"
-#~ msgstr "加载科学数据失败"
 
 #: src/pages/Science.tsx:83
 msgid "Failed to load science data."
@@ -871,9 +859,6 @@ msgstr "竞技状态"
 msgid "Form (TSB)"
 msgstr "竞技状态 (TSB)"
 
-#: src/pages/Science.tsx:229
-#~ msgid "Four pillars power your analysis. Each uses a published theory you can understand, verify, and change."
-#~ msgstr "四大支柱驱动您的分析。每一支柱都采用可理解、可验证、可更改的已发表理论。"
 
 #: src/pages/Science.tsx:170
 msgid "Four-pillar framework"
@@ -995,21 +980,9 @@ msgstr "徒步"
 msgid "Historical sync may take several minutes"
 msgstr "历史同步可能需要几分钟"
 
-#: src/pages/Science.tsx:26
-#~ msgid "How do we assess readiness to train?"
-#~ msgstr "如何评估训练准备度？"
 
-#: src/pages/Science.tsx:27
-#~ msgid "How do we estimate race potential?"
-#~ msgstr "如何估算比赛潜力？"
 
-#: src/pages/Science.tsx:25
-#~ msgid "How does training stress become fitness?"
-#~ msgstr "训练应激如何转化为体能？"
 
-#: src/pages/Science.tsx:28
-#~ msgid "How is intensity classified?"
-#~ msgstr "如何分类训练强度？"
 
 #: src/pages/Settings.tsx:724
 msgid "How often Praxys pulls new data in the background. Lower frequency uses less network and respects platform rate limits."
@@ -1801,9 +1774,6 @@ msgstr "登录"
 msgid "Signing in..."
 msgstr "登录中..."
 
-#: src/pages/Science.tsx:132
-#~ msgid "Simple"
-#~ msgstr "简要"
 
 #: src/pages/Setup.tsx:779
 msgid "Skip for now"
@@ -2117,9 +2087,6 @@ msgstr "更新中..."
 msgid "US"
 msgstr "美国"
 
-#: src/pages/Science.tsx:175
-#~ msgid "Use this"
-#~ msgstr "使用此项"
 
 #: src/pages/Setup.tsx:197
 msgid "Use your Garmin Connect credentials."
@@ -2235,9 +2202,6 @@ msgstr "区间分析"
 msgid "Zone labels"
 msgstr "区间标签"
 
-#: src/pages/Science.tsx:253
-#~ msgid "Zone Labels"
-#~ msgstr "区间标签"
 
 #: src/pages/Settings.tsx:68
 msgid "Zones & load from Critical Power"
@@ -2256,3 +2220,50 @@ msgstr "基于乳酸阈值心率的区间与负荷"
 #: src/pages/Setup.tsx:174
 msgid "Zones & load from Threshold Pace"
 msgstr "基于阈值配速的区间与负荷"
+#: src/pages/Science.tsx:133
+#~ msgid "Advanced"
+#~ msgstr "详细"
+
+#: src/pages/Science.tsx:156
+#~ msgid "Based on your training, we suggest <0>{0}</0> — {1}"
+#~ msgstr "根据您的训练，我们建议 <0>{0}</0> — {1}"
+
+#: src/pages/Science.tsx:255
+#~ msgid "Cosmetic — changes names and colors without affecting calculations"
+#~ msgstr "仅外观——更改名称与颜色，不影响计算"
+
+#: src/pages/Science.tsx:216
+#~ msgid "Failed to load science data"
+#~ msgstr "加载科学数据失败"
+
+#: src/pages/Science.tsx:229
+#~ msgid "Four pillars power your analysis. Each uses a published theory you can understand, verify, and change."
+#~ msgstr "四大支柱驱动您的分析。每一支柱都采用可理解、可验证、可更改的已发表理论。"
+
+#: src/pages/Science.tsx:26
+#~ msgid "How do we assess readiness to train?"
+#~ msgstr "如何评估训练准备度？"
+
+#: src/pages/Science.tsx:27
+#~ msgid "How do we estimate race potential?"
+#~ msgstr "如何估算比赛潜力？"
+
+#: src/pages/Science.tsx:25
+#~ msgid "How does training stress become fitness?"
+#~ msgstr "训练应激如何转化为体能？"
+
+#: src/pages/Science.tsx:28
+#~ msgid "How is intensity classified?"
+#~ msgstr "如何分类训练强度？"
+
+#: src/pages/Science.tsx:132
+#~ msgid "Simple"
+#~ msgstr "简要"
+
+#: src/pages/Science.tsx:175
+#~ msgid "Use this"
+#~ msgstr "使用此项"
+
+#: src/pages/Science.tsx:253
+#~ msgid "Zone Labels"
+#~ msgstr "区间标签"
