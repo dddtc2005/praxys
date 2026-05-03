@@ -52,7 +52,7 @@ interface Props {
   fallback?: CoachFallback;
 }
 
-const PLUGIN_URL = 'https://github.com/dddtc2005/praxys';
+const PLUGIN_URL = 'https://github.com/dddtc2005/praxys-coach-plugin#install';
 
 // Mirrors Today.tsx's helper. Should be extracted to web/src/lib/format.ts
 // when a third caller appears — see issue #236.
