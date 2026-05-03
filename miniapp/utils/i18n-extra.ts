@@ -294,6 +294,17 @@ const EN_TRAINING = {
     'Planned bars are estimated — your plan has no RSS targets for this base.',
 };
 
+// Praxys Coach receipt — progressive-disclosure toggle copy. Web's
+// AiInsightsCard uses lingui ICU `{n, plural, one {# finding} other
+// {# findings}}` blocks; mini's tFmt is positional only, so the noun
+// stays plural at count=1 (minor grammar imperfection accepted in
+// favour of simpler i18n).
+const EN_COACH = {
+  '{0} findings': '{0} findings',
+  '{0} recommendations': '{0} recommendations',
+  '{0} findings · {1} recommendations': '{0} findings · {1} recommendations',
+};
+
 const EN_HISTORY_SCIENCE = {
   // History page footers
   'Loading more…': 'Loading more…',
@@ -610,6 +621,12 @@ const ZH_TRAINING = {
     '计划数值为估算结果——您的训练计划在当前基准下未设置 RSS 目标。',
 };
 
+const ZH_COACH = {
+  '{0} findings': '{0} 条发现',
+  '{0} recommendations': '{0} 条建议',
+  '{0} findings · {1} recommendations': '{0} 条发现 · {1} 条建议',
+};
+
 const ZH_HISTORY_SCIENCE = {
   'Loading more…': '正在加载更多…',
   'Tap to view {0} splits': '点击查看 {0} 个分段',
@@ -684,6 +701,7 @@ export const I18N_EXTRA: Record<Locale, Record<string, string>> = {
     ...EN_GOAL,
     ...EN_TODAY,
     ...EN_TRAINING,
+    ...EN_COACH,
     ...EN_HISTORY_SCIENCE,
     ...EN_SETTINGS,
     ...EN_NAV_CHARTS,
@@ -693,6 +711,7 @@ export const I18N_EXTRA: Record<Locale, Record<string, string>> = {
     ...ZH_GOAL,
     ...ZH_TODAY,
     ...ZH_TRAINING,
+    ...ZH_COACH,
     ...ZH_HISTORY_SCIENCE,
     ...ZH_SETTINGS,
     ...ZH_NAV_CHARTS,

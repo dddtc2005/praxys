@@ -116,6 +116,34 @@
   border-top: 1rpx dashed var(--border);
 }
 
+// Progressive-disclosure toggle — gates the findings + recommendations
+// blocks behind a "Show details" tap. Default-collapsed mirrors web's
+// AiInsightsCard so the receipt reads as headline-first; the user opts
+// in to the structured detail. Cobalt-tinted because it's a reasoning
+// affordance ("explain more").
+.coach-toggle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8rpx;
+  margin-top: 16rpx;
+  padding: 4rpx 0;
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  font-size: 22rpx;
+  color: var(--accent-cobalt);
+  line-height: 1.4;
+}
+
+.coach-toggle-caret {
+  font-size: 22rpx;
+  width: 18rpx;
+  font-variant-numeric: tabular-nums;
+}
+
+.coach-toggle-press {
+  opacity: 0.6;
+}
+
 .coach-foot {
   padding: 12rpx 32rpx 16rpx;
   border-top: 1rpx solid var(--border-subtle);

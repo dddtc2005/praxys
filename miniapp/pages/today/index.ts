@@ -12,7 +12,7 @@ import type {
 } from '../../types/api';
 import { applyThemeChrome, themeClassName } from '../../utils/theme';
 import { t, tFmt, detectLocale } from '../../utils/i18n';
-import { fetchInsight, localizedInsight } from '../../utils/insights';
+import { coachToggleLabel, fetchInsight, localizedInsight } from '../../utils/insights';
 import {
   buildShareMessage,
   buildTimelineMessage,
@@ -330,6 +330,14 @@ interface RenderState {
   hasCoach: boolean;
   coach: CoachReceipt | null;
   coachTr: CoachTranslations | null;
+  /** Findings + recommendations are progressively disclosed; default
+   *  collapsed so the receipt reads as headline-first. Mirrors web's
+   *  AiInsightsCard. */
+  detailsOpen: boolean;
+  /** Pre-computed toggle button label — `{N} findings · {M} recs` when
+   *  collapsed, "Hide details" when expanded. Empty string hides the
+   *  toggle entirely (zero findings + zero recs). */
+  coachToggleLabel: string;
 
   /** Five supporting metrics in source order: HRV, 7d Trend, RHR,
    *  Sleep, TSB. Always present once `hasResponse` is true; cells
@@ -499,6 +507,17 @@ function buildRenderState(
         aria: t('Praxys Coach insight'),
       }
     : null;
+  // Reset detailsOpen on every refetch — the receipt content has
+  // changed (different findings / recs), so showing the prior
+  // expanded state would surface a stale-looking detail block.
+  const detailsOpen = false;
+  const coachLabel = coach
+    ? coachToggleLabel(
+        coach.findings.length,
+        coach.recommendations.length,
+        detailsOpen,
+      )
+    : '';
 
   const cells = buildSupportingCells(
     response.recovery_analysis ?? null,
@@ -532,6 +551,8 @@ function buildRenderState(
     hasCoach,
     coach,
     coachTr,
+    detailsOpen,
+    coachToggleLabel: coachLabel,
 
     cells,
 
@@ -607,6 +628,8 @@ const initialData: RenderState & RefreshState = {
   hasCoach: false,
   coach: null,
   coachTr: null,
+  detailsOpen: false,
+  coachToggleLabel: '',
 
   cells: [],
 
@@ -722,6 +745,25 @@ Page({
 
   onRetry() {
     void this.refetch();
+  },
+
+  /**
+   * Tap-toggle the Coach Receipt's findings + recommendations. Only
+   * surfaces when there's something to disclose; the WXML guards on
+   * `coachToggleLabel`. Recompute the label so "{N} findings · {M}
+   * recs" flips to "Hide details" without a re-render of the rest
+   * of the receipt body.
+   */
+  onToggleCoachDetails() {
+    const next = !this.data.detailsOpen;
+    const coach = this.data.coach;
+    if (!coach) return;
+    const label = coachToggleLabel(
+      coach.findings.length,
+      coach.recommendations.length,
+      next,
+    );
+    this.setData({ detailsOpen: next, coachToggleLabel: label });
   },
 
   /** "Show anyway" handler — dismisses the staleness banner for the

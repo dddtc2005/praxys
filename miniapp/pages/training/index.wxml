@@ -173,7 +173,22 @@
           <view class="coach-body">
             <text class="coach-headline">{{coach.headline}}</text>
 
-            <block wx:if="{{coach.hasFindings}}">
+            <!-- Progressive-disclosure toggle. Default-collapsed; the
+                 user opts in to the structured detail. Hidden when
+                 the receipt has neither findings nor recommendations
+                 (the toggle would be a no-op). -->
+            <view
+              wx:if="{{coachToggleLabel}}"
+              class="coach-toggle"
+              hover-class="coach-toggle-press"
+              bindtap="onToggleCoachDetails"
+              aria-expanded="{{detailsOpen}}"
+            >
+              <text class="coach-toggle-caret">{{detailsOpen ? '▾' : '▸'}}</text>
+              <text>{{coachToggleLabel}}</text>
+            </view>
+
+            <block wx:if="{{detailsOpen && coach.hasFindings}}">
               <text class="coach-label">{{coachTr.findings}}</text>
               <view
                 wx:for="{{coach.findings}}"
@@ -186,11 +201,11 @@
             </block>
 
             <view
-              wx:if="{{coach.hasFindings && coach.hasRecommendations}}"
+              wx:if="{{detailsOpen && coach.hasFindings && coach.hasRecommendations}}"
               class="coach-rule"
             ></view>
 
-            <block wx:if="{{coach.hasRecommendations}}">
+            <block wx:if="{{detailsOpen && coach.hasRecommendations}}">
               <text class="coach-label">{{coachTr.recommendations}}</text>
               <view
                 wx:for="{{coach.recommendations}}"

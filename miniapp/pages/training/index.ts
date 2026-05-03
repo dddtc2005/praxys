@@ -9,7 +9,7 @@ import type {
 } from '../../types/api';
 import { applyThemeChrome, themeClassName } from '../../utils/theme';
 import { detectLocale, t, tFmt } from '../../utils/i18n';
-import { fetchInsight, localizedInsight } from '../../utils/insights';
+import { coachToggleLabel, fetchInsight, localizedInsight } from '../../utils/insights';
 import {
   buildShareMessage,
   buildTimelineMessage,
@@ -388,6 +388,14 @@ interface TrainingState {
   // on the new page; mini matches.
   coach: CoachReceipt;
   coachTr: CoachTranslations;
+  /** Findings + recommendations are progressively disclosed; default
+   *  collapsed so the receipt reads as headline-first. The user opts
+   *  in to the structured detail. Mirrors web's AiInsightsCard. */
+  detailsOpen: boolean;
+  /** Pre-computed toggle button label — `{N} findings · {M} recs` when
+   *  collapsed, "Hide details" when expanded. Empty string hides the
+   *  toggle entirely (zero findings + zero recs). */
+  coachToggleLabel: string;
 
   refreshing: boolean;
 }
@@ -434,6 +442,8 @@ const initialData: TrainingState = {
     recommendations: [],
   },
   coachTr: { mark: '', findings: '', recommendations: '', aria: '' },
+  detailsOpen: false,
+  coachToggleLabel: '',
 
   refreshing: false,
 };
@@ -659,6 +669,16 @@ function buildState(
     recommendations: tr.recommendations,
     aria: tr.coachAria,
   };
+  // Reset detailsOpen on every refetch — the receipt content has
+  // changed (different findings / recs), so showing the prior
+  // expanded state would surface a stale-looking detail block. Web's
+  // AiInsightsCard re-mounts on refetch and naturally lands closed.
+  const detailsOpen = false;
+  const coachToggleLabelText = coachToggleLabel(
+    coach.findings.length,
+    coach.recommendations.length,
+    detailsOpen,
+  );
 
   // Active pill: if the persisted choice is `zones` but the response
   // has no targets, fall back to `form`. Same defensive default web
@@ -722,6 +742,8 @@ function buildState(
 
     coach,
     coachTr,
+    detailsOpen,
+    coachToggleLabel: coachToggleLabelText,
   };
 }
 
@@ -748,6 +770,7 @@ function persistActivePill(pill: DiagnosisPill): void {
 
 interface PageMethods extends WechatMiniprogram.IAnyObject {
   onPickPill(e: WechatMiniprogram.TouchEvent): void;
+  onToggleCoachDetails(): void;
   onScrollRefresh(): void;
   onRetry(): void;
   refetch(): Promise<void>;
@@ -838,6 +861,22 @@ Page<TrainingState & { tr: ReturnType<typeof buildTrainingTr> }, PageMethods>({
     if (next === 'zones' && !this.data.hasZones) return;
     this.setData({ activePill: next });
     persistActivePill(next);
+  },
+
+  /**
+   * Tap-toggle the Coach Receipt's findings + recommendations details.
+   * Recompute the toggle label so "{N} findings · {M} recs" flips to
+   * "Hide details" (and vice versa) without a re-render of the rest
+   * of the receipt body.
+   */
+  onToggleCoachDetails() {
+    const next = !this.data.detailsOpen;
+    const label = coachToggleLabel(
+      this.data.coach.findings.length,
+      this.data.coach.recommendations.length,
+      next,
+    );
+    this.setData({ detailsOpen: next, coachToggleLabel: label });
   },
 
   async refetch() {
