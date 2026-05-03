@@ -236,7 +236,11 @@ def _run_sync(user_id: str, source: str, creds: dict,
                 logger.exception("Activity-derived CP refresh failed for user %s", user_id)
                 db.rollback()
 
-        # Update last_sync on the connection record
+        # Update last_sync on the connection record. Clear any prior
+        # backoff state so a previously-failed connection that the user
+        # successfully synced manually (or that recovered on its own)
+        # rejoins the regular schedule immediately.
+        from db.sync_scheduler import reset_connection_backoff
         conn = db.query(UserConnection).filter(
             UserConnection.user_id == user_id,
             UserConnection.platform == source,
@@ -244,6 +248,7 @@ def _run_sync(user_id: str, source: str, creds: dict,
         if conn:
             conn.last_sync = datetime.now(timezone.utc).replace(tzinfo=None)
             conn.status = "connected"
+            reset_connection_backoff(conn)
             db.commit()
 
         logger.info("Sync %s for user %s: %s", source, user_id, counts)
@@ -277,15 +282,17 @@ def _run_sync(user_id: str, source: str, creds: dict,
                 "last_sync": None,
                 "error": str(e),
             }
-        # Update connection status to error
+        # Update connection status with classification + backoff so the
+        # background scheduler stops hammering a stuck connection.
+        # ``_record_sync_failure`` handles its own rollback and commit.
         try:
+            from db.sync_scheduler import _record_sync_failure
             conn = db.query(UserConnection).filter(
                 UserConnection.user_id == user_id,
                 UserConnection.platform == source,
             ).first()
             if conn:
-                conn.status = "error"
-                db.commit()
+                _record_sync_failure(conn, e, db)
         except Exception:
             pass
     finally:
@@ -975,7 +982,8 @@ def _sync_coros(user_id: str, creds: dict, from_date: str | None,
         fetch_daily_metrics,
         fetch_fitness_summary,
         parse_activities,
-        parse_splits,
+        parse_fit_laps,
+        parse_fit_stream,
         parse_daily_metrics as parse_daily,
         parse_fitness_summary as parse_fitness,
         mobile_login,
@@ -1032,8 +1040,11 @@ def _sync_coros(user_id: str, creds: dict, from_date: str | None,
         row.setdefault("source", "coros")
     act_count = sync_writer.write_activities(user_id, activity_rows, db)
 
-    # Splits (per-activity laps)
+    # Splits and per-second samples from the same activity detail call.
+    # parse_activity_stream() reads trackPoints when present; returns []
+    # otherwise (UNVERIFIED field names — needs real COROS data to confirm).
     all_splits = []
+    all_samples = []
     total = len(raw_activities)
     for idx, raw_act in enumerate(raw_activities):
         act_id = str(raw_act.get("labelId") or raw_act.get("activityId") or "")
@@ -1042,12 +1053,17 @@ def _sync_coros(user_id: str, creds: dict, from_date: str | None,
         with _sync_lock:
             status.setdefault("coros", {})["progress"] = f"Fetching splits: {idx + 1}/{total}"
         try:
-            detail = fetch_activity_detail(access_token, region, act_id)
-            all_splits.extend(parse_splits(act_id, detail))
+            sport_type = raw_act.get("sportType")
+            fit_bytes = fetch_activity_detail(access_token, region, act_id, sport_type)
+            if fit_bytes:
+                all_splits.extend(parse_fit_laps(act_id, fit_bytes))
+                all_samples.extend(parse_fit_stream(act_id, fit_bytes))
             time_mod.sleep(0.3)
         except Exception as e:
             logger.debug("COROS splits for %s: skipped (%s)", act_id, e)
     split_count = sync_writer.write_splits(user_id, all_splits, db)
+    sample_count = sync_writer.write_samples(user_id, all_samples, db)
+    logger.debug("COROS sync: %d splits, %d samples written", split_count, sample_count)
 
     # Daily metrics (HRV, resting HR, training load)
     # Fetch a wider window (90 days) to ensure enough HRV readings for
@@ -1145,6 +1161,7 @@ def get_sync_status(
 ) -> dict:
     """Return current sync status for this user's connected platforms."""
     from db.models import UserConnection
+    from db.sync_scheduler import ACTIVE_CONNECTION_STATUSES
 
     # Snapshot runtime status under lock to avoid reading partial updates.
     # _get_user_status acquires _sync_lock internally, so call it outside
@@ -1165,7 +1182,7 @@ def get_sync_status(
             "status": runtime.get("status", "idle"),
             "last_sync": utc_isoformat(conn.last_sync) or runtime.get("last_sync"),
             "error": runtime.get("error"),
-            "connected": conn.status in ("connected", "error"),
+            "connected": conn.status in ACTIVE_CONNECTION_STATUSES,
             "progress": runtime.get("progress"),
         }
 
