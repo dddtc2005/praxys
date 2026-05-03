@@ -47,6 +47,29 @@ Expect individual endpoints to 400/404 on `connectapi.garmin.cn` even when the a
 - The recovery loop has per-endpoint consecutive-failure circuit breakers (5 strikes → stop calling that endpoint for the remaining days).
 - `parse_garmin_recovery` uses `isinstance` guards + `or`-coalesce on every nested `.get()` — `dict.get(k, default)` returns `None`, not the default, for a present-but-null key, and the legacy code's crash here used to abort the whole recovery loop.
 
+### Garmin's CAPTCHA gate is time-bound, not sticky
+
+When the headless `garminconnect` flow trips Garmin/Cloudflare's bot detection, the rejection looks **permanent** but isn't. The trap is assuming you need to engineer your way around the gate when you actually just need to stop feeding it.
+
+**The failure shape.** A stuck connection's last error is a `GarminConnectConnectionError` carrying `responseStatus.type: "CAPTCHA_REQUIRED"` (when Garmin's app layer fires the gate) or `Portal login failed (non-JSON): HTTP 403` with HTML body containing `challenges.cloudflare.com` (when Cloudflare's WAF fires it before the request reaches Garmin's auth backend). Both surface the same way to users: dashboard data stops updating; the connection card shows `auth_required`.
+
+**The escalation that keeps the gate alive.** Every fresh SSO attempt from our App Service IP feeds the bot score. Without backoff, the scheduler retries every 10 min, the score never decays, and the gate stays hot indefinitely. This was the entire 2026-04-25 lockout — four users stuck for seven straight days because each scheduler tick fed the system that was rejecting them.
+
+**What actually clears it.** Stop the storm. PR #256's `_record_sync_failure` + `auth_required` terminal state is the load-bearing fix: once the scheduler stops retrying, Garmin/Cloudflare's bot scoring decays naturally over **hours to a day or two**. After that the regular headless flow works again on the same IP, same account, no code changes. Confirmed empirically with the affected users from the 2026-04-25 lockout.
+
+**What does NOT clear it (do not waste time on these).**
+
+- An interactive Playwright viewport relay so the user solves CAPTCHA in our IP context. Built and tested locally for ~4h before this conclusion. Cloudflare returns the "Just a moment…" challenge HTML on `/portal/api/login` regardless of headless-fingerprint patches (`navigator.webdriver`, `plugins`, WebGL renderer, etc.); the patches buy nothing because Cloudflare's challenge is keyed on TLS fingerprint, header order, and account history, not just JS-detectable signals. Closed PR #257 with this rationale; the worktree-only code is not in tree.
+- Switching to `camoufox` (Firefox-based stealth) is the next plausible escalation if interactive ever does become necessary, but the bar for needing it is high — it requires a stealth-vs-Cloudflare maintenance commitment we don't otherwise have.
+
+**User-facing recovery flow** (what to tell people in the `auth_required` state):
+
+1. Open `connect.garmin.com` in a real desktop browser, sign in successfully, complete any CAPTCHA shown. This clears any **account-level** flag the storm raised.
+2. Wait — overnight is usually enough; same-day works often. The gate is per-(IP, account) and decays without our intervention as long as the scheduler stays parked.
+3. Click **Reconnect** in Praxys Settings. The headless flow runs again; if it succeeds, `_upsert_connection_credentials` clears the backoff state and the scheduler resumes. If it still fails, wait another half-day and retry.
+
+The diagnostic to confirm a future "is this the same gate" is `scripts/garmin_diagnose.py login` — captured non-JSON HTML response with `challenges.cloudflare.com` references = same family. App Insights query `AppTraces | where Message has "All login strategies exhausted" or Message has "IP rate limited by Garmin"` shows the same pattern at the fleet level.
+
 ### Recovery RHR vs TRIMP threshold RHR
 
 Two different RHR values for two different purposes:
