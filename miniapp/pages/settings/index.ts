@@ -1,4 +1,4 @@
-import { setTabBarSelected, setTabBarTheme, refreshTabBarLocale } from '../../utils/tabbar';
+import { setTabBarSelected, setTabBarTheme } from '../../utils/tabbar';
 import { apiGet, apiPost, apiPut } from '../../utils/api-client';
 import type { ApiError } from '../../utils/api-client';
 import { clearToken } from '../../utils/auth';
@@ -11,7 +11,7 @@ import {
 import type { ThemePref } from '../../utils/theme';
 import type { IAppOption } from '../../app';
 import { getLanguagePreference, setLanguagePreference } from '../../utils/share';
-import { t, tFmt, detectLocale } from '../../utils/i18n';
+import { t, tFmt } from '../../utils/i18n';
 import type { SettingsResponse } from '../../types/api';
 import { MINIAPP_BUILD_VERSION } from '../../utils/version';
 
@@ -390,26 +390,26 @@ Page({
         if (!next || next === this.data.language) return;
         setLanguagePreference(next);
         // Best-effort backend sync so the web app sees the same language.
+        // Awaited (not fire-and-forget) so the reLaunch below doesn't
+        // race with an in-flight request that gets cancelled when the
+        // page tears down.
         try {
           await apiPut('/api/settings', { language: next });
         } catch (err) {
           // eslint-disable-next-line no-console
           console.warn('[settings] language backend sync failed:', err);
         }
-        // Live update — same approach as theme switching. The settings page
-        // rebuilds tr immediately; other pages rebuild in their guarded onShow.
-        // Tab bar labels are also refreshed immediately via the async shim.
-        getApp<IAppOption>().globalData.locale = next === 'auto'
-          ? detectLocale()
-          : next;
-        refreshTabBarLocale(this);
-        this.setData({
-          language: next,
-          languageLabel: languageLabelFor(next),
-          tr: buildSettingsTr(),
-        });
-        // Rebuild profile rows (labels + values) in the new locale.
-        void this.refetch();
+        // Brutal-but-reliable: reLaunch to Settings so every tab page
+        // (and its custom-tab-bar Component instance) tears down and
+        // rebuilds fresh in the new locale. The previous in-place
+        // approach relied on each tab's `pageLifetimes.show` drift
+        // check firing reliably across all five custom-tab-bar
+        // instances, which Skyline doesn't always honor — labels
+        // could stay stale on tabs the user hadn't visited since
+        // the language change. The reLaunch approach mirrors what
+        // the Login page does on locale switch and guarantees
+        // every surface reads the new preference on first paint.
+        wx.reLaunch({ url: '/pages/settings/index' });
       },
     });
   },
