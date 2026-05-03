@@ -65,6 +65,7 @@ _DEFAULT_LIMITS_RAW: dict[str, tuple[int, int]] = {
     "/api/auth/wechat/login":                (30, 5 * 60),
     "/api/auth/wechat/link-with-password":   (10, 15 * 60),
     "/api/auth/wechat/register":             (5, 60 * 60),
+    "/api/auth/waitlist":                    (5, 60 * 60),
 }
 DEFAULT_LIMITS: Mapping[str, tuple[int, int]] = MappingProxyType(
     _DEFAULT_LIMITS_RAW

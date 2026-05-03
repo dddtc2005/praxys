@@ -1,0 +1,938 @@
+/* ==========================================================================
+   Login — first-touch identity moment.
+
+   Layout: two-column 7:5 on desktop (paper-warm hero left, form right);
+   single column on mobile with a condensed hero collapsing to mark + wordmark.
+
+   Tokens: scoped to `.login-shell` so this page can lean a touch warmer than
+   the rest of the app without leaking. Falls back through to global theme
+   tokens for everything not overridden.
+   ========================================================================== */
+
+.login-shell {
+  /* Tokens snap to docs/brand/index.html and DESIGN.md frontmatter exactly.
+     Local --lg-* scope mirrors the project's per-page convention (see
+     Landing.css :root --l-*); only the values are brand-spec. */
+  --lg-paper: oklch(0.975 0.008 85);
+  --lg-paper-warm: oklch(0.955 0.012 85);
+  --lg-paper-deep: oklch(0.94 0.014 85);
+  --lg-ink: oklch(0.18 0.02 260);
+  --lg-ink-soft: oklch(0.40 0.02 260);
+  --lg-ink-ghost: oklch(0.60 0.015 260);
+  --lg-rule: oklch(0.85 0.008 85);
+  --lg-rule-soft: oklch(0.92 0.006 85);
+  --lg-card: oklch(0.99 0.004 85);
+  --lg-primary: oklch(0.55 0.16 155);
+  /* "ink" suffix matches the brand guide's deeper-pressed-state semantics
+     — not "deep". On light it darkens; on dark it lightens (so the hover
+     state always reads as "more energetic", not "less"). */
+  --lg-primary-ink: oklch(0.35 0.14 155);
+  --lg-cobalt: oklch(0.50 0.18 258);
+  --lg-cobalt-soft: oklch(0.90 0.04 258);
+
+  --lg-font-display: 'Geist Variable', 'DM Sans Variable', system-ui, sans-serif;
+  --lg-font-body: 'Geist Variable', 'DM Sans Variable', 'Noto Sans SC Variable', system-ui, sans-serif;
+  --lg-font-data: 'JetBrains Mono Variable', ui-monospace, monospace;
+
+  background: var(--lg-paper);
+  color: var(--lg-ink);
+  min-height: 100vh;
+  font-family: var(--lg-font-body);
+  position: relative;
+  overflow-x: clip;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+html[lang="zh"] .login-shell {
+  --lg-font-display: 'Noto Sans SC Variable', 'Geist Variable', sans-serif;
+  --lg-font-body: 'Noto Sans SC Variable', 'Geist Variable', sans-serif;
+}
+
+.dark .login-shell {
+  --lg-paper: oklch(0.17 0.013 260);
+  --lg-paper-warm: oklch(0.20 0.014 260);
+  --lg-paper-deep: oklch(0.23 0.014 260);
+  --lg-ink: oklch(0.96 0.006 260);
+  --lg-ink-soft: oklch(0.74 0.013 260);
+  --lg-ink-ghost: oklch(0.55 0.013 260);
+  --lg-rule: oklch(0.30 0.013 260);
+  --lg-rule-soft: oklch(0.25 0.013 260);
+  --lg-card: oklch(0.22 0.014 260);
+  --lg-primary: oklch(0.82 0.18 155);
+  /* On dark, primary-ink goes LIGHTER (0.88 > 0.82). The deeper-pressed
+     direction inverts so hover always reads as the "more confident" state
+     regardless of theme. */
+  --lg-primary-ink: oklch(0.88 0.18 155);
+  --lg-cobalt: oklch(0.74 0.14 258);
+  --lg-cobalt-soft: oklch(0.28 0.07 258);
+}
+
+/* ─── Layout: two-column on desktop, stack on mobile ──────────────────── */
+
+.login-shell {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 1024px) {
+  .login-shell {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  }
+}
+
+/* ─── Hero pane (left on desktop, condensed top on mobile) ────────────── */
+
+.login-hero {
+  position: relative;
+  background: var(--lg-paper-warm);
+  border-bottom: 1px solid var(--lg-rule);
+  padding: clamp(1.75rem, 4vw, 3rem) clamp(1.5rem, 5vw, 4rem);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+@media (min-width: 1024px) {
+  .login-hero {
+    border-right: 1px solid var(--lg-rule);
+    border-bottom: none;
+    padding: 4rem 4rem 3rem;
+    min-height: 100vh;
+  }
+}
+
+/* Atmosphere: a faint grid that echoes the brand mark's 48px construction
+   grid. Drifts slowly; paused under prefers-reduced-motion. */
+.login-hero::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background-image:
+    linear-gradient(to right, color-mix(in oklch, var(--lg-cobalt) 8%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklch, var(--lg-cobalt) 8%, transparent) 1px, transparent 1px);
+  background-size: 48px 48px;
+  background-position: 0 0;
+  mask-image: radial-gradient(ellipse 80% 70% at 30% 35%, black 0%, transparent 70%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 70% at 30% 35%, black 0%, transparent 70%);
+  pointer-events: none;
+  animation: lg-grid-drift 24s linear infinite;
+}
+
+.login-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  /* Aurora centers anchor in the left half of the hero so the gradients
+     don't bleed past the right-edge separator and read as a thin "green
+     stripe" against the form pane. The drift animation translates by
+     -18px which keeps both centers comfortably away from the seam. */
+  background:
+    radial-gradient(circle at 30% 105%, color-mix(in oklch, var(--lg-primary) 14%, transparent) 0%, transparent 50%),
+    radial-gradient(circle at 8% 5%, color-mix(in oklch, var(--lg-cobalt) 12%, transparent) 0%, transparent 45%);
+  /* Soft horizontal mask fades the aurora out before reaching the right
+     edge so the seam stays clean even when the drift translates right. */
+  mask-image: linear-gradient(to right, black 0%, black 70%, transparent 95%);
+  -webkit-mask-image: linear-gradient(to right, black 0%, black 70%, transparent 95%);
+  pointer-events: none;
+  animation: lg-aurora-drift 18s ease-in-out infinite alternate;
+}
+
+.dark .login-hero::after {
+  opacity: 0.7;
+}
+
+@keyframes lg-grid-drift {
+  from { background-position: 0 0; }
+  to   { background-position: 48px 48px; }
+}
+
+@keyframes lg-aurora-drift {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-18px, 8px, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-hero::before,
+  .login-hero::after {
+    animation: none;
+  }
+}
+
+/* Hero content rhythm */
+
+.login-hero-eyebrow {
+  position: relative;
+  z-index: 1;
+  font-family: var(--lg-font-data);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--lg-cobalt);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin: 0 0 clamp(2rem, 5vw, 3.25rem) 0;
+  width: fit-content;
+}
+
+.login-hero-eyebrow > .login-hero-eyebrow-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--lg-cobalt);
+  animation: lg-eyebrow-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes lg-eyebrow-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.4; transform: scale(0.7); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-hero-eyebrow > .login-hero-eyebrow-dot {
+    animation: none;
+  }
+}
+
+/* Mark + wordmark row */
+.login-mark-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: clamp(0.75rem, 2vw, 1.25rem);
+  margin: 0 0 clamp(1.25rem, 2.5vw, 1.75rem) 0;
+}
+
+.login-mark {
+  width: clamp(48px, 6vw, 80px);
+  height: clamp(48px, 6vw, 80px);
+  flex-shrink: 0;
+  /* Drawn-in animation: pole stroke first, then flag fill scales in */
+  animation: lg-mark-pole-in 700ms cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+
+.login-mark > .login-mark-pole {
+  stroke-dasharray: 40;
+  stroke-dashoffset: 40;
+  animation: lg-pole-draw 600ms cubic-bezier(0.65, 0, 0.35, 1) 80ms both;
+}
+
+.login-mark > .login-mark-flag {
+  transform-origin: 16px 14px;
+  transform: scale(0);
+  opacity: 0;
+  animation: lg-flag-fly 540ms cubic-bezier(0.34, 1.56, 0.64, 1) 380ms both;
+}
+
+@keyframes lg-mark-pole-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes lg-pole-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes lg-flag-fly {
+  0%   { transform: scale(0) rotate(-8deg); opacity: 0; }
+  100% { transform: scale(1) rotate(0deg);  opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-mark { animation: none; }
+  .login-mark > .login-mark-pole {
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+    animation: none;
+  }
+  .login-mark > .login-mark-flag {
+    transform: none;
+    opacity: 1;
+    animation: none;
+  }
+}
+
+.login-wordmark {
+  margin: 0;
+  font-family: var(--lg-font-display);
+  font-weight: 500;
+  font-size: clamp(2.75rem, 7vw, 5.5rem);
+  /* Brand-spec exact (docs/brand/index.html .cover-wordmark): -0.055em
+     letter-spacing, 0.86 line-height. Same values across every brand
+     surface so the wordmark reads consistent at any scale. */
+  letter-spacing: -0.055em;
+  line-height: 0.86;
+  color: var(--lg-ink);
+  display: inline-flex;
+  align-items: baseline;
+  /* Keep the six letters on one line even at extreme narrow viewports;
+     letter-spacing -0.055em + decorative ::after underline don't survive a
+     mid-word break. */
+  white-space: nowrap;
+}
+
+.login-wordmark > .login-wordmark-letter {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(0.6em);
+  animation: lg-letter-reveal 520ms cubic-bezier(0.215, 0.61, 0.355, 1) forwards;
+}
+
+.login-wordmark > .login-wordmark-letter:nth-child(1) { animation-delay: 200ms; }
+.login-wordmark > .login-wordmark-letter:nth-child(2) { animation-delay: 250ms; }
+.login-wordmark > .login-wordmark-letter:nth-child(3) { animation-delay: 300ms; }
+.login-wordmark > .login-wordmark-letter:nth-child(4) { animation-delay: 360ms; }
+.login-wordmark > .login-wordmark-letter:nth-child(5) { animation-delay: 410ms; }
+.login-wordmark > .login-wordmark-letter:nth-child(6) { animation-delay: 460ms; }
+
+.login-wordmark > .login-wordmark-x {
+  /* Brand spec is color-only on the accented x (docs/brand cover-wordmark
+     .accent { color: var(--primary); }). No underline decoration. */
+  color: var(--lg-primary);
+}
+
+@keyframes lg-letter-reveal {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-wordmark > .login-wordmark-letter {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+}
+
+/* Tagline — mirrors docs/brand/index.html .cover-tag */
+.login-tagline {
+  position: relative;
+  z-index: 1;
+  margin: 0 0 clamp(1.5rem, 3vw, 2.25rem) 0;
+  font-family: var(--lg-font-display);
+  font-weight: 400;
+  font-size: clamp(1rem, 1.6vw, 1.375rem);
+  line-height: 1.4;
+  letter-spacing: -0.02em;
+  color: var(--lg-ink-soft);
+  max-width: 32ch;
+  /* Distribute words across the two-line wrap optically instead of letting
+     a single word widow. Browsers without text-wrap fall back to default
+     greedy wrap, which is acceptable. */
+  text-wrap: balance;
+  opacity: 0;
+  animation: lg-fade-up 600ms cubic-bezier(0.215, 0.61, 0.355, 1) 760ms forwards;
+}
+
+.login-tagline-accent {
+  color: var(--lg-primary);
+  font-weight: 600;
+}
+
+@keyframes lg-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-tagline {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+}
+
+/* Three pillars — what Praxys does, structurally not feature-listy */
+.login-pillars {
+  position: relative;
+  z-index: 1;
+  list-style: none;
+  margin: 0 0 auto 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  border-top: 1px solid var(--lg-rule);
+  padding-top: clamp(1.25rem, 2.5vw, 1.75rem);
+  max-width: 38ch;
+}
+
+.login-pillars > .login-pillar {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  align-items: baseline;
+  gap: 0.625rem;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--lg-ink);
+  opacity: 0;
+  transform: translateY(6px);
+  animation: lg-fade-up 480ms cubic-bezier(0.215, 0.61, 0.355, 1) forwards;
+}
+
+.login-pillars > .login-pillar:nth-child(1) { animation-delay: 900ms; }
+.login-pillars > .login-pillar:nth-child(2) { animation-delay: 980ms; }
+.login-pillars > .login-pillar:nth-child(3) { animation-delay: 1060ms; }
+
+.login-pillars > .login-pillar > .login-pillar-tag {
+  font-family: var(--lg-font-data);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--lg-cobalt);
+  letter-spacing: 0.04em;
+}
+
+.login-pillars > .login-pillar > .login-pillar-text strong {
+  font-weight: 600;
+  color: var(--lg-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-pillars > .login-pillar {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+}
+
+/* ─── Form pane (right on desktop, below hero on mobile) ──────────────── */
+
+.login-form-pane {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(2rem, 5vw, 3rem) clamp(1.5rem, 5vw, 3rem);
+  background: var(--lg-paper);
+}
+
+@media (min-width: 1024px) {
+  .login-form-pane {
+    min-height: 100vh;
+  }
+}
+
+.login-form-inner {
+  width: 100%;
+  max-width: 24rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Mobile-only condensed brand row — desktop hides it because the hero pane
+   already carries the wordmark */
+.login-form-brand-mobile {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+@media (min-width: 1024px) {
+  .login-form-brand-mobile { display: none; }
+}
+
+.login-form-brand-mobile > .login-form-brand-mark {
+  width: 28px;
+  height: 28px;
+}
+
+.login-form-brand-mobile > .login-form-brand-name {
+  font-family: var(--lg-font-display);
+  font-weight: 500;
+  font-size: 1.125rem;
+  letter-spacing: -0.03em;
+  color: var(--lg-ink);
+}
+
+.login-form-brand-mobile > .login-form-brand-name > span {
+  color: var(--lg-primary);
+}
+
+/* Form heading */
+.login-form-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.login-form-heading > .login-form-eyebrow {
+  font-family: var(--lg-font-data);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--lg-ink-soft);
+}
+
+.login-form-heading > .login-form-title {
+  margin: 0;
+  font-family: var(--lg-font-display);
+  font-weight: 500;
+  font-size: 1.5rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--lg-ink);
+}
+
+/* Tabs row — flat, underline-active rather than pill */
+.login-tabs-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-bottom: 1px solid var(--lg-rule);
+  background: transparent;
+  padding: 0;
+  gap: 0;
+  height: auto;
+}
+
+.login-tabs-list > .login-tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  /* 0.75rem vertical padding gives ~46px tap target with the 15px line —
+     above the WCAG 2.5.5 44px floor at every supported viewport. */
+  padding: 0.75rem 0.5rem;
+  min-height: 44px;
+  font-family: var(--lg-font-display);
+  font-weight: 500;
+  font-size: 0.9375rem;
+  color: var(--lg-ink-ghost);
+  cursor: pointer;
+  transition: color 180ms ease-out, border-color 180ms ease-out;
+  position: relative;
+  margin-bottom: -1px;
+}
+
+.login-tabs-list > .login-tab:hover {
+  color: var(--lg-ink-soft);
+}
+
+.login-tabs-list > .login-tab[data-state="active"] {
+  color: var(--lg-ink);
+  border-bottom-color: var(--lg-primary);
+  font-weight: 600;
+}
+
+.login-tabs-list > .login-tab:focus-visible {
+  outline: 2px solid var(--lg-primary);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+
+/* Form layout — flat fields, no card */
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  /* Soft entrance whenever a tab content mounts */
+  animation: lg-fade-up 320ms cubic-bezier(0.215, 0.61, 0.355, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-form { animation: none; }
+}
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.login-field-label {
+  font-size: 0.8125rem;
+  color: var(--lg-ink-soft);
+  font-weight: 500;
+}
+
+.login-field-hint {
+  font-size: 0.6875rem;
+  color: var(--lg-ink-ghost);
+  font-family: var(--lg-font-data);
+  letter-spacing: 0.02em;
+}
+
+/* Inputs override shadcn defaults to lean toward the brand. Underline-on-
+   focus to give the form a "field notebook" feel rather than rounded boxes. */
+.login-input {
+  background: var(--lg-card);
+  border: 1px solid var(--lg-rule);
+  border-radius: 6px;
+  padding: 0.625rem 0.75rem;
+  font-family: var(--lg-font-body);
+  font-size: 0.9375rem;
+  color: var(--lg-ink);
+  width: 100%;
+  transition:
+    border-color 180ms ease-out,
+    box-shadow 220ms ease-out;
+}
+
+.login-input::placeholder {
+  color: var(--lg-ink-ghost);
+}
+
+.login-input:hover {
+  border-color: color-mix(in oklch, var(--lg-rule) 60%, var(--lg-ink-ghost));
+}
+
+.login-input:focus,
+.login-input:focus-visible {
+  outline: none;
+  border-color: var(--lg-primary);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--lg-primary) 20%, transparent);
+}
+
+.login-input.login-input-mono {
+  font-family: var(--lg-font-data);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.login-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Submit button — primary green, deep-press feel rather than soft.
+   Text uses paper (warm-tinted near-white) instead of pure white: matches
+   brand button-primary token, lifts contrast against the mid-green to
+   ~4.6:1 (passes AA for normal text), and never violates the
+   "tint every neutral" rule. */
+.login-submit {
+  margin-top: 0.5rem;
+  background: var(--lg-primary);
+  color: var(--lg-paper);
+  border: none;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  font-family: var(--lg-font-display);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition:
+    background 160ms ease-out,
+    transform 160ms cubic-bezier(0.215, 0.61, 0.355, 1),
+    box-shadow 220ms ease-out;
+  position: relative;
+  overflow: hidden;
+}
+
+.login-submit:hover:not(:disabled) {
+  background: var(--lg-primary-ink);
+}
+
+.login-submit:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.login-submit:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--lg-primary) 30%, transparent);
+}
+
+.login-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.login-submit > .login-submit-spinner {
+  display: inline-block;
+  width: 0.875rem;
+  height: 0.875rem;
+  border: 2px solid currentColor;
+  border-bottom-color: transparent;
+  border-radius: 999px;
+  animation: lg-spin 700ms linear infinite;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+}
+
+@keyframes lg-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Error banner — flat, clearly separated from fields */
+.login-error {
+  background: color-mix(in oklch, var(--destructive) 10%, var(--lg-card));
+  border: 1px solid color-mix(in oklch, var(--destructive) 35%, var(--lg-card));
+  border-radius: 6px;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--destructive);
+  line-height: 1.4;
+  animation: lg-shake 320ms ease-out;
+}
+
+@keyframes lg-shake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-3px); }
+  40%, 60% { transform: translateX(3px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-error { animation: none; }
+}
+
+/* Inter-tab link row — "Have a code?" / "Request invite" */
+.login-aside {
+  font-size: 0.8125rem;
+  color: var(--lg-ink-soft);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem;
+  line-height: 1.5;
+}
+
+.login-aside-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--lg-cobalt);
+  cursor: pointer;
+  text-decoration: none;
+  transition: opacity 160ms ease-out;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.2em;
+}
+
+.login-aside-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.login-aside-link::after {
+  content: '→';
+  font-family: var(--lg-font-data);
+  font-size: 0.875em;
+  transition: transform 200ms cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+
+.login-aside-link:hover::after {
+  transform: translateX(2px);
+}
+
+/* Waitlist intro card — flat, no shadow, hairline border */
+.login-waitlist-intro {
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--lg-ink-soft);
+  background: var(--lg-paper-warm);
+  border: 1px solid var(--lg-rule-soft);
+  border-radius: 8px;
+  padding: 0.875rem 1rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.375rem;
+}
+
+.login-waitlist-intro > .login-waitlist-intro-headline {
+  font-family: var(--lg-font-display);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--lg-ink);
+  letter-spacing: -0.005em;
+}
+
+/* Waitlist success state — paper-tinted with a small primary check */
+.login-waitlist-success {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 0.625rem;
+  align-items: start;
+  background: color-mix(in oklch, var(--lg-primary) 8%, var(--lg-card));
+  border: 1px solid color-mix(in oklch, var(--lg-primary) 30%, var(--lg-card));
+  border-radius: 8px;
+  padding: 0.875rem 1rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--lg-ink);
+  animation: lg-fade-up 360ms cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+
+.login-waitlist-success > .login-waitlist-success-mark {
+  color: var(--lg-primary);
+  font-family: var(--lg-font-data);
+  font-weight: 700;
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.login-waitlist-success > .login-waitlist-success-body strong {
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-waitlist-success { animation: none; }
+}
+
+/* Form footer — locale toggle, theme toggle, support email */
+.login-form-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px dashed var(--lg-rule);
+  font-size: 0.75rem;
+  color: var(--lg-ink-ghost);
+}
+
+.login-form-foot a {
+  color: var(--lg-cobalt);
+  text-decoration: none;
+}
+
+.login-form-foot a:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.login-form-foot-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.login-form-foot-button {
+  background: none;
+  border: 1px solid var(--lg-rule);
+  border-radius: 999px;
+  /* On mobile these become primary controls — bump to a 44×44 minimum
+     tap target (WCAG 2.5.5). On desktop they stay compact since they're
+     mouse-driven and the larger size would overpower the form footer. */
+  padding: 0.375rem 0.75rem;
+  min-height: 28px;
+  min-width: 36px;
+  font-family: var(--lg-font-data);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--lg-ink-soft);
+  cursor: pointer;
+  transition: border-color 160ms ease-out, color 160ms ease-out, background 160ms ease-out;
+}
+
+@media (max-width: 1023px) {
+  .login-form-foot-button {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0.5rem 0.875rem;
+    font-size: 12px;
+  }
+}
+
+.login-form-foot-button:hover {
+  border-color: var(--lg-ink-soft);
+  color: var(--lg-ink);
+}
+
+.login-form-foot-button:focus-visible {
+  outline: 2px solid var(--lg-primary);
+  outline-offset: 2px;
+}
+
+.login-form-foot-button.login-form-foot-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Override the px-heavy text padding so the SVG isn't cramped */
+  padding: 0.375rem;
+}
+
+.login-form-foot-button.login-form-foot-icon > svg {
+  width: 14px;
+  height: 14px;
+}
+
+@media (max-width: 1023px) {
+  .login-form-foot-button.login-form-foot-icon {
+    padding: 0.5rem;
+  }
+  .login-form-foot-button.login-form-foot-icon > svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+/* CLI callback banner — only appears when ?cli_callback=... is present */
+.login-cli-banner {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  gap: 0.5rem;
+  align-items: center;
+  background: color-mix(in oklch, var(--lg-cobalt) 8%, var(--lg-card));
+  border: 1px solid color-mix(in oklch, var(--lg-cobalt) 30%, var(--lg-card));
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--lg-cobalt);
+  font-family: var(--lg-font-data);
+  letter-spacing: 0.02em;
+}
+
+.login-cli-banner > .login-cli-banner-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--lg-cobalt);
+  align-self: center;
+  justify-self: center;
+}
+
+/* ─── Windows high-contrast / forced-colors mode ─────────────────────────
+   The decorative grid + aurora are replaced by the system canvas, which
+   strips our gradients and turns the hero pane into a flat sheet. Drop
+   the decorative layers, replace cobalt-tinted accents with system
+   semantic colors so everything stays legible. */
+@media (forced-colors: active) {
+  .login-hero::before,
+  .login-hero::after {
+    display: none;
+  }
+  .login-hero,
+  .login-form-pane {
+    background: Canvas;
+    color: CanvasText;
+    border-color: CanvasText;
+  }
+  .login-input {
+    border-color: CanvasText;
+  }
+  .login-input:focus,
+  .login-input:focus-visible {
+    border-color: Highlight;
+    outline: 2px solid Highlight;
+  }
+  .login-submit {
+    background: Highlight;
+    color: HighlightText;
+    border: 1px solid Highlight;
+    forced-color-adjust: none;
+  }
+  .login-tabs-list > .login-tab[data-state="active"] {
+    border-bottom-color: Highlight;
+  }
+  .login-aside-link,
+  .login-form-foot a,
+  .login-hero-eyebrow,
+  .login-pillars > .login-pillar > .login-pillar-tag {
+    color: LinkText;
+  }
+  .login-error {
+    border-color: CanvasText;
+    color: CanvasText;
+    background: Canvas;
+  }
+}
+

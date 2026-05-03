@@ -158,6 +158,10 @@ app.include_router(
 from api.routes.register import register_router
 app.include_router(register_router, prefix="/api/auth", tags=["auth"])
 
+# Private-alpha waitlist signup (rate-limited via auth_rate_limit middleware)
+from api.routes.waitlist import waitlist_router
+app.include_router(waitlist_router, prefix="/api/auth", tags=["auth"])
+
 # WeChat Mini Program auth (login / link / register)
 from api.routes.wechat import router as wechat_auth_router
 app.include_router(wechat_auth_router, prefix="/api")
