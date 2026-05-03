@@ -1,17 +1,16 @@
-# Minimum 0.3.4 for Cloudflare-compatible SSO (browser-like User-Agent
-# headers + curl_cffi for TLS fingerprinting; earlier versions pull in
-# garth <0.7 which sends GCM-iOS-5.7.2.1 as the UA with no browser
-# headers and auto-retries on 429, which Cloudflare rejects) AND for the
-# CN DI token endpoint fix (PR #360 — `_di_token_url` is now a
-# domain-aware instance attribute), which lets the workaround in
-# api/routes/sync.py shrink to just the JWT_WEB fallback.
+# Minimum 0.3.0 for Cloudflare-compatible SSO (browser-like User-Agent
+# headers + curl_cffi for TLS fingerprinting). Earlier versions pull in
+# garth <0.7, which sends GCM-iOS-5.7.2.1 as the UA with no browser
+# headers and auto-retries on 429 — Cloudflare rejects that and escalates
+# the block.
 #
-# Upper-pinned at <0.4 because the remaining workaround still couples to
-# library-private symbols (_portal_web_login_cffi) and to the exact
-# exception text "JWT_WEB cookie not set after ticket consumption". A
-# minor-version bump can rename either. Re-validate with
+# Upper-pinned at <0.4 because the CN workaround in api/routes/sync.py
+# couples to library-private symbols (_exchange_service_ticket,
+# _refresh_di_token, _portal_web_login_cffi, DI_TOKEN_URL) and to the
+# exact exception text "JWT_WEB cookie not set after ticket consumption".
+# A minor-version bump can rename any of these. Re-validate with
 # scripts/garmin_diagnose.py before loosening this bound.
-garminconnect>=0.3.4,<0.4.0
+garminconnect>=0.3.3,<0.4.0
 requests>=2.33.1
 python-dotenv>=1.0.0
 pandas>=2.1.0
@@ -37,9 +36,6 @@ httpx>=0.27.0
 # local dev is unaffected. The distro bundles the OTel instrumentations
 # for FastAPI, requests, SQLAlchemy, and logging.
 azure-monitor-opentelemetry>=1.6.0
-
-# FIT file parsing for COROS activity detail (laps + trackpoints)
-fitparse>=0.6.0
 
 # Azure OpenAI client used by api/llm.py for the post-sync Coach insight
 # generator. >=1.50.0 because chat_json passes max_completion_tokens
