@@ -52,4 +52,4 @@ openai>=1.50.0
 # Headless Chromium via Playwright is used by scripts/generate_og_card.py
 # to rasterize web/public/og-card*.html into PNGs for OpenGraph / WeChat
 # share previews. See that script's docstring for setup/run notes.
-playwright==1.58.0
+playwright==1.59.0
