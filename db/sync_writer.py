@@ -585,12 +585,12 @@ def write_training_plan(user_id: str, rows: list[dict], source: str,
                         db: Session) -> int:
     """Write training plan rows to DB. Returns count of new + updated.
 
-    Existing rows on the same (user, date, source, workout_type) get
-    their `external_id` refreshed if the incoming row has one — needed
-    so `/api/plan` can detect mismatches against Stryd's calendar
-    after the `external_id` column was added. Without the refresh, all
-    pre-existing Stryd rows would stay null and look like external
-    user-created workouts forever.
+    Platform rows reconcile by `external_id` (Stryd's stable workout id):
+    a matching row is updated in place — including its date — so a
+    rescheduled or tz-corrected workout moves instead of leaving a stale
+    duplicate at the old date. Rows without an external_id fall back to
+    matching on (date, type). `external_id` is refreshed but never
+    cleared, so a transient gap can't drop a known id.
     """
     if not rows:
         return 0
@@ -601,21 +601,63 @@ def write_training_plan(user_id: str, rows: list[dict], source: str,
             continue
         wt = _str(row.get("workout_type"))
         new_external_id = _str(row.get("external_id")) or None
-        existing = db.query(TrainingPlan).filter(
-            TrainingPlan.user_id == user_id,
-            TrainingPlan.date == d,
-            TrainingPlan.source == source,
-            TrainingPlan.workout_type == wt,
-        ).first()
+        # Reconcile by external_id first when present: a workout keeps its
+        # Stryd id across reschedules, so matching on it lets a moved date
+        # update in place instead of orphaning the old row at the stale
+        # date. Match on (date, type) only as a fallback for legacy rows
+        # without an external_id. Dedupe any same-id duplicates a prior
+        # date-keyed sync may have created.
+        existing = None
+        if new_external_id:
+            matches = db.query(TrainingPlan).filter(
+                TrainingPlan.user_id == user_id,
+                TrainingPlan.source == source,
+                TrainingPlan.external_id == new_external_id,
+            ).order_by(TrainingPlan.id).all()
+            if matches:
+                existing = matches[0]
+                for extra in matches[1:]:
+                    db.delete(extra)
+                    count += 1
+                # Flush deletes before mutating the survivor: the survivor may
+                # move into a date a duplicate just vacated, and SQLAlchemy
+                # would otherwise issue the UPDATE before the DELETE, tripping
+                # the (user, date, source, type) unique constraint.
+                if len(matches) > 1:
+                    db.flush()
+        if existing is None:
+            existing = db.query(TrainingPlan).filter(
+                TrainingPlan.user_id == user_id,
+                TrainingPlan.date == d,
+                TrainingPlan.source == source,
+                TrainingPlan.workout_type == wt,
+            ).first()
         if existing:
-            # Backfill external_id on rows that pre-date the column.
-            # Intentionally one-way: once an ``external_id`` is set we
-            # never clear it (``new_external_id`` only overwrites when
-            # it's truthy). A future Stryd response that omits the id
-            # for the same workout — older API revision, partial
-            # response — must not drop known data on a transient gap.
+            changed = False
+            # Stryd is source of truth for platform rows: move the date and
+            # refresh fields so reschedules and the tz date fix propagate.
+            if existing.date != d:
+                existing.date = d
+                changed = True
+            if wt and existing.workout_type != wt:
+                existing.workout_type = wt
+                changed = True
+            for attr, val in (
+                ("planned_duration_min", _float(row.get("planned_duration_min"))),
+                ("planned_distance_km", _float(row.get("planned_distance_km"))),
+                ("target_power_min", _float(row.get("target_power_min"))),
+                ("target_power_max", _float(row.get("target_power_max"))),
+                ("workout_description", _str(row.get("workout_description"))),
+            ):
+                if val not in (None, "") and getattr(existing, attr) != val:
+                    setattr(existing, attr, val)
+                    changed = True
+            # Backfill external_id one-way: never clear a known id on a
+            # transient gap (older API revision / partial response).
             if new_external_id and existing.external_id != new_external_id:
                 existing.external_id = new_external_id
+                changed = True
+            if changed:
                 count += 1
             continue
         db.add(TrainingPlan(
