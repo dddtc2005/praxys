@@ -1246,7 +1246,7 @@ msgstr "链接 URL（可选）"
 msgid "Link your training devices and services"
 msgstr "关联您的训练设备与服务"
 
-#: src/components/Layout.tsx:31
+#: src/components/Layout.tsx:34
 msgid "Live demo — real training data, read-only"
 msgstr "直播演示 — 真实训练数据，只读"
 
