@@ -75,14 +75,14 @@ jobs:
 
       - name: Comment on PR about parity gap
         if: steps.parity.outputs.has_gap == 'true'
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3
         with:
           header: parity-check
           message: ${{ steps.parity.outputs.message }}
 
       - name: Clear parity comment when no gap
         if: steps.parity.outputs.has_gap == 'false'
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3
         with:
           header: parity-check
           delete: true
