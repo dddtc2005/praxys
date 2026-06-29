@@ -41,7 +41,7 @@ msgid "{0, plural, one {# recommendation} other {# recommendations}}"
 msgstr "{0, plural, one {# recommendation} other {# recommendations}}"
 
 #. placeholder {0}: data.workouts.length
-#: src/components/UpcomingPlanCard.tsx:617
+#: src/components/UpcomingPlanCard.tsx:620
 msgid "{0, plural, one {# workout} other {# workouts}}"
 msgstr "{0, plural, one {# workout} other {# workouts}}"
 
@@ -131,7 +131,7 @@ msgstr "~{estimatedActivities} activities, ~{estimatedMinutes} min"
 msgid "1 month"
 msgstr "1 month"
 
-#: src/components/UpcomingPlanCard.tsx:341
+#: src/components/UpcomingPlanCard.tsx:344
 msgid "1 wk"
 msgstr "1 wk"
 
@@ -164,7 +164,7 @@ msgstr "10K"
 msgid "1Y"
 msgstr "1Y"
 
-#: src/components/UpcomingPlanCard.tsx:342
+#: src/components/UpcomingPlanCard.tsx:345
 msgid "2 wk"
 msgstr "2 wk"
 
@@ -176,7 +176,7 @@ msgstr "3 months"
 msgid "3M"
 msgstr "3M"
 
-#: src/components/UpcomingPlanCard.tsx:343
+#: src/components/UpcomingPlanCard.tsx:346
 msgid "4 wk"
 msgstr "4 wk"
 
@@ -289,7 +289,7 @@ msgstr "Aerobic"
 msgid "All"
 msgstr "All"
 
-#: src/components/UpcomingPlanCard.tsx:636
+#: src/components/UpcomingPlanCard.tsx:639
 msgid "All synced"
 msgstr "All synced"
 
@@ -725,7 +725,7 @@ msgstr "Demote to User"
 msgid "Diagnosis"
 msgstr "Diagnosis"
 
-#: src/components/UpcomingPlanCard.tsx:198
+#: src/components/UpcomingPlanCard.tsx:201
 msgid "Differs · overwrite"
 msgstr "Differs · overwrite"
 
@@ -917,7 +917,7 @@ msgstr "Failed to load settings"
 msgid "Failed to load training data"
 msgstr "Failed to load training data"
 
-#: src/components/UpcomingPlanCard.tsx:583
+#: src/components/UpcomingPlanCard.tsx:586
 msgid "Failed to load training plan"
 msgstr "Failed to load training plan"
 
@@ -1020,7 +1020,7 @@ msgstr "From {dataAsOfLabel}"
 msgid "From activities"
 msgstr "From activities"
 
-#: src/components/UpcomingPlanCard.tsx:159
+#: src/components/UpcomingPlanCard.tsx:162
 msgid "From Stryd"
 msgstr "From Stryd"
 
@@ -1492,7 +1492,7 @@ msgstr "No split data available."
 msgid "No Workout"
 msgstr "No Workout"
 
-#: src/components/UpcomingPlanCard.tsx:661
+#: src/components/UpcomingPlanCard.tsx:664
 msgid "No workouts scheduled in this window."
 msgstr "No workouts scheduled in this window."
 
@@ -1573,7 +1573,7 @@ msgstr "Other Signals"
 msgid "overnight score"
 msgstr "overnight score"
 
-#: src/components/UpcomingPlanCard.tsx:194
+#: src/components/UpcomingPlanCard.tsx:197
 msgid "Overwrite Stryd with Praxys version"
 msgstr "Overwrite Stryd with Praxys version"
 
@@ -1609,7 +1609,7 @@ msgstr "Plan"
 msgid "Plan sync target"
 msgstr "Plan sync target"
 
-#: src/components/UpcomingPlanCard.tsx:348
+#: src/components/UpcomingPlanCard.tsx:351
 msgid "Plan window"
 msgstr "Plan window"
 
@@ -1740,16 +1740,16 @@ msgstr "Pull your latest activities, power data, and recovery metrics"
 #~ msgid "Push failed"
 #~ msgstr "Push failed"
 
-#: src/components/UpcomingPlanCard.tsx:178
+#: src/components/UpcomingPlanCard.tsx:181
 msgid "Push failed — click to retry"
 msgstr "Push failed — click to retry"
 
-#: src/components/UpcomingPlanCard.tsx:227
+#: src/components/UpcomingPlanCard.tsx:230
 msgid "Push this workout to your Stryd calendar."
 msgstr "Push this workout to your Stryd calendar."
 
-#: src/components/UpcomingPlanCard.tsx:228
-#: src/components/UpcomingPlanCard.tsx:641
+#: src/components/UpcomingPlanCard.tsx:231
+#: src/components/UpcomingPlanCard.tsx:644
 msgid "Push to Stryd"
 msgstr "Push to Stryd"
 
@@ -1757,7 +1757,7 @@ msgstr "Push to Stryd"
 #~ msgid "Pushing..."
 #~ msgstr "Pushing..."
 
-#: src/components/UpcomingPlanCard.tsx:631
+#: src/components/UpcomingPlanCard.tsx:634
 msgid "Pushing…"
 msgstr "Pushing…"
 
@@ -1793,7 +1793,7 @@ msgstr "Race Prediction"
 #~ msgid "Range"
 #~ msgstr "Range"
 
-#: src/components/UpcomingPlanCard.tsx:212
+#: src/components/UpcomingPlanCard.tsx:215
 msgid "Re-push to Stryd"
 msgstr "Re-push to Stryd"
 
@@ -1927,8 +1927,8 @@ msgstr "Rest day. No workout scheduled."
 msgid "Resting HR"
 msgstr "Resting HR"
 
-#: src/components/UpcomingPlanCard.tsx:183
-#: src/components/UpcomingPlanCard.tsx:586
+#: src/components/UpcomingPlanCard.tsx:186
+#: src/components/UpcomingPlanCard.tsx:589
 #: src/pages/Goal.tsx:443
 #: src/pages/History.tsx:53
 #: src/pages/Settings.tsx:319
@@ -1937,7 +1937,7 @@ msgstr "Resting HR"
 msgid "Retry"
 msgstr "Retry"
 
-#: src/components/UpcomingPlanCard.tsx:179
+#: src/components/UpcomingPlanCard.tsx:182
 msgid "Retry push to Stryd"
 msgstr "Retry push to Stryd"
 
@@ -2225,7 +2225,7 @@ msgstr "Sync history"
 msgid "Sync now"
 msgstr "Sync now"
 
-#: src/components/UpcomingPlanCard.tsx:232
+#: src/components/UpcomingPlanCard.tsx:235
 msgid "Sync to Stryd"
 msgstr "Sync to Stryd"
 
@@ -2234,12 +2234,12 @@ msgstr "Sync to Stryd"
 msgid "Sync your data"
 msgstr "Sync your data"
 
-#: src/components/UpcomingPlanCard.tsx:217
+#: src/components/UpcomingPlanCard.tsx:220
 #: src/pages/Settings.tsx:808
 msgid "Synced"
 msgstr "Synced"
 
-#: src/components/UpcomingPlanCard.tsx:211
+#: src/components/UpcomingPlanCard.tsx:214
 msgid "Synced to Stryd. Click to re-push."
 msgstr "Synced to Stryd. Click to re-push."
 
@@ -2251,7 +2251,7 @@ msgstr "Syncing"
 msgid "Syncing..."
 msgstr "Syncing..."
 
-#: src/components/UpcomingPlanCard.tsx:168
+#: src/components/UpcomingPlanCard.tsx:171
 #: src/pages/Today.tsx:367
 #: src/pages/Today.tsx:389
 msgid "Syncing…"
@@ -2307,11 +2307,11 @@ msgstr "Theme"
 msgid "This will permanently delete <0>{0}</0> and all their data (activities, config, connections, plans). This cannot be undone."
 msgstr "This will permanently delete <0>{0}</0> and all their data (activities, config, connections, plans). This cannot be undone."
 
-#: src/components/UpcomingPlanCard.tsx:193
+#: src/components/UpcomingPlanCard.tsx:196
 msgid "This workout differs on Stryd — click to overwrite with the Praxys version."
 msgstr "This workout differs on Stryd — click to overwrite with the Praxys version."
 
-#: src/components/UpcomingPlanCard.tsx:157
+#: src/components/UpcomingPlanCard.tsx:160
 msgid "This workout was imported from Stryd."
 msgstr "This workout was imported from Stryd."
 
@@ -2353,7 +2353,7 @@ msgstr "To target"
 msgid "Today"
 msgstr "Today"
 
-#: src/components/UpcomingPlanCard.tsx:275
+#: src/components/UpcomingPlanCard.tsx:278
 msgid "TODAY"
 msgstr "TODAY"
 
@@ -2414,7 +2414,7 @@ msgstr "Training Zones"
 msgid "Translates training stress into fitness."
 msgstr "Translates training stress into fitness."
 
-#: src/components/UpcomingPlanCard.tsx:655
+#: src/components/UpcomingPlanCard.tsx:658
 msgid "Try a longer window above."
 msgstr "Try a longer window above."
 
@@ -2434,7 +2434,7 @@ msgstr "Ultra distance power fractions (50K+) are estimates with limited researc
 msgid "Units"
 msgstr "Units"
 
-#: src/components/UpcomingPlanCard.tsx:610
+#: src/components/UpcomingPlanCard.tsx:613
 msgid "Upcoming Plan"
 msgstr "Upcoming Plan"
 

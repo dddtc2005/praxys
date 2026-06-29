@@ -315,6 +315,7 @@ def fetch_training_plan_api(
     token: str,
     cp_watts: float | None = None,
     days_ahead: int = 14,
+    tz_name: str | None = None,
 ) -> list[dict]:
     """Fetch upcoming planned workouts from the Stryd calendar API.
 
@@ -357,10 +358,13 @@ def fetch_training_plan_api(
         # the workout's local timezone first - matching activity parsing above -
         # so the calendar day matches what the user scheduled.
         date_str = item.get("date", "")
-        tz_name = item.get("time_zone", "")
+        # Prefer the workout's own tz; fall back to the caller-supplied tz
+        # (the athlete's tz from a recent activity). Without this, a UTC
+        # server truncates a local-midnight workout to the prior day.
+        item_tz = item.get("time_zone", "") or tz_name
         try:
             from zoneinfo import ZoneInfo
-            local_tz = ZoneInfo(tz_name) if tz_name else None
+            local_tz = ZoneInfo(item_tz) if item_tz else None
         except (ImportError, KeyError):
             local_tz = None
         try:
@@ -440,6 +444,8 @@ def fetch_training_plan_api(
             "target_power_max": power_max,
             "workout_description": description,
             "external_id": str(external_id) if external_id else "",
+            # Absolute instant; the day is derived client-side in viewer tz.
+            "start_time": date_str,
         }
         logger.debug(f"    {workout_date} — {workout_type} ({duration_min}min, {distance_km}km) [id={external_id}]")
         rows.append(row)

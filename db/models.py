@@ -408,6 +408,11 @@ class TrainingPlan(Base):
     # the platform has a workout with a different external_id on that
     # date, it's user-created (mismatch).
     external_id = Column(String(100), nullable=True)
+    # Absolute UTC instant of the workout start, as Stryd serializes it
+    # ("2026-06-29T16:00:00Z"). The canonical source for which calendar day
+    # a workout belongs to: clients bucket it in the viewer's tz. `date` is
+    # a server-truncated fallback for backend windowing and legacy rows.
+    start_time = Column(DateTime, nullable=True)
     meta = Column(JSON, nullable=True)  # for AI plans: generated_at, cp_at_generation
 
     __table_args__ = (

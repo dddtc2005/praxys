@@ -873,8 +873,12 @@ def _sync_stryd(user_id: str, creds: dict, from_date: str | None,
             ))
             cp_count += 1
 
-    # Training plan
-    plan_rows = fetch_training_plan_api(stryd_user_id, token)
+    # Training plan. Derive the athlete's tz from a recent activity so plan
+    # dates resolve to the user's local day even when the server runs UTC
+    # (Stryd serializes a local-midnight workout as UTC; truncating in UTC
+    # drops a day east of UTC).
+    user_tz = next((a.get("time_zone") for a in _raw if a.get("time_zone")), None)
+    plan_rows = fetch_training_plan_api(stryd_user_id, token, tz_name=user_tz)
     plan_count = sync_writer.write_training_plan(user_id, plan_rows, "stryd", db)
 
     return {"activities": act_count, "splits": split_count, "cp_estimates": cp_count, "plan": plan_count}

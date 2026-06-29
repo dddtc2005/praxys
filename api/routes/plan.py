@@ -279,6 +279,11 @@ def _row_to_workout(row, *, source: str) -> dict:
         "source": source,
         "workout_type": row.get("workout_type", ""),
     }
+    st = row.get("start_time")
+    if pd.notna(st) and st != "":
+        # Absolute instant; client buckets the day in viewer tz.
+        iso = st.isoformat() if hasattr(st, "isoformat") else str(st)
+        workout["start_time"] = iso if iso.endswith("Z") or "+" in iso else iso + "Z"
     for field, csv_col in (
         ("duration_min", "planned_duration_min"),
         ("distance_km", "planned_distance_km"),

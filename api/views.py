@@ -83,11 +83,19 @@ def upcoming_workouts(plan_df: pd.DataFrame | None, limit: int = 3) -> list[dict
             duration_min = float(dur) if pd.notna(dur) and dur != "" else None
         except (ValueError, TypeError):
             duration_min = None
+        st = row.get("start_time")
+        st_iso = None
+        if hasattr(st, "isoformat"):
+            st_iso = st.isoformat()
+            st_iso = st_iso if st_iso.endswith("Z") or "+" in st_iso else st_iso + "Z"
+        elif pd.notna(st) and st != "":
+            st_iso = str(st)
         result.append({
             "date": row["date_str"],
             "workout_type": str(row.get("workout_type", "")),
             "duration_min": duration_min,
             "description": str(row.get("workout_description", "")),
+            "start_time": st_iso,
         })
     return result
 

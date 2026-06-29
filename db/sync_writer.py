@@ -40,6 +40,22 @@ def _str(val) -> str | None:
     return str(val)
 
 
+def _parse_dt(val) -> datetime | None:
+    """Parse an ISO instant ("2026-06-29T16:00:00Z") to a naive-UTC datetime."""
+    if val is None or val == "":
+        return None
+    if isinstance(val, datetime):
+        return val
+    try:
+        dt = datetime.fromisoformat(str(val).replace("Z", "+00:00"))
+        if dt.tzinfo is not None:
+            from datetime import timezone
+            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+        return dt
+    except (ValueError, TypeError):
+        return None
+
+
 # Columns that may be missing on pre-existing rows from an older sync (e.g.
 # native Garmin running power wasn't parsed before PR #62). A re-sync should
 # fill these in without touching columns that were already populated —
@@ -664,6 +680,7 @@ def write_training_plan(user_id: str, rows: list[dict], source: str,
                 ("target_power_min", _float(row.get("target_power_min"))),
                 ("target_power_max", _float(row.get("target_power_max"))),
                 ("workout_description", _str(row.get("workout_description"))),
+                ("start_time", _parse_dt(row.get("start_time"))),
             ):
                 if val not in (None, "") and getattr(existing, attr) != val:
                     setattr(existing, attr, val)
@@ -685,6 +702,7 @@ def write_training_plan(user_id: str, rows: list[dict], source: str,
             target_power_max=_float(row.get("target_power_max")),
             workout_description=_str(row.get("workout_description")),
             external_id=new_external_id,
+            start_time=_parse_dt(row.get("start_time")),
         ))
         count += 1
     if count > 0:

@@ -63,11 +63,14 @@ function formatType(type: string): string {
     .join(' ');
 }
 
-function formatDate(dateStr: string, locale: string): { day: string; weekday: string; isToday: boolean } {
-  const d = new Date(dateStr + 'T00:00:00');
+function formatDate(dateStr: string, locale: string, startTime?: string | null): { day: string; weekday: string; isToday: boolean } {
+  // Bucket the day from the absolute instant in the viewer's tz; the
+  // truncated `date` is a fallback for legacy rows without start_time.
+  const d = startTime ? new Date(startTime) : new Date(dateStr + 'T00:00:00');
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const isToday = d.getTime() === today.getTime();
+  const dd = new Date(d); dd.setHours(0, 0, 0, 0);
+  const isToday = dd.getTime() === today.getTime();
   return {
     day: d.getDate().toString().padStart(2, '0'),
     weekday: d.toLocaleDateString(locale === 'zh' ? 'zh-CN' : 'en-US', { weekday: 'short' }).toUpperCase(),
@@ -249,7 +252,7 @@ function WorkoutRow({
 }) {
   const { t } = useLingui();
   const { locale } = useLocale();
-  const { day, weekday, isToday } = formatDate(workout.date, locale);
+  const { day, weekday, isToday } = formatDate(workout.date, locale, workout.start_time);
   const color = getTypeColor(workout.workout_type);
   const isRest = workout.workout_type.toLowerCase() === 'rest';
 

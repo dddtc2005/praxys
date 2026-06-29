@@ -208,6 +208,8 @@ export type PlanWorkoutSource = 'ai' | 'stryd';
 
 export interface PlannedWorkout {
   date: string;
+  /** Absolute UTC instant of workout start; bucket the day in viewer tz. */
+  start_time?: string | null;
   workout_type: string;
   duration_min?: number;
   distance_km?: number;
@@ -316,6 +318,8 @@ export interface WeekLoad {
 
 export interface UpcomingWorkout {
   date: string;
+  /** Absolute UTC instant of workout start; bucket the day in viewer tz. */
+  start_time?: string | null;
   workout_type: string;
   duration_min: number | null;
 }

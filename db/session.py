@@ -134,6 +134,7 @@ def init_db():
         ("user_connections", "next_retry_at", "DATETIME DEFAULT NULL"),
         ("user_connections", "last_error", "VARCHAR(500) DEFAULT NULL"),
         ("training_plans", "external_id", "VARCHAR(100) DEFAULT NULL"),
+        ("training_plans", "start_time", "DATETIME DEFAULT NULL"),
     ]
     _indexes = [
         # (index_name, table, column, unique)

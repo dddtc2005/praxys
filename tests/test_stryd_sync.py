@@ -80,3 +80,20 @@ def test_fetch_training_plan_date_uses_local_timezone(mock_get):
 
     assert len(rows) == 1
     assert rows[0]["date"] == "2026-04-07"
+
+
+@patch("sync.stryd_sync.requests.get")
+def test_fetch_training_plan_tz_name_fallback_on_utc_server(mock_get):
+    """When the item has no time_zone, the caller-supplied athlete tz must
+    still pull the date into local time so a UTC server doesn't drop a day."""
+    workout = {
+        "deleted": False,
+        "date": "2026-06-29T16:00:00Z",  # Tue 00:00 +08:00 == Mon 16:00Z
+        "workout": {"title": "Time Trial", "type": "time trial", "blocks": []},
+    }
+    mock_get.return_value = MagicMock(
+        json=MagicMock(return_value={"workouts": [workout]}),
+        raise_for_status=MagicMock(),
+    )
+    rows = fetch_training_plan_api("u", "t", tz_name="Asia/Shanghai")
+    assert rows[0]["date"] == "2026-06-30"

@@ -409,6 +409,22 @@ def test_write_training_plan_moves_date_by_external_id(db_with_user):
     assert rows[0].date == today + timedelta(days=1)
 
 
+def test_write_training_plan_persists_start_time_instant(db_with_user):
+    """The absolute Stryd instant is stored so clients bucket the local day."""
+    from db import sync_writer
+    from db.models import TrainingPlan
+
+    db, user_id = db_with_user
+    sync_writer.write_training_plan(user_id, [{
+        "date": "2026-06-30", "workout_type": "time trial",
+        "external_id": "tt-9", "start_time": "2026-06-29T16:00:00Z",
+    }], "stryd", db)
+    db.commit()
+    r = db.query(TrainingPlan).filter(TrainingPlan.external_id == "tt-9").one()
+    assert r.start_time is not None
+    assert r.start_time.hour == 16 and r.start_time.day == 29
+
+
 def test_write_training_plan_dedupes_stale_duplicate(db_with_user):
     """A pre-existing stale row + new correct row collapse to one on re-sync."""
     from db import sync_writer
@@ -462,3 +478,16 @@ def test_write_training_plan_move_displaces_different_id_at_target(db_with_user)
     assert len(rows) == 1
     assert rows[0].external_id == "keep-1"
     assert rows[0].date == tomorrow
+
+
+def test_upcoming_workouts_emits_iso_z_start_time():
+    """start_time must serialize as ISO with T+Z so browsers parse UTC."""
+    import pandas as pd
+    from datetime import date, timedelta
+    from api.views import upcoming_workouts
+    fut = date.today() + timedelta(days=2)
+    df = pd.DataFrame([{ "date": fut, "workout_type": "time trial",
+        "workout_description": "", "planned_duration_min": 30,
+        "start_time": pd.Timestamp("2026-06-29 16:00:00")}])
+    out = upcoming_workouts(df)
+    assert out and out[0]["start_time"].endswith("Z") and "T" in out[0]["start_time"]

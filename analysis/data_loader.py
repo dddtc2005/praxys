@@ -361,7 +361,7 @@ def load_data_from_db(user_id: str, db: Session) -> dict[str, pd.DataFrame]:
         "SELECT * FROM training_plans WHERE user_id = :uid ORDER BY date",
         db.bind,
         params={"uid": user_id},
-        parse_dates=["date"],
+        parse_dates=["date", "start_time"],
     )
     if "date" in plan.columns and not plan.empty:
         plan["date"] = pd.to_datetime(plan["date"]).dt.date
