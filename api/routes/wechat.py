@@ -83,6 +83,7 @@ class WeChatLinkRequest(BaseModel):
 class WeChatRegisterRequest(BaseModel):
     wechat_login_ticket: str = Field(..., min_length=1)
     invitation_code: str = ""
+    accepted_terms: bool = False
     email: EmailStr | None = None
     password: str | None = None
     nickname: str | None = None
@@ -314,6 +315,11 @@ async def wechat_register(
     existing = db.query(User).filter(User.wechat_openid == openid).first()
     if existing:
         raise HTTPException(409, "WECHAT_REGISTER_OPENID_ALREADY_BOUND")
+
+    # EULA gate: mirror the web register path — consent must be collected,
+    # not assumed, before we record terms_accepted_at.
+    if not body.accepted_terms:
+        raise HTTPException(400, detail="REGISTER_TERMS_NOT_ACCEPTED")
 
     # Resolve the email/password we'll actually persist. WeChat-only users
     # get a deterministic synthetic email and an unusable random password.
