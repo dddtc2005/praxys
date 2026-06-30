@@ -644,3 +644,12 @@ export interface AdminFeedbackItem {
   created_at: string | null;
   updated_at: string | null;
 }
+/** GET /api/admin/feedback/summary — counts for the admin notification badge. */
+export interface AdminFeedbackSummary {
+  needs_review: number;
+  failed: number;
+  new: number;
+  /** needs_review + failed — the rows an admin should act on. */
+  actionable: number;
+  total: number;
+}

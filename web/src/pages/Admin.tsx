@@ -27,6 +27,16 @@ import { Users, Ticket, Copy, Check, Trash2, Plus, ShieldCheck, ChevronUp, Chevr
 import type { SystemAnnouncement, AdminFeedbackItem } from '@/types/api';
 import { Trans, useLingui } from '@lingui/react/macro';
 
+// Surface the rows an admin should act on (needs_review, failed) at the top.
+const FEEDBACK_STATUS_ORDER: Record<string, number> = {
+  needs_review: 0,
+  failed: 1,
+  new: 2,
+  triaged: 3,
+  issue_created: 4,
+  rejected: 5,
+};
+
 interface UserInfo {
   id: string;
   email: string;
@@ -662,7 +672,14 @@ export default function Admin() {
           <div className="flex items-center gap-2">
             <MessageSquarePlus className="h-4 w-4" />
             <div>
-              <CardTitle className="text-base"><Trans>User Feedback</Trans></CardTitle>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Trans>User Feedback</Trans>
+                {feedback.some((f) => f.status === 'needs_review') && (
+                  <Badge variant="secondary">
+                    {feedback.filter((f) => f.status === 'needs_review').length}
+                  </Badge>
+                )}
+              </CardTitle>
               <CardDescription>
                 <Trans>Bug reports and feature requests submitted from the app. Auto-triaged to GitHub when configured.</Trans>
               </CardDescription>
@@ -684,7 +701,12 @@ export default function Admin() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {feedback.map((f) => (
+                {[...feedback]
+                  .sort(
+                    (a, b) =>
+                      (FEEDBACK_STATUS_ORDER[a.status] ?? 9) - (FEEDBACK_STATUS_ORDER[b.status] ?? 9),
+                  )
+                  .map((f) => (
                   <TableRow key={f.id}>
                     <TableCell><Badge variant="outline">{f.kind}</Badge></TableCell>
                     <TableCell>

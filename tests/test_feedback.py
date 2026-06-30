@@ -415,3 +415,24 @@ def test_admin_action_on_missing_row_404(db_with_users):
     with pytest.raises(HTTPException) as exc:
         update_feedback(999999, FeedbackAction(action="reject"), BackgroundTasks(), user_id=admin_id, db=db)
     assert exc.value.status_code == 404
+
+
+def test_admin_feedback_summary(db_with_users):
+    """Summary counts power the admin sidebar badge; non-admins get 403."""
+    from api.routes.feedback import feedback_summary
+    from db.models import Feedback
+
+    db, _, admin_id, user_id = db_with_users
+    for status in ("needs_review", "failed", "new", "issue_created"):
+        db.add(Feedback(user_id=user_id, kind="bug", message="x", status=status))
+    db.commit()
+
+    summary = feedback_summary(user_id=admin_id, db=db)
+    assert summary["needs_review"] == 1
+    assert summary["failed"] == 1
+    assert summary["actionable"] == 2
+    assert summary["total"] == 4
+
+    with pytest.raises(HTTPException) as exc:
+        feedback_summary(user_id=user_id, db=db)
+    assert exc.value.status_code == 403

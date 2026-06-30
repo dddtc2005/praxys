@@ -135,6 +135,34 @@ def list_feedback(
     return [_serialize_admin(r) for r in rows]
 
 
+@router.get("/admin/feedback/summary")
+def feedback_summary(
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Counts by status for the admin notification badge. Admin only.
+
+    ``actionable`` = needs_review + failed — the rows an admin should look at.
+    Kept cheap (a single grouped count) so the sidebar can poll it.
+    """
+    require_admin(user_id, db)
+    from sqlalchemy import func
+
+    from db.models import Feedback
+
+    rows = db.query(Feedback.status, func.count(Feedback.id)).group_by(Feedback.status).all()
+    counts = {status: int(n) for status, n in rows}
+    needs_review = counts.get("needs_review", 0)
+    failed = counts.get("failed", 0)
+    return {
+        "needs_review": needs_review,
+        "failed": failed,
+        "new": counts.get("new", 0),
+        "actionable": needs_review + failed,
+        "total": sum(counts.values()),
+    }
+
+
 class FeedbackAction(BaseModel):
     """Admin action on a feedback row."""
 
