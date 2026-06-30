@@ -224,6 +224,17 @@ def get_me(
     }
 
 
+@app.delete("/api/me")
+def delete_me(
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Delete the authenticated user account and all owned data."""
+    from api.account_deletion import delete_user_account
+
+    result = delete_user_account(db, user_id)
+    return {"status": "deleted", "email": result.email}
+
 @app.post("/api/me/accept-terms")
 def accept_terms(
     user_id: str = Depends(get_current_user_id),

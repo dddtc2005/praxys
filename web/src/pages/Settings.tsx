@@ -20,9 +20,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Link2, Gauge, SlidersHorizontal, Target, Activity, User, Check, Clock } from 'lucide-react';
+import { Link2, Gauge, SlidersHorizontal, Target, Activity, User, Check, Clock, Trash2 } from 'lucide-react';
 import GoalEditor from '@/components/GoalEditor';
 import { formatTime, formatPace } from '@/lib/format';
 import { WEB_VERSION } from '@/lib/version';
@@ -195,7 +195,7 @@ export default function Settings() {
     config, platformCapabilities, availableProviders, availableBases,
     effectiveThresholds, detectedThresholds, loading, error, updateSettings, refetch,
   } = useSettings();
-  const { email: authEmail, isDemo } = useAuth();
+  const { email: authEmail, isDemo, logout } = useAuth();
   const { setLocale } = useLocale();
   const { t, i18n } = useLingui();
   const thresholdSourceLabel = useThresholdSourceLabel();
@@ -219,6 +219,10 @@ export default function Settings() {
   );
   const [corosRegion, setCorosRegion] = useState<'eu' | 'us' | 'cn'>('us');
   const [goalEditorOpen, setGoalEditorOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
   // Live API build, mirrored next to the bundled web version at the
@@ -507,6 +511,27 @@ export default function Settings() {
     } catch { /* ignore */ }
   };
 
+  const handleDeleteAccount = async () => {
+    if (deleteConfirm !== 'DELETE') return;
+    setDeletingAccount(true);
+    setDeleteError('');
+    try {
+      const res = await fetch(`${API_BASE}/api/me`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) {
+        setDeleteError(await extractErrorMessage(res, `Failed to delete account (HTTP ${res.status})`));
+        setDeletingAccount(false);
+        return;
+      }
+      logout();
+      navigate('/login', { replace: true });
+    } catch (err) {
+      setDeleteError(err instanceof Error && err.message ? err.message : t`Network error`);
+      setDeletingAccount(false);
+    }
+  };
   const handleNameSave = async () => {
     const trimmed = nameInput.trim();
     setSaving(true);
@@ -1269,7 +1294,7 @@ export default function Settings() {
            or a calculation on the user's own data. When a metric has more
            than one source (e.g. Stryd + Garmin for CP), the user picks
            which source to use — they never type a value. */}
-      <Card>
+      <Card className="mb-8">
         <CardHeader>
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
@@ -1357,8 +1382,77 @@ export default function Settings() {
         </CardContent>
       </Card>
 
+      {/* ===== SECTION 6: Account ===== */}
+      <Card className="border-destructive/30 bg-destructive/5">
+        <CardHeader>
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
+              <Trash2 className="h-4 w-4" />
+            </div>
+            <div>
+              <CardTitle className="text-sm font-semibold text-destructive"><Trans>Delete account</Trans></CardTitle>
+              <CardDescription className="text-xs">
+                <Trans>Permanently remove your Praxys account, synced data, plans, settings, and encrypted credentials.</Trans>
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-muted-foreground">
+            <Trans>This cannot be undone. If this is the last admin account, deletion will be blocked.</Trans>
+          </p>
+          <Button
+            variant="destructive"
+            className="self-start sm:self-center"
+            onClick={() => {
+              setDeleteDialogOpen(true);
+              setDeleteConfirm('');
+              setDeleteError('');
+            }}
+          >
+            <Trans>Delete my account</Trans>
+          </Button>
+        </CardContent>
+      </Card>
       </div>{/* end read-only overlay */}
 
+      <Dialog open={deleteDialogOpen} onOpenChange={(open) => { if (!open && !deletingAccount) setDeleteDialogOpen(false); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle><Trans>Delete my account?</Trans></DialogTitle>
+            <DialogDescription>
+              <Trans>
+                This permanently deletes your account, synced training data, plans, settings, platform connections,
+                encrypted credentials, and any Garmin tokenstore on this device. You will be signed out immediately.
+              </Trans>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="delete-account-confirm"><Trans>Type DELETE to confirm.</Trans></Label>
+            <Input
+              id="delete-account-confirm"
+              value={deleteConfirm}
+              onChange={(e) => setDeleteConfirm(e.target.value)}
+              disabled={deletingAccount}
+              autoComplete="off"
+              className="font-data"
+            />
+            {deleteError && <p className="text-xs text-destructive">{deleteError}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeleteDialogOpen(false)} disabled={deletingAccount}>
+              <Trans>Cancel</Trans>
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteAccount}
+              disabled={deletingAccount || deleteConfirm !== 'DELETE'}
+            >
+              {deletingAccount ? <Trans>Deleting...</Trans> : <Trans>Delete permanently</Trans>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {/* Build footer — mirrors the mini program's ``Praxys <version>``
           line. Web and API ship from the same commit but different
           App Service sites, so a partial deploy can leave them at

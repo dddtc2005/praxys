@@ -122,6 +122,10 @@
           {{tr.switchAccount}}
         </button>
         <text class="settings-hint ts-muted">{{tr.switchAccountHint}}</text>
+        <button class="ts-button ts-button--secondary settings-action-btn settings-action-btn--danger" bindtap="onDeleteAccount">
+          {{tr.deleteAccount}}
+        </button>
+        <text class="settings-hint ts-muted">{{tr.deleteAccountHint}}</text>
         <button class="ts-button ts-button--secondary settings-action-btn" bindtap="onSignOut">
           {{tr.signOut}}
         </button>

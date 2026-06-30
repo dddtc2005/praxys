@@ -160,3 +160,4 @@ export const apiPost = <T>(path: string, body?: unknown, opts?: RequestOptions) 
   request<T>(path, { ...opts, method: 'POST', body });
 export const apiPut = <T>(path: string, body?: unknown) =>
   request<T>(path, { method: 'PUT', body });
+export const apiDelete = <T>(path: string) => request<T>(path, { method: 'DELETE' });
