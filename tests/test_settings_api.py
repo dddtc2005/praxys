@@ -35,8 +35,32 @@ def api_client(monkeypatch):
     from api.main import app
     from api.auth import require_write_access, get_data_user_id
     from db.session import get_db
+    from api.routes import sync as _sync_routes
+
+    # The sync routes keep an in-memory, process-global status map keyed by
+    # user_id (api/routes/sync.py::_sync_status). Every api_client test reuses
+    # the same user id, so stale runtime status (e.g. "error" left by a prior
+    # sync test) would bleed across tests. Clear it on setup and teardown.
+    _sync_routes._sync_status.clear()
 
     test_user_id = "test-user-settings-api"
+
+    # Persist the authenticated user. The sync routes now assert the user exists
+    # and is active (the account-deletion guard in
+    # api/routes/sync.py::_ensure_user_active_for_sync), so overriding the auth
+    # dependency alone is no longer enough — the row must exist.
+    from db.models import User as _User
+    _seed = db_session.SessionLocal()
+    try:
+        _seed.add(_User(
+            id=test_user_id,
+            email="settings-api@test.local",
+            hashed_password="x",
+            is_active=True,
+        ))
+        _seed.commit()
+    finally:
+        _seed.close()
 
     def _override_user():
         return test_user_id
@@ -57,6 +81,7 @@ def api_client(monkeypatch):
         yield client, test_user_id
     finally:
         app.dependency_overrides.clear()
+        _sync_routes._sync_status.clear()
         # Dispose engines so SQLite releases the file before tmpdir cleanup
         # (Windows can't unlink a file held by an open connection pool).
         if db_session.engine is not None:
