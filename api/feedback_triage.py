@@ -77,10 +77,14 @@ def _system_prompt() -> str:
         "for features, and an 'Environment' bullet list from the provided context.\n"
         "- Be factual; do not invent details the user didn't provide.\n"
         "- Classify the report as exactly one kind: bug, feature, or other.\n"
-        "- Judge whether the report still contains personal, health, account, or "
-        "credential information that should NOT appear on a public issue tracker, "
-        "even after scrubbing. Set contains_sensitive accordingly; when unsure, "
-        "prefer true.\n"
+        "- The input is ALREADY PII-scrubbed (emails, tokens, keys, IPs, file "
+        "paths, and long numbers are removed and shown as [redacted-*]). Set "
+        "contains_sensitive=true ONLY if the report STILL clearly contains "
+        "personal data, health details about an identifiable person, account or "
+        "credential information, or private third-party info unsuitable for a "
+        "public tracker. A normal product bug report or feature request is NOT "
+        "sensitive — return false. Default to false, and ALWAYS include the "
+        "contains_sensitive field in your response.\n"
         "Respond with a JSON object: "
         "{\"kind\": str, \"title\": str, \"body\": str, \"contains_sensitive\": bool}."
     )
@@ -162,6 +166,10 @@ def triage_and_publish(feedback_id: int, *, _session: Optional[Session] = None) 
                 user=_user_payload(kind, clean_message, clean_context),
                 model=_TRIAGE_MODEL,
                 max_completion_tokens=1200,
+                # Deterministic: triage/classification shouldn't vary run-to-run.
+                # Low temperature minimises the rare false-positive sensitivity
+                # flip that parks benign reports.
+                temperature=0.0,
                 insight_type="feedback_triage",
             )
             if result and isinstance(result.get("title"), str) and isinstance(result.get("body"), str):

@@ -582,3 +582,39 @@ def test_github_app_malformed_mint_response_returns_none(monkeypatch):
 
     monkeypatch.setattr(gi.httpx, "post", lambda url, **kw: _BadResp())
     assert gi._bearer_token() is None  # must not raise
+
+# ---------------------------------------------------------------------------
+# Sensitivity-gate calibration (over-flagging fix)
+# ---------------------------------------------------------------------------
+
+
+def test_system_prompt_defaults_sensitive_to_false():
+    """The triage prompt must not bias the model toward flagging benign reports
+    (regression for the 'when unsure, prefer true' over-flagging)."""
+    from api.feedback_triage import _system_prompt
+
+    p = _system_prompt()
+    assert "prefer true" not in p.lower()
+    assert "default to false" in p.lower()
+    assert "always include the contains_sensitive" in p.lower()
+
+
+def test_triage_uses_deterministic_temperature(db_with_users, monkeypatch):
+    """Triage must call the model at temperature 0 so the sensitivity verdict
+    doesn't vary run-to-run and rarely flip a benign report to sensitive."""
+    from api import feedback_triage as ft
+    from api.feedback_triage import triage_and_publish
+
+    db, _, _, user_id = db_with_users
+    captured: dict = {}
+
+    monkeypatch.setattr(ft.llm, "get_client", lambda: object())
+
+    def fake_chat_json(client, **kwargs):
+        captured.update(kwargs)
+        return {"kind": "bug", "title": "T", "body": "B", "contains_sensitive": False}
+
+    monkeypatch.setattr(ft.llm, "chat_json", fake_chat_json)
+    row = _new_row(db, user_id, "charts render slowly on the training page")
+    triage_and_publish(row.id, _session=db)
+    assert captured.get("temperature") == 0.0
