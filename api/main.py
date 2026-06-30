@@ -234,18 +234,34 @@ def accept_terms(
     Stamps the live TERMS_VERSION and acceptance timestamp so a user whose
     stored terms_version is stale (or null) clears the re-consent gate.
     WeChat-linked users authenticate with the same JWT, so they are covered.
+
+    The acceptance timestamp is captured before commit and returned directly
+    rather than re-read from the ORM, so the response never depends on a
+    post-commit attribute refresh. On any DB error we roll back and log the
+    traceback: a true 500 skips the CORS middleware, so the browser only sees
+    an opaque "No Access-Control-Allow-Origin" failure and server-side logging
+    is the only way to diagnose the real cause.
     """
+    import logging
     from datetime import datetime, timezone
 
     from db.models import User
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(404, "User not found")
+    accepted_at = datetime.now(timezone.utc)
     user.terms_version = TERMS_VERSION
-    user.terms_accepted_at = datetime.now(timezone.utc)
-    db.commit()
+    user.terms_accepted_at = accepted_at
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        logging.getLogger(__name__).exception(
+            "accept-terms failed for user %s", user_id
+        )
+        raise HTTPException(500, "ACCEPT_TERMS_FAILED")
     return {
-        "terms_version": user.terms_version,
+        "terms_version": TERMS_VERSION,
         "terms_current": True,
-        "terms_accepted_at": utc_isoformat(user.terms_accepted_at),
+        "terms_accepted_at": utc_isoformat(accepted_at),
     }

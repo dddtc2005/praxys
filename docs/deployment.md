@@ -315,7 +315,7 @@ Set via Azure Portal > App Service > Configuration > Application settings:
 | `DATA_DIR` | `/home/data` | Persistent storage path |
 | `PRAXYS_JWT_SECRET` | (random 32+ char string) | JWT signing key |
 | `KEY_VAULT_URL` | `https://kv-trainsight.vault.azure.net/` | Key Vault URI |
-| `KEY_VAULT_KEY_NAME` | `credential-encryption-key` | RSA key name |
+| `KEY_VAULT_KEY_NAME` | `trainsight-master-key` | RSA key name |
 
 Platform credentials (Garmin, Stryd, Oura) are entered by each user via the Settings page and stored encrypted in the database — no environment variables needed for those.
 
