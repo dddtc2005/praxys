@@ -436,3 +436,59 @@ def test_admin_feedback_summary(db_with_users):
     with pytest.raises(HTTPException) as exc:
         feedback_summary(user_id=user_id, db=db)
     assert exc.value.status_code == 403
+
+def test_empty_llm_output_does_not_drop_user_report(db_with_users, monkeypatch):
+    """An empty LLM title/body must fall back to the rule-based body (which
+    carries the real message) instead of publishing a contentless issue."""
+    from api import feedback_triage as ft
+    from api.feedback_triage import triage_and_publish
+
+    db, _, _, user_id = db_with_users
+    monkeypatch.setenv("PRAXYS_FEEDBACK_AUTOFILE_WITHOUT_AI", "true")
+    calls: list = []
+    _stub_github(monkeypatch, calls)
+    monkeypatch.setattr(ft.llm, "get_client", lambda: object())
+    monkeypatch.setattr(
+        ft.llm,
+        "chat_json",
+        lambda *a, **k: {"kind": "bug", "title": "", "body": "", "contains_sensitive": False},
+    )
+    row = _new_row(db, user_id, "Charts crash when I open Training")
+
+    result = triage_and_publish(row.id, _session=db)
+    # Empty model output is not trusted; the real message survives.
+    assert result["used_llm"] is False
+    assert len(calls) == 1
+    assert "Charts crash" in calls[0]["body"]
+
+
+def test_commit_failure_after_publish_recovers_issue_created(db_with_users, monkeypatch):
+    """If the post-create commit fails, the row still ends issue_created (with
+    the issue number) so a retry can't file a duplicate."""
+    from api.feedback_triage import triage_and_publish
+    from db.models import Feedback
+
+    db, _, _, user_id = db_with_users
+    monkeypatch.setenv("PRAXYS_FEEDBACK_AUTOFILE_WITHOUT_AI", "true")
+    calls: list = []
+    _stub_github(monkeypatch, calls)
+    row = _new_row(db, user_id, "A clean bug report")
+    fid = row.id
+
+    real_commit = db.commit
+    state = {"n": 0}
+
+    def flaky_commit():
+        state["n"] += 1
+        if state["n"] == 1:
+            raise RuntimeError("commit boom")
+        return real_commit()
+
+    monkeypatch.setattr(db, "commit", flaky_commit)
+    result = triage_and_publish(fid, _session=db)
+
+    assert result["status"] == "issue_created"
+    assert len(calls) == 1  # issue created exactly once — no duplicate
+    fresh = db.query(Feedback).filter(Feedback.id == fid).first()
+    assert fresh.status == "issue_created"
+    assert fresh.github_issue_number == 101

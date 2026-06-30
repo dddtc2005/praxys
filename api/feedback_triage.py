@@ -137,6 +137,7 @@ def triage_and_publish(feedback_id: int, *, _session: Optional[Session] = None) 
         return {"status": "error", "reason": "db_uninitialized"}
 
     row = None
+    issue: dict | None = None
     try:
         row = db.query(Feedback).filter(Feedback.id == feedback_id).first()
         if row is None:
@@ -164,16 +165,24 @@ def triage_and_publish(feedback_id: int, *, _session: Optional[Session] = None) 
                 insight_type="feedback_triage",
             )
             if result and isinstance(result.get("title"), str) and isinstance(result.get("body"), str):
-                title = result["title"].strip()
-                body = result["body"].strip()
-                llm_kind = str(result.get("kind", "")).lower()
-                if llm_kind in _VALID_KINDS:
-                    kind = llm_kind
-                # Missing field → treat as sensitive (fail safe).
-                llm_flag = bool(result.get("contains_sensitive", True))
-                used_llm = True
+                maybe_title = result["title"].strip()
+                maybe_body = result["body"].strip()
+                # Only trust the model when it actually produced content. Empty
+                # title/body would otherwise drop the user's report and publish a
+                # contentless issue; treat it as "no usable LLM output" so the
+                # rule-based fallback (which carries the real message) runs and
+                # the gate falls back to its fail-safe no-LLM path.
+                if maybe_title and maybe_body:
+                    title = maybe_title
+                    body = maybe_body
+                    llm_kind = str(result.get("kind", "")).lower()
+                    if llm_kind in _VALID_KINDS:
+                        kind = llm_kind
+                    # Missing field → treat as sensitive (fail safe).
+                    llm_flag = bool(result.get("contains_sensitive", True))
+                    used_llm = True
 
-        if title is None or body is None:
+        if not title or not body:
             title, body = _rule_based(kind, clean_message, clean_context)
 
         # Belt-and-suspenders: never trust the model as the sole redactor.
@@ -217,11 +226,24 @@ def triage_and_publish(feedback_id: int, *, _session: Optional[Session] = None) 
     except Exception:
         logger.exception("triage_and_publish failed for feedback %s", feedback_id)
         try:
-            if row is not None:
-                row.status = "failed"
-                row.error = "triage_exception"
+            # If create_issue already opened a GitHub issue but the commit
+            # failed, persist issue_created so a later retry can't file a
+            # duplicate. Roll back the broken transaction and re-load the row
+            # before writing the terminal state.
+            db.rollback()
+            recovered = db.query(Feedback).filter(Feedback.id == feedback_id).first()
+            if recovered is not None:
+                if issue and issue.get("number"):
+                    recovered.github_issue_number = issue["number"]
+                    recovered.github_issue_url = issue.get("url")
+                    recovered.status = "issue_created"
+                    recovered.error = None
+                else:
+                    recovered.status = "failed"
+                    recovered.error = "triage_exception"
                 db.commit()
-                telemetry.record_feedback(kind=row.kind, status="failed")
+                telemetry.record_feedback(kind=recovered.kind, status=recovered.status)
+                return {"status": recovered.status}
         except Exception:
             db.rollback()
         return {"status": "failed"}
