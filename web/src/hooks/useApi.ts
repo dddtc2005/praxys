@@ -13,6 +13,8 @@ interface UseApiResult<T> {
 interface UseApiOptions {
   /** Poll interval in ms (e.g. 3000 for sync status). 0 = disabled. */
   refetchInterval?: number;
+  /** When false, the query is not run (e.g. admin-only endpoints for non-admins). */
+  enabled?: boolean;
 }
 
 function getAuthHeaders(): HeadersInit {
@@ -68,6 +70,7 @@ export function useApi<T>(url: string, options?: UseApiOptions): UseApiResult<T>
     queryKey: [url],
     queryFn: () => apiFetcher<T>(url),
     refetchInterval: options?.refetchInterval,
+    enabled: options?.enabled,
   });
 
   return {

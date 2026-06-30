@@ -470,3 +470,53 @@ class WaitlistSignup(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     invited_at = Column(DateTime, nullable=True)
     invitation_id = Column(Integer, ForeignKey("invitations.id"), nullable=True)
+
+
+class Feedback(Base):
+    """User-submitted bug reports, feature requests, and general feedback.
+
+    Canonical store for the in-app "Send feedback" entrance (web + mini
+    program). The raw ``message`` is kept here (private, server-side only) so
+    a human/admin can always see exactly what the user wrote. A background
+    triage step (:mod:`api.feedback_triage`) then PII-scrubs + classifies the
+    submission and — when GitHub is configured — opens an issue in the
+    operator-chosen triage repo so an agent can pick it up. The scrubbed
+    title/body that actually left the system are stored in ``ai_title`` /
+    ``ai_body`` for auditability (what did we publish about this user?).
+
+    Mirrors the WaitlistSignup pattern: store locally first so a lead/report
+    survives even if the downstream (GitHub, support inbox) is unavailable.
+    """
+
+    __tablename__ = "feedback"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    # Nullable + SET NULL on delete: a deleted user shouldn't cascade-delete
+    # the feedback (it's operationally useful history), but we also don't want
+    # a dangling FK. The submitter is always set at creation time.
+    user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    # bug | feature | other — validated at the route layer (Literal), stored
+    # as a stable English string the frontend maps to a localized label.
+    kind = Column(String(20), nullable=False, default="other")
+    # Raw, unscrubbed user text. Never leaves the server verbatim — only the
+    # scrubbed ai_body is published to GitHub.
+    message = Column(Text, nullable=False)
+    # Client-supplied diagnostic context (route, app version, user agent,
+    # viewport, locale). Captured automatically so users don't have to
+    # describe their environment. Scrubbed before publication.
+    context_json = Column(JSON, nullable=True)
+    locale = Column(String(10), nullable=True)
+    # new | triaged | issue_created | failed | rejected
+    status = Column(String(20), nullable=False, default="new", index=True)
+    # Outputs of the triage step — the scrubbed, agent-ready title/body and
+    # labels that were (or would be) published. Kept for audit + admin review.
+    ai_title = Column(String(200), nullable=True)
+    ai_body = Column(Text, nullable=True)
+    ai_labels = Column(JSON, nullable=True)
+    github_issue_number = Column(Integer, nullable=True)
+    github_issue_url = Column(String(500), nullable=True)
+    # Last triage/publish error (truncated) so admins can see why a row is
+    # stuck in "failed" without digging through server logs.
+    error = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

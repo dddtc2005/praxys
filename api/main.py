@@ -174,6 +174,11 @@ app.include_router(admin_router, prefix="/api", tags=["admin"])
 from api.routes.announcements import router as announcements_router
 app.include_router(announcements_router, prefix="/api", tags=["announcements"])
 
+# Feedback (user submit + admin triage). User POST requires JWT; admin
+# list/retry are guarded by require_admin inside the route.
+from api.routes.feedback import router as feedback_router
+app.include_router(feedback_router, prefix="/api", tags=["feedback"])
+
 # Data routes
 from api.routes import today, training, goal, history, plan, settings, sync, science, insights
 from api.routes import ai as ai_routes

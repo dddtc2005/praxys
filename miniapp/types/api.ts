@@ -602,3 +602,54 @@ export interface SystemAnnouncement {
   created_at: string;
   updated_at: string;
 }
+
+// --- Feedback (bug report / feature request / general) ---
+
+export type FeedbackKind = 'bug' | 'feature' | 'other';
+
+export type FeedbackStatus = 'new' | 'triaged' | 'needs_review' | 'issue_created' | 'failed' | 'rejected';
+
+/** Client → POST /api/feedback. `context` is auto-captured diagnostics
+ * (page, app version, user agent, viewport, locale); the server scrubs it to
+ * an allowlist before anything is published externally. */
+export interface FeedbackRequest {
+  kind: FeedbackKind;
+  message: string;
+  context?: Record<string, string | number | boolean>;
+  locale?: string;
+}
+
+export interface FeedbackResponse {
+  ok: boolean;
+  id: number;
+  status: string;
+}
+
+/** Admin view row — GET /api/admin/feedback. Includes the raw `message`
+ * (admin-only) alongside the scrubbed `ai_*` output that was published. */
+export interface AdminFeedbackItem {
+  id: number;
+  user_id: string | null;
+  kind: FeedbackKind;
+  message: string;
+  context: Record<string, unknown>;
+  locale: string | null;
+  status: FeedbackStatus;
+  ai_title: string | null;
+  ai_body: string | null;
+  ai_labels: string[];
+  github_issue_number: number | null;
+  github_issue_url: string | null;
+  error: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+/** GET /api/admin/feedback/summary — counts for the admin notification badge. */
+export interface AdminFeedbackSummary {
+  needs_review: number;
+  failed: number;
+  new: number;
+  /** needs_review + failed — the rows an admin should act on. */
+  actionable: number;
+  total: number;
+}

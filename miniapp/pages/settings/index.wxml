@@ -112,6 +112,9 @@
       </view>
 
       <view class="settings-actions">
+        <button class="ts-button ts-button--secondary settings-action-btn" bindtap="onSendFeedback">
+          {{tr.sendFeedback}}
+        </button>
         <button class="ts-button ts-button--secondary settings-action-btn" bindtap="onCopyUrl">
           {{tr.openOnWeb}}
         </button>

@@ -202,3 +202,32 @@ def record_coach_error(*, error_class: str) -> None:
         counter.add(1, attrs)
     except Exception:
         logger.debug("record_coach_error counter failed", exc_info=True)
+
+
+def record_feedback(*, kind: str, status: str) -> None:
+    """Record one user-feedback submission outcome.
+
+    ``kind`` is one of ``bug`` / ``feature`` / ``other``; ``status`` is the
+    post-triage row status (``new``, ``triaged``, ``issue_created``,
+    ``failed``). Lets operators graph feedback volume by type and the
+    auto-publish success rate without the raw report ever entering telemetry
+    — only these two low-cardinality dimensions are emitted, never the message.
+
+    Prefers the customEvents path when available; falls back to a counter
+    (lands in customMetrics) otherwise — same contract as record_coach_run.
+    """
+    attrs = {"kind": kind, "status": status}
+    track = _track_event()
+    if track is not None:
+        try:
+            track("praxys.feedback", attrs)
+            return
+        except Exception:
+            logger.debug("track_event(feedback) failed; falling back to counter", exc_info=True)
+    counter = _counter("praxys.feedback", "User-submitted feedback submissions")
+    if counter is None:
+        return
+    try:
+        counter.add(1, attrs)
+    except Exception:
+        logger.debug("record_feedback counter failed", exc_info=True)

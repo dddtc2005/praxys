@@ -43,6 +43,14 @@ function buildSettingsTr() {
     language: t('Language'),
     languageAuto: t('Auto'),
     openOnWeb: t('Open Praxys on web'),
+    sendFeedback: t('Send feedback'),
+    feedbackBug: t('Bug report'),
+    feedbackFeature: t('Feature request'),
+    feedbackOther: t('General feedback'),
+    feedbackPrompt: t('What happened, or what would you like to see?'),
+    feedbackThanks: t('Thanks for the feedback!'),
+    feedbackError: t("Couldn't send your feedback. Please try again."),
+    feedbackRateLimited: t("You've sent several reports recently — please wait a few minutes before sending more."),
     signOut: t('Log out'),
     switchAccount: t('Switch Praxys account'),
     switchAccountHint: t(
@@ -460,6 +468,54 @@ Page({
   onCopyUrl() {
     wx.setClipboardData({ data: WEB_URL });
     wx.showToast({ title: t('URL copied'), icon: 'success', duration: 1500 });
+  },
+
+  /**
+   * In-app feedback (bug / feature / general). Mirrors the web "Send feedback"
+   * entry. Uses native WeChat surfaces — an action sheet to pick the category
+   * then an editable modal for the message — so no custom modal markup is
+   * needed. Posts to POST /api/feedback; the backend scrubs + triages it.
+   */
+  onSendFeedback() {
+    const tr = this.data.tr as ReturnType<typeof buildSettingsTr>;
+    const kinds: Array<'bug' | 'feature' | 'other'> = ['bug', 'feature', 'other'];
+    wx.showActionSheet({
+      itemList: [tr.feedbackBug, tr.feedbackFeature, tr.feedbackOther],
+      success: (sheet) => {
+        const kind = kinds[sheet.tapIndex];
+        if (!kind) return;
+        wx.showModal({
+          title: tr.sendFeedback,
+          editable: true,
+          placeholderText: tr.feedbackPrompt,
+          success: async (modal) => {
+            if (!modal.confirm) return;
+            const message = (modal.content ?? '').trim();
+            if (!message) return;
+            const locale = getLanguagePreference();
+            try {
+              await apiPost('/api/feedback', {
+                kind,
+                message: message.slice(0, 5000),
+                context: {
+                  page: 'settings',
+                  app_version: MINIAPP_BUILD_VERSION,
+                  platform: 'wechat-miniapp',
+                  locale,
+                },
+                locale,
+              });
+              wx.showToast({ title: tr.feedbackThanks, icon: 'success', duration: 1800 });
+            } catch (e) {
+              const err = e as Partial<ApiError>;
+              if (err?.code === 'UNAUTHENTICATED') return;
+              const msg = err?.status === 429 ? tr.feedbackRateLimited : err?.detail ?? tr.feedbackError;
+              wx.showToast({ title: msg, icon: 'none', duration: 2000 });
+            }
+          },
+        });
+      },
+    });
   },
 
   onSignOut() {

@@ -23,9 +23,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Users, Ticket, Copy, Check, Trash2, Plus, ShieldCheck, ChevronUp, ChevronDown, Eye, Megaphone } from 'lucide-react';
-import type { SystemAnnouncement } from '@/types/api';
+import { Users, Ticket, Copy, Check, Trash2, Plus, ShieldCheck, ChevronUp, ChevronDown, Eye, Megaphone, MessageSquarePlus, ExternalLink, RotateCcw } from 'lucide-react';
+import type { SystemAnnouncement, AdminFeedbackItem } from '@/types/api';
 import { Trans, useLingui } from '@lingui/react/macro';
+
+// Surface the rows an admin should act on (needs_review, failed) at the top.
+const FEEDBACK_STATUS_ORDER: Record<string, number> = {
+  needs_review: 0,
+  failed: 1,
+  new: 2,
+  triaged: 3,
+  issue_created: 4,
+  rejected: 5,
+};
 
 interface UserInfo {
   id: string;
@@ -76,17 +86,23 @@ export default function Admin() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
+  // Feedback
+  const [feedback, setFeedback] = useState<AdminFeedbackItem[]>([]);
+  const [feedbackBusy, setFeedbackBusy] = useState<number | null>(null);
+
   const fetchData = () => {
     setLoading(true);
     Promise.all([
       fetch(`${API_BASE}/api/admin/users`, { headers: getAuthHeaders() }).then((r) => r.json()),
       fetch(`${API_BASE}/api/admin/invitations`, { headers: getAuthHeaders() }).then((r) => r.json()),
       fetch(`${API_BASE}/api/announcements`, { headers: getAuthHeaders() }).then((r) => r.ok ? r.json() : []),
+      fetch(`${API_BASE}/api/admin/feedback`, { headers: getAuthHeaders() }).then((r) => r.ok ? r.json() : []),
     ])
-      .then(([u, i, a]) => {
+      .then(([u, i, a, f]) => {
         setUsers(u.users || []);
         setInvitations(i.invitations || []);
         setAnnouncements(Array.isArray(a) ? a : []);
+        setFeedback(Array.isArray(f) ? f : []);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -135,6 +151,24 @@ export default function Admin() {
       headers: getAuthHeaders(),
     });
     if (res.ok) setAnnouncements((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  const handleFeedbackAction = async (id: number, action: 'retry' | 'reject' | 'approve') => {
+    setFeedbackBusy(id);
+    const res = await fetch(`${API_BASE}/api/admin/feedback/${id}`, {
+      method: 'PATCH',
+      headers: { ...getAuthHeaders() as Record<string, string>, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    });
+    setFeedbackBusy(null);
+    if (res.ok) {
+      const updated = await res.json();
+      setFeedback((prev) => prev.map((f) => (f.id === id ? updated : f)));
+    } else {
+      // Approve/retry can fail server-side (e.g. GitHub publish error marks the
+      // row failed). Resync so the table reflects the persisted state.
+      fetchData();
+    }
   };
 
   useEffect(() => { fetchData(); }, []);
@@ -628,6 +662,117 @@ export default function Admin() {
                 </div>
               ))}
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* User Feedback */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <MessageSquarePlus className="h-4 w-4" />
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Trans>User Feedback</Trans>
+                {feedback.some((f) => f.status === 'needs_review') && (
+                  <Badge variant="secondary">
+                    {feedback.filter((f) => f.status === 'needs_review').length}
+                  </Badge>
+                )}
+              </CardTitle>
+              <CardDescription>
+                <Trans>Bug reports and feature requests submitted from the app. Auto-triaged to GitHub when configured.</Trans>
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {feedback.length === 0 ? (
+            <p className="text-sm text-muted-foreground"><Trans>No feedback yet.</Trans></p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead><Trans>Type</Trans></TableHead>
+                  <TableHead><Trans>Status</Trans></TableHead>
+                  <TableHead><Trans>Report</Trans></TableHead>
+                  <TableHead><Trans>Issue</Trans></TableHead>
+                  <TableHead className="text-right"><Trans>Actions</Trans></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {[...feedback]
+                  .sort(
+                    (a, b) =>
+                      (FEEDBACK_STATUS_ORDER[a.status] ?? 9) - (FEEDBACK_STATUS_ORDER[b.status] ?? 9),
+                  )
+                  .map((f) => (
+                  <TableRow key={f.id}>
+                    <TableCell><Badge variant="outline">{f.kind}</Badge></TableCell>
+                    <TableCell>
+                      <Badge variant={f.status === 'issue_created' ? 'default' : f.status === 'failed' ? 'destructive' : 'secondary'}>
+                        {f.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="max-w-sm">
+                      <p className="truncate text-sm" title={f.message}>{f.ai_title || f.message}</p>
+                      {f.error && <p className="text-xs text-destructive">{f.error}</p>}
+                    </TableCell>
+                    <TableCell>
+                      {f.github_issue_url ? (
+                        <a
+                          href={f.github_issue_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                        >
+                          #{f.github_issue_number}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        {f.status === 'needs_review' && (
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            disabled={feedbackBusy === f.id}
+                            onClick={() => handleFeedbackAction(f.id, 'approve')}
+                          >
+                            <Check className="h-3 w-3" />
+                            <Trans>Approve & file</Trans>
+                          </Button>
+                        )}
+                        {f.status !== 'issue_created' && f.status !== 'needs_review' && (
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            disabled={feedbackBusy === f.id}
+                            onClick={() => handleFeedbackAction(f.id, 'retry')}
+                          >
+                            <RotateCcw className="h-3 w-3" />
+                            <Trans>Retry</Trans>
+                          </Button>
+                        )}
+                        {f.status !== 'rejected' && (
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            disabled={feedbackBusy === f.id}
+                            onClick={() => handleFeedbackAction(f.id, 'reject')}
+                          >
+                            <Trans>Reject</Trans>
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>

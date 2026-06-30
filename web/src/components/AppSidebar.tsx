@@ -1,7 +1,9 @@
 import { NavLink, useLocation } from 'react-router-dom';
+import { useState } from 'react';
 import type { ComponentType, SVGProps } from 'react';
-import { Sun, Moon, Monitor, TrendingUp, Target, Clock, FlaskConical, Settings, LogOut, ListChecks, ShieldCheck } from 'lucide-react';
+import { Sun, Moon, Monitor, TrendingUp, Target, Clock, FlaskConical, Settings, LogOut, ListChecks, ShieldCheck, MessageSquarePlus } from 'lucide-react';
 import { PraxysFlag } from '@/components/PraxysFlag';
+import FeedbackDialog from '@/components/FeedbackDialog';
 import {
   Sidebar,
   SidebarContent,
@@ -10,6 +12,7 @@ import {
   SidebarGroupContent,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarSeparator,
@@ -18,6 +21,8 @@ import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useSetupStatus } from '@/hooks/useSetupStatus';
+import { useApi } from '@/hooks/useApi';
+import type { AdminFeedbackSummary } from '@/types/api';
 import { useLingui } from '@lingui/react/macro';
 import { msg } from '@lingui/core/macro';
 import type { MessageDescriptor } from '@lingui/core';
@@ -42,7 +47,7 @@ function PraxysWordmark() {
   );
 }
 
-type NavItem = { to: string; icon: ComponentType<SVGProps<SVGSVGElement>>; label: string };
+type NavItem = { to: string; icon: ComponentType<SVGProps<SVGSVGElement>>; label: string; badge?: number };
 
 // Single-row nav button with the new active-state treatment: 3px primary
 // left edge + bolder weight, no background fill (per DESIGN.md sidebar
@@ -53,7 +58,7 @@ type NavItem = { to: string; icon: ComponentType<SVGProps<SVGSVGElement>>; label
 // per shadcn's sidebarMenuButtonVariants). Painting the pseudo-element
 // on the button would clip the rounded-r corner.
 function NavItemRow({ item, isActive, tooltip }: { item: NavItem; isActive: boolean; tooltip?: string }) {
-  const { icon: Icon, label, to } = item;
+  const { icon: Icon, label, to, badge } = item;
   return (
     <SidebarMenuItem
       className={
@@ -71,6 +76,7 @@ function NavItemRow({ item, isActive, tooltip }: { item: NavItem; isActive: bool
         <Icon />
         <span>{label}</span>
       </SidebarMenuButton>
+      {badge ? <SidebarMenuBadge>{badge > 99 ? '99+' : badge}</SidebarMenuBadge> : null}
     </SidebarMenuItem>
   );
 }
@@ -100,6 +106,14 @@ export default function AppSidebar() {
   const setup = useSetupStatus();
   const { t, i18n } = useLingui();
   const displayName = config?.display_name || null;
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  // Admin-only: poll the feedback queue so a count of rows needing triage
+  // (needs_review + failed) surfaces as a badge on the Admin nav item.
+  const { data: feedbackSummary } = useApi<AdminFeedbackSummary>(
+    '/api/admin/feedback/summary',
+    { enabled: isAdmin, refetchInterval: 60000 },
+  );
+  const pendingFeedback = feedbackSummary?.actionable ?? 0;
 
   // Active-cluster: daily-use training surfaces. Today, Training, Goal,
   // Activities. The home item stays "Today" regardless of setup state —
@@ -117,7 +131,7 @@ export default function AppSidebar() {
   // Configuration: the user adjusts the system here (rare, deliberate).
   const configItems: NavItem[] = [
     { to: '/settings', icon: Settings, label: t`Settings` },
-    ...(isAdmin ? [{ to: '/admin', icon: ShieldCheck, label: t`Admin` }] : []),
+    ...(isAdmin ? [{ to: '/admin', icon: ShieldCheck, label: t`Admin`, badge: pendingFeedback || undefined }] : []),
   ];
 
   const isActive = (to: string) =>
@@ -184,6 +198,12 @@ export default function AppSidebar() {
       )}
       <SidebarMenu>
         <SidebarMenuItem>
+          <SidebarMenuButton onClick={() => setFeedbackOpen(true)} tooltip={t`Send feedback`}>
+            <MessageSquarePlus />
+            <span>{t`Send feedback`}</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+        <SidebarMenuItem>
           <SidebarMenuButton onClick={cycleTheme} tooltip={`${t`Theme`}: ${i18n._(THEME_LABEL[theme])}`}>
             <ThemeIcon />
             <span>{i18n._(THEME_LABEL[theme])}</span>
@@ -235,6 +255,7 @@ export default function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       {footerContent}
+      <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
     </Sidebar>
   );
 }
