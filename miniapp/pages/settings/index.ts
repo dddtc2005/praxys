@@ -1,5 +1,5 @@
 import { setTabBarSelected, setTabBarTheme } from '../../utils/tabbar';
-import { apiGet, apiPost, apiPut } from '../../utils/api-client';
+import { apiDelete, apiGet, apiPost, apiPut } from '../../utils/api-client';
 import type { ApiError } from '../../utils/api-client';
 import { clearToken } from '../../utils/auth';
 import {
@@ -52,6 +52,14 @@ function buildSettingsTr() {
     feedbackError: t("Couldn't send your feedback. Please try again."),
     feedbackRateLimited: t("You've sent several reports recently — please wait a few minutes before sending more."),
     signOut: t('Log out'),
+    deleteAccount: t('Delete my account'),
+    deleteAccountHint: t('Permanently remove your account, synced data, plans, settings, and encrypted credentials.'),
+    deleteAccountTitle: t('Delete my account?'),
+    deleteAccountContent: t('This permanently deletes your Praxys account and training data. Type DELETE to confirm.'),
+    deleteAccountConfirm: t('Delete'),
+    deleteAccountPlaceholder: t('Type DELETE here'),
+    deleteAccountMismatch: t('Type DELETE to confirm.'),
+    deleteAccountFailed: t("Couldn't delete your account. Please try again or contact support if it keeps failing."),
     switchAccount: t('Switch Praxys account'),
     switchAccountHint: t(
       'Unbind your WeChat profile from this Praxys account so you can sign in as a different user.',
@@ -518,6 +526,46 @@ Page({
     });
   },
 
+  onDeleteAccount() {
+    const tr = this.data.tr as ReturnType<typeof buildSettingsTr>;
+    wx.showModal({
+      title: tr.deleteAccountTitle,
+      content: tr.deleteAccountContent,
+      editable: true,
+      placeholderText: tr.deleteAccountPlaceholder,
+      confirmText: tr.deleteAccountConfirm,
+      cancelText: t('Cancel'),
+      success: (res) => {
+        if (!res.confirm) return;
+        if ((res.content ?? '').trim() !== 'DELETE') {
+          wx.showToast({ title: tr.deleteAccountMismatch, icon: 'none', duration: 1800 });
+          return;
+        }
+        void this.runDeleteAccount();
+      },
+    });
+  },
+
+  async runDeleteAccount() {
+    const tr = this.data.tr as ReturnType<typeof buildSettingsTr>;
+    wx.showLoading({ title: t('Deleting...'), mask: true });
+    try {
+      await apiDelete('/api/me');
+      clearToken();
+      wx.reLaunch({ url: '/pages/login/index' });
+    } catch (e) {
+      const err = e as Partial<ApiError>;
+      if (err?.code === 'UNAUTHENTICATED') return;
+      wx.showModal({
+        title: tr.deleteAccountTitle,
+        content: err?.detail ? `${tr.deleteAccountFailed}\n\n(${err.detail})` : tr.deleteAccountFailed,
+        showCancel: false,
+        confirmText: t('OK'),
+      });
+    } finally {
+      wx.hideLoading();
+    }
+  },
   onSignOut() {
     clearToken();
     wx.reLaunch({ url: '/pages/login/index' });

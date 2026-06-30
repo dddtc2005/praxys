@@ -72,6 +72,17 @@ const EN_AUTH = {
   Switch: 'Switch',
   Cancel: 'Cancel',
   'Switch Praxys account': 'Switch Praxys account',
+  'Delete my account': 'Delete my account',
+  'Delete my account?': 'Delete my account?',
+  Delete: 'Delete',
+  'Permanently remove your account, synced data, plans, settings, and encrypted credentials.':
+    'Permanently remove your account, synced data, plans, settings, and encrypted credentials.',
+  'This permanently deletes your Praxys account and training data. Type DELETE to confirm.':
+    'This permanently deletes your Praxys account and training data. Type DELETE to confirm.',
+  'Type DELETE here': 'Type DELETE here',
+  'Type DELETE to confirm.': 'Type DELETE to confirm.',
+  "Couldn't delete your account. Please try again or contact support if it keeps failing.":
+    "Couldn't delete your account. Please try again or contact support if it keeps failing.",
   'Unlinking…': 'Unlinking…',
   // Login-page-only copy (waitlist + theme toggle aria + pillar copy).
   // These have no web equivalent — web's Login uses <Trans> on richer
@@ -423,6 +434,17 @@ const ZH_AUTH = {
   Switch: '切换',
   Cancel: '取消',
   'Switch Praxys account': '切换 Praxys 账号',
+  'Delete my account': '删除我的账号',
+  'Delete my account?': '删除我的账号？',
+  Delete: '删除',
+  'Permanently remove your account, synced data, plans, settings, and encrypted credentials.':
+    '永久删除您的账号、同步数据、计划、设置和加密凭据。',
+  'This permanently deletes your Praxys account and training data. Type DELETE to confirm.':
+    '这会永久删除您的 Praxys 账号和训练数据。请输入 DELETE 确认。',
+  'Type DELETE here': '在这里输入 DELETE',
+  'Type DELETE to confirm.': '请输入 DELETE 确认。',
+  "Couldn't delete your account. Please try again or contact support if it keeps failing.":
+    '账号删除失败。请重试；如持续失败，请联系客服。',
   'Unlinking…': '正在解绑…',
   // Login-page-only zh copy. Pillars use 您 (formal you) per the
   // project-wide i18n terminology preference.

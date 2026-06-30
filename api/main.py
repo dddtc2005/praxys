@@ -62,7 +62,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy.orm import Session
 
-from api.auth import get_current_user_id
+from api.auth import get_current_user_id, require_write_access
 from api.env_compat import getenv_compat
 from api.legal import TERMS_VERSION
 from api.version import get_api_version
@@ -223,6 +223,17 @@ def get_me(
         "terms_current": user.terms_version == TERMS_VERSION,
     }
 
+
+@app.delete("/api/me")
+def delete_me(
+    user_id: str = Depends(require_write_access),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Delete the authenticated user account and all owned data."""
+    from api.account_deletion import delete_user_account
+
+    result = delete_user_account(db, user_id)
+    return {"status": "deleted", "email": result.email}
 
 @app.post("/api/me/accept-terms")
 def accept_terms(

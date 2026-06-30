@@ -4,7 +4,6 @@ All endpoints require is_superuser=True on the authenticated user.
 """
 import secrets
 import string
-from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
@@ -182,51 +181,10 @@ def delete_user(
     if target_user_id == user_id:
         raise HTTPException(400, "Cannot delete yourself")
 
-    from db.models import (
-        User, UserConfig, UserConnection, Activity, ActivitySplit,
-        RecoveryData, FitnessData, TrainingPlan, Invitation,
-    )
+    from api.account_deletion import delete_user_account
 
-    user = db.query(User).filter(User.id == target_user_id).first()
-    if not user:
-        raise HTTPException(404, "User not found")
-
-    email = user.email
-
-    # Delete all user data (order matters for foreign keys)
-    db.query(ActivitySplit).filter(ActivitySplit.user_id == target_user_id).delete()
-    db.query(Activity).filter(Activity.user_id == target_user_id).delete()
-    db.query(RecoveryData).filter(RecoveryData.user_id == target_user_id).delete()
-    db.query(FitnessData).filter(FitnessData.user_id == target_user_id).delete()
-    db.query(TrainingPlan).filter(TrainingPlan.user_id == target_user_id).delete()
-    db.query(UserConnection).filter(UserConnection.user_id == target_user_id).delete()
-    db.query(UserConfig).filter(UserConfig.user_id == target_user_id).delete()
-    # Mark invitation as consumed (keep the record, don't reactivate)
-    # Admin can generate a new code if needed
-    db.query(Invitation).filter(Invitation.used_by == target_user_id).update(
-        {"is_active": False}
-    )
-    from db.models import AiInsight
-    db.query(AiInsight).filter(AiInsight.user_id == target_user_id).delete()
-    # Cascade-delete demo accounts that mirror this user's data
-    db.query(User).filter(User.demo_of == target_user_id).delete()
-    db.delete(user)
-    db.commit()
-
-    # Best-effort disk cleanup: the user is already gone from the DB, so an
-    # orphaned token directory can't be resolved to a live account. Don't 500
-    # the request for a filesystem glitch — just log it.
-    from api.routes.sync import clear_garmin_tokens
-    try:
-        clear_garmin_tokens(target_user_id)
-    except OSError:
-        import logging
-        logging.getLogger(__name__).exception(
-            "User %s deleted but Garmin tokenstore cleanup failed — orphan directory left on disk.",
-            target_user_id,
-        )
-
-    return {"status": "deleted", "email": email}
+    result = delete_user_account(db, target_user_id)
+    return {"status": "deleted", "email": result.email}
 
 
 # ---------------------------------------------------------------------------

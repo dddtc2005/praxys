@@ -143,6 +143,10 @@
   padding: 0 8rpx calc(32rpx + env(safe-area-inset-bottom));
 }
 .settings-action-btn { width: 100%; }
+.settings-action-btn--danger {
+  color: var(--destructive);
+  border-color: var(--destructive);
+}
 
 // Connections section moved its "Sync now" affordance into the section
 // header — a refresh icon button sitting to the right of the label.
