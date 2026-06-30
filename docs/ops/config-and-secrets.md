@@ -45,7 +45,7 @@ Source of truth = `deploy-backend.yml`. Literals set inline: `DATA_DIR=/home/dat
 secrets/variables above.
 
 ### Azure Key Vault (`kv-trainsight`)
-- RSA key `credential-encryption-key` — the master key that wraps the per-user
+- RSA key `trainsight-master-key` — the master key that wraps the per-user
   Fernet data-encryption keys (DEKs) protecting platform credentials
   (`db/crypto.py`). The App Service MI has *Key Vault Crypto User*. **Not** a
   plain env var.
@@ -78,7 +78,7 @@ to boot without a JWT secret.
 | `WECHAT_MINIAPP_UPLOAD_KEY` | Regenerate in mp.weixin.qq.com, update GitHub secret | Only affects mini program CI publishing. |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | Update variable, re-deploy | Telemetry routes to the new resource. |
 | Feedback GitHub App key (`PRAXYS_GITHUB_APP_PRIVATE_KEY`) | Generate a new private key on the app, update the secret, re-deploy (rarely needed). Setup: [setup-github-app.md](./setup-github-app.md). | Issue auto-filing dormant until updated; rest of app unaffected. |
-| Key Vault RSA key `credential-encryption-key` | ⚠️ **High-impact** — the per-user DEKs were wrapped with the current key; rotating without a re-wrap/re-encrypt migration makes stored platform credentials undecryptable. **TODO(@dddtc2005):** document the re-wrap drill before rotating. | Users would have to reconnect platforms. |
+| Key Vault RSA key `trainsight-master-key` | ⚠️ **High-impact** — the per-user DEKs were wrapped with the current key; rotating without a re-wrap/re-encrypt migration makes stored platform credentials undecryptable. **TODO(@dddtc2005):** document the re-wrap drill before rotating. | Users would have to reconnect platforms. |
 
 ## Related
 

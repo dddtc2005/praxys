@@ -18,8 +18,8 @@
 | Backend App Service | `trainsight-app` | `deploy-backend.yml` (`--name trainsight-app`) |
 | Frontend App Service | `praxys-frontend` | `deploy-frontend-appservice.yml` |
 | App Service plan | `plan-trainsight` (Linux B1, East Asia) | `docs/deployment.md`, `frontend_server` notes |
-| Key Vault | `kv-trainsight` (`https://kv-trainsight.vault.azure.net/`) | `docs/deployment.md` |
-| — RSA key | `credential-encryption-key` | `docs/deployment.md` (`KEY_VAULT_KEY_NAME`) |
+| Key Vault | `kv-trainsight` (`https://kv-trainsight.vault.azure.net`) | live `KEY_VAULT_URL` |
+| — RSA key | `trainsight-master-key` | live `KEY_VAULT_KEY_NAME` |
 | Application Insights | connection string in app settings; MI-authenticated | `.env.example`, `api/main.py` |
 | Perf-baseline storage | `stperftrainsight` (RG `rg-trainsight`, East Asia) | `docs/perf-baselines/ci-setup.md` |
 | CI app registration | `trainsight-ci` (OIDC federated cred) | `docs/deployment.md` |

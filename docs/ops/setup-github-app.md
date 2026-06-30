@@ -14,6 +14,21 @@ automatically (`api/github_issues.py`), so there is **nothing to rotate** — un
 a long-lived personal access token. This is the sole auth path for feedback issue
 filing.
 
+## Inputs an agent needs
+
+Gather these before step 3 — an agent can't derive them:
+- **App ID** — the app's settings page (from step 1).
+- **Installation ID** — from the install URL `…/installations/<ID>` (step 2), or
+  `gh api /repos/dddtc2005/praxys/installation --jq '.id'` (app-JWT auth).
+- **Private key** — the `.pem` downloaded in step 1 (its path on the operator's machine).
+
+## Prerequisite — running backend build
+
+Steps 1–3 (create / install / store config) can run any time and are safe to do
+early. **Step 4 (deploy → verify) only takes effect once the deployed backend
+includes the GitHub App support (PR dddtc2005/praxys#328 or later)** — setting the
+config before that ships just sits idle until the next backend deploy.
+
 ## Steps
 
 ### 1. Create the App  — human (GitHub UI)
