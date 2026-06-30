@@ -95,6 +95,13 @@ def delete_user_account(
             raise HTTPException(400, "LAST_ADMIN_CANNOT_DELETE_ACCOUNT")
 
     email = user.email
+    user.is_active = False
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to mark account deleting for user %s", user_id)
+        raise HTTPException(500, "ACCOUNT_DELETE_FAILED")
     deleted_user_ids: list[str] = []
 
     demo_users = db.query(User).filter(User.demo_of == user_id).all()

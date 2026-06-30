@@ -46,12 +46,24 @@ def account_client(monkeypatch):
         finally:
             db.close()
 
-    from api.auth import get_current_user_id
+    from fastapi import HTTPException
+    from api.auth import get_current_user_id, require_write_access
+    from db.models import User
     from db.session import get_db
 
-    app.dependency_overrides[get_current_user_id] = _override_user
-    app.dependency_overrides[get_db] = _override_db
+    def _override_write_access() -> str:
+        db = db_session.SessionLocal()
+        try:
+            user = db.query(User).filter(User.id == current_user_id["value"]).first()
+            if user and user.is_demo:
+                raise HTTPException(403, "Demo accounts cannot modify data")
+            return current_user_id["value"]
+        finally:
+            db.close()
 
+    app.dependency_overrides[get_current_user_id] = _override_user
+    app.dependency_overrides[require_write_access] = _override_write_access
+    app.dependency_overrides[get_db] = _override_db
     client = TestClient(app)
     client.current_user_id = current_user_id  # type: ignore[attr-defined]
     try:
@@ -196,5 +208,71 @@ def test_delete_me_rejects_last_admin(account_client):
     db = db_session.SessionLocal()
     try:
         assert db.query(User).filter(User.id == "solo-admin").count() == 1
+    finally:
+        db.close()
+
+def test_delete_me_rejects_demo_account(account_client):
+    """Demo users stay read-only and cannot self-delete the shared demo account."""
+    client, db_session = account_client
+    client.current_user_id["value"] = "demo-only"  # type: ignore[attr-defined]
+
+    from db.models import User
+
+    db = db_session.SessionLocal()
+    try:
+        db.add(User(id="admin", email="admin@example.test", hashed_password="x", is_superuser=True))
+        db.add(User(id="demo-only", email="demo@example.test", hashed_password="x", is_demo=True, demo_of="admin"))
+        db.commit()
+    finally:
+        db.close()
+
+    res = client.delete("/api/me")
+    assert res.status_code == 403, res.text
+    assert res.json()["detail"] == "Demo accounts cannot modify data"
+
+    db = db_session.SessionLocal()
+    try:
+        assert db.query(User).filter(User.id == "demo-only").count() == 1
+    finally:
+        db.close()
+
+def test_run_sync_rolls_back_if_user_deactivated_before_commit(account_client, monkeypatch):
+    """An in-flight sync must not commit orphaned rows after deletion starts."""
+    _, db_session = account_client
+
+    from datetime import date
+
+    from api.routes import sync as sync_routes
+    from db.models import Activity, User, UserConnection
+
+    db = db_session.SessionLocal()
+    try:
+        db.add(User(id="sync-user", email="sync@example.test", hashed_password="x", is_active=True))
+        db.add(UserConnection(user_id="sync-user", platform="garmin", status="connected", consecutive_failures=0))
+        db.commit()
+    finally:
+        db.close()
+
+    def _fake_sync(user_id: str, creds: dict, from_date: str | None, db) -> dict:
+        db.add(Activity(user_id=user_id, activity_id="orphan-candidate", date=date(2026, 6, 30)))
+        other = db_session.SessionLocal()
+        try:
+            user = other.query(User).filter(User.id == user_id).one()
+            user.is_active = False
+            other.commit()
+        finally:
+            other.close()
+        return {"activities": 1}
+
+    monkeypatch.setattr(sync_routes, "_sync_garmin", _fake_sync)
+    sync_routes._run_sync("sync-user", "garmin", {}, None)
+
+    db = db_session.SessionLocal()
+    try:
+        assert db.query(Activity).filter(Activity.activity_id == "orphan-candidate").count() == 0
+        assert db.query(User).filter(User.id == "sync-user", User.is_active == False).count() == 1  # noqa: E712
+        conn = db.query(UserConnection).filter(UserConnection.user_id == "sync-user").one()
+        assert conn.status == "connected"
+        assert conn.consecutive_failures == 0
     finally:
         db.close()

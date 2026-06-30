@@ -116,6 +116,9 @@ def _record_sync_failure(conn, exc: BaseException, db) -> None:
     except Exception:
         pass
 
+    if str(exc) == "SYNC_USER_DELETED":
+        return
+
     try:
         # Re-fetch in case rollback detached state from the prior session.
         from db.models import UserConnection
@@ -336,7 +339,14 @@ def _sync_connection(user_id: str, platform: str, db):
     creds = json.loads(creds_json)
 
     # Use the sync route's direct DB write functions
-    from api.routes.sync import _sync_garmin, _sync_strava, _sync_stryd, _sync_oura, _sync_coros
+    from api.routes.sync import (
+        _ensure_user_active_for_sync,
+        _sync_coros,
+        _sync_garmin,
+        _sync_oura,
+        _sync_strava,
+        _sync_stryd,
+    )
 
     if platform == "garmin":
         counts = _sync_garmin(user_id, creds, None, db)
@@ -352,6 +362,7 @@ def _sync_connection(user_id: str, platform: str, db):
         logger.warning("Unknown platform: %s", platform)
         return
 
+    _ensure_user_active_for_sync(user_id, db)
     db.commit()
 
     # Refresh activity-derived CP after the sync — best-effort, never break
@@ -362,6 +373,7 @@ def _sync_connection(user_id: str, platform: str, db):
             from db.sync_writer import update_cp_from_activities
             fit = update_cp_from_activities(user_id, db)
             if fit is not None:
+                _ensure_user_active_for_sync(user_id, db)
                 db.commit()
                 logger.info(
                     "Activity-derived CP for user=%s: %.1fW (r²=%.2f, %d points)",
@@ -376,6 +388,7 @@ def _sync_connection(user_id: str, platform: str, db):
     conn.last_sync = datetime.utcnow()
     conn.status = "connected"
     reset_connection_backoff(conn)
+    _ensure_user_active_for_sync(user_id, db)
     db.commit()
     logger.info("Sync complete: user=%s platform=%s counts=%s", user_id, platform, counts)
 

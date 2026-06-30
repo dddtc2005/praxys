@@ -46,6 +46,27 @@ _sync_lock = threading.Lock()
 _DEFAULT_SOURCES = ["garmin", "strava", "stryd", "oura", "coros"]
 
 
+def _ensure_user_active_for_sync(user_id: str, db: Session) -> None:
+    """Abort a sync before commit if the account disappeared or is deactivated.
+
+    ``flush()`` pushes pending sync writes into the current transaction before
+    the active-user check. On SQLite this acquires the writer lock, so account
+    deletion cannot flip/delete the user between the check and the following
+    commit; if deletion already won, the check sees the inactive/missing user
+    and the caller rolls the pending writes back.
+    """
+    from db.models import User
+
+    db.flush()
+
+    user_exists = db.query(User.id).filter(
+        User.id == user_id,
+        User.is_active == True,  # noqa: E712
+    ).first()
+    if not user_exists:
+        raise RuntimeError("SYNC_USER_DELETED")
+
+
 def _get_user_status(user_id: str) -> dict[str, dict]:
     """Get or create sync status dict for a user."""
     with _sync_lock:
@@ -215,6 +236,7 @@ def _run_sync(user_id: str, source: str, creds: dict,
         else:
             raise ValueError(f"Unknown source: {source}")
 
+        _ensure_user_active_for_sync(user_id, db)
         db.commit()
 
         # Refresh activity-derived CP on any sync that can change activity
@@ -226,6 +248,7 @@ def _run_sync(user_id: str, source: str, creds: dict,
                 from db.sync_writer import update_cp_from_activities
                 fit = update_cp_from_activities(user_id, db)
                 if fit is not None:
+                    _ensure_user_active_for_sync(user_id, db)
                     db.commit()
                     logger.info(
                         "Activity-derived CP for user %s: %.1fW (r²=%.2f, %d points)",
@@ -249,6 +272,7 @@ def _run_sync(user_id: str, source: str, creds: dict,
             conn.last_sync = datetime.now(timezone.utc).replace(tzinfo=None)
             conn.status = "connected"
             reset_connection_backoff(conn)
+            _ensure_user_active_for_sync(user_id, db)
             db.commit()
 
         logger.info("Sync %s for user %s: %s", source, user_id, counts)
@@ -817,6 +841,7 @@ def _sync_strava(user_id: str, creds: dict, from_date: str | None, db) -> dict:
         _persist_credentials(user_id, "strava", creds, db)
         # Strava rotates refresh tokens. Commit the rotated credentials before
         # any downstream activity/lap fetch can trigger a rollback.
+        _ensure_user_active_for_sync(user_id, db)
         db.commit()
 
     access_token = creds.get("access_token")
@@ -941,6 +966,7 @@ def _sync_coros(user_id: str, creds: dict, from_date: str | None,
         updated["coros_user_id"] = token_creds["user_id"]
         updated["timestamp"] = token_creds["timestamp"]
         _persist_credentials(user_id, "coros", updated, db)
+        _ensure_user_active_for_sync(user_id, db)
         db.commit()
 
     access_token = token_creds["access_token"]
@@ -963,6 +989,7 @@ def _sync_coros(user_id: str, creds: dict, from_date: str | None,
         updated["coros_user_id"] = token_creds["user_id"]
         updated["timestamp"] = token_creds["timestamp"]
         _persist_credentials(user_id, "coros", updated, db)
+        _ensure_user_active_for_sync(user_id, db)
         db.commit()
         raw_activities = fetch_activities(access_token, region, start, end)
     activity_rows = parse_activities(raw_activities)
@@ -1033,6 +1060,7 @@ def _sync_coros(user_id: str, creds: dict, from_date: str | None,
             updated["mobile_access_token"] = mobile_token
             updated["mobile_timestamp"] = mobile_creds["mobile_timestamp"]
             _persist_credentials(user_id, "coros", updated, db)
+            _ensure_user_active_for_sync(user_id, db)
             db.commit()
 
         raw_sleep = fetch_sleep(mobile_token, region, dm_start, end)
