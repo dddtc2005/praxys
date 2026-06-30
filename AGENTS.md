@@ -32,6 +32,12 @@
 - **Context needed:** `api/deps.py` for data access, existing metrics for context injection, `plugins/praxys/` (git submodule of public [`dddtc2005/praxys-coach-plugin`](https://github.com/dddtc2005/praxys-coach-plugin)) for MCP tools
 - **Key rule:** AI features must be optional — guard with `is_available()`, app works fully without API key
 
+### Ops / DevOps Agent
+- **Focus:** production operations — deploy, App Service config, secrets, monitoring/alerts, admin tasks
+- **Tasks:** wire alerts, rotate/add config, deploy & rollback, diagnose prod issues
+- **Context needed:** the operations handbook **`docs/ops/README.md`** (runbook index). Each runbook is self-contained: `Prerequisites · Steps · Verify · Rollback`. `docs/deployment.md` for one-time Azure setup.
+- **Key rule:** App Service settings are owned by `deploy-backend.yml`, not the portal — change the GitHub secret/variable and re-deploy. Never commit secrets.
+
 ## Workflow Patterns
 
 ### Adding a Feature End-to-End
