@@ -242,6 +242,8 @@ See `docs/dev/contributing.md` for which files to update with code changes. Key 
 
 For **production operations** (deploy, config & secrets, monitoring & alerts, admin tasks, troubleshooting), start at the operations handbook: `docs/ops/README.md` — consistently-structured runbooks meant to be consumed by humans *and* AI agents.
 
+**Ops-handbook currency (required).** Any PR that changes a deploy workflow, App Service setting, GitHub Actions secret/variable, Azure resource (storage, Key Vault, RBAC), or runtime config **must update `docs/ops/` in the same PR** — record *where* the value is set (source of truth) and *how* to provision it (`config-and-secrets.md`). A config/infra change without the matching runbook update is incomplete.
+
 ## Claude Code Automations
 
 Automations live in `.claude/` and are committed so every contributor using Claude Code sees the same behavior. See `.claude/settings.json` for hooks (block edits to secrets; run pytest on Python changes; run ESLint on web TS changes), `.claude/agents/` for subagents (`science-reviewer`, `metric-addition-reviewer`, `api-contract-reviewer` — all read-only), and `.claude/skills/` for dev-workflow skills.

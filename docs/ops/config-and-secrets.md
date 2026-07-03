@@ -88,6 +88,11 @@ SUB=$(az account show --query id -o tsv)
 az role assignment create --assignee-object-id "$MI" --assignee-principal-type ServicePrincipal \
   --role "Storage Blob Data Contributor" \
   --scope "/subscriptions/$SUB/resourceGroups/rg-trainsight/providers/Microsoft.Storage/storageAccounts/stperftrainsight/blobServices/default/containers/feedback-screenshots"
+
+# 3. Register the two non-secret GitHub Actions variables (the source of truth).
+#    deploy-backend.yml syncs them to the App Service settings on the next deploy.
+gh variable set PRAXYS_FEEDBACK_BLOB_ACCOUNT_URL --body "https://stperftrainsight.blob.core.windows.net"
+gh variable set PRAXYS_FEEDBACK_BLOB_CONTAINER   --body "feedback-screenshots"
 ```
 
 The two `PRAXYS_FEEDBACK_BLOB_*` variables above point the app at it. Unset them
