@@ -268,7 +268,7 @@ msgstr "实际 vs 计划，平均"
 
 #: src/components/FeedbackDialog.tsx:295
 msgid "Add screenshot"
-msgstr ""
+msgstr "添加截图"
 
 #: src/components/SignalHero.tsx:22
 #: src/pages/Today.tsx:69
@@ -862,7 +862,7 @@ msgstr "例如 8:00:00"
 
 #: src/components/FeedbackDialog.tsx:113
 msgid "Each image must be under 5 MB."
-msgstr ""
+msgstr "每张图片需小于 5 MB。"
 
 #: src/pages/Science.tsx:176
 msgid "Each pillar runs a published theory you can read, verify, and swap. Praxys interprets your data through whichever framework you choose."
@@ -1643,11 +1643,11 @@ msgstr "用于新用户注册的一次性邀请码"
 
 #: src/components/FeedbackDialog.tsx:109
 msgid "Only PNG, JPG, or WebP images are supported."
-msgstr ""
+msgstr "仅支持 PNG、JPG 或 WebP 图片。"
 
 #: src/components/FeedbackDialog.tsx:298
 msgid "Optional — PNG, JPG, or WebP, up to 3 images. Screenshots are kept private; we read them to describe the issue and remove anything sensitive before filing."
-msgstr ""
+msgstr "可选：PNG、JPG 或 WebP，最多 3 张图片。截图会保密；我们会读取截图以描述问题，并在提交前移除其中的敏感内容。"
 
 #: src/pages/Setup.tsx:761
 msgid "Optional — you can always set this later from the Goal page"
@@ -2000,7 +2000,7 @@ msgstr "驳回"
 
 #: src/components/FeedbackDialog.tsx:276
 msgid "Remove image"
-msgstr ""
+msgstr "移除图片"
 
 #: src/lib/phase-label.ts:18
 msgid "Rep"
@@ -2104,11 +2104,11 @@ msgstr "科学支柱"
 
 #: src/pages/Admin.tsx:725
 msgid "Screenshot flagged sensitive"
-msgstr ""
+msgstr "截图被标记为敏感"
 
 #: src/components/AdminFeedbackImages.tsx:74
 msgid "Screenshot unavailable"
-msgstr ""
+msgstr "截图不可用"
 
 #: src/pages/Settings.tsx:1005
 msgid "Select the region matching your COROS account."
@@ -2745,7 +2745,7 @@ msgstr "您"
 
 #: src/components/FeedbackDialog.tsx:105
 msgid "You can attach up to 3 images."
-msgstr ""
+msgstr "最多可添加 3 张图片。"
 
 #: src/pages/Login.tsx:55
 msgid "You must accept the Terms of Service to register."
