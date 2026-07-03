@@ -41,6 +41,7 @@ sync/*.py → db/sync_writer.py → SQLite → analysis/metrics.py → api/deps.
 - User config (goals, thresholds) stored in the database, managed via Settings/Goal page UI
 - Server config in `.env` (see `.env.example` for encryption key, JWT secret, admin email)
 - Data recomputed fresh per request in `api/deps.py`
+- **Ops-handbook currency:** any change to a deploy workflow, App Service setting, GitHub Actions secret/variable, Azure resource (storage, Key Vault, RBAC), or runtime config must be documented in `docs/ops/` (esp. `config-and-secrets.md`) **in the same PR** — where it's set and how to provision it.
 
 ## For Full Details
 

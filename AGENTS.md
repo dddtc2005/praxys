@@ -36,7 +36,7 @@
 - **Focus:** production operations — deploy, App Service config, secrets, monitoring/alerts, admin tasks
 - **Tasks:** wire alerts, rotate/add config, deploy & rollback, diagnose prod issues
 - **Context needed:** the operations handbook **`docs/ops/README.md`** (runbook index). Each runbook is self-contained: `Prerequisites · Steps · Verify · Rollback`. `docs/deployment.md` for one-time Azure setup.
-- **Key rule:** App Service settings are owned by `deploy-backend.yml`, not the portal — change the GitHub secret/variable and re-deploy. Never commit secrets.
+- **Key rule:** App Service settings are owned by `deploy-backend.yml`, not the portal — change the GitHub secret/variable and re-deploy. Never commit secrets. **Any config / secret / infra / deploy change must update `docs/ops/` (esp. `config-and-secrets.md`) in the same PR** — where it's set and how to provision it.
 
 ## Workflow Patterns
 
