@@ -14,17 +14,27 @@ from db.models import Base
 
 # SQLite tuning pragmas applied to every new connection.
 #
-# Why this matters: on Azure App Service Linux the /home volume is an Azure
-# Files (SMB) mount with high per-IOP latency. Default SQLite (rollback
-# journal + synchronous=FULL) issues many small fsync()s per write, so each
-# of those amplifies into an SMB round-trip. Even read-mostly workloads
-# pay this cost on metadata pages. WAL + synchronous=NORMAL together cut
-# the fsync count substantially while keeping crash-safety: a power loss
-# may lose the last in-flight transaction but the database stays
-# consistent. The other pragmas are pure cache/locality wins.
+# ⚠️ journal_mode is DELETE (rollback journal), NOT WAL — deliberately.
+# On Azure App Service Linux the DATA_DIR (/home) is an Azure Files (SMB)
+# network mount, and SQLite's WAL mode requires a shared-memory index (the
+# ``-shm`` file) backed by mmap that does NOT work over a network filesystem.
+# SQLite documents this explicitly ("WAL does not work over a network
+# filesystem", https://www.sqlite.org/wal.html). Running WAL on /home caused
+# "database disk image is malformed" corruption in production — the failure
+# is amplified by multiple gunicorn worker processes acting as concurrent
+# writers over SMB. A classic rollback journal works over SMB (byte-range
+# locks); paired with a SINGLE writer (run the backend with one gunicorn
+# worker — see docs/ops/backup-and-restore.md) and busy_timeout, writes stay
+# safe.
+#
+# synchronous=FULL (not NORMAL): on the SMB mount a container recycle mid-write
+# (every deploy/scale) is the "power loss" equivalent, and FULL fsyncs the
+# rollback journal so an interrupted write can't corrupt the file. It costs
+# extra SMB round-trips per commit, but on this low-traffic workload
+# correctness beats throughput. The remaining pragmas are cache/locality wins.
 _SQLITE_PRAGMAS = (
-    ("journal_mode", "WAL"),
-    ("synchronous", "NORMAL"),
+    ("journal_mode", "DELETE"),
+    ("synchronous", "FULL"),
     # 20 MB SQLite page cache (negative value = KB; default is 2 MB).
     ("cache_size", "-20000"),
     ("temp_store", "MEMORY"),

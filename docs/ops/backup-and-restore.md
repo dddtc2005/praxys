@@ -69,9 +69,59 @@ Keep the pre-restore file (download it before overwriting) so a bad restore is
 itself reversible. If the app won't boot, restore the previous-known-good
 snapshot.
 
+## Recover from corruption (no snapshot)
+
+If `az webapp log tail` shows `sqlite3.DatabaseError: database disk image is
+malformed` and you have **no backup**, salvage the live file with SQLite's
+`.recover` (it parses the b-tree pages directly and rebuilds a clean DB,
+skipping unreadable pages). Run inside `az webapp ssh` (or the Kudu console):
+
+```bash
+cd /home/data
+ts=$(date -u +%Y%m%dT%H%M%SZ)
+# 1. Preserve the corrupt triplet (reversible if recovery goes wrong)
+cp -v trainsight.db "trainsight.db.corrupt.$ts"
+[ -f trainsight.db-wal ] && cp -v trainsight.db-wal "trainsight.db-wal.corrupt.$ts"
+[ -f trainsight.db-shm ] && cp -v trainsight.db-shm "trainsight.db-shm.corrupt.$ts"
+
+# 2. Salvage into a fresh file (non-destructive)
+sqlite3 trainsight.db ".recover" 2>recover.err | sqlite3 trainsight.rebuilt.db
+sqlite3 trainsight.rebuilt.db "PRAGMA integrity_check;"   # want: ok
+sqlite3 trainsight.rebuilt.db "SELECT count(*) FROM activities;"  # sanity
+
+# 3. Stop the app so nothing writes, then swap in the rebuilt file
+az webapp stop -n trainsight-app -g rg-trainsight    # from your workstation
+mv trainsight.db "trainsight.db.corrupt.main.$ts"
+rm -f trainsight.db-wal trainsight.db-shm            # stale sidecars
+mv trainsight.rebuilt.db trainsight.db
+az webapp start -n trainsight-app -g rg-trainsight   # init_db() re-adds any missing columns
+```
+
+If the container lacks the `sqlite3` CLI, run the same `.recover` from the app
+venv's Python, or `apt-get install -y sqlite3` (you're root in the SSH shell).
+
+## Prevent corruption
+
+`trainsight.db` sits on Azure Files (SMB). Two rules keep it safe (both enforced
+in code / docs as of the WAL-corruption incident):
+
+1. **No WAL on `/home`.** SQLite WAL needs a shared-memory index (`-shm`) that
+   does not work over a network filesystem — it corrupts the file. `db/session.py`
+   pins `journal_mode=DELETE` + `synchronous=FULL` for exactly this reason; do
+   not switch back to WAL while the DB is on Azure Files.
+2. **One writer.** Run the backend with a **single** gunicorn worker so there is
+   only one process writing the SQLite file — multiple worker processes over SMB
+   is the other half of the corruption trigger. Set the startup command to e.g.
+   `gunicorn -k uvicorn.workers.UvicornWorker -w 1 -b 0.0.0.0:8000 api.main:app`
+   (`az webapp config set --startup-file "…"`). Scale out via App Service
+   instances only if you first move off SQLite (managed DB) or a WAL-safe store.
+
+**Take a snapshot before every risky deploy** (this incident had no backup):
+`sqlite3 trainsight.db ".backup '/home/data/backups/pre-deploy-<ts>.db'"`.
+
 ## Related
 
-- [disaster-recovery.md](./disaster-recovery.md) · [deploy.md](./deploy.md) · `db/session.py` (`init_db`)
+- [disaster-recovery.md](./disaster-recovery.md) · [deploy.md](./deploy.md) · `db/session.py` (`init_db`, `_SQLITE_PRAGMAS`)
 
 ---
 _Last reviewed: 2026-06-30 · Owner: @dddtc2005 · TODO(@dddtc2005): pick a backup cadence + retention and (optionally) automate it._

@@ -36,17 +36,24 @@ def file_backed_engine():
                 pass
 
 
-def test_journal_mode_is_wal(file_backed_engine):
+def test_journal_mode_is_delete(file_backed_engine):
+    # DELETE (rollback journal), NOT WAL. The prod DB lives on Azure Files
+    # (SMB), where WAL's shared-memory index is unsupported and corrupts the
+    # file ("database disk image is malformed"). Do not revert to WAL — see the
+    # comment on _SQLITE_PRAGMAS in db/session.py.
     with file_backed_engine.connect() as conn:
         mode = conn.execute(text("PRAGMA journal_mode")).scalar()
-    assert mode == "wal", f"Expected WAL journal mode, got {mode!r}"
+    assert mode == "delete", f"Expected DELETE journal mode (WAL is unsafe on Azure Files), got {mode!r}"
 
 
-def test_synchronous_is_normal(file_backed_engine):
+def test_synchronous_is_full(file_backed_engine):
     with file_backed_engine.connect() as conn:
         # PRAGMA synchronous returns int: 0=OFF, 1=NORMAL, 2=FULL, 3=EXTRA
         sync = conn.execute(text("PRAGMA synchronous")).scalar()
-    assert sync == 1, f"Expected synchronous=NORMAL (1), got {sync}"
+    # FULL: on the SMB mount a container recycle mid-write (every deploy) is the
+    # "power loss" equivalent; FULL fsyncs the rollback journal so an interrupted
+    # write can't corrupt the file.
+    assert sync == 2, f"Expected synchronous=FULL (2) for crash-safety on Azure Files, got {sync}"
 
 
 def test_temp_store_is_memory(file_backed_engine):
@@ -68,7 +75,7 @@ def test_pragmas_apply_to_every_new_connection(file_backed_engine):
     """
     for _ in range(3):
         with file_backed_engine.connect() as conn:
-            assert conn.execute(text("PRAGMA journal_mode")).scalar() == "wal"
+            assert conn.execute(text("PRAGMA journal_mode")).scalar() == "delete"
 
 
 def test_listener_is_no_op_for_non_sqlite(monkeypatch):
