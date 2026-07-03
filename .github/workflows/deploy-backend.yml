@@ -79,6 +79,11 @@ jobs:
           PRAXYS_FEEDBACK_GITHUB_LABELS: ${{ vars.PRAXYS_FEEDBACK_GITHUB_LABELS }}
           PRAXYS_FEEDBACK_GITHUB_ASSIGNEES: ${{ vars.PRAXYS_FEEDBACK_GITHUB_ASSIGNEES }}
           PRAXYS_FEEDBACK_AUTOFILE_WITHOUT_AI: ${{ vars.PRAXYS_FEEDBACK_AUTOFILE_WITHOUT_AI }}
+          # Feedback screenshot storage (issue #337): keyless Azure Blob via the
+          # app's managed identity (granted Storage Blob Data Contributor on the
+          # container). Unset → local filesystem fallback under DATA_DIR.
+          PRAXYS_FEEDBACK_BLOB_ACCOUNT_URL: ${{ vars.PRAXYS_FEEDBACK_BLOB_ACCOUNT_URL }}
+          PRAXYS_FEEDBACK_BLOB_CONTAINER: ${{ vars.PRAXYS_FEEDBACK_BLOB_CONTAINER }}
         run: |
           for var in AZURE_AI_ENDPOINT KEY_VAULT_URL KEY_VAULT_KEY_NAME \
                      APPLICATIONINSIGHTS_CONNECTION_STRING PRAXYS_JWT_SECRET \
@@ -106,6 +111,8 @@ jobs:
               PRAXYS_FEEDBACK_GITHUB_LABELS="${PRAXYS_FEEDBACK_GITHUB_LABELS}" \
               PRAXYS_FEEDBACK_GITHUB_ASSIGNEES="${PRAXYS_FEEDBACK_GITHUB_ASSIGNEES}" \
               PRAXYS_FEEDBACK_AUTOFILE_WITHOUT_AI="${PRAXYS_FEEDBACK_AUTOFILE_WITHOUT_AI}" \
+              PRAXYS_FEEDBACK_BLOB_ACCOUNT_URL="${PRAXYS_FEEDBACK_BLOB_ACCOUNT_URL}" \
+              PRAXYS_FEEDBACK_BLOB_CONTAINER="${PRAXYS_FEEDBACK_BLOB_CONTAINER}" \
               WEBSITES_PORT="8000" \
               DATA_DIR="/home/data" \
               SCM_DO_BUILD_DURING_DEPLOYMENT="true" \

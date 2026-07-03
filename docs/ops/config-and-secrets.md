@@ -37,6 +37,8 @@ secret/variable (or the workflow literal) and re-deploy.
 | `AZURE_AI_ENDPOINT` | Azure OpenAI endpoint for insights/triage | App Service setting + `i18n.yml` |
 | `KEY_VAULT_URL` / `KEY_VAULT_KEY_NAME` | Key Vault + RSA key name | App Service setting |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | App Insights routing | App Service setting |
+| `PRAXYS_FEEDBACK_BLOB_ACCOUNT_URL` (`https://stperftrainsight.blob.core.windows.net`) | Private Blob store for feedback screenshots (keyless via MI) | App Service setting (backend) |
+| `PRAXYS_FEEDBACK_BLOB_CONTAINER` (`feedback-screenshots`) | Blob container for screenshots | App Service setting (backend) |
 
 ### Azure App Service → Application settings (backend `trainsight-app`)
 Source of truth = `deploy-backend.yml`. Literals set inline: `DATA_DIR=/home/data`,
@@ -68,6 +70,30 @@ to boot without a JWT secret.
 > Example: the feedback → GitHub-issue settings (`PRAXYS_GITHUB_APP_*`,
 > `PRAXYS_FEEDBACK_GITHUB_*`) follow exactly this pattern and are intentionally
 > optional. (Added by the feedback feature — dddtc2005/praxys#328.)
+
+### Feedback screenshot storage (Azure Blob, keyless)
+
+Screenshots attached to feedback (issue #337) are stored **privately** in Blob
+(reusing the `stperftrainsight` account). Auth is keyless via the backend's
+system-assigned managed identity — no key or connection string. One-time infra:
+
+```bash
+# 1. Dedicated container (kept separate from the perf data in this account)
+az storage container create --account-name stperftrainsight \
+  --name feedback-screenshots --auth-mode login
+
+# 2. Grant the app MI data access on JUST that container (least privilege)
+MI=$(az webapp identity show -n trainsight-app -g rg-trainsight --query principalId -o tsv)
+SUB=$(az account show --query id -o tsv)
+az role assignment create --assignee-object-id "$MI" --assignee-principal-type ServicePrincipal \
+  --role "Storage Blob Data Contributor" \
+  --scope "/subscriptions/$SUB/resourceGroups/rg-trainsight/providers/Microsoft.Storage/storageAccounts/stperftrainsight/blobServices/default/containers/feedback-screenshots"
+```
+
+The two `PRAXYS_FEEDBACK_BLOB_*` variables above point the app at it. Unset them
+and the app falls back to local filesystem storage under `DATA_DIR` (persistent
+on `/home`, but not the recommended long-term home). `api/feedback_storage.py`
+selects the backend and authenticates with `DefaultAzureCredential`.
 
 ## Rotation
 
