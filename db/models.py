@@ -44,6 +44,11 @@ class User(Base):
     is_demo = Column(Boolean, default=False, nullable=False)
     demo_of = Column(String(36), ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    # Throttled last-activity timestamp powering the WAU/DAU admin gauge.
+    # Written by api/auth.py on authenticated requests, but only when stale
+    # (see LAST_SEEN_THROTTLE) so it is not a per-request write. Admin-only
+    # aggregate display; never exposed per-user to non-admins.
+    last_seen_at = Column(DateTime, nullable=True, index=True)
 
     # EULA acceptance recorded at registration: proves which Terms/EULA
     # version each user agreed to and when. See api/legal.py::TERMS_VERSION.
@@ -75,6 +80,10 @@ class Invitation(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     used_by = Column(String(36), ForeignKey("users.id"), nullable=True)
     used_at = Column(DateTime, nullable=True)
+    # Optional expiry for emailed invitations (waitlist-invite flow). NULL =
+    # never expires (admin-generated codes). Enforced in api/invitations.py so
+    # an expired code cannot be claimed even though it is still is_active.
+    expires_at = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     note = Column(String(200), default="")
 
@@ -535,3 +544,22 @@ class Feedback(Base):
     image_sensitive = Column(Boolean, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
+class AppConfig(Base):
+    """System-wide operational config as a small key-value store.
+
+    Praxys previously had only per-user config (UserConfig). This table holds
+    a handful of operator-owned flags that are toggled at runtime from the
+    Admin page (not env vars) — currently the self-registration gate and its
+    seat cap. Values are stored as strings and parsed by api/app_config.py,
+    which owns the typed getters/setters and the safe defaults for missing
+    keys, so a fresh DB behaves identically to one that has never been touched.
+    """
+
+    __tablename__ = "app_config"
+
+    key = Column(String(64), primary_key=True)
+    value = Column(Text, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_by = Column(String(36), ForeignKey("users.id"), nullable=True)

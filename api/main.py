@@ -150,7 +150,20 @@ else:
 from api.users import fastapi_users, auth_backend
 
 app.include_router(
-    fastapi_users.get_auth_router(auth_backend, requires_verification=False),
+    # requires_verification=True gates LOGIN on is_verified. Every existing
+    # user-creation path sets is_verified=True (admin, invited, WeChat, demo),
+    # so this only blocks the new open, code-less self-signups until they click
+    # the emailed verification link (api/routes/register.py).
+    fastapi_users.get_auth_router(auth_backend, requires_verification=True),
+    prefix="/api/auth",
+    tags=["auth"],
+)
+
+# Email-ownership verification: /api/auth/request-verify-token + /api/auth/verify.
+# The on_after_request_verify hook (api/users.py) emails the link.
+from api.users import UserRead
+app.include_router(
+    fastapi_users.get_verify_router(UserRead),
     prefix="/api/auth",
     tags=["auth"],
 )
@@ -198,6 +211,21 @@ def version() -> dict:
     API build alongside the bundled web version, mirroring the mini
     program's ``Praxys <version>`` line."""
     return {"version": get_api_version()}
+
+
+@app.get("/api/public/config")
+def public_config(db: Session = Depends(get_db)) -> dict:
+    """Public — the SPA reads this before rendering the login page to decide
+    whether to offer a direct "Create account" path (open self-registration)
+    or only the waitlist / invitation-code paths.
+
+    Deliberately minimal: ONLY the effective open/closed boolean. No user
+    counts, seat cap, or any other operator data is exposed on this
+    unauthenticated endpoint (that lives behind /api/admin/config).
+    """
+    from api import app_config
+    open_effective, _reason = app_config.is_registration_open(db)
+    return {"registration_open": open_effective}
 
 
 @app.get("/api/auth/me")

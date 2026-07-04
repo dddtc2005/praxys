@@ -150,11 +150,14 @@ def init_db():
         ("feedback", "image_keys", "JSON DEFAULT NULL"),
         ("feedback", "image_description", "TEXT DEFAULT NULL"),
         ("feedback", "image_sensitive", "BOOLEAN DEFAULT NULL"),
+        ("users", "last_seen_at", "DATETIME DEFAULT NULL"),
+        ("invitations", "expires_at", "DATETIME DEFAULT NULL"),
     ]
     _indexes = [
         # (index_name, table, column, unique)
         ("ix_users_wechat_openid", "users", "wechat_openid", True),
         ("ix_users_wechat_unionid", "users", "wechat_unionid", False),
+        ("ix_users_last_seen_at", "users", "last_seen_at", False),
     ]
     with engine.connect() as conn:
         for table, column, col_type in _migrations:

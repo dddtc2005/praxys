@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useState, useId } from 'react';
+import { useState, useId, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Link } from 'react-router-dom';
@@ -21,17 +21,27 @@ export default function Login() {
   const { locale, setLocale } = useLocale();
   const { theme, setTheme } = useTheme();
 
+  // A ?invite=CODE deep link lands the user straight on the code path with the
+  // code prefilled (computed once, before state init, so the effect below never
+  // has to setState synchronously).
+  const initialInvite = new URLSearchParams(window.location.search).get('invite');
+
   // Form state
-  const [mode, setMode] = useState<Mode>('login');
-  const [inviteMode, setInviteMode] = useState<InviteMode>('waitlist');
+  const [mode, setMode] = useState<Mode>(initialInvite ? 'invite' : 'login');
+  const [inviteMode, setInviteMode] = useState<InviteMode>(initialInvite ? 'code' : 'waitlist');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [invitationCode, setInvitationCode] = useState('');
+  const [invitationCode, setInvitationCode] = useState(initialInvite ? initialInvite.toUpperCase() : '');
   const [waitlistNote, setWaitlistNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [waitlistSuccess, setWaitlistSuccess] = useState(false);
   const [agreedTerms, setAgreedTerms] = useState(false);
+  const [registrationOpen, setRegistrationOpen] = useState(false);
+  const [verifyPending, setVerifyPending] = useState(false);
+  const [honeypot, setHoneypot] = useState('');
+  const [showResend, setShowResend] = useState(false);
+  const [resendState, setResendState] = useState<'idle' | 'sending' | 'sent'>('idle');
 
   const formId = useId();
 
@@ -42,9 +52,46 @@ export default function Login() {
   const CLI_CALLBACK_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/callback/;
   const cliCallback = rawCallback && CLI_CALLBACK_RE.test(rawCallback) ? rawCallback : null;
 
+  // Fetch the public registration gate + honor a ?invite= deep link on mount.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_BASE}/api/public/config`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((cfg) => {
+        if (cancelled || !cfg) return;
+        if (cfg.registration_open) {
+          setRegistrationOpen(true);
+          // Open registration: default the "get access" view to the signup
+          // form rather than the waitlist.
+          setInviteMode('code');
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleResend = async () => {
+    setResendState('sending');
+    try {
+      // The endpoint returns 202 regardless of whether the address exists, to
+      // avoid account enumeration — so we always show "sent".
+      await fetch(`${API_BASE}/api/auth/request-verify-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+    } catch {
+      /* best-effort */
+    }
+    setResendState('sent');
+  };
+
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setShowResend(false);
 
     if (!email.trim() || !password.trim()) {
       setError(t`Email and password are required.`);
@@ -60,24 +107,39 @@ export default function Login() {
 
     const result = mode === 'login'
       ? await login(email.trim(), password)
-      : await register(email.trim(), password, invitationCode.trim(), agreedTerms);
+      : await register(email.trim(), password, invitationCode.trim(), agreedTerms, honeypot);
 
     setSubmitting(false);
 
-    if (result.ok) {
-      if (cliCallback) {
-        const token =
-          localStorage.getItem('praxys-auth-token') ??
-          localStorage.getItem('trainsight-auth-token');
-        if (token) {
-          window.location.href = `${cliCallback}?token=${encodeURIComponent(token)}`;
-          return;
-        }
-      }
-      navigate('/today', { replace: true });
-    } else {
-      setError(result.error || t`An unexpected error occurred.`);
+    // Unverified login: prompt to verify and offer a resend.
+    if (mode === 'login' && result.error === 'LOGIN_USER_NOT_VERIFIED') {
+      setError(t`Please verify your email before signing in. Check your inbox for the link.`);
+      setShowResend(true);
+      setResendState('idle');
+      return;
     }
+
+    if (!result.ok) {
+      setError(result.error || t`An unexpected error occurred.`);
+      return;
+    }
+
+    // Open, code-less signup: account created but must verify email first.
+    if ('verificationRequired' in result && result.verificationRequired) {
+      setVerifyPending(true);
+      return;
+    }
+
+    if (cliCallback) {
+      const token =
+        localStorage.getItem('praxys-auth-token') ??
+        localStorage.getItem('trainsight-auth-token');
+      if (token) {
+        window.location.href = `${cliCallback}?token=${encodeURIComponent(token)}`;
+        return;
+      }
+    }
+    navigate('/today', { replace: true });
   };
 
   const handleWaitlistSubmit = async (e: React.FormEvent) => {
@@ -132,6 +194,8 @@ export default function Login() {
     setMode(next);
     setError(null);
     setWaitlistSuccess(false);
+    setVerifyPending(false);
+    setShowResend(false);
   };
 
   return (
@@ -140,7 +204,9 @@ export default function Login() {
       <aside className="login-hero" aria-hidden={false}>
         <div className="login-hero-eyebrow">
           <span className="login-hero-eyebrow-dot" aria-hidden />
-          <Trans>Private alpha · Invitation only</Trans>
+          {registrationOpen
+            ? <Trans>Now open · Create your account</Trans>
+            : <Trans>Private alpha · Invitation only</Trans>}
         </div>
 
         <div className="login-mark-row">
@@ -251,6 +317,8 @@ export default function Login() {
             <h2 className="login-form-title">
               {mode === 'login'
                 ? <Trans>Welcome back.</Trans>
+                : registrationOpen
+                ? <Trans>Create your account.</Trans>
                 : <Trans>Praxys is in private alpha.</Trans>}
             </h2>
           </div>
@@ -276,7 +344,7 @@ export default function Login() {
               className="login-tab"
               onClick={() => switchMode('invite')}
             >
-              <Trans>Request invite</Trans>
+              {registrationOpen ? <Trans>Create account</Trans> : <Trans>Request invite</Trans>}
             </button>
           </div>
 
@@ -325,6 +393,26 @@ export default function Login() {
                 {submitting ? <Trans>Signing in…</Trans> : <Trans>Sign in</Trans>}
               </button>
 
+              {showResend && (
+                <div className="login-aside" role="status" aria-live="polite">
+                  {resendState === 'sent' ? (
+                    <Trans>Verification email sent. Check your inbox.</Trans>
+                  ) : (
+                    <>
+                      <Trans>Didn't get the email?</Trans>{' '}
+                      <button
+                        type="button"
+                        className="login-aside-link"
+                        onClick={handleResend}
+                        disabled={resendState === 'sending'}
+                      >
+                        {resendState === 'sending' ? <Trans>Sending…</Trans> : <Trans>Resend verification email</Trans>}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+
               <div className="login-aside">
                 <Trans>New to Praxys?</Trans>{' '}
                 <button
@@ -332,7 +420,7 @@ export default function Login() {
                   className="login-aside-link"
                   onClick={() => switchMode('invite')}
                 >
-                  <Trans>Request an invite</Trans>
+                  {registrationOpen ? <Trans>Create an account</Trans> : <Trans>Request an invite</Trans>}
                 </button>
               </div>
             </form>
@@ -435,7 +523,30 @@ export default function Login() {
             </div>
           )}
 
-          {mode === 'invite' && inviteMode === 'code' && (
+          {mode === 'invite' && verifyPending && (
+            <div className="login-form" role="status" aria-live="polite">
+              <div className="login-waitlist-success">
+                <span className="login-waitlist-success-mark" aria-hidden>✓</span>
+                <span className="login-waitlist-success-body">
+                  <Trans>
+                    <strong>Almost there.</strong> We sent a verification link to your
+                    email. Click it to activate your account, then sign in.
+                  </Trans>
+                </span>
+              </div>
+              <div className="login-aside">
+                <button
+                  type="button"
+                  className="login-aside-link"
+                  onClick={() => { setVerifyPending(false); switchMode('login'); }}
+                >
+                  <Trans>Back to sign in</Trans>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {mode === 'invite' && inviteMode === 'code' && !verifyPending && (
             <form className="login-form" onSubmit={handleAuthSubmit} noValidate>
               {error && (
                 <div className="login-error" role="alert">{error}</div>
@@ -476,7 +587,7 @@ export default function Login() {
 
               <div className="login-field">
                 <label htmlFor={`${formId}-reg-code`} className="login-field-label">
-                  <Trans>Invitation code</Trans>
+                  {registrationOpen ? <Trans>Invitation code (optional)</Trans> : <Trans>Invitation code</Trans>}
                 </label>
                 <input
                   id={`${formId}-reg-code`}
@@ -486,7 +597,20 @@ export default function Login() {
                   value={invitationCode}
                   onChange={(e) => setInvitationCode(e.target.value.toUpperCase())}
                   disabled={submitting}
-                  required
+                  required={!registrationOpen}
+                />
+              </div>
+
+              {/* Honeypot: hidden from real users; a filled value flags a bot. */}
+              <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, overflow: 'hidden' }}>
+                <label htmlFor={`${formId}-website`}>Website</label>
+                <input
+                  id={`${formId}-website`}
+                  type="text"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={honeypot}
+                  onChange={(e) => setHoneypot(e.target.value)}
                 />
               </div>
 
@@ -513,7 +637,7 @@ export default function Login() {
               </button>
 
               <div className="login-aside">
-                <Trans>No code yet?</Trans>{' '}
+                {registrationOpen ? <Trans>Prefer to wait?</Trans> : <Trans>No code yet?</Trans>}{' '}
                 <button
                   type="button"
                   className="login-aside-link"

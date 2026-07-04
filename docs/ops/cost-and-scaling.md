@@ -39,6 +39,23 @@ single-worker deployment. Verify behaviour before relying on multi-worker.
 Note: scale-up resets App Service local state on the new instance — `/home`
 persists (the DB is safe), but in-memory sync status resets.
 
+## Registration cap & scale readiness
+
+Self-registration is gated by a **seat cap** (Admin → Registration; see
+[admin-tasks.md](./admin-tasks.md)) so growth happens in deliberate, reviewable
+steps rather than as an uncapped firehose. Suggested ladder on the current **B1**
+single-instance deployment:
+
+| Milestone | Cap | Before raising, check |
+|-----------|-----|------------------------|
+| Alpha | 100 | B1 CPU/memory headroom under daily sync; SQLite `/home` write latency; LLM spend vs `PRAXYS_INSIGHT_DAILY_CAP`. |
+| Beta | ~1000 | Scale **up** to P1V3 first (the scheduler caveat above makes scale-up simpler than scale-out); watch p95 request latency + App Insights/Watson error rate; confirm email deliverability against Exmail's daily send limits. |
+
+The **DAU/WAU** tiles on the Admin → Registration card show how many committed
+seats are actually active — registered users are the ceiling, active users are the
+real load. Use them to decide whether the current tier has headroom before lifting
+the cap.
+
 ## Verify
 
 `az appservice plan show -n plan-trainsight -g rg-trainsight --query sku`.
@@ -49,4 +66,4 @@ Watch CPU/memory in the App Service "Metrics" blade after the change.
 - [monitoring-and-alerts.md](./monitoring-and-alerts.md) · [environment.md](./environment.md)
 
 ---
-_Last reviewed: 2026-06-30 · Owner: @dddtc2005 · TODO(@dddtc2005): set the real budget amount + when-to-scale thresholds._
+_Last reviewed: 2026-07-04 · Owner: @dddtc2005 · TODO(@dddtc2005): set the real budget amount (when-to-scale thresholds now documented above)._

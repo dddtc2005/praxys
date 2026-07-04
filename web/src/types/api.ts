@@ -662,3 +662,62 @@ export interface AdminFeedbackSummary {
   actionable: number;
   total: number;
 }
+
+/** GET /api/public/config — unauthenticated; drives the login page's signup path. */
+export interface PublicConfig {
+  /** Effective self-registration state (admin flag AND under the seat cap). */
+  registration_open: boolean;
+}
+
+/** Registration gate + seat cap (admin only). */
+export interface RegistrationStatus {
+  registration_open: boolean;
+  flag_enabled: boolean;
+  max_users: number;
+  /** Actual registered non-demo accounts. */
+  registered_users: number;
+  /** Active, unused, unexpired invitation codes (each reserves a seat). */
+  outstanding_invitations: number;
+  /** registered_users + outstanding_invitations — what the cap measures. */
+  committed_seats: number;
+  /** max(max_users - committed_seats, 0). */
+  remaining: number;
+  cap_reached: boolean;
+}
+
+/** DAU/WAU readiness gauge (admin only). */
+export interface ActivityCounts {
+  dau: number;
+  wau: number;
+  mau: number;
+  total_users: number;
+}
+
+/** GET/PATCH /api/admin/config. */
+export interface AdminConfig {
+  registration: RegistrationStatus;
+  activity: ActivityCounts;
+  email_configured: boolean;
+}
+
+/** A row from GET /api/admin/waitlist. */
+export interface WaitlistSignupItem {
+  id: number;
+  email: string;
+  note: string;
+  locale: string | null;
+  created_at: string | null;
+  invited_at: string | null;
+  invitation_id: number | null;
+  invitation_code: string | null;
+}
+
+/** POST /api/admin/waitlist/{id}/invite result. */
+export interface WaitlistInviteResult {
+  sent: boolean;
+  email_configured: boolean;
+  code: string;
+  email: string;
+  invite_url: string;
+  expires_at: string | null;
+}

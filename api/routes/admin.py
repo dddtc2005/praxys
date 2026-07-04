@@ -2,26 +2,22 @@
 
 All endpoints require is_superuser=True on the authenticated user.
 """
-import secrets
-import string
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
+from api import app_config, email_content, email_sender, invitations
 from api.auth import get_current_user_id
 from api.views import utc_isoformat, require_admin as _require_admin
 from db.session import get_db
 
 router = APIRouter(prefix="/admin")
 
-
-def _generate_code() -> str:
-    """Generate a human-readable invitation code: TS-XXXX-XXXX."""
-    chars = string.ascii_uppercase + string.digits
-    part1 = ''.join(secrets.choice(chars) for _ in range(4))
-    part2 = ''.join(secrets.choice(chars) for _ in range(4))
-    return f"TS-{part1}-{part2}"
+# Emailed invitation codes expire so a leaked/forwarded link cannot be redeemed
+# indefinitely. Admin-generated codes (the /invitations button) stay non-expiring.
+INVITE_EXPIRY_DAYS = 14
 
 
 # ---------------------------------------------------------------------------
@@ -43,23 +39,10 @@ def create_invitation(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Generate a new one-time invitation code."""
+    """Generate a new one-time invitation code (non-expiring)."""
     _require_admin(user_id, db)
-    from db.models import Invitation
-
-    code = _generate_code()
-    # Ensure uniqueness (extremely unlikely collision)
-    while db.query(Invitation).filter(Invitation.code == code).first():
-        code = _generate_code()
-
-    invitation = Invitation(
-        code=code,
-        created_by=user_id,
-        note=body.note,
-    )
-    db.add(invitation)
-    db.commit()
-    return {"code": code, "note": body.note}
+    invitation = invitations.create_invitation(db, created_by=user_id, note=body.note)
+    return {"code": invitation.code, "note": invitation.note}
 
 
 @router.get("/invitations")
@@ -243,4 +226,160 @@ async def create_demo_account(
         "email": body.email,
         "is_demo": True,
         "demo_of": user_id,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Registration config (operational gate + seat cap) + activity gauge
+# ---------------------------------------------------------------------------
+
+
+class RegistrationConfigUpdate(BaseModel):
+    # Both optional so the UI can PATCH either field independently.
+    registration_open: bool | None = None
+    registration_max_users: int | None = None
+
+
+def _config_snapshot(db: Session) -> dict:
+    """Full admin view: the gate + seat cap, the DAU/WAU gauge, email status."""
+    return {
+        "registration": app_config.registration_status(db),
+        "activity": app_config.activity_counts(db),
+        "email_configured": email_sender.is_available(),
+    }
+
+
+@router.get("/config")
+def get_config(
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Return the registration gate, seat cap, DAU/WAU gauge, and email status."""
+    _require_admin(user_id, db)
+    return _config_snapshot(db)
+
+
+@router.patch("/config")
+def update_config(
+    body: RegistrationConfigUpdate,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Toggle self-registration and/or set the seat cap. Admin only.
+
+    Enforcement of both lives server-side in the register route; this only
+    persists the operator's intent into AppConfig.
+    """
+    _require_admin(user_id, db)
+    if body.registration_open is not None:
+        app_config.set_value(
+            db,
+            app_config.KEY_REGISTRATION_OPEN,
+            "true" if body.registration_open else "false",
+            updated_by=user_id,
+        )
+    if body.registration_max_users is not None:
+        if body.registration_max_users < 0:
+            raise HTTPException(400, "max_users must be >= 0")
+        app_config.set_value(
+            db,
+            app_config.KEY_REGISTRATION_MAX_USERS,
+            str(int(body.registration_max_users)),
+            updated_by=user_id,
+        )
+    return _config_snapshot(db)
+
+
+# ---------------------------------------------------------------------------
+# Waitlist — list + invite (generate code, mark row, email it)
+# ---------------------------------------------------------------------------
+
+
+def _serialize_waitlist(row, code: str | None) -> dict:
+    return {
+        "id": row.id,
+        "email": row.email,
+        "note": row.note,
+        "locale": row.locale,
+        "created_at": utc_isoformat(row.created_at),
+        "invited_at": utc_isoformat(row.invited_at),
+        "invitation_id": row.invitation_id,
+        "invitation_code": code,
+    }
+
+
+@router.get("/waitlist")
+def list_waitlist(
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict:
+    """List waitlist signups (newest first) with any issued invitation code."""
+    _require_admin(user_id, db)
+    from db.models import Invitation, WaitlistSignup
+
+    rows = db.query(WaitlistSignup).order_by(WaitlistSignup.created_at.desc()).all()
+    inv_ids = [r.invitation_id for r in rows if r.invitation_id]
+    codes: dict[int, str] = {}
+    if inv_ids:
+        for inv in db.query(Invitation).filter(Invitation.id.in_(inv_ids)).all():
+            codes[inv.id] = inv.code
+    return {
+        "signups": [
+            _serialize_waitlist(r, codes.get(r.invitation_id) if r.invitation_id else None)
+            for r in rows
+        ]
+    }
+
+
+@router.post("/waitlist/{signup_id}/invite")
+def invite_waitlist_signup(
+    signup_id: int,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Generate an invitation code for a waitlist signup and email it.
+
+    Always generates + marks the row so the admin has a code to hand out even
+    when SMTP is unconfigured or the send fails — the response carries the code
+    and a ready-to-use invite URL for a copy / mailto fallback. Re-inviting a
+    row first revokes its previous unused code.
+    """
+    _require_admin(user_id, db)
+    from db.models import Invitation, WaitlistSignup
+
+    signup = db.query(WaitlistSignup).filter(WaitlistSignup.id == signup_id).first()
+    if not signup:
+        raise HTTPException(404, "Waitlist signup not found")
+
+    # Revoke a prior unused, active code on this row before issuing a new one,
+    # so re-inviting does not leave orphaned live codes.
+    if signup.invitation_id:
+        old = db.query(Invitation).filter(Invitation.id == signup.invitation_id).first()
+        if old and old.is_active and old.used_by is None:
+            old.is_active = False
+            db.commit()
+
+    expires_at = datetime.utcnow() + timedelta(days=INVITE_EXPIRY_DAYS)
+    invitation = invitations.create_invitation(
+        db, created_by=user_id, note=f"waitlist:{signup.email}", expires_at=expires_at,
+    )
+    signup.invited_at = datetime.utcnow()
+    signup.invitation_id = invitation.id
+    db.commit()
+
+    email_configured = email_sender.is_available()
+    sent = False
+    if email_configured:
+        subject, text, html = email_content.invitation_email(
+            invitation.code, expires_days=INVITE_EXPIRY_DAYS, locale=signup.locale,
+        )
+        sent = email_sender.send_email(signup.email, subject, text, html)
+
+    return {
+        "sent": sent,
+        "email_configured": email_configured,
+        "code": invitation.code,
+        "email": signup.email,
+        "invite_url": email_content.invite_url(invitation.code),
+        "expires_at": utc_isoformat(expires_at),
     }

@@ -15,7 +15,7 @@ interface AuthState {
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
-  register: (email: string, password: string, invitationCode?: string, acceptedTerms?: boolean) => Promise<{ ok: boolean; error?: string }>;
+  register: (email: string, password: string, invitationCode?: string, acceptedTerms?: boolean, honeypot?: string) => Promise<{ ok: boolean; error?: string; verificationRequired?: boolean }>;
   logout: () => void;
   acceptTerms: () => Promise<boolean>;
 }
@@ -134,12 +134,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const register = useCallback(async (email: string, password: string, invitationCode?: string, acceptedTerms?: boolean): Promise<{ ok: boolean; error?: string }> => {
+  const register = useCallback(async (email: string, password: string, invitationCode?: string, acceptedTerms?: boolean, honeypot?: string): Promise<{ ok: boolean; error?: string; verificationRequired?: boolean }> => {
     try {
       const res = await fetch(`${API_BASE}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, invitation_code: invitationCode || '', accepted_terms: !!acceptedTerms }),
+        body: JSON.stringify({ email, password, invitation_code: invitationCode || '', accepted_terms: !!acceptedTerms, website: honeypot || '' }),
       });
 
       if (!res.ok) {
@@ -157,10 +157,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (detail === 'REGISTER_TERMS_NOT_ACCEPTED') {
           return { ok: false, error: 'You must accept the Terms of Service to register.' };
         }
+        if (detail === 'REGISTER_CLOSED') {
+          return { ok: false, error: 'Registration is currently closed. Join the waitlist and we will invite you soon.' };
+        }
+        if (detail === 'REGISTER_FAILED') {
+          return { ok: false, error: 'Registration could not be completed. Please try again.' };
+        }
         return { ok: false, error: detail || `Registration failed (HTTP ${res.status}).` };
       }
 
-      // Auto-login after successful registration.
+      const data = await res.json().catch(() => null);
+      // Open, code-less signups must verify their email before logging in —
+      // do NOT auto-login; the caller shows a "check your email" state.
+      if (data?.verification_required) {
+        return { ok: true, verificationRequired: true };
+      }
+
+      // Auto-login after successful (already-verified) registration.
       return login(email, password);
     } catch {
       return { ok: false, error: 'Network error. Is the server running?' };

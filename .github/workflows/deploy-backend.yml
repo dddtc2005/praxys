@@ -84,6 +84,19 @@ jobs:
           # container). Unset → local filesystem fallback under DATA_DIR.
           PRAXYS_FEEDBACK_BLOB_ACCOUNT_URL: ${{ vars.PRAXYS_FEEDBACK_BLOB_ACCOUNT_URL }}
           PRAXYS_FEEDBACK_BLOB_CONTAINER: ${{ vars.PRAXYS_FEEDBACK_BLOB_CONTAINER }}
+          # Optional: transactional email (WeCom/Exmail SMTP) for open-registration
+          # email verification + emailing waitlist invitation codes. Unset → the
+          # feature degrades gracefully (admin copies codes by hand; open sign-ups
+          # are created verified because no ownership check is possible). NOT required.
+          PRAXYS_SMTP_HOST: ${{ vars.PRAXYS_SMTP_HOST }}
+          PRAXYS_SMTP_PORT: ${{ vars.PRAXYS_SMTP_PORT }}
+          PRAXYS_SMTP_USER: ${{ vars.PRAXYS_SMTP_USER }}
+          PRAXYS_SMTP_PASSWORD: ${{ secrets.PRAXYS_SMTP_PASSWORD }}
+          PRAXYS_SMTP_FROM: ${{ vars.PRAXYS_SMTP_FROM }}
+          PRAXYS_SMTP_STARTTLS: ${{ vars.PRAXYS_SMTP_STARTTLS }}
+          # Public origin used to build verify/invite links in those emails
+          # (default https://praxys.run when unset).
+          PRAXYS_APP_BASE_URL: ${{ vars.PRAXYS_APP_BASE_URL }}
         run: |
           for var in AZURE_AI_ENDPOINT KEY_VAULT_URL KEY_VAULT_KEY_NAME \
                      APPLICATIONINSIGHTS_CONNECTION_STRING PRAXYS_JWT_SECRET \
@@ -113,6 +126,13 @@ jobs:
               PRAXYS_FEEDBACK_AUTOFILE_WITHOUT_AI="${PRAXYS_FEEDBACK_AUTOFILE_WITHOUT_AI}" \
               PRAXYS_FEEDBACK_BLOB_ACCOUNT_URL="${PRAXYS_FEEDBACK_BLOB_ACCOUNT_URL}" \
               PRAXYS_FEEDBACK_BLOB_CONTAINER="${PRAXYS_FEEDBACK_BLOB_CONTAINER}" \
+              PRAXYS_SMTP_HOST="${PRAXYS_SMTP_HOST}" \
+              PRAXYS_SMTP_PORT="${PRAXYS_SMTP_PORT}" \
+              PRAXYS_SMTP_USER="${PRAXYS_SMTP_USER}" \
+              PRAXYS_SMTP_PASSWORD="${PRAXYS_SMTP_PASSWORD}" \
+              PRAXYS_SMTP_FROM="${PRAXYS_SMTP_FROM}" \
+              PRAXYS_SMTP_STARTTLS="${PRAXYS_SMTP_STARTTLS}" \
+              PRAXYS_APP_BASE_URL="${PRAXYS_APP_BASE_URL}" \
               WEBSITES_PORT="8000" \
               DATA_DIR="/home/data" \
               SCM_DO_BUILD_DURING_DEPLOYMENT="true" \

@@ -16,6 +16,7 @@ import Today from './pages/Today';
 import Setup from './pages/Setup';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
+import Verify from './pages/Verify';
 // Lazy-loaded: secondary routes the user navigates to after landing on
 // Today. Chunks load on first visit to each route; cached immutably
 // thereafter (cache headers set by frontend_server/main.py).
@@ -54,6 +55,7 @@ export default function App() {
               <Route path="/login" element={<LoginGuard />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/privacy" element={<Privacy />} />
+              <Route path="/verify" element={<Verify />} />
               <Route
                 element={
                   <RequireAuth>

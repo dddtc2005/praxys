@@ -4,6 +4,7 @@ Every request to a protected endpoint must include a valid Bearer token
 from the Authorization header. Tokens are issued by the /api/auth/login endpoint.
 """
 import logging
+from datetime import datetime, timedelta
 
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
@@ -12,6 +13,28 @@ from api.auth_secrets import get_jwt_secret
 from db.session import get_db
 
 logger = logging.getLogger(__name__)
+
+# How stale User.last_seen_at must be before we rewrite it. Bounds the extra
+# write to at most one UPDATE per user per window, keeping the WAU/DAU gauge
+# (api/app_config.activity_counts) fed without a per-request DB write.
+LAST_SEEN_THROTTLE = timedelta(minutes=15)
+
+
+def _touch_last_seen(db: Session, user) -> None:
+    """Best-effort, throttled update of the user's last-activity timestamp.
+
+    Never raises: an activity-gauge write must not be able to fail a real
+    request. Only writes when the stored value is missing or older than
+    LAST_SEEN_THROTTLE.
+    """
+    try:
+        now = datetime.utcnow()
+        last = user.last_seen_at
+        if last is None or (now - last) >= LAST_SEEN_THROTTLE:
+            user.last_seen_at = now
+            db.commit()
+    except Exception:
+        db.rollback()
 
 
 def get_current_user_id(request: Request, db: Session = Depends(get_db)) -> str:
@@ -40,6 +63,7 @@ def get_current_user_id(request: Request, db: Session = Depends(get_db)) -> str:
         if not user.is_active:
             raise HTTPException(401, "User account is deactivated")
 
+        _touch_last_seen(db, user)
         return user_id
     except jwt.ExpiredSignatureError:
         raise HTTPException(401, "Token expired")

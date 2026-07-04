@@ -8,7 +8,7 @@
 
 `users.is_superuser = true`. On a fresh DB the **first registered user** becomes
 admin automatically. The address in `PRAXYS_ADMIN_EMAIL` is always granted admin
-on register. Everyone else needs an invitation code. All `/api/admin/*` endpoints
+on register. Everyone else needs an invitation code — unless **self-registration** is open (see Registration below). All `/api/admin/*` endpoints
 enforce `require_admin` (403 otherwise) — see `api/views.py`.
 
 Most tasks have a UI on the **Admin** page (`/admin`); the API equivalents are
@@ -19,6 +19,42 @@ listed for scripting.
 - UI: Admin → generate / copy / revoke codes.
 - API: `POST /api/admin/invitations` (`{note}`) → `{code}`; `GET /api/admin/invitations`;
   `DELETE /api/admin/invitations/{id}`.
+
+## Registration (open / close + seat cap)
+
+Praxys is invitation-only by default. To let people sign up without a code:
+
+- UI: **Admin → Registration** → toggle **Self-registration** on and set the
+  **seat cap**. The public login page then shows a "Create account" path; new
+  code-less sign-ups must **verify their email** (requires SMTP — see below)
+  before they can log in.
+- API: `GET /api/admin/config` (status + DAU/WAU gauge + `email_configured`);
+  `PATCH /api/admin/config` (`{registration_open, registration_max_users}`).
+  Unauthenticated `GET /api/public/config` exposes **only** the effective boolean.
+
+**Seat cap = committed seats** = registered non-demo users **plus** outstanding
+(active, unused, unexpired) invitation codes. Sending an invitation reserves a
+seat, so an invited user is never turned away at the door. Self-registration
+**auto-closes** when committed ≥ cap; admin-issued invitations are deliberate and
+still allowed past it. The DAU/WAU tiles are the readiness gauge — review before
+raising the cap (100 → 1000; see [cost-and-scaling.md](./cost-and-scaling.md)).
+
+**Email is required for the full experience** (verification + auto-sent invites).
+Without `PRAXYS_SMTP_*` configured (see
+[config-and-secrets.md](./config-and-secrets.md)), open sign-ups are created
+*verified* (no ownership check) and invitation codes are shown for you to
+copy/email by hand.
+
+## Waitlist → invite
+
+Prospective users who joined the waitlist (login page, or the WeChat mini program)
+appear in **Admin → Waitlist**.
+
+- **Invite** a row → generates a 14-day invitation code, marks the row, and emails
+  the code + a prefilled register link (if SMTP is configured; otherwise copy the
+  code or use the mailto fallback shown in the result). **Re-invite** revokes the
+  previous unused code and issues a fresh one.
+- API: `GET /api/admin/waitlist`; `POST /api/admin/waitlist/{id}/invite`.
 
 ## User roles
 
@@ -60,4 +96,4 @@ To get emailed when something needs review, wire the alert in
 - [monitoring-and-alerts.md](./monitoring-and-alerts.md) · `api/routes/admin.py` · `api/routes/announcements.py`
 
 ---
-_Last reviewed: 2026-06-30 · Owner: @dddtc2005_
+_Last reviewed: 2026-07-04 · Owner: @dddtc2005_

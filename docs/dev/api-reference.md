@@ -8,32 +8,47 @@ All endpoints are under the `/api/` prefix. The API server runs on `http://local
 
 ### POST /api/auth/register
 
-Register a new user. First user on a fresh database becomes admin without an invitation code. Subsequent users must provide a valid invitation code.
+Register a new user.
+
+- **First user** on a fresh DB becomes admin (no code, auto-verified).
+- Email matching `PRAXYS_ADMIN_EMAIL` → admin (no code, auto-verified).
+- A valid **invitation code** → normal user (auto-verified; invited users bypass the seat cap).
+- **Open self-registration** (admin-enabled gate, under the committed-seat cap, no code) →
+  created *unverified*; a verification link is emailed and the user cannot log in until they
+  click it (see `POST /api/auth/verify`). If SMTP is not configured, the account is created
+  verified instead.
 
 **Request body:**
 ```json
 {
   "email": "user@example.com",
   "password": "securepassword",
-  "invitation_code": "TS-ABCD-1234"
+  "invitation_code": "TS-ABCD-1234",
+  "accepted_terms": true,
+  "website": ""
 }
 ```
 
-- `invitation_code` is optional for the first user (auto-admin) or if the email matches `PRAXYS_ADMIN_EMAIL`
+- `invitation_code` — optional; omit for the first user, `PRAXYS_ADMIN_EMAIL`, or an open sign-up.
+- `accepted_terms` — **required** (`true`); the EULA gate.
+- `website` — **honeypot**; must be empty. A non-empty value is treated as a bot and rejected.
 
-**Response:**
+**Response** (verified path — first user / admin email / invited):
 ```json
-{
-  "id": "uuid-string",
-  "email": "user@example.com",
-  "is_superuser": false
-}
+{ "id": "uuid-string", "email": "user@example.com", "is_superuser": false }
+```
+
+**Response** (open sign-up needing email verification):
+```json
+{ "verification_required": true, "email": "user@example.com" }
 ```
 
 **Error codes:**
 - `400 REGISTER_USER_ALREADY_EXISTS` — email already registered
-- `400 REGISTER_INVITATION_REQUIRED` — not first user and no code provided
-- `400 REGISTER_INVALID_INVITATION` — code is invalid, used, or revoked
+- `400 REGISTER_TERMS_NOT_ACCEPTED` — `accepted_terms` was not `true`
+- `400 REGISTER_INVALID_INVITATION` — code is invalid, used, expired, or revoked
+- `400 REGISTER_FAILED` — honeypot tripped (or an opaque create failure)
+- `403 REGISTER_CLOSED` — self-registration is disabled or the seat cap is reached
 
 ### POST /api/auth/login
 
@@ -65,6 +80,31 @@ Return the authenticated user's profile.
   "created_at": "2026-04-01T12:00:00"
 }
 ```
+
+### POST /api/auth/request-verify-token
+
+Request (or re-send) an email-ownership verification link. Always returns `202` regardless of
+whether the address exists (no account enumeration); sends an email only when SMTP is configured.
+
+**Request body:** `{ "email": "user@example.com" }`
+
+### POST /api/auth/verify
+
+Consume a verification token (from the emailed link `…/verify?token=…`) and mark the account
+verified, unblocking login.
+
+**Request body:** `{ "token": "<token>" }`
+
+Errors: `400 VERIFY_USER_ALREADY_VERIFIED`, `400 VERIFY_USER_BAD_TOKEN` (FastAPI-Users).
+
+### GET /api/public/config
+
+**Unauthenticated.** Minimal boot config for the login page.
+
+**Response:** `{ "registration_open": true }`
+
+- `registration_open` — effective state (admin flag **and** committed seats < cap). No counts or
+  other operator data are exposed here.
 
 ## Admin
 
@@ -176,6 +216,67 @@ Create a read-only demo account that mirrors the creating admin's data. Demo use
   "email": "demo@example.com",
   "is_demo": true,
   "demo_of": "admin-user-id"
+}
+```
+
+### GET /api/admin/config
+
+Registration gate, seat cap, activity gauge, and email availability.
+
+**Response:**
+```json
+{
+  "registration": {
+    "registration_open": true, "flag_enabled": true, "max_users": 100,
+    "registered_users": 12, "outstanding_invitations": 3,
+    "committed_seats": 15, "remaining": 85, "cap_reached": false
+  },
+  "activity": { "dau": 4, "wau": 9, "mau": 11, "total_users": 12 },
+  "email_configured": true
+}
+```
+
+### PATCH /api/admin/config
+
+Toggle self-registration and/or set the seat cap. Both fields optional.
+
+**Request:** `{ "registration_open": true, "registration_max_users": 100 }`
+
+**Response:** same shape as `GET /api/admin/config`. `400` if `registration_max_users < 0`.
+
+The **seat cap counts committed seats** = registered non-demo users **plus** outstanding
+(active, unused, unexpired) invitation codes. Self-registration auto-closes when committed ≥ cap;
+admin-issued invitations bypass it.
+
+### GET /api/admin/waitlist
+
+List waitlist signups (newest first), each with any issued invitation code.
+
+**Response:**
+```json
+{
+  "signups": [
+    {
+      "id": 1, "email": "lead@example.com", "note": "sub-3 marathon",
+      "locale": "zh", "created_at": "2026-07-01T10:00:00+00:00",
+      "invited_at": null, "invitation_id": null, "invitation_code": null
+    }
+  ]
+}
+```
+
+### POST /api/admin/waitlist/{id}/invite
+
+Generate a 14-day invitation code for a waitlist signup, mark the row, and email the code + a
+prefilled register link (when SMTP is configured). Re-inviting revokes the prior unused code.
+
+**Response:**
+```json
+{
+  "sent": true, "email_configured": true, "code": "TS-A1B2-C3D4",
+  "email": "lead@example.com",
+  "invite_url": "https://praxys.run/login?invite=TS-A1B2-C3D4",
+  "expires_at": "2026-07-18T10:00:00+00:00"
 }
 ```
 

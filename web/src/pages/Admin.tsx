@@ -23,8 +23,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Users, Ticket, Copy, Check, Trash2, Plus, ShieldCheck, ChevronUp, ChevronDown, Eye, Megaphone, MessageSquarePlus, ExternalLink, RotateCcw } from 'lucide-react';
-import type { SystemAnnouncement, AdminFeedbackItem } from '@/types/api';
+import { Users, Ticket, Copy, Check, Trash2, Plus, ShieldCheck, ChevronUp, ChevronDown, Eye, Megaphone, MessageSquarePlus, ExternalLink, RotateCcw, UserPlus, Activity, Send, AlertTriangle, Mail } from 'lucide-react';
+import type { SystemAnnouncement, AdminFeedbackItem, AdminConfig, WaitlistSignupItem, WaitlistInviteResult } from '@/types/api';
 import AdminFeedbackImages from '@/components/AdminFeedbackImages';
 import { Trans, useLingui } from '@lingui/react/macro';
 
@@ -91,6 +91,15 @@ export default function Admin() {
   const [feedback, setFeedback] = useState<AdminFeedbackItem[]>([]);
   const [feedbackBusy, setFeedbackBusy] = useState<number | null>(null);
 
+  // Registration gate + waitlist
+  const [config, setConfig] = useState<AdminConfig | null>(null);
+  const [maxUsersInput, setMaxUsersInput] = useState('');
+  const [savingConfig, setSavingConfig] = useState(false);
+  const [waitlist, setWaitlist] = useState<WaitlistSignupItem[]>([]);
+  const [invitingId, setInvitingId] = useState<number | null>(null);
+  const [inviteResults, setInviteResults] = useState<Record<number, WaitlistInviteResult>>({});
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
   const fetchData = () => {
     setLoading(true);
     Promise.all([
@@ -98,12 +107,16 @@ export default function Admin() {
       fetch(`${API_BASE}/api/admin/invitations`, { headers: getAuthHeaders() }).then((r) => r.json()),
       fetch(`${API_BASE}/api/announcements`, { headers: getAuthHeaders() }).then((r) => r.ok ? r.json() : []),
       fetch(`${API_BASE}/api/admin/feedback`, { headers: getAuthHeaders() }).then((r) => r.ok ? r.json() : []),
+      fetch(`${API_BASE}/api/admin/config`, { headers: getAuthHeaders() }).then((r) => r.ok ? r.json() : null),
+      fetch(`${API_BASE}/api/admin/waitlist`, { headers: getAuthHeaders() }).then((r) => r.ok ? r.json() : { signups: [] }),
     ])
-      .then(([u, i, a, f]) => {
+      .then(([u, i, a, f, cfg, wl]) => {
         setUsers(u.users || []);
         setInvitations(i.invitations || []);
         setAnnouncements(Array.isArray(a) ? a : []);
         setFeedback(Array.isArray(f) ? f : []);
+        if (cfg) { setConfig(cfg); setMaxUsersInput(String(cfg.registration.max_users)); }
+        setWaitlist(wl?.signups || []);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -170,6 +183,52 @@ export default function Admin() {
       // row failed). Resync so the table reflects the persisted state.
       fetchData();
     }
+  };
+
+  const patchConfig = async (payload: { registration_open?: boolean; registration_max_users?: number }) => {
+    setSavingConfig(true);
+    const res = await fetch(`${API_BASE}/api/admin/config`, {
+      method: 'PATCH',
+      headers: { ...getAuthHeaders() as Record<string, string>, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    setSavingConfig(false);
+    if (res.ok) {
+      const cfg: AdminConfig = await res.json();
+      setConfig(cfg);
+      setMaxUsersInput(String(cfg.registration.max_users));
+    }
+  };
+
+  const handleToggleRegistration = () => {
+    if (!config) return;
+    patchConfig({ registration_open: !config.registration.flag_enabled });
+  };
+
+  const handleSaveMaxUsers = () => {
+    const n = parseInt(maxUsersInput, 10);
+    if (!Number.isFinite(n) || n < 0) return;
+    patchConfig({ registration_max_users: n });
+  };
+
+  const handleInviteWaitlist = async (row: WaitlistSignupItem) => {
+    setInvitingId(row.id);
+    const res = await fetch(`${API_BASE}/api/admin/waitlist/${row.id}/invite`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    setInvitingId(null);
+    if (res.ok) {
+      const result: WaitlistInviteResult = await res.json();
+      setInviteResults((prev) => ({ ...prev, [row.id]: result }));
+      fetchData();
+    }
+  };
+
+  const copyInviteCode = (code: string) => {
+    navigator.clipboard?.writeText(code);
+    setCopiedCode(code);
+    setTimeout(() => setCopiedCode(null), 1500);
   };
 
   useEffect(() => { fetchData(); }, []);
@@ -268,6 +327,93 @@ export default function Admin() {
         <h1 className="text-2xl font-bold text-foreground"><Trans>Admin</Trans></h1>
         <p className="text-sm text-muted-foreground mt-1"><Trans>Manage users and invitation codes</Trans></p>
       </div>
+
+      {/* Registration gate + seat cap */}
+      {config && (
+        <Card className="mb-8">
+          <CardHeader>
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                <UserPlus className="h-4 w-4" />
+              </div>
+              <div>
+                <CardTitle className="text-sm font-semibold text-foreground">
+                  <Trans>Registration</Trans>
+                  {config.registration.registration_open
+                    ? <Badge className="ml-2 bg-primary/15 text-primary border-primary/30"><Trans>Open</Trans></Badge>
+                    : <Badge variant="secondary" className="ml-2">{config.registration.cap_reached ? <Trans>Closed · cap reached</Trans> : <Trans>Closed</Trans>}</Badge>}
+                </CardTitle>
+                <CardDescription className="text-xs"><Trans>Control self-registration and the committed-seat cap</Trans></CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {!config.email_configured && (
+              <div className="flex items-start gap-2 rounded-lg bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span><Trans>Email is not configured. Open sign-ups will NOT be email-verified, and invitation codes can't be emailed automatically — you'll copy them by hand. Set the SMTP env vars to enable both.</Trans></span>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-end gap-6">
+              <div>
+                <p className="text-xs text-muted-foreground mb-1"><Trans>Self-registration</Trans></p>
+                <Button
+                  variant={config.registration.flag_enabled ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={handleToggleRegistration}
+                  disabled={savingConfig}
+                >
+                  {config.registration.flag_enabled ? <Trans>Enabled — click to close</Trans> : <Trans>Disabled — click to open</Trans>}
+                </Button>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block"><Trans>Seat cap</Trans></label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={maxUsersInput}
+                    onChange={(e) => setMaxUsersInput(e.target.value)}
+                    className="h-8 w-24 text-xs font-data"
+                  />
+                  <Button size="sm" variant="outline" onClick={handleSaveMaxUsers} disabled={savingConfig}><Trans>Save</Trans></Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              <div className="rounded-lg border border-border px-3 py-2">
+                <p className="text-[11px] text-muted-foreground"><Trans>Registered</Trans></p>
+                <p className="text-lg font-semibold font-data text-foreground">{config.registration.registered_users}</p>
+              </div>
+              <div className="rounded-lg border border-border px-3 py-2">
+                <p className="text-[11px] text-muted-foreground"><Trans>Outstanding codes</Trans></p>
+                <p className="text-lg font-semibold font-data text-foreground">{config.registration.outstanding_invitations}</p>
+              </div>
+              <div className={`rounded-lg border px-3 py-2 ${config.registration.cap_reached ? 'border-amber-500/40 bg-amber-500/5' : 'border-border'}`}>
+                <p className="text-[11px] text-muted-foreground"><Trans>Committed / cap</Trans></p>
+                <p className="text-lg font-semibold font-data text-foreground">{config.registration.committed_seats} / {config.registration.max_users}</p>
+              </div>
+              <div className="rounded-lg border border-border px-3 py-2">
+                <p className="text-[11px] text-muted-foreground"><Trans>Remaining</Trans></p>
+                <p className="text-lg font-semibold font-data text-foreground">{config.registration.remaining}</p>
+              </div>
+              <div className="rounded-lg border border-border px-3 py-2">
+                <p className="text-[11px] text-muted-foreground inline-flex items-center gap-1"><Activity className="h-3 w-3" /><Trans>DAU</Trans></p>
+                <p className="text-lg font-semibold font-data text-foreground">{config.activity.dau}</p>
+              </div>
+              <div className="rounded-lg border border-border px-3 py-2">
+                <p className="text-[11px] text-muted-foreground inline-flex items-center gap-1"><Activity className="h-3 w-3" /><Trans>WAU</Trans></p>
+                <p className="text-lg font-semibold font-data text-foreground">{config.activity.wau}</p>
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              <Trans>Sending an invitation reserves a seat. Self-registration auto-closes at the cap; review readiness before raising it.</Trans>
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Users */}
       <Card className="mb-8">
@@ -455,6 +601,108 @@ export default function Admin() {
                           <Trans>Revoke</Trans>
                         </Button>
                       )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Waitlist */}
+      <Card className="mt-8">
+        <CardHeader>
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+              <Mail className="h-4 w-4" />
+            </div>
+            <div>
+              <CardTitle className="text-sm font-semibold text-foreground">
+                <Trans>Waitlist</Trans> <Badge variant="secondary" className="ml-2">{waitlist.length}</Badge>
+              </CardTitle>
+              <CardDescription className="text-xs"><Trans>Prospective users — generate an invitation code and email it</Trans></CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {Object.keys(inviteResults).length > 0 && (
+            <div className="mb-4 space-y-2">
+              {Object.entries(inviteResults).map(([id, r]) => (
+                <div key={id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-xs">
+                  <span className="text-muted-foreground">
+                    {r.sent
+                      ? <Trans>Invitation emailed to {r.email} · code {r.code}</Trans>
+                      : <Trans>Code {r.code} created for {r.email}. Email not sent — copy it or use the link.</Trans>}
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <button type="button" className="inline-flex items-center gap-1 font-data text-muted-foreground hover:text-foreground" onClick={() => copyInviteCode(r.code)}>
+                      {copiedCode === r.code ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
+                      <Trans>Copy code</Trans>
+                    </button>
+                    {!r.sent && (
+                      <a className="inline-flex items-center gap-1 text-primary hover:underline" href={`mailto:${r.email}?subject=${encodeURIComponent('Your Praxys invitation')}&body=${encodeURIComponent(`Your Praxys invitation code: ${r.code}\n\nFinish registering here: ${r.invite_url}`)}`}>
+                        <Mail className="h-3 w-3" /><Trans>Email link</Trans>
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead><Trans>Email</Trans></TableHead>
+                <TableHead><Trans>Goal</Trans></TableHead>
+                <TableHead><Trans>Joined</Trans></TableHead>
+                <TableHead><Trans>Status</Trans></TableHead>
+                <TableHead className="text-right"><Trans>Action</Trans></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {waitlist.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-6">
+                    <Trans>No waitlist signups yet.</Trans>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                waitlist.map((s) => (
+                  <TableRow key={s.id}>
+                    <TableCell className="font-medium">{s.email}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground max-w-[16rem] truncate">{s.note || '—'}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground font-data">{s.created_at ? new Date(s.created_at).toLocaleDateString() : '—'}</TableCell>
+                    <TableCell>
+                      {s.invited_at ? (
+                        <div className="flex items-center gap-1.5">
+                          <Badge className="bg-primary/15 text-primary border-primary/30"><Trans>Invited</Trans></Badge>
+                          {s.invitation_code && (
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1 text-xs font-data text-muted-foreground hover:text-foreground"
+                              onClick={() => copyInviteCode(s.invitation_code!)}
+                              title={t`Copy code`}
+                            >
+                              {s.invitation_code}
+                              {copiedCode === s.invitation_code ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        variant={s.invited_at ? 'outline' : 'default'}
+                        onClick={() => handleInviteWaitlist(s)}
+                        disabled={invitingId === s.id}
+                      >
+                        <Send className="h-3 w-3 mr-1" />
+                        {invitingId === s.id ? <Trans>Sending…</Trans> : s.invited_at ? <Trans>Re-invite</Trans> : <Trans>Invite</Trans>}
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))

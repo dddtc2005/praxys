@@ -2,6 +2,7 @@
 
 Uses async SQLAlchemy sessions (aiosqlite) as required by FastAPI-Users v13+.
 """
+import logging
 import os
 from typing import Optional
 
@@ -17,6 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import User
 from db.session import get_async_db
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -63,6 +66,24 @@ from api.env_compat import getenv_compat
 class UserManager(BaseUserManager[User, str]):
     """Custom user manager for Praxys."""
 
+    def parse_id(self, value) -> str:
+        """Parse the user id carried in reset/verify tokens.
+
+        User.id is a String(36) holding ``str(uuid4())`` — a string, not a
+        UUID object — so we must NOT use UUIDIDMixin (it returns a uuid.UUID
+        that would not equal the stored string in a WHERE clause). We validate
+        the value is a well-formed UUID (raising InvalidID otherwise, per the
+        FastAPI-Users contract) and return its canonical string form, which
+        matches how ids are stored. Without this, /api/auth/verify raises
+        NotImplementedError from the base manager.
+        """
+        from uuid import UUID
+        from fastapi_users import exceptions
+        try:
+            return str(UUID(str(value)))
+        except (ValueError, AttributeError, TypeError) as e:
+            raise exceptions.InvalidID() from e
+
     @property
     def reset_password_token_secret(self) -> str:
         return get_jwt_secret()
@@ -80,6 +101,39 @@ class UserManager(BaseUserManager[User, str]):
         the first request from the user.
         """
         pass
+
+    async def on_after_request_verify(
+        self, user: User, token: str, request: Optional[Request] = None
+    ):
+        """Send the email-ownership verification link.
+
+        Triggered by the register route (open, code-less self-signups) and by
+        the /request-verify-token endpoint (resend). The blocking SMTP send is
+        pushed to a threadpool so it never stalls the event loop, and any
+        failure is swallowed — the user can re-request. Never raises.
+        """
+        from starlette.concurrency import run_in_threadpool
+        from api import email_content, email_sender
+
+        if not email_sender.is_available():
+            logger.warning(
+                "verify requested but email not configured; user %s cannot "
+                "receive a link", user.id,
+            )
+            return
+        subject, text, html = email_content.verification_email(token)
+        try:
+            await run_in_threadpool(
+                email_sender.send_email, user.email, subject, text, html
+            )
+        except Exception:
+            logger.warning("verification email send raised", exc_info=False)
+
+    async def on_after_verify(
+        self, user: User, request: Optional[Request] = None
+    ):
+        """Log successful email verification (audit trail)."""
+        logger.info("user %s verified email", user.id)
 
 
 async def get_user_manager(user_db=Depends(get_user_db)):
