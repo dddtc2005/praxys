@@ -19,7 +19,7 @@ const token = (() => {
 
 export interface PrefetchedMe {
   status: number;
-  data: { is_superuser: boolean; is_demo?: boolean; terms_current?: boolean } | null;
+  data: { id: string; is_superuser: boolean; is_demo?: boolean; terms_current?: boolean } | null;
 }
 
 export const prefetchedMe: Promise<PrefetchedMe> | null = token
