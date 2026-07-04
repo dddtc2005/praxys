@@ -295,7 +295,7 @@ def update_config(
 # ---------------------------------------------------------------------------
 
 
-def _serialize_waitlist(row, code: str | None) -> dict:
+def _serialize_waitlist(row, code: str | None, registered: bool = False) -> dict:
     return {
         "id": row.id,
         "email": row.email,
@@ -305,6 +305,7 @@ def _serialize_waitlist(row, code: str | None) -> dict:
         "invited_at": utc_isoformat(row.invited_at),
         "invitation_id": row.invitation_id,
         "invitation_code": code,
+        "registered": registered,
     }
 
 
@@ -315,7 +316,9 @@ def list_waitlist(
 ) -> dict:
     """List waitlist signups (newest first) with any issued invitation code."""
     _require_admin(user_id, db)
-    from db.models import Invitation, WaitlistSignup
+    from sqlalchemy import func
+
+    from db.models import Invitation, User, WaitlistSignup
 
     rows = db.query(WaitlistSignup).order_by(WaitlistSignup.created_at.desc()).all()
     inv_ids = [r.invitation_id for r in rows if r.invitation_id]
@@ -323,9 +326,27 @@ def list_waitlist(
     if inv_ids:
         for inv in db.query(Invitation).filter(Invitation.id.in_(inv_ids)).all():
             codes[inv.id] = inv.code
+
+    # A signup is "registered" once an account exists for its email (any
+    # registration path - invited or open), compared case-insensitively. Lets
+    # the admin UI stop offering "Re-invite" - which would mint a fresh code and
+    # reserve another seat - for people who have already joined.
+    emails = {(r.email or "").lower() for r in rows if r.email}
+    registered: set[str] = set()
+    if emails:
+        for (uemail,) in (
+            db.query(User.email).filter(func.lower(User.email).in_(emails)).all()
+        ):
+            if uemail:
+                registered.add(uemail.lower())
+
     return {
         "signups": [
-            _serialize_waitlist(r, codes.get(r.invitation_id) if r.invitation_id else None)
+            _serialize_waitlist(
+                r,
+                codes.get(r.invitation_id) if r.invitation_id else None,
+                (r.email or "").lower() in registered,
+            )
             for r in rows
         ]
     }

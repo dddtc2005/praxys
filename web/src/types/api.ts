@@ -710,6 +710,8 @@ export interface WaitlistSignupItem {
   invited_at: string | null;
   invitation_id: number | null;
   invitation_code: string | null;
+  /** True once an account exists for this email (invited or open path). */
+  registered: boolean;
 }
 
 /** POST /api/admin/waitlist/{id}/invite result. */

@@ -272,6 +272,7 @@ def test_waitlist_invite_generates_marks_and_emails(env):
     client.post("/api/auth/waitlist", json={"email": "lead@x.com", "note": "hi", "locale": "zh"})
     wl = client.get("/api/admin/waitlist", headers=H).json()["signups"]
     assert len(wl) == 1 and wl[0]["invited_at"] is None
+    assert wl[0]["registered"] is False
     sid = wl[0]["id"]
 
     res = client.post(f"/api/admin/waitlist/{sid}/invite", headers=H).json()
@@ -288,9 +289,32 @@ def test_waitlist_invite_generates_marks_and_emails(env):
     r = _reg(client, "lead@x.com", invitation_code=res["code"])
     assert r.status_code == 200
 
+    # Once the lead has an account the row reports registered=True, so the admin
+    # UI shows "Joined" and drops the (seat-wasting) Re-invite affordance.
+    wl3 = client.get("/api/admin/waitlist", headers=H).json()["signups"][0]
+    assert wl3["registered"] is True
+
     # Re-inviting revokes the previous (now-used) code and issues a new one.
     res2 = client.post(f"/api/admin/waitlist/{sid}/invite", headers=H).json()
     assert res2["code"] != res["code"]
+
+
+def test_waitlist_registered_flag_ignores_case_and_unrelated(env):
+    client, _, _ = env
+    tok = _admin_token(client)
+    H = {"Authorization": f"Bearer {tok}"}
+
+    # One lead who will register (with different casing), one who won't.
+    client.post("/api/auth/waitlist", json={"email": "Mixed.Case@x.com"})
+    client.post("/api/auth/waitlist", json={"email": "pending@x.com"})
+
+    code = client.post("/api/admin/invitations", headers=H, json={}).json()["code"]
+    assert _reg(client, "mixed.case@x.com", invitation_code=code).status_code == 200
+
+    rows = client.get("/api/admin/waitlist", headers=H).json()["signups"]
+    by_email = {r["email"]: r for r in rows}
+    assert by_email["Mixed.Case@x.com"]["registered"] is True
+    assert by_email["pending@x.com"]["registered"] is False
 
 
 def test_last_seen_feeds_activity_counts(env):

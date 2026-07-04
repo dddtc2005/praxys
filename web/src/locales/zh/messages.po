@@ -89,12 +89,12 @@ msgid "+ {0}d projected from plan"
 msgstr "计划中还有 {0} 天预测"
 
 #. placeholder {0}: roleChangeUser?.email
-#: src/pages/Admin.tsx:785
+#: src/pages/Admin.tsx:797
 msgid "<0>{0}</0> will gain admin privileges. They will be able to manage all users, delete accounts, and generate invitation codes."
 msgstr "<0>{0}</0> 将获得管理员权限。他们将能够管理所有用户、删除账户并生成邀请码。"
 
 #. placeholder {0}: roleChangeUser?.email
-#: src/pages/Admin.tsx:780
+#: src/pages/Admin.tsx:792
 msgid "<0>{0}</0> will lose admin privileges. They will no longer be able to manage users or invitation codes."
 msgstr "<0>{0}</0> 将失去管理员权限。他们将不再能够管理用户或邀请码。"
 
@@ -231,11 +231,11 @@ msgid "Action"
 msgstr ""
 
 #: src/pages/Admin.tsx:440
-#: src/pages/Admin.tsx:949
+#: src/pages/Admin.tsx:961
 msgid "Actions"
 msgstr "操作"
 
-#: src/pages/Admin.tsx:901
+#: src/pages/Admin.tsx:913
 msgid "Activate"
 msgstr "激活"
 
@@ -315,7 +315,7 @@ msgstr "已有邀请码？"
 msgid "An unexpected error occurred."
 msgstr "发生了意外错误。"
 
-#: src/pages/Admin.tsx:1013
+#: src/pages/Admin.tsx:1025
 msgid "Approve & file"
 msgstr "批准并提交"
 
@@ -402,7 +402,7 @@ msgstr "基准"
 msgid "below"
 msgstr "低于"
 
-#: src/pages/Admin.tsx:849
+#: src/pages/Admin.tsx:861
 msgid "Body (optional)"
 msgstr "正文（可选）"
 
@@ -410,7 +410,7 @@ msgstr "正文（可选）"
 msgid "Bug report"
 msgstr "问题反馈"
 
-#: src/pages/Admin.tsx:933
+#: src/pages/Admin.tsx:945
 msgid "Bug reports and feature requests submitted from the app. Auto-triaged to GitHub when configured."
 msgstr "从应用内提交的问题反馈和功能建议。配置后会自动分流到 GitHub。"
 
@@ -437,8 +437,8 @@ msgstr "作者"
 
 #: src/components/FeedbackDialog.tsx:314
 #: src/components/GoalEditor.tsx:174
-#: src/pages/Admin.tsx:794
-#: src/pages/Admin.tsx:817
+#: src/pages/Admin.tsx:806
+#: src/pages/Admin.tsx:829
 #: src/pages/Settings.tsx:1011
 #: src/pages/Settings.tsx:1048
 #: src/pages/Settings.tsx:1444
@@ -622,7 +622,7 @@ msgid "Cooldown"
 msgstr "放松"
 
 #: src/pages/Admin.tsx:641
-#: src/pages/Admin.tsx:685
+#: src/pages/Admin.tsx:677
 msgid "Copy code"
 msgstr ""
 
@@ -643,8 +643,8 @@ msgstr "反馈发送失败，请重试。"
 msgid "CP Trend"
 msgstr "CP 趋势"
 
-#: src/pages/Admin.tsx:758
-#: src/pages/Admin.tsx:877
+#: src/pages/Admin.tsx:770
+#: src/pages/Admin.tsx:889
 msgid "Create"
 msgstr "创建"
 
@@ -673,8 +673,8 @@ msgstr "创建时间"
 msgid "Creating account…"
 msgstr "正在创建账户…"
 
-#: src/pages/Admin.tsx:758
-#: src/pages/Admin.tsx:877
+#: src/pages/Admin.tsx:770
+#: src/pages/Admin.tsx:889
 msgid "Creating..."
 msgstr "创建中..."
 
@@ -741,7 +741,7 @@ msgstr "天"
 msgid "Days left"
 msgstr "剩余天数"
 
-#: src/pages/Admin.tsx:901
+#: src/pages/Admin.tsx:913
 msgid "Deactivate"
 msgstr "停用"
 
@@ -773,12 +773,12 @@ msgstr "删除我的账号？"
 msgid "Delete permanently"
 msgstr "永久删除"
 
-#: src/pages/Admin.tsx:807
-#: src/pages/Admin.tsx:820
+#: src/pages/Admin.tsx:819
+#: src/pages/Admin.tsx:832
 msgid "Delete User"
 msgstr "删除用户"
 
-#: src/pages/Admin.tsx:820
+#: src/pages/Admin.tsx:832
 #: src/pages/Settings.tsx:1451
 msgid "Deleting..."
 msgstr "删除中..."
@@ -787,7 +787,7 @@ msgstr "删除中..."
 msgid "Demo"
 msgstr "演示"
 
-#: src/pages/Admin.tsx:723
+#: src/pages/Admin.tsx:735
 msgid "Demo Accounts"
 msgstr "演示账号"
 
@@ -795,25 +795,25 @@ msgstr "演示账号"
 msgid "Demo mode — read only"
 msgstr "演示模式 — 仅供查看"
 
-#: src/pages/Admin.tsx:765
+#: src/pages/Admin.tsx:777
 msgid "Demo users can browse your dashboard (Today, Training, Goal, History) but cannot change settings, sync data, or modify plans. Share the email and password with anyone you want to demo to."
 msgstr "演示用户可以浏览您的仪表盘（今日、训练、目标、历史），但不能更改设置、同步数据或修改计划。请把邮箱和密码分享给任何您想演示的人。"
 
-#: src/pages/Admin.tsx:746
+#: src/pages/Admin.tsx:758
 msgid "demo-password"
 msgstr "demo-password"
 
-#: src/pages/Admin.tsx:736
+#: src/pages/Admin.tsx:748
 msgid "demo@example.com"
 msgstr "demo@example.com"
 
 #: src/pages/Admin.tsx:481
-#: src/pages/Admin.tsx:797
+#: src/pages/Admin.tsx:809
 msgid "Demote"
 msgstr "降级"
 
 #: src/pages/Admin.tsx:478
-#: src/pages/Admin.tsx:776
+#: src/pages/Admin.tsx:788
 msgid "Demote to User"
 msgstr "降级为普通用户"
 
@@ -854,7 +854,7 @@ msgstr "断开连接"
 msgid "Discussion"
 msgstr "讨论"
 
-#: src/pages/Admin.tsx:835
+#: src/pages/Admin.tsx:847
 msgid "Dismissible banners shown to all users"
 msgstr "向所有用户显示的可关闭横幅"
 
@@ -957,7 +957,7 @@ msgstr "升高"
 
 #: src/pages/Admin.tsx:437
 #: src/pages/Admin.tsx:656
-#: src/pages/Admin.tsx:733
+#: src/pages/Admin.tsx:745
 #: src/pages/Login.tsx:360
 #: src/pages/Login.tsx:448
 #: src/pages/Login.tsx:557
@@ -1375,15 +1375,15 @@ msgstr "邀请码"
 msgid "Invitation emailed to {0} · code {1}"
 msgstr ""
 
-#: src/pages/Admin.tsx:704
+#: src/pages/Admin.tsx:714
 msgid "Invite"
 msgstr ""
 
-#: src/pages/Admin.tsx:679
+#: src/pages/Admin.tsx:696
 msgid "Invited"
 msgstr ""
 
-#: src/pages/Admin.tsx:948
+#: src/pages/Admin.tsx:960
 msgid "Issue"
 msgstr "工单"
 
@@ -1394,8 +1394,9 @@ msgid "Join the waitlist"
 msgstr "加入候补名单"
 
 #: src/pages/Admin.tsx:658
+#: src/pages/Admin.tsx:691
 msgid "Joined"
-msgstr ""
+msgstr "已加入"
 
 #. placeholder {0}: data.diagnosis.lookback_weeks
 #: src/pages/Training.tsx:381
@@ -1452,11 +1453,11 @@ msgstr "至少关联一个数据源以开始"
 msgid "Link Garmin, Strava, Stryd, or Oura to pull your training data"
 msgstr "关联 Garmin、Strava、Stryd 或 Oura 以拉取您的训练数据"
 
-#: src/pages/Admin.tsx:864
+#: src/pages/Admin.tsx:876
 msgid "Link text (optional)"
 msgstr "链接文本（可选）"
 
-#: src/pages/Admin.tsx:869
+#: src/pages/Admin.tsx:881
 msgid "Link URL (optional)"
 msgstr "链接 URL（可选）"
 
@@ -1610,7 +1611,7 @@ msgstr "网络错误。服务器在运行吗？"
 msgid "Network error. Please email {SUPPORT_EMAIL} directly."
 msgstr "网络错误。请直接发送邮件至 {SUPPORT_EMAIL}。"
 
-#: src/pages/Admin.tsx:842
+#: src/pages/Admin.tsx:854
 msgid "New announcement"
 msgstr "新公告"
 
@@ -1634,7 +1635,7 @@ msgstr "下次同步"
 msgid "No activities found."
 msgstr "未找到活动。"
 
-#: src/pages/Admin.tsx:883
+#: src/pages/Admin.tsx:895
 msgid "No announcements yet"
 msgstr "还没有公告"
 
@@ -1653,7 +1654,7 @@ msgstr "无数据"
 msgid "No Data"
 msgstr "无数据"
 
-#: src/pages/Admin.tsx:940
+#: src/pages/Admin.tsx:952
 msgid "No feedback yet."
 msgstr "暂无反馈。"
 
@@ -1798,7 +1799,7 @@ msgstr "用 Praxys 版本覆盖 Stryd"
 msgid "Pace"
 msgstr "配速"
 
-#: src/pages/Admin.tsx:743
+#: src/pages/Admin.tsx:755
 #: src/pages/Login.tsx:377
 #: src/pages/Login.tsx:574
 #: src/pages/Setup.tsx:207
@@ -1944,12 +1945,12 @@ msgid "Projected"
 msgstr "预测"
 
 #: src/pages/Admin.tsx:483
-#: src/pages/Admin.tsx:797
+#: src/pages/Admin.tsx:809
 msgid "Promote"
 msgstr "提升"
 
 #: src/pages/Admin.tsx:478
-#: src/pages/Admin.tsx:776
+#: src/pages/Admin.tsx:788
 msgid "Promote to Admin"
 msgstr "提升为管理员"
 
@@ -2022,7 +2023,7 @@ msgstr "比赛预测"
 #~ msgid "Range"
 #~ msgstr "范围"
 
-#: src/pages/Admin.tsx:704
+#: src/pages/Admin.tsx:714
 msgid "Re-invite"
 msgstr ""
 
@@ -2030,7 +2031,7 @@ msgstr ""
 msgid "Re-push to Stryd"
 msgstr "重新推送到 Stryd"
 
-#: src/pages/Admin.tsx:725
+#: src/pages/Admin.tsx:737
 msgid "Read-only accounts that mirror your dashboard data"
 msgstr "镜像您仪表盘数据的只读账号"
 
@@ -2136,7 +2137,7 @@ msgstr "注册账号"
 msgid "Registration"
 msgstr ""
 
-#: src/pages/Admin.tsx:1034
+#: src/pages/Admin.tsx:1046
 msgid "Reject"
 msgstr "驳回"
 
@@ -2152,7 +2153,7 @@ msgstr "移除图片"
 msgid "Rep"
 msgstr "组"
 
-#: src/pages/Admin.tsx:947
+#: src/pages/Admin.tsx:959
 msgid "Report"
 msgstr "反馈内容"
 
@@ -2187,7 +2188,7 @@ msgstr "静息心率"
 
 #: src/components/UpcomingPlanCard.tsx:186
 #: src/components/UpcomingPlanCard.tsx:589
-#: src/pages/Admin.tsx:1024
+#: src/pages/Admin.tsx:1036
 #: src/pages/Goal.tsx:443
 #: src/pages/History.tsx:53
 #: src/pages/Settings.tsx:323
@@ -2256,7 +2257,7 @@ msgstr "科学"
 msgid "Science pillars"
 msgstr "科学支柱"
 
-#: src/pages/Admin.tsx:973
+#: src/pages/Admin.tsx:985
 msgid "Screenshot flagged sensitive"
 msgstr "截图被标记为敏感"
 
@@ -2288,7 +2289,7 @@ msgid "Sending an invitation reserves a seat. Self-registration auto-closes at t
 msgstr ""
 
 #: src/components/FeedbackDialog.tsx:317
-#: src/pages/Admin.tsx:704
+#: src/pages/Admin.tsx:714
 #: src/pages/Login.tsx:409
 msgid "Sending…"
 msgstr "发送中…"
@@ -2423,7 +2424,7 @@ msgstr "开始同步"
 
 #: src/pages/Admin.tsx:554
 #: src/pages/Admin.tsx:659
-#: src/pages/Admin.tsx:946
+#: src/pages/Admin.tsx:958
 msgid "Status"
 msgstr "状态"
 
@@ -2559,7 +2560,7 @@ msgstr "正在同步…"
 msgid "System"
 msgstr "跟随系统"
 
-#: src/pages/Admin.tsx:834
+#: src/pages/Admin.tsx:846
 msgid "System Announcements"
 msgstr "系统公告"
 
@@ -2617,7 +2618,7 @@ msgid "This permanently deletes your account, synced training data, plans, setti
 msgstr "这会永久删除您的账号、同步训练数据、计划、设置、平台连接、加密凭据，以及此设备上的 Garmin 令牌存储。您会立即退出登录。"
 
 #. placeholder {0}: deleteUser?.email
-#: src/pages/Admin.tsx:809
+#: src/pages/Admin.tsx:821
 msgid "This will permanently delete <0>{0}</0> and all their data (activities, config, connections, plans). This cannot be undone."
 msgstr "这将永久删除 <0>{0}</0> 及其所有数据（活动、配置、连接、计划）。此操作无法撤销。"
 
@@ -2651,7 +2652,7 @@ msgstr "阈值"
 msgid "Time range"
 msgstr "时间范围"
 
-#: src/pages/Admin.tsx:844
+#: src/pages/Admin.tsx:856
 msgid "Title"
 msgstr "标题"
 
@@ -2741,7 +2742,7 @@ msgid "TSB (Form)"
 msgstr "TSB（状态）"
 
 #: src/components/FeedbackDialog.tsx:210
-#: src/pages/Admin.tsx:945
+#: src/pages/Admin.tsx:957
 msgid "Type"
 msgstr "类型"
 
@@ -2761,7 +2762,7 @@ msgstr "单位"
 msgid "Upcoming Plan"
 msgstr "即将到来的计划"
 
-#: src/pages/Admin.tsx:797
+#: src/pages/Admin.tsx:809
 msgid "Updating..."
 msgstr "更新中..."
 
@@ -2798,7 +2799,7 @@ msgstr "使用者"
 msgid "User"
 msgstr "用户"
 
-#: src/pages/Admin.tsx:925
+#: src/pages/Admin.tsx:937
 msgid "User Feedback"
 msgstr "用户反馈"
 

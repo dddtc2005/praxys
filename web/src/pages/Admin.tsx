@@ -668,44 +668,56 @@ export default function Admin() {
                   </TableCell>
                 </TableRow>
               ) : (
-                waitlist.map((s) => (
+                waitlist.map((s) => {
+                  const codeButton = s.invitation_code ? (
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 text-xs font-data text-muted-foreground hover:text-foreground"
+                      onClick={() => copyInviteCode(s.invitation_code!)}
+                      title={t`Copy code`}
+                    >
+                      {s.invitation_code}
+                      {copiedCode === s.invitation_code ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
+                    </button>
+                  ) : null;
+                  return (
                   <TableRow key={s.id}>
                     <TableCell className="font-medium">{s.email}</TableCell>
                     <TableCell className="text-xs text-muted-foreground max-w-[16rem] truncate">{s.note || '—'}</TableCell>
                     <TableCell className="text-xs text-muted-foreground font-data">{s.created_at ? new Date(s.created_at).toLocaleDateString() : '—'}</TableCell>
                     <TableCell>
-                      {s.invited_at ? (
+                      {s.registered ? (
+                        <div className="flex items-center gap-1.5">
+                          <Badge className="bg-primary text-primary-foreground border-transparent"><Trans>Joined</Trans></Badge>
+                          {codeButton}
+                        </div>
+                      ) : s.invited_at ? (
                         <div className="flex items-center gap-1.5">
                           <Badge className="bg-primary/15 text-primary border-primary/30"><Trans>Invited</Trans></Badge>
-                          {s.invitation_code && (
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-1 text-xs font-data text-muted-foreground hover:text-foreground"
-                              onClick={() => copyInviteCode(s.invitation_code!)}
-                              title={t`Copy code`}
-                            >
-                              {s.invitation_code}
-                              {copiedCode === s.invitation_code ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
-                            </button>
-                          )}
+                          {codeButton}
                         </div>
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant={s.invited_at ? 'outline' : 'default'}
-                        onClick={() => handleInviteWaitlist(s)}
-                        disabled={invitingId === s.id}
-                      >
-                        <Send className="h-3 w-3 mr-1" />
-                        {invitingId === s.id ? <Trans>Sending…</Trans> : s.invited_at ? <Trans>Re-invite</Trans> : <Trans>Invite</Trans>}
-                      </Button>
+                      {s.registered ? (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant={s.invited_at ? 'outline' : 'default'}
+                          onClick={() => handleInviteWaitlist(s)}
+                          disabled={invitingId === s.id}
+                        >
+                          <Send className="h-3 w-3 mr-1" />
+                          {invitingId === s.id ? <Trans>Sending…</Trans> : s.invited_at ? <Trans>Re-invite</Trans> : <Trans>Invite</Trans>}
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
-                ))
+                  );
+                })
               )}
             </TableBody>
           </Table>
