@@ -4,6 +4,55 @@
 > **Use when:** Before a risky migration/deploy, on a schedule, or to recover
 > from data loss / corruption.
 
+## Which database?
+
+The app is dual-backend (see [postgres-migration.md](./postgres-migration.md)):
+after the #360 cutover the store is **Azure Database for PostgreSQL** and the
+Postgres section below applies; before it (or in a SQLite-only deployment) use
+the **Legacy: SQLite** section.
+
+## Postgres: managed backups + PITR (#349)
+
+Flexible Server provides **automated backups + point-in-time restore** when
+provisioned with `--backup-retention <days>` (7-35; the migration runbook uses
+14). This is the primary, always-on backup - the thing whose absence turned the
+2026-07-03 SQLite corruption into a near-total-data-loss event.
+
+**On-demand snapshots** add named restore points on top of PITR via the Azure
+control plane (no DB password / network access needed):
+
+- **Pre-deploy:** `deploy-backend.yml` creates `predeploy-<ts>-<sha>` before
+  each deploy (gated on the `PRAXYS_PG_SERVER` variable).
+- **Scheduled:** `db-backup.yml` creates a `daily-<ts>` backup every day.
+- **Manual:**
+  ```bash
+  az postgres flexible-server backup create -g rg-trainsight -n praxys-pg \
+    --backup-name "manual-$(date -u +%Y%m%dT%H%M%SZ)"
+  az postgres flexible-server backup list -g rg-trainsight -n praxys-pg -o table
+  ```
+
+**Restore (PITR)** clones the server to a new server at a chosen instant:
+
+```bash
+az postgres flexible-server restore \
+  --resource-group rg-trainsight \
+  --name praxys-pg-restored \
+  --source-server praxys-pg \
+  --restore-time "2026-07-03T09:00:00Z"
+# Verify the clone, then repoint PRAXYS_DATABASE_URL at it and re-deploy.
+```
+
+**Portable / off-Azure copy** (optional long-retention archive, or a future
+Tencent COS move) uses a logical dump - run it from inside the trust boundary
+(App Service SSH or an Azure job in the VNet), not GitHub runners:
+
+```bash
+pg_dump "postgresql://.../praxys?sslmode=require" -Fc -f praxys-$(date -u +%Y%m%d).dump
+pg_restore -d "postgresql://.../praxys_new?sslmode=require" praxys-YYYYMMDD.dump
+```
+
+## Legacy: SQLite (until the #360 cutover)
+
 ## What & where
 
 The whole app state is one SQLite file: **`trainsight.db`** at

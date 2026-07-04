@@ -57,7 +57,7 @@ if os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING"):
     ):
         logging.getLogger(_noisy).setLevel(logging.WARNING)
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy.orm import Session
@@ -203,6 +203,43 @@ for router_module in [today, training, goal, history, plan, settings, sync, scie
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/api/health/ready")
+def health_ready(response: Response):
+    """Readiness probe (issue #350): verify the database is reachable.
+
+    Runs a trivial ``SELECT 1`` so a corrupt / unavailable database reports
+    unhealthy (HTTP 503) instead of the liveness-only ``/api/health`` masking
+    it with 200 (the failure mode behind the 2026-07-03 corruption incident,
+    where nothing alerted). Suitable as the App Service health-check path and
+    as a deploy / warmup gate.
+    """
+    from sqlalchemy import text as _text
+    from db.session import SessionLocal, init_db, is_postgres
+
+    if SessionLocal is None:
+        init_db()
+    try:
+        db = SessionLocal()
+        try:
+            db.execute(_text("SELECT 1"))
+        finally:
+            db.close()
+    except Exception as exc:
+        logging.getLogger(__name__).error("readiness probe DB check failed: %s", exc)
+        try:
+            from api.telemetry import record_db_health
+
+            record_db_health(
+                status="readiness_failed",
+                backend="postgresql" if is_postgres() else "sqlite",
+            )
+        except Exception:
+            pass
+        response.status_code = 503
+        return {"status": "unavailable", "database": "error"}
+    return {"status": "ready", "database": "ok"}
 
 
 @app.get("/api/version")

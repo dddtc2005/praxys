@@ -1,0 +1,48 @@
+name: Scheduled database backup
+
+# Daily on-demand backup of the Postgres Flexible Server as an extra restore
+# point on top of the server's continuous PITR (issue #349). Runs on the Azure
+# control plane via OIDC, so it needs neither a DB password nor network access
+# to the database (safe for a private server). No-op until the PRAXYS_PG_SERVER
+# repository variable is set. Manual runs allowed via workflow_dispatch.
+
+on:
+  schedule:
+    - cron: '17 18 * * *'   # 18:17 UTC daily (~02:17 Asia/Shanghai)
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Guard on Postgres being configured
+        id: guard
+        run: |
+          if [[ -z "${{ vars.PRAXYS_PG_SERVER }}" ]]; then
+            echo "PRAXYS_PG_SERVER unset - skipping (still on SQLite)"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Azure Login (OIDC)
+        if: steps.guard.outputs.run == 'true'
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Create on-demand backup
+        if: steps.guard.outputs.run == 'true'
+        run: |
+          BACKUP_NAME="daily-$(date -u +%Y%m%dT%H%M%SZ)"
+          echo "Creating on-demand backup ${BACKUP_NAME} on ${{ vars.PRAXYS_PG_SERVER }}"
+          az postgres flexible-server backup create \
+            --resource-group rg-trainsight \
+            --name "${{ vars.PRAXYS_PG_SERVER }}" \
+            --backup-name "${BACKUP_NAME}"

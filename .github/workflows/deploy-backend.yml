@@ -67,6 +67,13 @@ jobs:
           KEY_VAULT_KEY_NAME: ${{ vars.KEY_VAULT_KEY_NAME }}
           APPLICATIONINSIGHTS_CONNECTION_STRING: ${{ vars.APPLICATIONINSIGHTS_CONNECTION_STRING }}
           PRAXYS_JWT_SECRET: ${{ secrets.PRAXYS_JWT_SECRET }}
+          # Database (#360). When PRAXYS_DATABASE_URL is set the backend uses
+          # PostgreSQL; empty/unset keeps the legacy SQLite file on /home/data,
+          # so this can be deployed before the cutover. PRAXYS_DB_AUTH=entra makes
+          # the app authenticate with an AAD token from its managed identity (no
+          # DB password in app settings). See docs/ops/config-and-secrets.md.
+          PRAXYS_DATABASE_URL: ${{ secrets.PRAXYS_DATABASE_URL }}
+          PRAXYS_DB_AUTH: ${{ vars.PRAXYS_DB_AUTH }}
           WECHAT_MINIAPP_APPID: ${{ secrets.WECHAT_MINIAPP_APPID }}
           WECHAT_MINIAPP_SECRET: ${{ secrets.WECHAT_MINIAPP_SECRET }}
           # Optional: in-app feedback → GitHub issue auto-filing. Safe to leave
@@ -115,6 +122,8 @@ jobs:
               KEY_VAULT_KEY_NAME="${KEY_VAULT_KEY_NAME}" \
               APPLICATIONINSIGHTS_CONNECTION_STRING="${APPLICATIONINSIGHTS_CONNECTION_STRING}" \
               PRAXYS_JWT_SECRET="${PRAXYS_JWT_SECRET}" \
+              PRAXYS_DATABASE_URL="${PRAXYS_DATABASE_URL}" \
+              PRAXYS_DB_AUTH="${PRAXYS_DB_AUTH}" \
               WECHAT_MINIAPP_APPID="${WECHAT_MINIAPP_APPID}" \
               WECHAT_MINIAPP_SECRET="${WECHAT_MINIAPP_SECRET}" \
               PRAXYS_GITHUB_APP_ID="${PRAXYS_GITHUB_APP_ID}" \
@@ -137,6 +146,22 @@ jobs:
               DATA_DIR="/home/data" \
               SCM_DO_BUILD_DURING_DEPLOYMENT="true" \
               WEBSITE_HTTPLOGGING_RETENTION_DAYS="3"
+
+      - name: Pre-deploy database snapshot (#349)
+        # On-demand Postgres backup as a restore point for this deploy. Uses the
+        # control plane (no DB network access or password needed), so it works
+        # even with a private Flexible Server. Skipped until PRAXYS_PG_SERVER is
+        # set (i.e. before the SQLite->Postgres cutover). Non-fatal: a snapshot
+        # failure must not block the deploy (PITR still covers rollback).
+        if: ${{ vars.PRAXYS_PG_SERVER != '' }}
+        continue-on-error: true
+        run: |
+          BACKUP_NAME="predeploy-$(date -u +%Y%m%dT%H%M%SZ)-${GITHUB_SHA::7}"
+          echo "Creating on-demand backup ${BACKUP_NAME} on ${{ vars.PRAXYS_PG_SERVER }}"
+          az postgres flexible-server backup create \
+            --resource-group rg-trainsight \
+            --name "${{ vars.PRAXYS_PG_SERVER }}" \
+            --backup-name "${BACKUP_NAME}"
 
       - name: Deploy to App Service
         uses: azure/webapps-deploy@v3

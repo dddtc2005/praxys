@@ -546,14 +546,21 @@ _SAMPLE_BATCH_SIZE = 500
 def write_samples(user_id: str, rows: list[dict], db: Session) -> int:
     """Upsert per-second activity samples. Returns count of rows written.
 
-    Uses INSERT OR IGNORE keyed on (user_id, activity_id, t_sec) so re-syncing an
+    Uses an idempotent INSERT ... ON CONFLICT DO NOTHING keyed on
+    (user_id, activity_id, t_sec) so re-syncing an
     activity is idempotent — existing rows are left untouched. Inserts are
     batched to avoid oversized transactions for long activities.
     """
     if not rows:
         return 0
 
-    from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+    # Dialect-agnostic upsert: SQLite and PostgreSQL both expose
+    # on_conflict_do_nothing(index_elements=...) on their INSERT construct,
+    # but via dialect-specific modules (#360).
+    if db.bind.dialect.name == "postgresql":
+        from sqlalchemy.dialects.postgresql import insert as _dialect_insert
+    else:
+        from sqlalchemy.dialects.sqlite import insert as _dialect_insert
 
     total = 0
     for batch_start in range(0, len(rows), _SAMPLE_BATCH_SIZE):
@@ -590,7 +597,7 @@ def write_samples(user_id: str, rows: list[dict], db: Session) -> int:
             })
         if not records:
             continue
-        stmt = sqlite_insert(ActivitySample).values(records)
+        stmt = _dialect_insert(ActivitySample).values(records)
         stmt = stmt.on_conflict_do_nothing(index_elements=["user_id", "activity_id", "t_sec"])
         result = db.execute(stmt)
         total += result.rowcount
