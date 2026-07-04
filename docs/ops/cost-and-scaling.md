@@ -36,6 +36,14 @@ Per-row `last_sync` checks make duplicate ticks idempotent, but to run exactly
 one scheduler set `PRAXYS_SYNC_SCHEDULER=false` on N-1 workers, or keep a
 single-worker deployment. Verify behaviour before relying on multi-worker.
 
+**Database and scale-out (#360):** true scale-out (multiple instances) is only
+safe once the DB is **PostgreSQL** - the legacy SQLite file on `/home` needs a
+single writer (one worker) to avoid SMB corruption, which is the current hard
+ceiling on horizontal scale. After the Postgres cutover
+([postgres-migration.md](./postgres-migration.md)) that constraint is gone; size
+the pool via `PRAXYS_DB_POOL_SIZE` / `PRAXYS_DB_MAX_OVERFLOW` for the tier's
+`max_connections`, and consider a `GeneralPurpose` tier before going wide.
+
 Note: scale-up resets App Service local state on the new instance — `/home`
 persists (the DB is safe), but in-memory sync status resets.
 

@@ -23,6 +23,10 @@ portalocker>=2.8.0
 pydantic>=2.13.3
 sqlalchemy>=2.0.51
 aiosqlite>=0.22.1
+# PostgreSQL driver (psycopg3). Backs BOTH the sync and async SQLAlchemy
+# engines when PRAXYS_DATABASE_URL / DATABASE_URL points at Postgres (#360);
+# SQLite (aiosqlite above) stays the default for local dev + tests.
+psycopg[binary]>=3.2.0
 alembic>=1.18.5
 fastapi-users[sqlalchemy]>=13.0.0
 cryptography>=48.0.0

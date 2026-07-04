@@ -23,6 +23,7 @@ diagnose X". It complements — and links out to — the setup-oriented
 | [incident-response.md](./incident-response.md) | The app is down / erroring and you need first-response triage. |
 | [sync-troubleshooting.md](./sync-troubleshooting.md) | A user's data stopped updating or a connection shows `auth_required`. |
 | [backup-and-restore.md](./backup-and-restore.md) | You need to back up or restore the database. |
+| [postgres-migration.md](./postgres-migration.md) | You are migrating the database from SQLite to Azure Postgres (#360), or provisioning Postgres. |
 | [secret-rotation.md](./secret-rotation.md) | Rotating a secret (JWT, WeChat, feedback App key, Key Vault key). |
 | [cost-and-scaling.md](./cost-and-scaling.md) | Setting cost guardrails or scaling the backend. |
 | [disaster-recovery.md](./disaster-recovery.md) | Rebuilding the whole deployment from scratch + restoring data. |

@@ -231,3 +231,32 @@ def record_feedback(*, kind: str, status: str) -> None:
         counter.add(1, attrs)
     except Exception:
         logger.debug("record_feedback counter failed", exc_info=True)
+
+def record_db_health(*, status: str, backend: str) -> None:
+    """Record a database health signal (issues #350 / #351).
+
+    ``status`` is one of ``integrity_failed`` / ``check_error`` (from the
+    startup ``PRAGMA quick_check`` / ``SELECT 1`` in ``db/session.py``) or
+    ``readiness_failed`` (from the ``/api/health/ready`` probe). ``backend``
+    is ``sqlite`` or ``postgresql``. Emitting a low-cardinality counter lets
+    an Azure Monitor alert page oncall when a corrupt / unreachable database
+    would otherwise be invisible to the liveness-only ``/api/health`` check.
+
+    Prefers the customEvents path when available; falls back to a counter
+    (lands in customMetrics) otherwise — same contract as record_feedback.
+    """
+    attrs = {"status": status, "backend": backend}
+    track = _track_event()
+    if track is not None:
+        try:
+            track("praxys.db_health", attrs)
+            return
+        except Exception:
+            logger.debug("track_event(db_health) failed; falling back to counter", exc_info=True)
+    counter = _counter("praxys.db_health", "Database health-check failures")
+    if counter is None:
+        return
+    try:
+        counter.add(1, attrs)
+    except Exception:
+        logger.debug("record_db_health counter failed", exc_info=True)

@@ -28,6 +28,7 @@ Queries below `union` both shapes so they work either way.
 | `praxys.coach_run` | `insight_type`, `status`, `user_id_hash` | Insight-runner outcomes (cache hit rate) | `record_coach_run` |
 | `praxys.coach_error` | `error_class` | Operator-actionable Coach errors (Auth/BadRequest) | `record_coach_error` |
 | `praxys.feedback` | `kind`, `status` | In-app feedback submissions + triage outcomes | `record_feedback` |
+| `praxys.db_health` | `status`, `backend` | DB integrity/connectivity failures (startup check + readiness probe) | `record_db_health` |
 
 > `praxys.feedback` is added by the feedback feature (dddtc2005/praxys#328). Once
 > merged, its `status` dimension includes `needs_review` — the trigger for the
@@ -106,6 +107,27 @@ group). To also catch publish failures use
 
 **Verify:** submit a test report that trips the gate (e.g. with `AZURE_AI_ENDPOINT`
 unset, or paste a fake `sk-...` token) and confirm the email within ~15 min.
+
+## Database health alert (#350)
+
+`praxys.db_health` fires from the startup integrity check (`db/session.py`) and
+the `/api/health/ready` probe when the database is corrupt or unreachable - the
+gap that made the 2026-07-03 corruption invisible to the liveness-only
+`/api/health`. Alert on any occurrence:
+
+```kql
+union isfuzzy=true
+  (customMetrics | where name == "praxys.db_health"
+    | extend status = tostring(customDimensions.status)),
+  (customEvents  | where name == "praxys.db_health"
+    | extend status = tostring(customDimensions.status))
+| where status in ("integrity_failed", "check_error", "readiness_failed")
+```
+
+Wire it per the recipe above (results > 0, every 5 min, **Sev 1**, email action
+group). Also set the **App Service health check** path to `/api/health/ready`
+(Portal: App Service -> Monitoring -> Health check) so the load balancer routes
+away from an instance whose DB is down.
 
 ## Rollback / Recovery
 

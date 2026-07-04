@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pandas as pd
+from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
 
@@ -322,7 +323,7 @@ def load_data_from_db(user_id: str, db: Session) -> dict[str, pd.DataFrame]:
     {activities, splits, recovery, fitness, plan}.
     """
     activities = pd.read_sql(
-        "SELECT * FROM activities WHERE user_id = :uid ORDER BY date",
+        text("SELECT * FROM activities WHERE user_id = :uid ORDER BY date"),
         db.bind,
         params={"uid": user_id},
         parse_dates=["date"],
@@ -331,14 +332,14 @@ def load_data_from_db(user_id: str, db: Session) -> dict[str, pd.DataFrame]:
         activities["date"] = pd.to_datetime(activities["date"]).dt.date
 
     splits = pd.read_sql(
-        "SELECT * FROM activity_splits WHERE user_id = :uid",
+        text("SELECT * FROM activity_splits WHERE user_id = :uid"),
         db.bind,
         params={"uid": user_id},
     )
 
     # Recovery: reconstruct from recovery_data table
     recovery = pd.read_sql(
-        "SELECT * FROM recovery_data WHERE user_id = :uid ORDER BY date",
+        text("SELECT * FROM recovery_data WHERE user_id = :uid ORDER BY date"),
         db.bind,
         params={"uid": user_id},
         parse_dates=["date"],
@@ -348,8 +349,10 @@ def load_data_from_db(user_id: str, db: Session) -> dict[str, pd.DataFrame]:
 
     # Fitness: pivot fitness_data rows into wide columns
     fitness_raw = pd.read_sql(
-        "SELECT date, metric_type, value, value_str "
-        "FROM fitness_data WHERE user_id = :uid ORDER BY date",
+        text(
+            "SELECT date, metric_type, value, value_str "
+            "FROM fitness_data WHERE user_id = :uid ORDER BY date"
+        ),
         db.bind,
         params={"uid": user_id},
         parse_dates=["date"],
@@ -358,7 +361,7 @@ def load_data_from_db(user_id: str, db: Session) -> dict[str, pd.DataFrame]:
 
     # Plan
     plan = pd.read_sql(
-        "SELECT * FROM training_plans WHERE user_id = :uid ORDER BY date",
+        text("SELECT * FROM training_plans WHERE user_id = :uid ORDER BY date"),
         db.bind,
         params={"uid": user_id},
         parse_dates=["date", "start_time"],
@@ -408,7 +411,7 @@ def load_activity_samples(
     params: dict[str, object] = {"uid": user_id}
 
     if activity_ids is None:
-        return pd.read_sql(base_sql, db.bind, params=params)
+        return pd.read_sql(text(base_sql), db.bind, params=params)
 
     if not activity_ids:
         return pd.DataFrame(
@@ -433,7 +436,7 @@ def load_activity_samples(
         chunk_params = {**params, **{f"a{i}": v for i, v in enumerate(chunk)}}
         frames.append(
             pd.read_sql(
-                f"{base_sql} AND activity_id IN ({placeholders})",
+                text(f"{base_sql} AND activity_id IN ({placeholders})"),
                 db.bind,
                 params=chunk_params,
             )
