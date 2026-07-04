@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, createContext, useContext } from 'rea
 import type { ReactNode } from 'react';
 import { KEYS, getCompatItem, setCompatItem, removeCompatItem } from '../lib/storage-compat';
 import { prefetchedMe } from '../lib/auth-prefetch';
+import { setAppInsightsUser, clearAppInsightsUser } from '../lib/appinsights';
 
 interface AuthState {
   token: string | null;
@@ -85,6 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setIsDemo(data.is_demo ?? false);
           setTermsCurrent(data.terms_current ?? true);
           setCompatItem(KEYS.authAdmin.new, KEYS.authAdmin.legacy, String(data.is_superuser));
+          void setAppInsightsUser(data.id);
         }
       })
       .catch(() => {})
@@ -124,6 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setIsDemo(me.is_demo ?? false);
               setTermsCurrent(me.terms_current ?? true);
               setCompatItem(KEYS.authAdmin.new, KEYS.authAdmin.legacy, String(me.is_superuser));
+              void setAppInsightsUser(me.id);
             }
           })
           .catch(() => {});
@@ -189,6 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAdmin(false);
     setIsDemo(false);
     setTermsCurrent(true);
+    clearAppInsightsUser();
   }, []);
 
   const acceptTerms = useCallback(async (): Promise<boolean> => {

@@ -53,6 +53,26 @@ customMetrics | where name == "praxys.coach_run"
 | extend hit_rate = todouble(hits) / total
 ```
 
+Active users (DAU / WAU) of registered accounts. The SPA tags telemetry with
+`user_AuthenticatedId` = a SHA-256(user_id)[:16] pseudonym (set on login by
+`web/src/lib/appinsights.ts`, matching `api/telemetry.py::hash_user_id`), so this
+counts distinct *registered* users — not anonymous browsers — and correlates with
+the backend `praxys.*` events. Only authenticated navigation is counted (the
+anonymous landing page is excluded); demo accounts are included.
+```kql
+// WAU (last 7d) and DAU trend (last 30d)
+pageViews
+| where timestamp > ago(7d)
+| where isnotempty(user_AuthenticatedId)
+| summarize wau = dcount(user_AuthenticatedId)
+
+pageViews
+| where timestamp > ago(30d)
+| where isnotempty(user_AuthenticatedId)
+| summarize dau = dcount(user_AuthenticatedId) by bin(timestamp, 1d)
+| render timechart
+```
+
 ## Create an email alert (general recipe)
 
 1. **Application Insights → Monitoring → Alerts → Create → Alert rule.**
@@ -98,4 +118,4 @@ Tune the window/threshold to reduce noise rather than deleting.
 - In-app: Admin → User Feedback (badge + Approve/Retry/Reject).
 
 ---
-_Last reviewed: 2026-06-30 · Owner: @dddtc2005_
+_Last reviewed: 2026-07-04 · Owner: @dddtc2005_

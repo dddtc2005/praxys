@@ -62,6 +62,46 @@ export function getAppInsights(): ApplicationInsights | null {
   return appInsights
 }
 
+/**
+ * Tie all subsequent telemetry to a stable per-user pseudonym so registered-user
+ * DAU/WAU is derivable via `summarize dcount(user_AuthenticatedId)`.
+ *
+ * The raw user id (a UUID) is NEVER sent: we hash it to 16 hex chars, matching
+ * the backend's api/telemetry.py::hash_user_id, so (a) telemetry stays free of
+ * PII and (b) frontend pageViews and backend custom events share the same
+ * user_AuthenticatedId and correlate. No-op when App Insights is unconfigured
+ * (local dev) or Web Crypto is unavailable — telemetry must never break auth.
+ */
+export async function setAppInsightsUser(userId: string): Promise<void> {
+  const ai = getAppInsights()
+  if (!ai || !userId) return
+  try {
+    const hashed = await hashUserId(userId)
+    // authenticatedUserId must exclude spaces/commas/semicolons/pipes/equals —
+    // hex satisfies that. storeInCookie=true keeps it stable across reloads.
+    ai.setAuthenticatedUserContext(hashed, undefined, true)
+  } catch {
+    /* best-effort; never throw from a telemetry helper */
+  }
+}
+
+export function clearAppInsightsUser(): void {
+  try {
+    getAppInsights()?.clearAuthenticatedUserContext()
+  } catch {
+    /* best-effort */
+  }
+}
+
+async function hashUserId(userId: string): Promise<string> {
+  // SHA-256, first 16 hex chars — mirrors api/telemetry.py::hash_user_id.
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(userId))
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+    .slice(0, 16)
+}
+
 function getNetworkSnapshot(): NetworkConnection | null {
   const conn = (navigator as unknown as { connection?: NetworkConnection }).connection
   return conn ?? null
