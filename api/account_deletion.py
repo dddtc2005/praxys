@@ -5,7 +5,6 @@ import logging
 from dataclasses import dataclass
 
 from fastapi import HTTPException
-from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from db.models import (
@@ -13,6 +12,7 @@ from db.models import (
     ActivitySample,
     ActivitySplit,
     AiInsight,
+    AppConfig,
     CacheRevision,
     DashboardCache,
     Feedback,
@@ -23,6 +23,7 @@ from db.models import (
     User,
     UserConfig,
     UserConnection,
+    WaitlistSignup,
 )
 
 logger = logging.getLogger(__name__)
@@ -37,7 +38,24 @@ class AccountDeletionResult:
 
 
 def _delete_user_owned_rows(db: Session, user_id: str) -> None:
-    """Delete rows that directly belong to a user, excluding the user row."""
+    """Delete a user's owned rows and detach every remaining reference to them.
+
+    Rows keyed by a NOT-NULL ``user_id`` FK are the user's own data and are
+    deleted outright. References that other, surviving rows hold to this user are
+    cleared so nothing dangles once the ``users`` row is gone — PostgreSQL
+    enforces these foreign keys (SQLite historically did not, which is how issue
+    #366's orphaned ``invitations.used_by`` rows accrued):
+
+    * ``invitations.created_by`` (NOT NULL) — the invitation can't outlive its
+      required creator, so it is deleted; any ``waitlist_signups.invitation_id``
+      pointing at it is detached first so that FK doesn't dangle.
+    * ``invitations.used_by`` (nullable) — the invitation is kept as a record of
+      the creator's action, but the reference is nulled AND the code deactivated
+      so a now-ownerless code can't be re-claimed (a claim only checks
+      ``used_by IS NULL``; see api/invitations.py).
+    * ``app_config.updated_by`` (nullable) — the operator flag row is kept; only
+      the "who last changed this" reference is nulled.
+    """
     for model in (
         ActivitySample,
         ActivitySplit,
@@ -54,9 +72,34 @@ def _delete_user_owned_rows(db: Session, user_id: str) -> None:
     ):
         db.query(model).filter(model.user_id == user_id).delete(synchronize_session=False)
 
-    db.query(Invitation).filter(
-        or_(Invitation.used_by == user_id, Invitation.created_by == user_id)
-    ).delete(synchronize_session=False)
+    # Invitations this user created (created_by is NOT NULL, so it can't be
+    # nulled). Detach any waitlist signups linked to them first so that FK
+    # doesn't dangle, then delete the invitations.
+    created_invitation_ids = [
+        inv_id
+        for (inv_id,) in db.query(Invitation.id)
+        .filter(Invitation.created_by == user_id)
+        .all()
+    ]
+    if created_invitation_ids:
+        db.query(WaitlistSignup).filter(
+            WaitlistSignup.invitation_id.in_(created_invitation_ids)
+        ).update({WaitlistSignup.invitation_id: None}, synchronize_session=False)
+        db.query(Invitation).filter(
+            Invitation.id.in_(created_invitation_ids)
+        ).delete(synchronize_session=False)
+
+    # Invitations merely used by this user are preserved (they record who issued
+    # the code) but detached and deactivated so the freed code can't be redeemed.
+    db.query(Invitation).filter(Invitation.used_by == user_id).update(
+        {Invitation.used_by: None, Invitation.is_active: False},
+        synchronize_session=False,
+    )
+
+    # Operator config records who last toggled a flag; keep the row, drop the ref.
+    db.query(AppConfig).filter(AppConfig.updated_by == user_id).update(
+        {AppConfig.updated_by: None}, synchronize_session=False
+    )
 
 
 def _clear_tokenstore(user_id: str) -> None:

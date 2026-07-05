@@ -93,6 +93,7 @@ def _seed_account_rows(db_session, user_id: str = "delete-me") -> None:
         ActivitySample,
         ActivitySplit,
         AiInsight,
+        AppConfig,
         CacheRevision,
         DashboardCache,
         Feedback,
@@ -103,6 +104,7 @@ def _seed_account_rows(db_session, user_id: str = "delete-me") -> None:
         User,
         UserConfig,
         UserConnection,
+        WaitlistSignup,
     )
 
     db = db_session.SessionLocal()
@@ -128,9 +130,17 @@ def _seed_account_rows(db_session, user_id: str = "delete-me") -> None:
         db.add(CacheRevision(user_id=user_id, scope="activities", revision=1))
         db.add(DashboardCache(user_id=user_id, section="today", source_version="v1", payload_json=b"{}"))
         db.add(Feedback(user_id=user_id, kind="bug", message="delete me", status="new"))
-        db.add(Invitation(code="TS-USED-0001", created_by="admin", used_by=user_id, is_active=False))
-        db.add(Invitation(code="TS-MADE-0001", created_by=user_id, is_active=True))
         db.add(UserConfig(user_id="demo-user", display_name="Demo"))
+        used = Invitation(code="TS-USED-0001", created_by="admin", used_by=user_id, is_active=False)
+        made = Invitation(code="TS-MADE-0001", created_by=user_id, is_active=True)
+        db.add_all([used, made])
+        db.flush()
+        # A waitlist lead linked to the invitation the user *created*: it must
+        # survive the user's deletion with invitation_id detached (issue #366).
+        db.add(WaitlistSignup(email="lead@example.test", invitation_id=made.id))
+        # The user last toggled an operator flag; the row must survive with
+        # updated_by nulled rather than left dangling (issue #366).
+        db.add(AppConfig(key="registration_open", value="true", updated_by=user_id))
         db.commit()
     finally:
         db.close()
@@ -150,6 +160,7 @@ def test_delete_me_removes_user_and_owned_rows(account_client):
         ActivitySample,
         ActivitySplit,
         AiInsight,
+        AppConfig,
         CacheRevision,
         DashboardCache,
         Feedback,
@@ -160,6 +171,7 @@ def test_delete_me_removes_user_and_owned_rows(account_client):
         User,
         UserConfig,
         UserConnection,
+        WaitlistSignup,
     )
 
     db = db_session.SessionLocal()
@@ -183,6 +195,40 @@ def test_delete_me_removes_user_and_owned_rows(account_client):
         assert db.query(Invitation).filter(
             (Invitation.used_by == "delete-me") | (Invitation.created_by == "delete-me")
         ).count() == 0
+
+        # The admin-issued invitation the deleted user *used* is preserved as an
+        # audit record, but detached (used_by NULL) and deactivated so the freed
+        # code cannot be re-claimed (issue #366).
+        used_inv = db.query(Invitation).filter(Invitation.code == "TS-USED-0001").one()
+        assert used_inv.used_by is None
+        assert used_inv.is_active is False
+
+        # The operator-config row the user last touched survives with its
+        # reference nulled, not deleted.
+        cfg_row = db.query(AppConfig).filter(AppConfig.key == "registration_open").one()
+        assert cfg_row.updated_by is None
+
+        # The waitlist lead survives even though the invitation it was linked to
+        # (created by the deleted user) is gone — the link is nulled (issue #366).
+        lead = db.query(WaitlistSignup).filter(WaitlistSignup.email == "lead@example.test").one()
+        assert lead.invitation_id is None
+
+        # Belt-and-braces: nothing anywhere still references a deleted id.
+        live_user_ids = {uid for (uid,) in db.query(User.id).all()}
+        dangling_user_refs = (
+            [r for (r,) in db.query(Invitation.used_by).filter(Invitation.used_by.isnot(None)).all()]
+            + [r for (r,) in db.query(Invitation.created_by).all()]
+            + [r for (r,) in db.query(AppConfig.updated_by).filter(AppConfig.updated_by.isnot(None)).all()]
+        )
+        assert all(ref in live_user_ids for ref in dangling_user_refs)
+        live_inv_ids = {iid for (iid,) in db.query(Invitation.id).all()}
+        waitlist_refs = [
+            iid
+            for (iid,) in db.query(WaitlistSignup.invitation_id)
+            .filter(WaitlistSignup.invitation_id.isnot(None))
+            .all()
+        ]
+        assert all(ref in live_inv_ids for ref in waitlist_refs)
     finally:
         db.close()
 
@@ -276,3 +322,102 @@ def test_run_sync_rolls_back_if_user_deactivated_before_commit(account_client, m
         assert conn.consecutive_failures == 0
     finally:
         db.close()
+def test_delete_user_account_no_dangling_fk_under_enforcement(monkeypatch):
+    """Deletion commits under enforced FKs (Postgres-like) with zero orphans.
+
+    Regression for #366: SQLite shipped FK enforcement off, so account deletion
+    silently left dangling ``invitations.used_by`` / ``app_config.updated_by`` /
+    ``waitlist_signups.invitation_id`` references. With ``PRAGMA foreign_keys=ON``
+    those orphans become a hard error at commit, so this proves the deletion path
+    clears every reference before dropping the user — exactly the invariant
+    PostgreSQL now enforces in production.
+    """
+    from datetime import date
+
+    from sqlalchemy import create_engine, event
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+
+    import api.account_deletion as account_deletion
+    from db.models import (
+        Activity,
+        AppConfig,
+        Base,
+        Feedback,
+        Invitation,
+        User,
+        UserConfig,
+        WaitlistSignup,
+    )
+
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+
+    @event.listens_for(engine, "connect")
+    def _enforce_fks(dbapi_conn, _rec):
+        cur = dbapi_conn.cursor()
+        cur.execute("PRAGMA foreign_keys=ON")
+        cur.close()
+
+    Base.metadata.create_all(engine)
+    # Mirror production's session config (db/session.py uses autoflush=False) so
+    # this stays a faithful proxy for the enforced-FK deletion path.
+    Session = sessionmaker(bind=engine, autoflush=False)
+
+    # delete_user_account commits before touching disk tokenstores; stub that
+    # step so the test stays DB-only (no DATA_DIR / filesystem dependency).
+    monkeypatch.setattr(account_deletion, "_clear_tokenstore", lambda uid: None)
+
+    db = Session()
+    try:
+        # Seed parents before children so inserts satisfy the enforced FKs: these
+        # models use bare ForeignKey columns with no ORM relationship, so the
+        # unit of work can't infer insert order (it mirrors the real app, which
+        # commits a user at registration before syncing that user's data).
+        db.add(User(id="admin", email="admin@x.test", hashed_password="x", is_superuser=True))
+        db.add(User(id="target", email="t@x.test", hashed_password="x"))
+        db.commit()
+        db.add(User(id="target-demo", email="d@x.test", hashed_password="x", is_demo=True, demo_of="target"))
+        db.commit()
+        db.add(UserConfig(user_id="target", display_name="T"))
+        db.add(Activity(user_id="target", activity_id="a1", date=date(2026, 6, 1)))
+        db.add(Feedback(user_id="target", kind="bug", message="hi", status="new"))
+        made = Invitation(code="TS-MADE-9999", created_by="target", is_active=True)
+        used = Invitation(code="TS-USED-9999", created_by="admin", used_by="target", is_active=True)
+        db.add_all([made, used])
+        db.commit()
+        db.add(WaitlistSignup(email="w1@x.test", invitation_id=made.id))
+        db.add(AppConfig(key="registration_open", value="true", updated_by="target"))
+        db.commit()
+    finally:
+        db.close()
+
+    db = Session()
+    try:
+        result = account_deletion.delete_user_account(db, "target", enforce_last_admin_guard=False)
+    finally:
+        db.close()
+
+    assert set(result.deleted_user_ids) == {"target", "target-demo"}
+
+    db = Session()
+    try:
+        assert db.query(User).filter(User.id.in_(["target", "target-demo"])).count() == 0
+        # Invitation the user *used* is preserved, detached, and deactivated.
+        used_row = db.query(Invitation).filter(Invitation.code == "TS-USED-9999").one()
+        assert used_row.used_by is None
+        assert used_row.is_active is False
+        # Invitation the user *created* is deleted (created_by is NOT NULL).
+        assert db.query(Invitation).filter(Invitation.code == "TS-MADE-9999").count() == 0
+        # Waitlist lead kept with its (now-deleted) invitation link nulled.
+        wl = db.query(WaitlistSignup).filter(WaitlistSignup.email == "w1@x.test").one()
+        assert wl.invitation_id is None
+        # Operator-config row kept, updated_by nulled.
+        cfg = db.query(AppConfig).filter(AppConfig.key == "registration_open").one()
+        assert cfg.updated_by is None
+    finally:
+        db.close()
+    engine.dispose()
