@@ -164,6 +164,35 @@ def _prune_expired_mfa() -> None:
             _pending_garmin_mfa.pop(uid, None)
 
 
+# garminconnect tries login strategies in order (mobile, widget, portal).
+# The ``widget+cffi`` strategy handles MFA, but the DI token it mints is
+# rejected by the Garmin API tier (401 "Token is not active" on
+# /userprofile-service/socialProfile) — upstream
+# cyberjunky/python-garminconnect issue #369. The ``portal`` strategy mints a
+# token the API accepts *and* handles MFA, so we force it for every login.
+# Validated end-to-end against a live MFA-enabled garmin.cn account: portal
+# token → socialProfile / user-settings 200.
+_GARMIN_API_REJECTED_STRATEGIES = frozenset(
+    {"mobile+cffi", "mobile+requests", "widget+cffi"}
+)
+
+
+def _force_portal_login_strategy(client) -> None:
+    """Skip the login strategies whose DI tokens the API tier rejects (#369).
+
+    Leaves only ``portal+cffi`` / ``portal+requests`` — confirmed to mint
+    API-accepted tokens for MFA accounts. Best-effort: if the library ever
+    drops ``skip_strategies`` we log and fall back to the default chain.
+    """
+    try:
+        client.client.skip_strategies = set(_GARMIN_API_REJECTED_STRATEGIES)
+    except Exception:
+        logger.warning(
+            "Could not force Garmin portal login strategy; using default chain",
+            exc_info=True,
+        )
+
+
 def _persist_garmin_tokens(client, token_dir: str) -> None:
     """Best-effort dump of the authenticated Garmin session to the tokenstore.
 
@@ -172,10 +201,14 @@ def _persist_garmin_tokens(client, token_dir: str) -> None:
     written, background syncs reuse the cached OAuth tokens and never re-hit
     SSO/MFA until they expire.
     """
-    import contextlib
-
-    with contextlib.suppress(Exception):
+    try:
         client.client.dump(token_dir)
+    except Exception:
+        logger.warning(
+            "Failed to persist Garmin tokens to %s; the next sync will have to "
+            "re-authenticate (and cannot complete MFA headless)", token_dir,
+            exc_info=True,
+        )
 
 
 def begin_garmin_login(user_id: str, creds: dict) -> str:
@@ -201,6 +234,7 @@ def begin_garmin_login(user_id: str, creds: dict) -> str:
     client = Garmin(
         creds["email"], creds["password"], is_cn=is_cn, return_on_mfa=True,
     )
+    _force_portal_login_strategy(client)
     mfa_status, _ = client.login(token_dir)
     if mfa_status == "needs_mfa":
         _prune_expired_mfa()
@@ -460,11 +494,28 @@ def _login_garmin_with_cn_fallback(client, creds: dict, token_dir: str) -> None:
     import contextlib
     from garminconnect import GarminConnectAuthenticationError
 
+    # Force the portal strategy: the widget strategy mints tokens the API
+    # tier rejects (#369) and is also the MFA-handling path, so a re-auth
+    # would otherwise re-mint a rejected token. Portal mints accepted tokens.
+    _force_portal_login_strategy(client)
+
     try:
         client.login(token_dir)
         return
     except GarminConnectAuthenticationError as e:
-        if "JWT_WEB cookie not set" not in str(e):
+        msg = str(e)
+        # A background sync has no user present to answer an MFA challenge.
+        # When cached tokens are gone/rejected and a fresh credential login
+        # hits MFA, garminconnect raises "MFA Required but no prompt_mfa
+        # mechanism supplied". Surface a clean, actionable status
+        # (classify_sync_failure maps GarminConnectAuthenticationError →
+        # auth_required) instead of leaking the raw library string.
+        if "MFA" in msg and "prompt_mfa" in msg:
+            raise GarminConnectAuthenticationError(
+                "Garmin requires re-authentication (MFA). Please reconnect "
+                "your account from Settings to enter a verification code."
+            ) from e
+        if "JWT_WEB cookie not set" not in msg:
             raise
         logger.warning(
             "Garmin login hit JWT_WEB fallback bug (hardcoded .com host); "

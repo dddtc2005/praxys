@@ -19,6 +19,7 @@ class _FakeInnerClient:
 
     def __init__(self) -> None:
         self.dumped: list[str] = []
+        self.skip_strategies: set[str] = set()
 
     def dump(self, path: str) -> None:
         self.dumped.append(path)
@@ -152,6 +153,11 @@ def test_connect_without_mfa_persists_credentials(api_client, monkeypatch):
     # Credentials stored and tokens dumped for future background syncs.
     assert _connection_status(api_client["user_id"]) == "connected"
     assert instances[0].client.dumped, "tokens should be persisted on success"
+    # The portal login strategy is forced so the minted token is one the
+    # Garmin API tier accepts (avoids the widget-token rejection, #369).
+    assert instances[0].client.skip_strategies == {
+        "mobile+cffi", "mobile+requests", "widget+cffi",
+    }
 
 
 def test_connect_requiring_mfa_then_verify(api_client, monkeypatch):
@@ -176,6 +182,9 @@ def test_connect_requiring_mfa_then_verify(api_client, monkeypatch):
     assert _connection_status(api_client["user_id"]) == "connected"
     assert instances[0].resume_calls == ["123456"]
     assert instances[0].client.dumped, "tokens should be persisted after MFA"
+    assert instances[0].client.skip_strategies == {
+        "mobile+cffi", "mobile+requests", "widget+cffi",
+    }
 
 
 def test_verify_with_wrong_code_keeps_session_for_retry(api_client, monkeypatch):
@@ -252,3 +261,43 @@ def test_expired_pending_mfa_is_pruned(api_client, monkeypatch):
         json={"code": "123456"},
     )
     assert res.json()["message"] == "mfa_session_expired"
+
+
+def test_sync_login_forces_portal_and_rewraps_headless_mfa(tmp_path):
+    """Background sync forces the portal strategy and, when a re-auth hits MFA
+    with no user present, surfaces a clean auth_required message instead of the
+    raw garminconnect string."""
+    from api.routes.sync import _login_garmin_with_cn_fallback
+    from db.sync_scheduler import classify_sync_failure
+    from garminconnect import GarminConnectAuthenticationError
+
+    class _Inner:
+        def __init__(self) -> None:
+            self.skip_strategies: set[str] = set()
+
+    class _Client:
+        def __init__(self) -> None:
+            self.client = _Inner()
+
+        def login(self, token_dir):
+            raise GarminConnectAuthenticationError(
+                "MFA Required but no prompt_mfa mechanism supplied"
+            )
+
+    c = _Client()
+    with pytest.raises(GarminConnectAuthenticationError) as ei:
+        _login_garmin_with_cn_fallback(
+            c, {"email": "a@example.com", "password": "pw"}, str(tmp_path)
+        )
+
+    # Portal strategy forced (widget/mobile skipped) so a re-auth can't re-mint
+    # a token the API tier rejects (#369).
+    assert c.client.skip_strategies == {
+        "mobile+cffi", "mobile+requests", "widget+cffi",
+    }
+    # The raw library string is replaced with an actionable reconnect message
+    # that still classifies as a terminal auth_required.
+    msg = str(ei.value)
+    assert "prompt_mfa" not in msg
+    assert "reconnect" in msg.lower()
+    assert classify_sync_failure(ei.value) == ("auth_required", True)

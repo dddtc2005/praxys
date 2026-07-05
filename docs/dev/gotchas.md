@@ -31,6 +31,14 @@ Same priority applies to activity-level `averagePower` / `maxPower` in `parse_ac
 
 With this fallback in place, CN portal login produces real DI Bearer tokens that `connectapi.garmin.cn` accepts, and `Client.dump(token_dir)` persists them so subsequent syncs skip SSO. Reproduction + verification tooling lives in `scripts/garmin_diagnose.py` — subcommands `login` (five-strategy chain, instrumented), `api` (post-login endpoint / header variants), `grants` (credential-free grant_type sweep against `diauth.garmin.cn`), `all`. GitHub issue #75.
 
+### MFA logins must use the `portal` strategy — widget tokens are API-rejected (#369)
+
+`garminconnect` tries login strategies in order (`mobile+cffi`, `mobile+requests`, `widget+cffi`, `portal+cffi`, `portal+requests`). For an MFA-enabled account, whichever strategy detects the MFA challenge *first* owns the whole handshake — and since upstream PR #371 that's the **`widget`** strategy. But the DI token the widget strategy mints is **rejected by the Garmin API tier**: `GET /userprofile-service/socialProfile` returns `401 "Token is not active"` (upstream [cyberjunky/python-garminconnect#369](https://github.com/cyberjunky/python-garminconnect/issues/369), open; reproduces on 0.3.3–0.3.6, `.com` and `.cn`). The **`portal`** strategy mints a token the API accepts *and* handles MFA.
+
+**Why it surfaced as "MFA Required but no prompt_mfa mechanism supplied."** The interactive connect (`begin_garmin_login`) succeeds — `resume_login`'s profile fetch is lenient and swallows the 401 — so a widget token gets persisted and the connection shows *connected*. But the next background sync loads that token, `_load_profile_and_settings()` 401s, and garminconnect's recovery path **discards the cache and retries a fresh credential login** with `prompt_mfa=None` (the sync path has no MFA mechanism). That login hits MFA and raises the raw error, which `classify_sync_failure` maps to `auth_required` — but reconnecting just re-mints another rejected widget token, so the account stays stuck.
+
+**Fix.** `_force_portal_login_strategy(client)` in `api/routes/sync.py` sets `client.client.skip_strategies = {"mobile+cffi", "mobile+requests", "widget+cffi"}` before every login (interactive connect **and** background sync), leaving only the portal strategies. Validated end-to-end against a live MFA-enabled `garmin.cn` account: portal token → `socialProfile` + `user-settings` both `200`. The sync path additionally rewraps a bubbled headless-MFA error into an actionable "reconnect" message. Re-validate after any `garminconnect` bump with `scripts/garmin_mfa_probe.py --strategy portal` (`--strategy widget` reproduces the bug). If upstream fixes #369 so widget/mobile tokens are accepted, the skip set can be relaxed.
+
 ### Garmin CN endpoint parity is incomplete
 
 Expect individual endpoints to 400/404 on `connectapi.garmin.cn` even when the account is healthy. Confirmed patchy endpoints as of 2026-04:
