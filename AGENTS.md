@@ -37,6 +37,7 @@
 - **Tasks:** wire alerts, rotate/add config, deploy & rollback, diagnose prod issues
 - **Context needed:** the operations handbook **`docs/ops/README.md`** (runbook index). Each runbook is self-contained: `Prerequisites · Steps · Verify · Rollback`. `docs/deployment.md` for one-time Azure setup.
 - **Key rule:** App Service settings are owned by `deploy-backend.yml`, not the portal — change the GitHub secret/variable and re-deploy. Never commit secrets. **Any config / secret / infra / deploy change must update `docs/ops/` (esp. `config-and-secrets.md`) in the same PR** — where it's set and how to provision it.
+- **Monitoring / alerts:** the live alert inventory + cost model is `docs/ops/monitoring-and-alerts.md`. Log alerts bill by evaluation frequency (every frequency ≥15 min hits the same 0.50 floor — only sub-15-min costs more); metric alerts are flat and frequency-free. Every alert needs an action group (or it pages nobody) and a row in the inventory table — update it in the same PR.
 
 ## Workflow Patterns
 

@@ -242,7 +242,7 @@ See `docs/dev/contributing.md` for which files to update with code changes. Key 
 
 For **production operations** (deploy, config & secrets, monitoring & alerts, admin tasks, troubleshooting), start at the operations handbook: `docs/ops/README.md` — consistently-structured runbooks meant to be consumed by humans *and* AI agents.
 
-**Ops-handbook currency (required).** Any PR that changes a deploy workflow, App Service setting, GitHub Actions secret/variable, Azure resource (storage, Key Vault, RBAC), or runtime config **must update `docs/ops/` in the same PR** — record *where* the value is set (source of truth) and *how* to provision it (`config-and-secrets.md`). A config/infra change without the matching runbook update is incomplete.
+**Ops-handbook currency (required).** Any PR that changes a deploy workflow, App Service setting, GitHub Actions secret/variable, Azure resource (storage, Key Vault, RBAC), **alert rule / action group**, or runtime config **must update `docs/ops/` in the same PR** — record *where* the value is set (source of truth) and *how* to provision it (`config-and-secrets.md`; alerts + their cost model live in `monitoring-and-alerts.md`). A config/infra change without the matching runbook update is incomplete.
 
 ## Claude Code Automations
 
