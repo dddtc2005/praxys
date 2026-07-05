@@ -15,6 +15,8 @@
 All three authenticate to Azure / WeChat via OIDC or the upload key — no
 passwords. Backend + frontend run their test/build gates **before** deploying.
 
+**Pre-merge gate.** Before any deploy, `ci-backend.yml` runs the backend `pytest` suite on every PR to `main` and reports a **required** status check (`backend-tests`). A red suite blocks merge, so regressions never reach the deploy step (see [environment.md](./environment.md) → Repo governance). `deploy-backend.yml` re-runs the same suite post-merge as a deploy-time backstop.
+
 ## Backend deploy
 
 Automatic on merge to `main` (for the paths above). The workflow:
@@ -74,4 +76,4 @@ There are **no deployment slots** on the B1 plan, so rollback = re-deploy a know
 - `docs/deployment.md` (one-time Azure setup) · `.github/workflows/`
 
 ---
-_Last reviewed: 2026-06-30 · Owner: @dddtc2005_
+_Last reviewed: 2026-07-05 · Owner: @dddtc2005_

@@ -54,10 +54,14 @@
 - **Platform credentials:** Fernet-encrypted in the DB; each user's Fernet DEK is
   wrapped by the Key Vault RSA master key (`db/crypto.py`).
 
+## Repo governance
+
+- **`main` branch protection.** A required status check `backend-tests` (from `.github/workflows/ci-backend.yml`, issue #361) gates every PR to `main`: a failing backend `pytest` run blocks merge, **admins included** (`enforce_admins`). No required human review (`required_pull_request_reviews` unset) so the solo maintainer can self-merge a green PR. Managed via the branch-protection API on `repos/dddtc2005/praxys/branches/main/protection` — update that rule to change the required checks.
+
 ## Related
 
 - [config-and-secrets.md](./config-and-secrets.md) · [deploy.md](./deploy.md)
 - `docs/deployment.md` (one-time Azure setup) · `docs/perf-baselines/azure-provisioning.md`
 
 ---
-_Last reviewed: 2026-06-30 · Owner: @dddtc2005_
+_Last reviewed: 2026-07-05 · Owner: @dddtc2005_

@@ -335,6 +335,7 @@ This means deploying a new version with additional model columns just works — 
 
 ## CI/CD Workflows
 
+- **Backend tests (pre-merge gate)** (`.github/workflows/ci-backend.yml`) — runs on every `pull_request` to `main`: sets up Python 3.12, installs `requirements.txt` (pip-cached), and runs `python -m pytest tests/`. A **required status check** (`backend-tests`) on `main`, so a failing test blocks merge — regressions are caught *before* merge (the `deploy-backend.yml` suite runs only post-merge). No `paths:` filter on purpose: a required check skipped by a path filter stays permanently pending and blocks the PR.
 - **Backend** (`.github/workflows/deploy-backend.yml`) — triggers on changes to `api/`, `analysis/`, `sync/`, `db/`, `data/science/`, `tests/`, `requirements.txt`. Runs tests first, then deploys via OIDC to `trainsight-app`.
 - **Frontend** (`.github/workflows/deploy-frontend-appservice.yml`) — triggers on changes to `web/` or `frontend_server/`. Runs the static-server's 11-test suite first, then builds `web/dist/` (with `VITE_API_URL` baked in), packages it alongside `frontend_server/`, and deploys via OIDC to `praxys-frontend`. Oryx runs `pip install -r requirements.txt` (the frontend-only one) on the App Service side.
 

@@ -1,0 +1,44 @@
+name: Backend CI
+
+# Pre-merge test gate (issue #361). Runs the backend pytest suite on every PR
+# targeting main so regressions are caught *before* merge — not only at deploy
+# time (deploy-backend.yml runs pytest post-merge, on push to main). This is the
+# safety net for autonomously drafted PRs (the Loop A Copilot coding-agent flow):
+# nothing merges without a green suite.
+#
+# Intentionally has NO `paths:` filter. This job is a *required* status check on
+# main, and a required check that a path filter skips is reported as permanently
+# "pending", which blocks the PR forever. Running the (fast, pip-cached) suite on
+# every PR keeps the gate always-reporting — and means an AI-generated PR that
+# touches *anything* still gets the backend safety net.
+
+on:
+  pull_request:
+    branches: [main]
+
+# One in-flight run per PR; cancel the previous when new commits land.
+concurrency:
+  group: backend-ci-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend-tests:
+    name: backend-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run backend tests
+        run: python -m pytest tests/ -v
