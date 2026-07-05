@@ -108,12 +108,16 @@ group). To also catch publish failures use
 **Verify:** submit a test report that trips the gate (e.g. with `AZURE_AI_ENDPOINT`
 unset, or paste a fake `sk-...` token) and confirm the email within ~15 min.
 
-## Database health alert (#350)
+## Database health alert (#350) — WIRED
 
 `praxys.db_health` fires from the startup integrity check (`db/session.py`) and
 the `/api/health/ready` probe when the database is corrupt or unreachable - the
-gap that made the 2026-07-03 corruption invisible to the liveness-only
-`/api/health`. Alert on any occurrence:
+gap that made the 2026-07-03 corruption *and* the 2026-07-05 connection-
+exhaustion outage invisible to the liveness-only `/api/health` (nothing was
+watching the readiness 503).
+
+Live as scheduled-query rule **`praxys-db-health-unhealthy`** (Sev 1, every
+5 min, action group `praxys-feedback-ag`):
 
 ```kql
 union isfuzzy=true
@@ -124,10 +128,35 @@ union isfuzzy=true
 | where status in ("integrity_failed", "check_error", "readiness_failed")
 ```
 
-Wire it per the recipe above (results > 0, every 5 min, **Sev 1**, email action
-group). Also set the **App Service health check** path to `/api/health/ready`
-(Portal: App Service -> Monitoring -> Health check) so the load balancer routes
-away from an instance whose DB is down.
+Recreate it with (collapse the KQL above onto one line as `<KQL>`):
+
+```bash
+AI=$(az monitor app-insights component show -g rg-trainsight --query "[0].id" -o tsv)
+AG=$(az monitor action-group show -g rg-trainsight -n praxys-feedback-ag --query id -o tsv)
+az monitor scheduled-query create -g rg-trainsight -n praxys-db-health-unhealthy --scopes "$AI" --condition "count 'q' > 0" --condition-query "q=<KQL>" --evaluation-frequency 5m --window-size 5m --severity 1 --action-groups "$AG"
+```
+
+## Postgres connection-pressure alert — WIRED
+
+Catches the *cause* one layer before the readiness 503. Burstable B1ms allows
+`max_connections=50` (~35 usable by the app after reserved slots); healthy
+baseline is <15. Live as metric alert **`praxys-pg-connections-high`** (Sev 2,
+avg `active_connections` > 40 over 5 min, `praxys-feedback-ag`):
+
+```bash
+PG=$(az postgres flexible-server show -g rg-trainsight -n praxys-pg --query id -o tsv)
+AG=$(az monitor action-group show -g rg-trainsight -n praxys-feedback-ag --query id -o tsv)
+az monitor metrics alert create -g rg-trainsight -n praxys-pg-connections-high --scopes "$PG" --condition "avg active_connections > 40" --window-size 5m --evaluation-frequency 5m --severity 2 --action "$AG"
+```
+
+> **Health-check caveat (single instance).** Do **not** wire `/api/health/ready`
+> as the App Service *health-check path* on this single-instance backend: a
+> DB-down readiness failure would trigger health-check-driven container
+> restarts, and each restart abandons its connection pool — *amplifying* a
+> connection-exhaustion event instead of mitigating it (see the 2026-07-05
+> outage in [incident-response.md](./incident-response.md)). The two alerts
+> above page a human instead. Revisit only at ≥2 instances, where a health
+> check removes a bad instance from rotation without a restart storm.
 
 ## Rollback / Recovery
 
@@ -140,4 +169,4 @@ Tune the window/threshold to reduce noise rather than deleting.
 - In-app: Admin → User Feedback (badge + Approve/Retry/Reject).
 
 ---
-_Last reviewed: 2026-07-04 · Owner: @dddtc2005_
+_Last reviewed: 2026-07-05 · Owner: @dddtc2005_

@@ -134,6 +134,44 @@ gh secret   set PRAXYS_DATABASE_URL --body "postgresql://trainsight-app@praxys-p
 clearing `PRAXYS_DATABASE_URL` cleanly rolls back to the frozen SQLite file.
 Provisioning + PITR + MI-as-AAD-principal wiring: [postgres-migration.md](./postgres-migration.md).
 
+### Database connection budget, pool sizing & Always On
+
+The production DB is a **Burstable B1ms** Flexible Server: `max_connections=50`
+(Azure default for the tier), of which ~15 are reserved
+(`superuser_reserved_connections=10` + `reserved_connections=5`, both Azure
+defaults) — leaving **~35 usable by the app**. Don't lower the reserved values;
+they're Azure-managed.
+
+The backend's SQLAlchemy pools are bounded (`db/session.py`) and tunable via
+optional App Service settings (defaults shown):
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `PRAXYS_DB_POOL_SIZE` | `5` | Steady pool size, **per engine, per worker** |
+| `PRAXYS_DB_MAX_OVERFLOW` | `5` | Burst connections above `pool_size` |
+| `PRAXYS_DB_POOL_RECYCLE` | `1800` | Recycle (reconnect) a connection after N seconds |
+
+There are **two** engines (sync + async), so one gunicorn worker holds at most
+`2 × (pool_size + max_overflow)` = **20** connections — under the 35-slot
+budget. If you raise the worker count or pool sizes, keep
+`workers × 2 × (pool_size + max_overflow)` **< 35**, or move off Burstable.
+These envs are optional (not in the required-settings loop).
+
+**Always On = `true`** — App Service **site config** (NOT an app setting), so a
+separate command, owned by `deploy-backend.yml`:
+`az webapp config set --name trainsight-app --resource-group rg-trainsight --always-on true`.
+It keeps one warm container instead of stop/starting on idle; each recycle
+abandons the container's pool as idle "zombie" backends that linger until
+TCP-keepalive reap (~6 min), and that churn helped exhaust Postgres in the
+2026-07-05 outage. The app also disposes its engines on shutdown
+(`dispose_engines`, `api/main.py` lifespan) so a *clean* recycle frees
+connections immediately.
+
+Guarded by two alerts (see
+[monitoring-and-alerts.md](./monitoring-and-alerts.md)):
+`praxys-pg-connections-high` (Sev 2, `active_connections` > 40) and
+`praxys-db-health-unhealthy` (Sev 1, DB unreachable/corrupt).
+
 ### Self-registration gate + email
 
 Opening self-registration is **runtime config, not a setting**: an admin toggles
@@ -185,4 +223,4 @@ outgrown.
 - `.github/workflows/deploy-backend.yml` (source of truth for App Service settings)
 
 ---
-_Last reviewed: 2026-07-04 · Owner: @dddtc2005_
+_Last reviewed: 2026-07-05 · Owner: @dddtc2005_
