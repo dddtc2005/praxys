@@ -130,6 +130,7 @@ export default function Admin() {
   const [config, setConfig] = useState<AdminConfig | null>(null);
   const [maxUsersInput, setMaxUsersInput] = useState('');
   const [savingConfig, setSavingConfig] = useState(false);
+  const [configMsg, setConfigMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [waitlist, setWaitlist] = useState<WaitlistSignupItem[]>([]);
   const [invitingId, setInvitingId] = useState<number | null>(null);
   const [inviteResults, setInviteResults] = useState<Record<number, WaitlistInviteResult>>({});
@@ -262,17 +263,51 @@ export default function Admin() {
   };
 
   const patchConfig = async (payload: { registration_open?: boolean; registration_max_users?: number }) => {
+    if (!config) return;
     setSavingConfig(true);
-    const res = await fetch(`${API_BASE}/api/admin/config`, {
-      method: 'PATCH',
-      headers: { ...getAuthHeaders() as Record<string, string>, 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    setSavingConfig(false);
-    if (res.ok) {
+    setConfigMsg(null);
+    // Optimistically reflect the operator's intent so the toggle feels instant;
+    // the authoritative server snapshot below reconciles it (and the error path
+    // re-fetches), so a slow or unparseable response can't leave the UI stale.
+    const prev = config;
+    if (payload.registration_open !== undefined) {
+      setConfig({
+        ...config,
+        registration: {
+          ...config.registration,
+          flag_enabled: payload.registration_open,
+          registration_open: payload.registration_open && !config.registration.cap_reached,
+        },
+      });
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/config`, {
+        method: 'PATCH',
+        headers: { ...getAuthHeaders() as Record<string, string>, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(String(res.status));
       const cfg: AdminConfig = await res.json();
       setConfig(cfg);
       setMaxUsersInput(String(cfg.registration.max_users));
+      setConfigMsg({ ok: true, text: t`Saved` });
+    } catch {
+      // Reconcile against the server; fall back to reverting the optimistic flip.
+      try {
+        const g = await fetch(`${API_BASE}/api/admin/config`, { headers: getAuthHeaders() });
+        if (g.ok) {
+          const cfg: AdminConfig = await g.json();
+          setConfig(cfg);
+          setMaxUsersInput(String(cfg.registration.max_users));
+        } else {
+          setConfig(prev);
+        }
+      } catch {
+        setConfig(prev);
+      }
+      setConfigMsg({ ok: false, text: t`Couldn't save. Check your connection and try again.` });
+    } finally {
+      setSavingConfig(false);
     }
   };
 
@@ -442,6 +477,9 @@ export default function Admin() {
                 >
                   {config.registration.flag_enabled ? <Trans>Enabled — click to close</Trans> : <Trans>Disabled — click to open</Trans>}
                 </Button>
+                {configMsg && (
+                  <p className={`mt-1.5 text-xs ${configMsg.ok ? 'text-primary' : 'text-destructive'}`}>{configMsg.text}</p>
+                )}
               </div>
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block"><Trans>Seat cap</Trans></label>

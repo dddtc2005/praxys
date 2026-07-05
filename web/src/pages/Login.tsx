@@ -38,6 +38,7 @@ export default function Login() {
   const [waitlistSuccess, setWaitlistSuccess] = useState(false);
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [registrationOpen, setRegistrationOpen] = useState(false);
+  const [showCodeField, setShowCodeField] = useState(false);
   const [verifyPending, setVerifyPending] = useState(false);
   const [honeypot, setHoneypot] = useState('');
   const [showResend, setShowResend] = useState(false);
@@ -585,21 +586,33 @@ export default function Login() {
                 />
               </div>
 
-              <div className="login-field">
-                <label htmlFor={`${formId}-reg-code`} className="login-field-label">
-                  {registrationOpen ? <Trans>Invitation code (optional)</Trans> : <Trans>Invitation code</Trans>}
-                </label>
-                <input
-                  id={`${formId}-reg-code`}
-                  type="text"
-                  placeholder="TS-XXXX-XXXX"
-                  className="login-input login-input-mono"
-                  value={invitationCode}
-                  onChange={(e) => setInvitationCode(e.target.value.toUpperCase())}
-                  disabled={submitting}
-                  required={!registrationOpen}
-                />
-              </div>
+              {(!registrationOpen || !!initialInvite || showCodeField) ? (
+                <div className="login-field">
+                  <label htmlFor={`${formId}-reg-code`} className="login-field-label">
+                    {registrationOpen ? <Trans>Invitation code (optional)</Trans> : <Trans>Invitation code</Trans>}
+                  </label>
+                  <input
+                    id={`${formId}-reg-code`}
+                    type="text"
+                    placeholder="TS-XXXX-XXXX"
+                    className="login-input login-input-mono"
+                    value={invitationCode}
+                    onChange={(e) => setInvitationCode(e.target.value.toUpperCase())}
+                    disabled={submitting}
+                    required={!registrationOpen}
+                  />
+                </div>
+              ) : (
+                <div className="login-field">
+                  <button
+                    type="button"
+                    className="login-aside-link"
+                    onClick={() => setShowCodeField(true)}
+                  >
+                    <Trans>Have an invitation code?</Trans>
+                  </button>
+                </div>
+              )}
 
               {/* Honeypot: hidden from real users; a filled value flags a bot. */}
               <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, overflow: 'hidden' }}>
