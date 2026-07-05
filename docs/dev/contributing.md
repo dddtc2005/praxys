@@ -160,6 +160,7 @@ When making changes, update the relevant docs:
 | Convention changes | `CLAUDE.md` |
 | DB model changes | `CLAUDE.md` data sources |
 | New Claude automation (hook, agent, dev skill) | `CLAUDE.md` "Claude Code Automations" section |
+| Agentic loop / self-improvement / autonomy change | `docs/dev/agentic-loops.md`, tracker `#377` |
 | Config / secret / infra / deploy change (env var, GitHub Actions secret/variable, App Service setting, Azure resource, RBAC, deploy workflow) | **`docs/ops/` handbook** — esp. `config-and-secrets.md` (where it's set + how to provision it) |
 
 ## Claude Code Dev Tooling

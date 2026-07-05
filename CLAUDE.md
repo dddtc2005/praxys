@@ -238,6 +238,7 @@ See `docs/dev/contributing.md` for which files to update with code changes. Key 
 - `docs/dev/api-reference.md` — API endpoint contracts
 - `docs/dev/design-system.md` — design system implementation rules (translates brand guide → `web/src/`)
 - `docs/dev/gotchas.md` — domain-specific traps
+- `docs/dev/agentic-loops.md` — how AI agents run in self-improving loops (change / incident / meta) and the shared substrate
 - `plugins/praxys/skills/*/SKILL.md` — skill instructions
 
 For **production operations** (deploy, config & secrets, monitoring & alerts, admin tasks, troubleshooting), start at the operations handbook: `docs/ops/README.md` — consistently-structured runbooks meant to be consumed by humans *and* AI agents.
