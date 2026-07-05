@@ -42,7 +42,10 @@ class User(Base):
     is_superuser = Column(Boolean, default=False, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)
     is_demo = Column(Boolean, default=False, nullable=False)
-    demo_of = Column(String(36), ForeignKey("users.id"), nullable=True)
+    # ondelete=SET NULL is a DB-level safety net: the account-deletion path
+    # removes a deleted user's demo mirror, but SET NULL guarantees a raw delete
+    # can't strand a dangling demo_of reference (issue #366).
+    demo_of = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     # Throttled last-activity timestamp powering the WAU/DAU admin gauge.
     # Written by api/auth.py on authenticated requests, but only when stale
@@ -78,6 +81,11 @@ class Invitation(Base):
     code = Column(String(12), unique=True, nullable=False, index=True)
     created_by = Column(String(36), ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    # NOTE: intentionally NO ondelete=SET NULL here. Invitation validity is
+    # "is_active AND used_by IS NULL" (see api/invitations.py), so nulling
+    # used_by alone would recycle a consumed code. The account-deletion path
+    # nulls used_by AND deactivates the code together; a bare DB SET NULL can't
+    # flip is_active, so it is deliberately omitted (issue #366).
     used_by = Column(String(36), ForeignKey("users.id"), nullable=True)
     used_at = Column(DateTime, nullable=True)
     # Optional expiry for emailed invitations (waitlist-invite flow). NULL =
@@ -478,7 +486,10 @@ class WaitlistSignup(Base):
     locale = Column(String(10), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     invited_at = Column(DateTime, nullable=True)
-    invitation_id = Column(Integer, ForeignKey("invitations.id"), nullable=True)
+    # ondelete=SET NULL: a waitlist lead survives if the invitation it was sent
+    # is later deleted (e.g. the inviting admin's account is removed); the link
+    # is simply cleared rather than blocking the delete (issue #366).
+    invitation_id = Column(Integer, ForeignKey("invitations.id", ondelete="SET NULL"), nullable=True)
 
 
 class Feedback(Base):
@@ -568,4 +579,6 @@ class AppConfig(Base):
     key = Column(String(64), primary_key=True)
     value = Column(Text, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    updated_by = Column(String(36), ForeignKey("users.id"), nullable=True)
+    # ondelete=SET NULL: keep the operator flag row when the admin who last
+    # toggled it is deleted; just drop the stale reference (issue #366).
+    updated_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)

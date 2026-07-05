@@ -57,10 +57,13 @@ There are **no deployment slots** on the B1 plan, so rollback = re-deploy a know
 1. **Revert the commit** on `main` (`git revert <sha> && git push`) — the deploy
    workflow re-runs and ships the reverted state. Safest for app bugs.
 2. **Re-tag a prior good commit** (`api-*` / `web-*`) to redeploy that exact build.
-3. **Schema note:** migrations are additive only (`init_db()` adds tables/columns,
-   never drops). A code rollback won't undo an added column — that's safe (old
-   code ignores unknown columns) but a *destructive* schema change would need a
-   forward-fix, not a rollback.
+3. **Schema note:** migrations are additive / non-destructive — `init_db()` runs
+   `alembic upgrade head`, which adds tables/columns and may tweak constraints
+   (e.g. adding `ON DELETE SET NULL` to a foreign key, #366) but does not drop
+   tables/columns or data. A code rollback won't undo an applied migration, and
+   that's safe: old code ignores added columns, and a data-preserving constraint
+   change is transparent to it. A genuinely *destructive* schema change would
+   need a forward-fix, not a rollback.
 
 > Config-only revert (a bad App Service setting): fix the GitHub secret/variable
 > and re-deploy — don't hand-edit the portal (it's overwritten next deploy).
