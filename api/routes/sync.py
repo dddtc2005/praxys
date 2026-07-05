@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import threading
+import time
 from datetime import date, datetime, timedelta, timezone
 
 logger = logging.getLogger(__name__)
@@ -125,6 +126,107 @@ def clear_garmin_tokens(user_id: str) -> None:
             user_id, path,
         )
         raise
+
+
+# Pending interactive Garmin MFA logins, keyed by user_id.
+#
+# Garmin's MFA challenge state (the SSO session mid-handshake) lives on the
+# live garminconnect client instance, not in any serializable token, so the
+# client that started the login must be the one that completes it. We park it
+# here between the credential submit and the MFA-code submit. This is
+# process-local: an MFA verify must reach the same worker that began the
+# login. That's fine for the single-worker deployment, and the pending entry
+# self-expires within minutes regardless (Garmin MFA codes are short-lived).
+_pending_garmin_mfa: dict[str, dict] = {}
+_pending_mfa_lock = threading.Lock()
+_GARMIN_MFA_TTL_SEC = 300
+
+
+def _prune_expired_mfa(now: float | None = None) -> None:
+    """Drop pending MFA logins older than the TTL so stale clients don't leak."""
+    cutoff = (now if now is not None else time.time()) - _GARMIN_MFA_TTL_SEC
+    with _pending_mfa_lock:
+        stale = [uid for uid, p in _pending_garmin_mfa.items() if p["created"] < cutoff]
+        for uid in stale:
+            _pending_garmin_mfa.pop(uid, None)
+
+
+def _persist_garmin_tokens(client, token_dir: str) -> None:
+    """Best-effort dump of the authenticated Garmin session to the tokenstore.
+
+    ``Garmin.login(return_on_mfa=True)`` and ``Garmin.resume_login`` both
+    return before the wrapper persists tokens, so we dump explicitly. Once
+    written, background syncs reuse the cached OAuth tokens and never re-hit
+    SSO/MFA until they expire.
+    """
+    import contextlib
+
+    with contextlib.suppress(Exception):
+        client.client.dump(token_dir)
+
+
+def begin_garmin_login(user_id: str, creds: dict) -> str:
+    """Start an interactive Garmin login, transparently handling MFA.
+
+    Returns ``"connected"`` when login completes (tokens persisted) or
+    ``"mfa_required"`` when Garmin demands an MFA code — in which case the live
+    client is parked in ``_pending_garmin_mfa`` for :func:`complete_garmin_mfa`.
+    Raises ``GarminConnect*`` errors on authentication/connection failure.
+
+    Unlike the lazy background-sync login, this runs synchronously while the
+    user is present so an MFA code can be prompted for. The per-user tokenstore
+    is cleared first so a failed attempt can't leave another account's cached
+    session behind; a success repopulates it with this account's fresh tokens.
+    """
+    from garminconnect import Garmin
+
+    is_cn = bool(creds.get("is_cn", False))
+    clear_garmin_tokens(user_id)
+    token_dir = _garmin_token_dir(user_id)
+    os.makedirs(token_dir, exist_ok=True)
+
+    client = Garmin(
+        creds["email"], creds["password"], is_cn=is_cn, return_on_mfa=True,
+    )
+    mfa_status, _ = client.login(token_dir)
+    if mfa_status == "needs_mfa":
+        _prune_expired_mfa()
+        with _pending_mfa_lock:
+            _pending_garmin_mfa[user_id] = {
+                "client": client,
+                "token_dir": token_dir,
+                "creds": creds,
+                "created": time.time(),
+            }
+        return "mfa_required"
+
+    _persist_garmin_tokens(client, token_dir)
+    return "connected"
+
+
+def complete_garmin_mfa(user_id: str, code: str) -> dict:
+    """Finish a pending interactive Garmin login with an MFA code.
+
+    Returns the credential dict to persist on success. Raises
+    ``RuntimeError("GARMIN_MFA_EXPIRED")`` when there is no live pending login
+    (never started, or the TTL elapsed), and re-raises ``GarminConnect*``
+    errors when the code is wrong/expired. On a bad code the pending entry is
+    left in place so the user can retry within the TTL.
+    """
+    _prune_expired_mfa()
+    with _pending_mfa_lock:
+        pending = _pending_garmin_mfa.get(user_id)
+    if not pending:
+        raise RuntimeError("GARMIN_MFA_EXPIRED")
+
+    client = pending["client"]
+    # resume_login ignores its client_state arg (the MFA state lives on the
+    # client) and raises on a bad/expired code.
+    client.resume_login({}, code)
+    _persist_garmin_tokens(client, pending["token_dir"])
+    with _pending_mfa_lock:
+        _pending_garmin_mfa.pop(user_id, None)
+    return pending["creds"]
 
 
 def _get_credentials(user_id: str, platform: str, db: Session) -> dict | None:

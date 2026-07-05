@@ -696,6 +696,88 @@ def strava_oauth_callback(
     )
 
 
+class GarminMfaRequest(BaseModel):
+    """MFA verification code for completing an interactive Garmin login."""
+    code: str | None = None
+
+
+@router.post("/settings/connections/garmin/login")
+def connect_garmin(
+    body: ConnectPlatformRequest,
+    user_id: str = Depends(require_write_access),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Connect Garmin interactively so MFA-protected accounts can authenticate.
+
+    Unlike the generic lazy ``connect_platform`` (which stores credentials and
+    defers login to the background sync, where an MFA code can't be prompted
+    for), this validates the credentials up front. When Garmin requires MFA the
+    response is ``{"status": "mfa_required"}`` and the caller follows up with
+    :func:`verify_garmin_mfa`; otherwise the credentials are persisted and the
+    OAuth tokens cached for future syncs.
+    """
+    from garminconnect import (
+        GarminConnectAuthenticationError,
+        GarminConnectTooManyRequestsError,
+    )
+
+    from api.routes.sync import begin_garmin_login
+
+    if not body.email or not body.password:
+        return {"status": "error", "message": "email and password required"}
+
+    creds = {"email": body.email, "password": body.password, "is_cn": bool(body.is_cn)}
+    try:
+        result = begin_garmin_login(user_id, creds)
+    except (GarminConnectTooManyRequestsError, GarminConnectAuthenticationError) as e:
+        return {"status": "error", "message": str(e)}
+    except Exception as e:
+        logger.exception("Garmin interactive login failed for user %s", user_id)
+        return {"status": "error", "message": f"Login failed: {e}"}
+
+    if result == "mfa_required":
+        return {"status": "mfa_required", "platform": "garmin"}
+
+    _upsert_connection_credentials(user_id, "garmin", creds, db)
+    db.commit()
+    return {"status": "connected", "platform": "garmin"}
+
+
+@router.post("/settings/connections/garmin/mfa")
+def verify_garmin_mfa(
+    body: GarminMfaRequest,
+    user_id: str = Depends(require_write_access),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Complete a pending interactive Garmin login with the user's MFA code."""
+    from garminconnect import (
+        GarminConnectAuthenticationError,
+        GarminConnectTooManyRequestsError,
+    )
+
+    from api.routes.sync import complete_garmin_mfa
+
+    code = (body.code or "").strip()
+    if not code:
+        return {"status": "error", "message": "code required"}
+
+    try:
+        creds = complete_garmin_mfa(user_id, code)
+    except RuntimeError as e:
+        if str(e) == "GARMIN_MFA_EXPIRED":
+            return {"status": "error", "message": "mfa_session_expired"}
+        raise
+    except (GarminConnectTooManyRequestsError, GarminConnectAuthenticationError) as e:
+        return {"status": "error", "message": str(e)}
+    except Exception as e:
+        logger.exception("Garmin MFA verification failed for user %s", user_id)
+        return {"status": "error", "message": f"MFA verification failed: {e}"}
+
+    _upsert_connection_credentials(user_id, "garmin", creds, db)
+    db.commit()
+    return {"status": "connected", "platform": "garmin"}
+
+
 @router.post("/settings/connections/{platform}")
 def connect_platform(
     platform: str,
