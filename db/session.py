@@ -256,9 +256,83 @@ def _skip_migrations() -> bool:
     )
 
 
-def init_db():
-    """Initialize sync and async database engines and ensure the schema exists."""
+def dispose_engines() -> None:
+    """Dispose the sync + async engine pools and clear the singletons.
+
+    Closes every pooled DB connection so PostgreSQL frees the backend at once,
+    instead of leaving it idle until TCP-keepalive reap. Called before any
+    re-initialization (so a forced init cannot orphan a live pool). For the
+    await-correct shutdown path use dispose_engines_async(). Best-effort;
+    never raises.
+
+    Background: abandoned pools accumulated as idle "zombie" backends across
+    container recycles and per-tick init_db() calls, exhausting the Burstable
+    server's small max_connections and 500ing every data endpoint (2026-07-05
+    outage). See docs/ops/incident-response.md.
+    """
     global engine, SessionLocal, async_engine, AsyncSessionLocal
+    if engine is not None:
+        try:
+            engine.dispose()
+        except Exception:
+            logger.debug("sync engine dispose failed", exc_info=True)
+    if async_engine is not None:
+        try:
+            # AsyncEngine wraps a sync core; disposing that core closes the
+            # pool synchronously (fine from sync callers and tests).
+            async_engine.sync_engine.dispose()
+        except Exception:
+            logger.debug("async engine dispose failed", exc_info=True)
+    engine = None
+    SessionLocal = None
+    async_engine = None
+    AsyncSessionLocal = None
+
+
+async def dispose_engines_async() -> None:
+    """Await-correct pool disposal for the FastAPI lifespan shutdown.
+
+    Uses ``await async_engine.dispose()`` so the async (psycopg3) pool closes
+    on the running event loop, then disposes the sync pool. Releasing pools on
+    shutdown stops abandoned connections from lingering as idle "zombie"
+    backends after a container recycle (2026-07-05 outage).
+    """
+    global engine, SessionLocal, async_engine, AsyncSessionLocal
+    if async_engine is not None:
+        try:
+            await async_engine.dispose()
+        except Exception:
+            logger.debug("async engine dispose failed", exc_info=True)
+    if engine is not None:
+        try:
+            engine.dispose()
+        except Exception:
+            logger.debug("sync engine dispose failed", exc_info=True)
+    engine = None
+    SessionLocal = None
+    async_engine = None
+    AsyncSessionLocal = None
+
+
+def init_db(force: bool = False):
+    """Initialize sync and async database engines and ensure the schema exists.
+
+    Idempotent: once the engines exist this is a no-op, so hot paths that only
+    need to guarantee initialization (the sync scheduler's per-tick call, the
+    get_db / get_async_db fallbacks) do not rebuild the pools or re-run
+    migrations. Rebuilding on every scheduler tick orphaned a pool each time
+    and was a root cause of the 2026-07-05 connection-exhaustion outage. Pass
+    ``force=True`` to rebuild (disposing the previous pools first); tests that
+    repoint DATA_DIR at a fresh database null the module globals, same effect.
+    """
+    global engine, SessionLocal, async_engine, AsyncSessionLocal
+
+    if not force and SessionLocal is not None and engine is not None:
+        return
+
+    # Drop any previous / half-initialized pool before rebuilding so a forced
+    # re-init cannot leak the old connections.
+    dispose_engines()
 
     url = get_database_url()
     async_url = get_async_database_url()

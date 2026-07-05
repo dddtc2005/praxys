@@ -147,6 +147,17 @@ jobs:
               SCM_DO_BUILD_DURING_DEPLOYMENT="true" \
               WEBSITE_HTTPLOGGING_RETENTION_DAYS="3"
 
+          # Always On keeps ONE warm container instead of stop/starting on idle.
+          # Each recycle abandons the backend's DB connection pool as idle
+          # "zombie" Postgres backends (they linger until TCP-keepalive reap);
+          # that churn helped exhaust the Burstable server in the 2026-07-05
+          # outage. Site config, NOT an app setting -> a separate command. See
+          # docs/ops/config-and-secrets.md.
+          az webapp config set \
+            --name trainsight-app \
+            --resource-group rg-trainsight \
+            --always-on true
+
       # NB: no pre-deploy on-demand DB snapshot. praxys-pg is a Burstable-tier
       # Flexible Server, which does not support customer on-demand backups; the
       # server's continuous PITR (14-day) provides the pre-deploy restore point

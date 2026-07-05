@@ -106,6 +106,15 @@ async def lifespan(app: FastAPI):
                 stop_scheduler()
             except Exception:
                 logger.exception("Failed to stop sync scheduler cleanly")
+        # Release DB connection pools on shutdown so Postgres frees the backends
+        # immediately instead of leaving them idle until TCP-keepalive reap.
+        # Abandoned pools from container recycles accumulated as "zombie"
+        # backends and exhausted the Burstable server (2026-07-05 outage).
+        try:
+            from db.session import dispose_engines_async
+            await dispose_engines_async()
+        except Exception:
+            logger.exception("Failed to dispose DB engines cleanly")
 
 
 app = FastAPI(title="Praxys API", version=get_api_version(), lifespan=lifespan)
