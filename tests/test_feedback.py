@@ -242,7 +242,7 @@ def _stub_github(monkeypatch, calls):
     monkeypatch.setattr(ft.github_issues, "create_issue", _create)
 
 
-def _stub_llm(monkeypatch, *, sensitive, priority=None, kind="bug"):
+def _stub_llm(monkeypatch, *, sensitive, priority=None, kind="bug", agent_eligible=True):
     from api import feedback_triage as ft
 
     payload = {
@@ -250,6 +250,7 @@ def _stub_llm(monkeypatch, *, sensitive, priority=None, kind="bug"):
         "title": "Charts crash on Training",
         "body": "The training charts fail to render.",
         "contains_sensitive": sensitive,
+        "agent_eligible": agent_eligible,
     }
     if priority is not None:
         payload["priority"] = priority
@@ -932,6 +933,7 @@ def test_triage_tags_agent_ready_for_qualifying_bug(db_with_users, monkeypatch):
 
     result = triage_and_publish(row.id, _session=db)
     assert result["status"] == "issue_created"
+    assert result["agent_ready"] is True
     db.refresh(row)
     assert "agent-ready" in (row.ai_labels or [])
     assert "agent-ready" in calls[0]["labels"]
@@ -944,7 +946,7 @@ def test_triage_no_agent_ready_for_feature(db_with_users, monkeypatch):
     db, _, _, user_id = db_with_users
     calls: list = []
     _stub_github(monkeypatch, calls)
-    _stub_llm(monkeypatch, sensitive=False, kind="feature")
+    _stub_llm(monkeypatch, sensitive=False, kind="feature", agent_eligible=False)
     row = _new_row(
         db, user_id, "Please add a weekly mileage target to the goal page", kind="feature"
     )
@@ -1004,6 +1006,45 @@ def test_triage_no_agent_ready_without_ai_gate(db_with_users, monkeypatch):
     assert calls == []
     db.refresh(row)
     assert "agent-ready" not in (row.ai_labels or [])
+
+
+def test_triage_no_agent_ready_when_not_actionable_bug(db_with_users, monkeypatch):
+    """A bug-shaped report the model judges not actionable (works-as-intended, a
+    support question, too vague) is published but never handed to the agent."""
+    from api.feedback_triage import triage_and_publish
+
+    db, _, _, user_id = db_with_users
+    calls: list = []
+    _stub_github(monkeypatch, calls)
+    _stub_llm(monkeypatch, sensitive=False, agent_eligible=False)
+    row = _new_row(db, user_id, _DETAILED_BUG)
+
+    result = triage_and_publish(row.id, _session=db)
+    assert result["status"] == "issue_created"
+    assert result["agent_ready"] is False
+    db.refresh(row)
+    assert "agent-ready" not in (row.ai_labels or [])
+    assert "agent-ready" not in calls[0]["labels"]
+
+
+def test_triage_shadow_mode_withholds_agent_ready(db_with_users, monkeypatch):
+    """Shadow mode computes the decision but never applies the label, so a
+    qualifying bug is filed without auto-assigning the coding agent."""
+    from api.feedback_triage import triage_and_publish
+
+    db, _, _, user_id = db_with_users
+    monkeypatch.setenv("PRAXYS_AGENT_READY_SHADOW", "true")
+    calls: list = []
+    _stub_github(monkeypatch, calls)
+    _stub_llm(monkeypatch, sensitive=False)  # would otherwise qualify
+    row = _new_row(db, user_id, _DETAILED_BUG)
+
+    result = triage_and_publish(row.id, _session=db)
+    assert result["status"] == "issue_created"
+    assert result["agent_ready"] is False
+    db.refresh(row)
+    assert "agent-ready" not in (row.ai_labels or [])
+    assert "agent-ready" not in calls[0]["labels"]
 
 
 # ---------------------------------------------------------------------------

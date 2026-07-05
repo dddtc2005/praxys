@@ -48,7 +48,7 @@ sync/*.py → db/sync_writer.py → SQLite → analysis/metrics.py → api/deps.
 See [CLAUDE.md](../CLAUDE.md) for complete conventions, how-to guides, and the module map.
 See [AGENTS.md](../AGENTS.md) for multi-agent workflow patterns.
 
-## Coding-agent guidance (Loop A)
+## Coding-agent guidance (the change loop)
 
 When you (the GitHub Copilot coding agent) are assigned an issue labeled
 `agent-ready` (see `.github/workflows/assign-copilot.yml`), draft a fix as a
@@ -56,10 +56,10 @@ When you (the GitHub Copilot coding agent) are assigned an issue labeled
 
 - **Always add or update a test** that fails before your change and passes
   after. Backend tests live in `tests/`.
-- **Run the backend suite before opening the PR**, using the repo venv:
-  `.venv\Scripts\python -m pytest tests/` (Windows) or
-  `.venv/bin/python -m pytest tests/` (Unix). For web changes also run
-  `cd web && npm run build`.
+- **Run the backend suite before opening the PR**: `python -m pytest tests/`
+  (your environment is preinstalled via `.github/workflows/copilot-setup-steps.yml`
+  — Python deps + a bootstrap `.env` — so it runs out of the box). For web
+  changes also run `cd web && npm run build`.
 - **Adding or changing a training metric?** Follow the 7-step checklist in
   [CLAUDE.md](../CLAUDE.md) ("How to Add a New Metric"): pure function in
   `analysis/metrics.py` → wire into `api/deps.py` → route → `web/src/types/api.ts`

@@ -1,6 +1,6 @@
-name: Loop A — assign agent-ready issues to Copilot
+name: Change loop — assign agent-ready issues to Copilot
 
-# Loop A of the Praxys agentic-DevOps design (issue #362): when an issue is
+# Change loop of the Praxys agentic-DevOps design (issue #362): when an issue is
 # tagged `agent-ready`, hand it to the GitHub Copilot coding agent to draft a
 # fix PR. The `agent-ready` label is the SOLE trigger — a bare issue-open never
 # fires. The feedback triage pipeline auto-adds the label for qualifying bugs
@@ -80,7 +80,7 @@ jobs:
         run: |
           set -euo pipefail
           # replaceActorsForAssignable sets the assignee set to exactly Copilot.
-          # Loop A issues are freshly auto-filed and unassigned, so this is the
+          # Change loop issues are freshly auto-filed and unassigned, so this is the
           # documented, idempotent way to hand one off; re-adding the label is a
           # harmless no-op.
           gh api graphql \
