@@ -57,7 +57,7 @@ openai>=1.50.0
 # Guarded import (api/feedback_storage.py): when unset/uninstalled the app falls
 # back to local filesystem storage under DATA_DIR — fine for dev, but ephemeral
 # on Azure App Service, so production configures PRAXYS_FEEDBACK_BLOB_*.
-azure-storage-blob>=12.20.0
+azure-storage-blob>=12.30.0
 
 # ── Visual asset generation ──────────────────────────────────────────
 # Headless Chromium via Playwright is used by scripts/generate_og_card.py
