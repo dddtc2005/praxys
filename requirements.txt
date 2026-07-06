@@ -43,7 +43,7 @@ httpx>=0.28.1
 azure-monitor-opentelemetry>=1.6.0
 
 # FIT file parsing for COROS activity detail (laps + trackpoints)
-fitparse>=0.6.0
+fitparse>=1.2.0
 
 # Azure OpenAI client used by api/llm.py for the post-sync Coach insight
 # generator. >=1.50.0 because chat_json passes max_completion_tokens
