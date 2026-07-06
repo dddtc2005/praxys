@@ -29,9 +29,18 @@ Queries below `union` both shapes so they work either way.
 | `praxys.coach_error` | `error_class` | Operator-actionable Coach errors (Auth/BadRequest) | `record_coach_error` |
 | `praxys.feedback` | `kind`, `status` | In-app feedback submissions + triage outcomes | `record_feedback` |
 | `praxys.db_health` | `status`, `backend` | DB integrity/connectivity failures (startup check + readiness probe) | `record_db_health` |
+| `praxys.sync` | `platform`, `outcome`, `failure_class`, `trigger`, `user_id_hash` | Per-platform sync attempt outcomes (success/failure + why) | `record_sync` |
+| `praxys.connection` | `platform`, `flow`, `stage`, `outcome`, `failure_class`, `region`, `user_id_hash` | Account-connect attempts; `flow` is the Garmin **mfa** vs **non_mfa** sub-category | `record_connection` |
 
 > `praxys.feedback`'s `status` dimension includes `needs_review` — the trigger for
 > the feedback alert below.
+>
+> `praxys.sync` / `praxys.connection` `failure_class` is split into **user-fault**
+> (`bad_credentials`, `mfa_code_rejected` — individual, never pages) and **systemic**
+> (`rate_limited`, `captcha_required`, `access_blocked`, `token_rejected`,
+> `mfa_unattended`, `platform_error`, `network_error`, `unknown`) in
+> `api/telemetry.py` (`USER_FAULT_FAILURE_CLASSES` / `SYSTEMIC_FAILURE_CLASSES`).
+> `token_rejected` is the class the upstream #369 widget-token break would have lit up.
 
 ## Querying (Logs blade → KQL)
 
@@ -73,6 +82,55 @@ pageViews
 | render timechart
 ```
 
+### Connection & sync health (per platform)
+
+Sync failure rate per platform + failure class (last 24h):
+```kql
+customMetrics
+| where name == "praxys.sync"
+| extend platform = tostring(customDimensions.platform),
+         outcome = tostring(customDimensions.outcome),
+         failure_class = tostring(customDimensions.failure_class)
+| summarize failures = countif(outcome == "failure"), total = count() by platform, failure_class
+| extend failure_rate = todouble(failures) / total
+| order by failures desc
+```
+
+**Systemic vs individual** — the discriminator. Distinct *affected users* per
+platform for systemic failure classes; a spike here means a platform-side or
+our-side break, not one user's wrong password:
+```kql
+customMetrics
+| where name == "praxys.sync"
+| where timestamp > ago(1h)
+| extend platform = tostring(customDimensions.platform),
+         outcome = tostring(customDimensions.outcome),
+         failure_class = tostring(customDimensions.failure_class),
+         user = tostring(customDimensions.user_id_hash)
+| where outcome == "failure"
+| where failure_class in ("rate_limited","captcha_required","access_blocked",
+        "token_rejected","mfa_unattended","platform_error","network_error","unknown")
+| summarize affected_users = dcount(user), failures = count() by platform, failure_class
+| order by affected_users desc
+```
+
+Garmin MFA vs non-MFA connect funnel (last 7d):
+```kql
+customMetrics
+| where name == "praxys.connection"
+| where tostring(customDimensions.platform) == "garmin"
+| extend flow = tostring(customDimensions.flow),
+         stage = tostring(customDimensions.stage),
+         outcome = tostring(customDimensions.outcome)
+| summarize attempts = count() by flow, stage, outcome
+```
+
+> These land in `customMetrics` by default (the OTel-counter fallback). Installing
+> `azure-monitor-events-extension` on the App Service routes them to `customEvents`
+> instead — recommended here, since the systemic-vs-individual signal keys on
+> `dcount(user_id_hash)`: exact and cheap in `customEvents`, but one series per user
+> in `customMetrics`. Swap `customMetrics` → `customEvents` in the queries if enabled.
+
 ## Alert inventory (source of truth)
 
 Every rule below lives in `rg-trainsight` (region **eastasia**) and routes to the
@@ -90,6 +148,25 @@ retail rate per the [cost model](#alert-cost-model) below.
 
 **Total ≈ 2.5–2.8 USD/mo** (the three metric alerts may fall inside the small free
 allotment, making the effective figure closer to the 2.50 log-alert subtotal).
+
+### Recommended: systemic connection/sync alerts (not yet provisioned)
+
+The `praxys.sync` / `praxys.connection` **signals are live in code**, but the alerts
+below are **not yet created**. They are log alerts at the 15-min floor
+(**0.50 USD/mo each**), scoped to *systemic* `failure_class` values and gated on
+**distinct affected users** so one wrong-password user never pages. Create them via
+Logs → *New alert rule* (or `az monitor scheduled-query create`) using the
+*systemic vs individual* KQL above, then move each into the inventory table and bump
+the total (currency rule).
+
+| Proposed rule | Watches | Eval | Sev | ~USD/mo |
+|---|---|---|---|---|
+| `praxys-sync-systemic-failures` | ≥5 distinct users hit a systemic `failure_class` for one platform in 15 min | 15 min | 2 | 0.50 |
+| `praxys-connect-systemic-failures` | ≥5 distinct users fail `praxys.connection` with a systemic class in 15 min | 15 min | 2 | 0.50 |
+
+Threshold guidance: `≥5 distinct users / 15 min` filters individual noise while
+catching a fleet-wide break early; tune per active-user base. Attach the
+`praxys-feedback-ag` action group. See [Create an alert](#create-an-alert-general-recipe).
 
 > **Currency rule.** Any PR that adds, removes, or re-tunes an alert **must update
 > this table in the same PR** — rule name, what it watches, eval frequency,

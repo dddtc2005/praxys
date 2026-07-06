@@ -727,16 +727,30 @@ def connect_garmin(
         return {"status": "error", "message": "email and password required"}
 
     creds = {"email": body.email, "password": body.password, "is_cn": bool(body.is_cn)}
+    region = "cn" if body.is_cn else "international"
+
+    def _emit(*, flow: str, outcome: str, failure_class: str) -> None:
+        try:
+            from api import telemetry
+            telemetry.record_connection(
+                platform="garmin", flow=flow, stage="credentials", outcome=outcome,
+                failure_class=failure_class, region=region, user_id=user_id,
+            )
+        except Exception:
+            pass
+
     try:
         result = begin_garmin_login(user_id, creds)
     except GarminConnectTooManyRequestsError:
         logger.warning("Garmin login rate limited for user %s", user_id)
+        _emit(flow="unknown", outcome="error", failure_class="rate_limited")
         return {
             "status": "error",
             "message": "Too many login attempts. Please wait a few minutes and try again.",
         }
     except GarminConnectAuthenticationError:
         logger.warning("Garmin login rejected credentials for user %s", user_id)
+        _emit(flow="unknown", outcome="error", failure_class="bad_credentials")
         return {
             "status": "error",
             "message": "Garmin could not verify your credentials. "
@@ -744,11 +758,14 @@ def connect_garmin(
         }
     except Exception:
         logger.exception("Garmin interactive login failed for user %s", user_id)
+        _emit(flow="unknown", outcome="error", failure_class="unknown")
         return {"status": "error", "message": "Login failed. Please try again."}
 
     if result == "mfa_required":
+        _emit(flow="mfa", outcome="mfa_required", failure_class="none")
         return {"status": "mfa_required", "platform": "garmin"}
 
+    _emit(flow="non_mfa", outcome="connected", failure_class="none")
     _upsert_connection_credentials(user_id, "garmin", creds, db)
     db.commit()
     return {"status": "connected", "platform": "garmin"}
@@ -772,20 +789,33 @@ def verify_garmin_mfa(
     if not code:
         return {"status": "error", "message": "code required"}
 
+    def _emit(*, outcome: str, failure_class: str) -> None:
+        try:
+            from api import telemetry
+            telemetry.record_connection(
+                platform="garmin", flow="mfa", stage="mfa_verify", outcome=outcome,
+                failure_class=failure_class, region="n/a", user_id=user_id,
+            )
+        except Exception:
+            pass
+
     try:
         creds = complete_garmin_mfa(user_id, code)
     except RuntimeError as e:
         if str(e) == "GARMIN_MFA_EXPIRED":
+            _emit(outcome="error", failure_class="mfa_session_expired")
             return {"status": "error", "message": "mfa_session_expired"}
         raise
     except GarminConnectTooManyRequestsError:
         logger.warning("Garmin MFA rate limited for user %s", user_id)
+        _emit(outcome="error", failure_class="rate_limited")
         return {
             "status": "error",
             "message": "Too many attempts. Please wait a few minutes and try again.",
         }
     except GarminConnectAuthenticationError:
         logger.warning("Garmin MFA code rejected for user %s", user_id)
+        _emit(outcome="error", failure_class="mfa_code_rejected")
         return {
             "status": "error",
             "message": "The verification code was not accepted. "
@@ -793,8 +823,10 @@ def verify_garmin_mfa(
         }
     except Exception:
         logger.exception("Garmin MFA verification failed for user %s", user_id)
+        _emit(outcome="error", failure_class="unknown")
         return {"status": "error", "message": "MFA verification failed. Please try again."}
 
+    _emit(outcome="connected", failure_class="none")
     _upsert_connection_credentials(user_id, "garmin", creds, db)
     db.commit()
     return {"status": "connected", "platform": "garmin"}
@@ -861,6 +893,14 @@ def connect_platform(
         from api.routes.sync import clear_garmin_tokens
         clear_garmin_tokens(user_id)
 
+    try:
+        from api import telemetry
+        telemetry.record_connection(
+            platform=platform, flow="n/a", stage="credentials", outcome="connected",
+            failure_class="none", region="n/a", user_id=user_id,
+        )
+    except Exception:
+        pass
     return {"status": "connected", "platform": platform}
 
 

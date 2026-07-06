@@ -426,6 +426,16 @@ def _run_sync(user_id: str, source: str, creds: dict,
 
         logger.info("Sync %s for user %s: %s", source, user_id, counts)
 
+        # Manual-path success telemetry (scheduled path emits from _sync_connection).
+        try:
+            from api import telemetry
+            telemetry.record_sync(
+                platform=source, outcome="success", failure_class="none",
+                trigger="manual", user_id=user_id,
+            )
+        except Exception:
+            pass
+
         # Post-sync LLM insight generation. Best-effort: failures here must
         # never break the sync. The runner is content-addressable (skips when
         # the dataset hash is unchanged) and self-throttling (per-user daily
@@ -465,7 +475,7 @@ def _run_sync(user_id: str, source: str, creds: dict,
                 UserConnection.platform == source,
             ).first()
             if conn:
-                _record_sync_failure(conn, e, db)
+                _record_sync_failure(conn, e, db, trigger="manual")
         except Exception:
             pass
     finally:

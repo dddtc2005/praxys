@@ -564,3 +564,135 @@ def test_run_insights_no_telemetry_on_short_circuit_cap(fake_meter, monkeypatch)
     assert "praxys.coach_run" not in fake_meter.counters
 
     session.close()
+
+
+# ---------------------------------------------------------------------------
+# Sync / connection observability
+# ---------------------------------------------------------------------------
+
+
+class _FakeExc(Exception):
+    """Exception whose type name is configurable, to exercise the classifier."""
+
+
+def _exc(name: str, msg: str) -> Exception:
+    return type(name, (Exception,), {})(msg)
+
+
+def test_classify_platform_error_systemic_vs_user_fault():
+    from api import telemetry as t
+
+    # #369: socialProfile 401 must classify as token_rejected, NOT bad_credentials,
+    # even though it is a GarminConnectAuthenticationError carrying a 401.
+    e = _exc("GarminConnectAuthenticationError", "Failed to retrieve social profile")
+    assert t.classify_platform_error(e) == "token_rejected"
+
+    assert t.classify_platform_error(_exc("GarminConnectTooManyRequestsError", "429")) == "rate_limited"
+    assert t.classify_platform_error(_exc("X", "CAPTCHA_REQUIRED")) == "captcha_required"
+    assert t.classify_platform_error(_exc("X", "Portal login failed (non-JSON): HTTP 403")) == "access_blocked"
+    assert t.classify_platform_error(
+        _exc("GarminConnectAuthenticationError", "MFA Required but no prompt_mfa mechanism supplied")
+    ) == "mfa_unattended"
+    assert t.classify_platform_error(
+        _exc("GarminConnectAuthenticationError", "Garmin requires re-authentication (MFA). Please reconnect")
+    ) == "mfa_unattended"
+    assert t.classify_platform_error(
+        _exc("GarminConnectAuthenticationError", "Invalid Username or Password")
+    ) == "bad_credentials"
+    assert t.classify_platform_error(_exc("X", "API Error 503")) == "platform_error"
+    assert t.classify_platform_error(_exc("X", "some novel breakage")) == "unknown"
+
+
+def test_failure_class_sets_are_coherent():
+    from api import telemetry as t
+
+    # Disjoint, and the two canonical cases land on the right side.
+    assert t.USER_FAULT_FAILURE_CLASSES.isdisjoint(t.SYSTEMIC_FAILURE_CLASSES)
+    assert "bad_credentials" in t.USER_FAULT_FAILURE_CLASSES
+    assert "token_rejected" in t.SYSTEMIC_FAILURE_CLASSES
+    assert "rate_limited" in t.SYSTEMIC_FAILURE_CLASSES
+
+
+def test_record_sync_emits_counter_with_dimensions(fake_meter):
+    from api import telemetry
+
+    telemetry.record_sync(
+        platform="garmin", outcome="failure", failure_class="token_rejected",
+        trigger="scheduled", user_id="user-1",
+    )
+    counter = fake_meter.counters["praxys.sync"]
+    assert len(counter.calls) == 1
+    amount, attrs = counter.calls[0]
+    assert amount == 1
+    assert attrs["platform"] == "garmin"
+    assert attrs["outcome"] == "failure"
+    assert attrs["failure_class"] == "token_rejected"
+    assert attrs["trigger"] == "scheduled"
+    # Raw user id is never emitted; only its hash.
+    assert attrs["user_id_hash"] == telemetry.hash_user_id("user-1")
+    assert "user-1" not in attrs.values()
+
+
+def test_record_connection_emits_flow_and_region(fake_meter):
+    from api import telemetry
+
+    telemetry.record_connection(
+        platform="garmin", flow="mfa", stage="credentials", outcome="mfa_required",
+        failure_class="none", user_id="user-2", region="cn",
+    )
+    counter = fake_meter.counters["praxys.connection"]
+    assert len(counter.calls) == 1
+    _, attrs = counter.calls[0]
+    assert attrs["flow"] == "mfa"
+    assert attrs["stage"] == "credentials"
+    assert attrs["outcome"] == "mfa_required"
+    assert attrs["region"] == "cn"
+    assert attrs["user_id_hash"] == telemetry.hash_user_id("user-2")
+
+
+def test_record_sync_noop_when_disabled(monkeypatch, reset_telemetry_caches):
+    from api import telemetry
+
+    monkeypatch.delenv("APPLICATIONINSIGHTS_CONNECTION_STRING", raising=False)
+    # Must not raise even with the SDK absent.
+    telemetry.record_sync(
+        platform="stryd", outcome="success", failure_class="none",
+        trigger="manual", user_id="user-3",
+    )
+    telemetry.record_connection(
+        platform="oura", flow="n/a", stage="credentials", outcome="connected",
+        failure_class="none", user_id="user-3",
+    )
+
+
+def test_record_sync_failure_emits_telemetry(fake_meter, monkeypatch):
+    """db.sync_scheduler._record_sync_failure emits a praxys.sync failure with
+    the classified failure_class and the caller-supplied trigger."""
+    from db import sync_scheduler
+
+    class _Conn:
+        id = "conn-1"
+        user_id = "user-9"
+        platform = "garmin"
+        consecutive_failures = 0
+
+    class _DB:
+        def rollback(self):
+            pass
+        def query(self, *a, **k):
+            raise RuntimeError("stop after telemetry")  # skip the DB bookkeeping
+
+    exc = _exc("GarminConnectTooManyRequestsError", "429 Too Many Requests")
+    # _record_sync_failure swallows the query error internally; we only assert telemetry.
+    sync_scheduler._record_sync_failure(_Conn(), exc, _DB(), trigger="scheduled")
+
+    counter = fake_meter.counters["praxys.sync"]
+    assert len(counter.calls) == 1
+    _, attrs = counter.calls[0]
+    assert attrs == {
+        "platform": "garmin",
+        "outcome": "failure",
+        "failure_class": "rate_limited",
+        "trigger": "scheduled",
+        "user_id_hash": __import__("api.telemetry", fromlist=["hash_user_id"]).hash_user_id("user-9"),
+    }

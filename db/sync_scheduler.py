@@ -103,7 +103,7 @@ def _short_error(exc: BaseException) -> str:
     return f"{type(exc).__name__}: {msg}" if msg else type(exc).__name__
 
 
-def _record_sync_failure(conn, exc: BaseException, db) -> None:
+def _record_sync_failure(conn, exc: BaseException, db, trigger: str = "unknown") -> None:
     """Update a connection row after a sync failure with classification + backoff.
 
     Rolls back any pending state from the failed sync, then writes the
@@ -118,6 +118,21 @@ def _record_sync_failure(conn, exc: BaseException, db) -> None:
 
     if str(exc) == "SYNC_USER_DELETED":
         return
+
+    # Fleet-level telemetry: emit before the DB bookkeeping so a spike in a
+    # systemic failure_class across many distinct users stays visible even if
+    # the metadata write below fails. Best-effort, never raises.
+    try:
+        from api import telemetry
+        telemetry.record_sync(
+            platform=getattr(conn, "platform", "unknown"),
+            outcome="failure",
+            failure_class=telemetry.classify_platform_error(exc),
+            trigger=trigger,
+            user_id=getattr(conn, "user_id", "") or "",
+        )
+    except Exception:
+        pass
 
     try:
         # Re-fetch in case rollback detached state from the prior session.
@@ -312,7 +327,7 @@ def _check_and_sync():
                     "Scheduled sync failed: user=%s platform=%s",
                     conn.user_id, conn.platform,
                 )
-                _record_sync_failure(conn, exc, db)
+                _record_sync_failure(conn, exc, db, trigger="scheduled")
     finally:
         db.close()
 
@@ -391,6 +406,16 @@ def _sync_connection(user_id: str, platform: str, db):
     _ensure_user_active_for_sync(user_id, db)
     db.commit()
     logger.info("Sync complete: user=%s platform=%s counts=%s", user_id, platform, counts)
+
+    # Scheduled-path success telemetry (the manual path emits from _run_sync).
+    try:
+        from api import telemetry
+        telemetry.record_sync(
+            platform=platform, outcome="success", failure_class="none",
+            trigger="scheduled", user_id=user_id,
+        )
+    except Exception:
+        pass
 
     # Post-sync LLM insight generation. Best-effort; never raises.
     try:

@@ -260,3 +260,156 @@ def record_db_health(*, status: str, backend: str) -> None:
         counter.add(1, attrs)
     except Exception:
         logger.debug("record_db_health counter failed", exc_info=True)
+
+
+# ---------------------------------------------------------------------------
+# Sync / connection observability (per-platform failure aggregation)
+# ---------------------------------------------------------------------------
+#
+# Sync + connect outcomes are emitted as low-cardinality counters so operators
+# can aggregate failures per platform (and, for Garmin, per MFA / non-MFA flow)
+# and tell a *systemic* break (a spike across many distinct users -- a platform
+# outage, a Cloudflare block, or a library regression like the #369 widget-token
+# rejection) apart from an *individual* problem (one user's wrong password). The
+# user id is hashed, so a distinct-user count (dcount(user_id_hash)) is the
+# systemic-vs-individual discriminator without telemetry ever seeing a raw id.
+
+# Failure classes a *single* user causes on their own -- a spike here is not
+# operator-actionable (wrong credentials / mistyped code), so alerts exclude them.
+USER_FAULT_FAILURE_CLASSES = frozenset({"bad_credentials", "mfa_code_rejected"})
+
+# Failure classes where a spike across many users signals a platform-side or
+# our-side breakage. These gate the systemic-failure alert.
+SYSTEMIC_FAILURE_CLASSES = frozenset({
+    "rate_limited", "captcha_required", "access_blocked", "token_rejected",
+    "mfa_unattended", "platform_error", "network_error", "unknown",
+})
+
+
+def classify_platform_error(exc: BaseException) -> str:
+    """Map a sync/connect exception to a low-cardinality telemetry failure class.
+
+    Heuristic and best-effort: matches on exception *type name* + message
+    substrings so it stays dependency-free and works across every platform
+    provider. Distinct from ``db.sync_scheduler.classify_sync_failure`` (which
+    decides DB status + retry backoff) -- this decides the telemetry dimension.
+    Ordering matters: the systemic 401 (``token_rejected``, upstream #369) is
+    matched before the generic bad-credentials 401.
+    """
+    name = type(exc).__name__
+    msg = str(exc) or ""
+    low = msg.lower()
+
+    if name == "GarminConnectTooManyRequestsError" or "429" in msg or "too many" in low or "rate limit" in low:
+        return "rate_limited"
+    if "captcha" in low:
+        return "captcha_required"
+    if "403" in msg or "cloudflare" in low or "bot challenge" in low:
+        return "access_blocked"
+    # #369: the API tier rejects the token -- socialProfile 401 "Token is not active".
+    if "token is not active" in low or "social profile" in low or "socialprofile" in low:
+        return "token_rejected"
+    # Background sync hit MFA with no interactive prompt (or our re-auth rewrap).
+    if "prompt_mfa" in low or "mfa required" in low or "requires re-authentication" in low:
+        return "mfa_unattended"
+    if "verification code" in low or "mfa code" in low or "invalid mfa" in low:
+        return "mfa_code_rejected"
+    if (
+        name == "GarminConnectAuthenticationError"
+        or "invalid username or password" in low
+        or "could not verify" in low
+        or "authentication failed" in low
+        or "401" in msg
+    ):
+        return "bad_credentials"
+    if any(code in msg for code in ("500", "502", "503", "504")) or "server error" in low:
+        return "platform_error"
+    if (
+        name in ("ConnectionError", "Timeout", "ReadTimeout", "ConnectTimeout", "GarminConnectConnectionError")
+        or "timed out" in low
+        or "connection refused" in low
+        or "connection error" in low
+    ):
+        return "network_error"
+    return "unknown"
+
+
+def record_sync(
+    *, platform: str, outcome: str, failure_class: str, trigger: str, user_id: str
+) -> None:
+    """Record one sync attempt outcome.
+
+    ``outcome`` is ``success`` | ``failure``; ``failure_class`` is ``none`` on
+    success else a :func:`classify_platform_error` value; ``trigger`` is
+    ``scheduled`` | ``manual``. The ``user_id_hash`` dimension lets an alert
+    count *distinct affected users* to separate a systemic break from one
+    unhappy account. Prefers customEvents; falls back to a counter.
+    """
+    try:
+        user_id_hash = hash_user_id(user_id)
+    except Exception:
+        logger.debug("record_sync: bad user_id, skipping", exc_info=True)
+        return
+    attrs = {
+        "platform": platform,
+        "outcome": outcome,
+        "failure_class": failure_class,
+        "trigger": trigger,
+        "user_id_hash": user_id_hash,
+    }
+    track = _track_event()
+    if track is not None:
+        try:
+            track("praxys.sync", attrs)
+            return
+        except Exception:
+            logger.debug("track_event(sync) failed; falling back to counter", exc_info=True)
+    counter = _counter("praxys.sync", "Platform sync attempt outcomes")
+    if counter is None:
+        return
+    try:
+        counter.add(1, attrs)
+    except Exception:
+        logger.debug("record_sync counter failed", exc_info=True)
+
+
+def record_connection(
+    *, platform: str, flow: str, stage: str, outcome: str,
+    failure_class: str, user_id: str, region: str = "n/a",
+) -> None:
+    """Record one account-connection attempt outcome.
+
+    ``flow`` is ``mfa`` | ``non_mfa`` | ``n/a`` (the Garmin MFA vs non-MFA
+    sub-category); ``stage`` is ``credentials`` | ``mfa_verify``; ``outcome`` is
+    ``connected`` | ``mfa_required`` | ``error``; ``region`` is ``cn`` |
+    ``international`` | ``n/a``. Same systemic-vs-individual discriminator as
+    :func:`record_sync` via ``user_id_hash``.
+    """
+    try:
+        user_id_hash = hash_user_id(user_id)
+    except Exception:
+        logger.debug("record_connection: bad user_id, skipping", exc_info=True)
+        return
+    attrs = {
+        "platform": platform,
+        "flow": flow,
+        "stage": stage,
+        "outcome": outcome,
+        "failure_class": failure_class,
+        "region": region,
+        "user_id_hash": user_id_hash,
+    }
+    track = _track_event()
+    if track is not None:
+        try:
+            track("praxys.connection", attrs)
+            return
+        except Exception:
+            logger.debug("track_event(connection) failed; falling back to counter", exc_info=True)
+    counter = _counter("praxys.connection", "Account connection attempt outcomes")
+    if counter is None:
+        return
+    try:
+        counter.add(1, attrs)
+    except Exception:
+        logger.debug("record_connection counter failed", exc_info=True)
