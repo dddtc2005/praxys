@@ -47,3 +47,29 @@ sync/*.py → db/sync_writer.py → SQLite → analysis/metrics.py → api/deps.
 
 See [CLAUDE.md](../CLAUDE.md) for complete conventions, how-to guides, and the module map.
 See [AGENTS.md](../AGENTS.md) for multi-agent workflow patterns.
+
+## Coding-agent guidance (the change loop)
+
+When you (the GitHub Copilot coding agent) are assigned an issue labeled
+`agent-ready` (see `.github/workflows/assign-copilot.yml`), draft a fix as a
+**draft PR** for human review — never merge, and never bypass branch protection:
+
+- **Always add or update a test** that fails before your change and passes
+  after. Backend tests live in `tests/`.
+- **Run the backend suite before opening the PR**: `python -m pytest tests/`
+  (your environment is preinstalled via `.github/workflows/copilot-setup-steps.yml`
+  — Python deps + a bootstrap `.env` — so it runs out of the box). For web
+  changes also run `cd web && npm run build`.
+- **Adding or changing a training metric?** Follow the 7-step checklist in
+  [CLAUDE.md](../CLAUDE.md) ("How to Add a New Metric"): pure function in
+  `analysis/metrics.py` → wire into `api/deps.py` → route → `web/src/types/api.ts`
+  → component → page → test. Cite a source (paper DOI/URL) for any formula.
+- **Keep `analysis/metrics.py` pure** — no I/O, no side effects. All data loading
+  goes through `analysis/data_loader.py`.
+- **Never weaken privacy/security invariants**: the PII scrub before any public
+  publication (`api/feedback_scrub.py`), feedback screenshots being
+  private-by-construction, and the per-user Garmin tokenstore isolation (see the
+  Gotchas in [CLAUDE.md](../CLAUDE.md)).
+- **Ops-handbook currency:** if you touch a deploy workflow, App Service setting,
+  Actions secret/variable, Azure resource, or runtime config, update `docs/ops/`
+  (esp. `config-and-secrets.md`) in the same PR.

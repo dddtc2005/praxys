@@ -1,0 +1,92 @@
+name: Change loop — assign agent-ready issues to Copilot
+
+# Change loop of the Praxys agentic-DevOps design (issue #362): when an issue is
+# tagged `agent-ready`, hand it to the GitHub Copilot coding agent to draft a
+# fix PR. The `agent-ready` label is the SOLE trigger — a bare issue-open never
+# fires. The feedback triage pipeline auto-adds the label for qualifying bugs
+# (kind=bug, not sensitive/needs_review, enough detail); a human adds it
+# manually to green-light anything else. Merge is always human (branch
+# protection): autonomy is drafting the fix, never shipping it.
+on:
+  issues:
+    # `opened` covers issues *created with* the label already applied (the
+    # feedback bot files them in one API call, and GitHub does not emit a
+    # separate `labeled` event for labels present at creation). `labeled`
+    # covers a maintainer adding the label later. Both paths still require the
+    # label to be present, so the label remains the effective trigger.
+    types: [opened, labeled]
+
+# Least privilege: assigning an issue needs only `issues: write`. No contents
+# or pull-requests scope — the agent opens its own PR out of band.
+permissions:
+  issues: write
+
+concurrency:
+  group: assign-copilot-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  assign-to-copilot:
+    # Fire only when `agent-ready` is the reason (labeled) or is already present
+    # (opened), and the backlog escape hatch is absent — a `backlog`/`later`
+    # label makes an issue ineligible even if it is a bug.
+    if: >-
+      (
+        (github.event.action == 'labeled' && github.event.label.name == 'agent-ready') ||
+        (github.event.action == 'opened' && contains(github.event.issue.labels.*.name, 'agent-ready'))
+      ) &&
+      !contains(github.event.issue.labels.*.name, 'backlog') &&
+      !contains(github.event.issue.labels.*.name, 'later')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve the Copilot coding-agent actor id
+        id: copilot
+        env:
+          # Prefer an operator-provided token if set (some orgs require a PAT /
+          # GitHub App token for the assignment to actually start the agent);
+          # otherwise the built-in token is enough to assign.
+          GH_TOKEN: ${{ secrets.COPILOT_ASSIGN_TOKEN || secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+          NAME: ${{ github.event.repository.name }}
+        run: |
+          set -euo pipefail
+          # The coding agent is assignable only when it is enabled for the repo.
+          # It surfaces in suggestedActors as the Bot login "copilot-swe-agent".
+          id="$(gh api graphql \
+            -f query='query($owner:String!,$name:String!){
+              repository(owner:$owner,name:$name){
+                suggestedActors(capabilities:[CAN_BE_ASSIGNED], first:100){
+                  nodes{ login __typename ... on Bot { id } }
+                }
+              }
+            }' -F owner="$OWNER" -F name="$NAME" \
+            --jq '.data.repository.suggestedActors.nodes[]
+                  | select(.login=="copilot-swe-agent") | .id')"
+          if [ -z "$id" ]; then
+            echo "::warning::Copilot coding agent is not assignable on this repo. Enable it under Settings → Copilot → Coding agent, then re-add the label. Skipping."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "actor_id=$id" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Assign the issue to Copilot
+        if: steps.copilot.outputs.found == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.COPILOT_ASSIGN_TOKEN || secrets.GITHUB_TOKEN }}
+          ISSUE_ID: ${{ github.event.issue.node_id }}
+          ACTOR_ID: ${{ steps.copilot.outputs.actor_id }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          # replaceActorsForAssignable sets the assignee set to exactly Copilot.
+          # Change loop issues are freshly auto-filed and unassigned, so this is the
+          # documented, idempotent way to hand one off; re-adding the label is a
+          # harmless no-op.
+          gh api graphql \
+            -f query='mutation($assignableId:ID!,$actorIds:[ID!]!){
+              replaceActorsForAssignable(input:{assignableId:$assignableId, actorIds:$actorIds}){
+                assignable{ ... on Issue { number assignees(first:10){ nodes{ login } } } }
+              }
+            }' -F assignableId="$ISSUE_ID" -F actorIds="$ACTOR_ID"
+          echo "Assigned issue #$ISSUE_NUMBER to the Copilot coding agent." >> "$GITHUB_STEP_SUMMARY"

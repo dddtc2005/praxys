@@ -79,6 +79,61 @@ def _gate_blocks_publish(
     return not _autofile_without_ai()
 
 
+# --- The change loop (a.k.a. Loop A, issue #362) ---------------------------
+#
+# The ``agent-ready`` label is the SOLE trigger for the workflow that assigns an
+# issue to the GitHub Copilot coding agent
+# (``.github/workflows/assign-copilot.yml``). Triage tags a report only when it
+# is a genuine, actionable *bug*: features are assist-not-act (a human
+# green-lights those), and a report the model judges works-as-intended, a
+# support question, or too vague is NOT actionable. The sensitivity gate must
+# not have withheld it (a needs_review/sensitive report is never auto-assigned),
+# and it must carry enough detail for a drafted fix to work from. Autonomy is
+# drafting the fix; merge stays human (branch protection).
+AGENT_READY_LABEL = "agent-ready"
+
+# Minimum word count for the scrubbed user message to count as "enough detail".
+# A cheap floor beneath the model's own actionability verdict: a terse "it's
+# broken" should not burn a coding-agent run. Deterministic + reproducible.
+_AGENT_MIN_DETAIL_WORDS = 6
+
+
+def _agent_ready_shadow() -> bool:
+    """Shadow mode: compute the agent-ready decision but never apply the label.
+
+    Lets us measure the change loop's precision on real feedback before we
+    trust it to auto-assign. Enable with PRAXYS_AGENT_READY_SHADOW=true.
+    """
+    return (os.environ.get("PRAXYS_AGENT_READY_SHADOW", "") or "").lower() in ("1", "true", "yes")
+
+
+def _has_enough_detail(message: str) -> bool:
+    """Whether a report says enough for a coding agent to attempt a fix."""
+    return len((message or "").split()) >= _AGENT_MIN_DETAIL_WORDS
+
+
+def _qualifies_for_agent(
+    *, kind: str, gate_blocked: bool, agent_eligible: Optional[bool], message: str
+) -> bool:
+    """Whether an auto-filed report should be tagged ``agent-ready``.
+
+    True only for a *bug* the sensitivity gate did not withhold, that the triage
+    model judged a genuine, actionable defect (``agent_eligible``), and that has
+    enough detail. ``agent_eligible is None`` means no model verdict (LLM
+    unavailable) -> never auto-assign; that path is parked for an admin anyway.
+    Features, ``other``, gated, not-actionable, and low-detail reports never
+    qualify: autonomy drafts a fix, never ships it, and never acts on a
+    sensitive or not-really-a-bug report (issue #362).
+    """
+    if kind != "bug":
+        return False
+    if gate_blocked:
+        return False
+    if not agent_eligible:
+        return False
+    return _has_enough_detail(message)
+
+
 def _system_prompt() -> str:
     return (
         "You are a triage assistant for Praxys, an endurance-training analytics app. "
@@ -108,9 +163,19 @@ def _system_prompt() -> str:
         "non-blocking bug, or a valuable feature request; low = minor polish, "
         "cosmetic issues, or nice-to-have ideas. Default to medium when unsure. "
         "ALWAYS include the priority field.\n"
+        "- Set agent_eligible=true ONLY for a bug that is a genuine, "
+        "reproducible product DEFECT, specific and self-contained enough that a "
+        "coding agent could reasonably attempt a fix from this report alone. Set "
+        "it false for anything not clearly a defect we would act on: a feature "
+        "request or idea, a how-to / support question, expected behavior or user "
+        "error, a vague or unreproducible complaint, or anything needing human "
+        "product judgment or more information. When kind is not bug, "
+        "agent_eligible MUST be false. Default to false when unsure, and ALWAYS "
+        "include the agent_eligible field.\n"
         "Respond with a JSON object: "
         "{\"kind\": str, \"title\": str, \"body\": str, "
-        "\"contains_sensitive\": bool, \"priority\": str}."
+        "\"contains_sensitive\": bool, \"priority\": str, "
+        "\"agent_eligible\": bool}."
     )
 
 
@@ -223,6 +288,7 @@ def triage_and_publish(feedback_id: int, *, _session: Optional[Session] = None) 
         used_llm = False
         llm_flag = False
         priority: Optional[str] = None
+        agent_eligible: Optional[bool] = None
         client = llm.get_client()
         title = body = None
         if client is not None:
@@ -257,6 +323,10 @@ def triage_and_publish(feedback_id: int, *, _session: Optional[Session] = None) 
                     llm_priority = str(result.get("priority", "")).strip().lower()
                     if llm_priority in _VALID_PRIORITIES:
                         priority = llm_priority
+                    # Genuine, actionable defect? Only a real bool verdict counts;
+                    # a missing/invalid field stays None (fail safe -> no assign).
+                    if isinstance(result.get("agent_eligible"), bool):
+                        agent_eligible = result["agent_eligible"]
                     used_llm = True
 
         if not title or not body:
@@ -279,6 +349,38 @@ def triage_and_publish(feedback_id: int, *, _session: Optional[Session] = None) 
         if image_keys:
             labels.append("screenshot")
 
+        # Decide the sensitivity gate once: it both routes the row (publish vs
+        # park for admin) and gates the change-loop agent-ready label below, so a
+        # withheld report can never be tagged for the coding agent (issue #362).
+        gate_blocked = _gate_blocks_publish(
+            used_llm=used_llm,
+            llm_flag=llm_flag,
+            body=body,
+            has_image=bool(image_keys),
+            image_sensitive=image_flag,
+        )
+        # The change loop (issue #362): tag a genuine, actionable bug so the
+        # labeled-issue workflow hands it to the Copilot coding agent. Never for
+        # a gated (sensitive/needs_review) report, a feature, a not-actionable
+        # report, or a low-detail one -- and because it is gated on gate_blocked
+        # it never lands in ai_labels for a parked row, so a later admin
+        # "approve" cannot auto-assign it either. Shadow mode computes the same
+        # decision but withholds the label so we can measure precision first.
+        wants_agent = _qualifies_for_agent(
+            kind=kind,
+            gate_blocked=gate_blocked,
+            agent_eligible=agent_eligible,
+            message=clean_message,
+        )
+        shadow = _agent_ready_shadow()
+        if wants_agent and not shadow:
+            labels.append(AGENT_READY_LABEL)
+        if wants_agent:
+            logger.info(
+                "change-loop agent-ready decision for feedback %s: applied=%s shadow=%s",
+                feedback_id, wants_agent and not shadow, shadow,
+            )
+
         row.kind = kind
         row.priority = priority
         row.ai_title = title
@@ -290,13 +392,7 @@ def triage_and_publish(feedback_id: int, *, _session: Optional[Session] = None) 
             # promotion from the Admin page.
             row.status = "triaged"
             row.error = None
-        elif _gate_blocks_publish(
-            used_llm=used_llm,
-            llm_flag=llm_flag,
-            body=body,
-            has_image=bool(image_keys),
-            image_sensitive=image_flag,
-        ):
+        elif gate_blocked:
             # The report may still carry sensitive content — don't auto-open a
             # public issue. Park it for an admin to review / approve.
             row.status = "needs_review"
@@ -314,7 +410,13 @@ def triage_and_publish(feedback_id: int, *, _session: Optional[Session] = None) 
 
         db.commit()
         telemetry.record_feedback(kind=kind, status=row.status)
-        return {"status": row.status, "kind": kind, "used_llm": used_llm, "used_vision": used_vision}
+        return {
+            "status": row.status,
+            "kind": kind,
+            "used_llm": used_llm,
+            "used_vision": used_vision,
+            "agent_ready": AGENT_READY_LABEL in labels,
+        }
 
     except Exception:
         logger.exception("triage_and_publish failed for feedback %s", feedback_id)

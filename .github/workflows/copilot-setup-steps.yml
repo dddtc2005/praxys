@@ -1,0 +1,57 @@
+name: Copilot Setup Steps
+
+# Prepares the Copilot coding agent's ephemeral dev environment (change loop /
+# Loop A, issue #362) so it can build and, above all, run `pytest` and `npm`
+# deterministically instead of rediscovering the toolchain by trial and error.
+# GitHub runs the `copilot-setup-steps` job before the agent starts. This file
+# only takes effect once it is on the default branch; the push/PR/dispatch
+# triggers below let us validate it like any other workflow.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  # The job MUST be named `copilot-setup-steps` or Copilot will not pick it up.
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    # Lowest permissions needed for setup; Copilot gets its own token to work.
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install backend dependencies
+        run: pip install -r requirements.txt
+
+      - name: Bootstrap .env for tests (encryption key + JWT secret)
+        # Mirrors the project's documented first-run setup (see CLAUDE.md) so the
+        # app + suite are runnable: db/crypto.py needs a Fernet key and auth
+        # needs a JWT secret. Values are ephemeral to this throwaway environment.
+        run: |
+          [ -f .env ] || cp .env.example .env
+          python -c "from cryptography.fernet import Fernet; print(f'PRAXYS_LOCAL_ENCRYPTION_KEY={Fernet.generate_key().decode()}')" >> .env
+          python -c "import secrets; print(f'PRAXYS_JWT_SECRET={secrets.token_urlsafe(48)}')" >> .env
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web dependencies
+        working-directory: web
+        # npm install (not ci): @lingui/swc-plugin's bundleDependencies trip
+        # npm v11 strict ci — same reason as .github/workflows/i18n.yml.
+        run: npm install --no-audit --no-fund

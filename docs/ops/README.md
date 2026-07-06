@@ -20,6 +20,7 @@ diagnose X". It complements — and links out to — the setup-oriented
 | [monitoring-and-alerts.md](./monitoring-and-alerts.md) | You want to query a telemetry signal or wire an email/Teams alert. |
 | [admin-tasks.md](./admin-tasks.md) | You're doing an in-app admin task: invitations, roles, demo accounts, announcements, feedback triage. |
 | [setup-github-app.md](./setup-github-app.md) | Setting up feedback → GitHub issue filing (GitHub App auth — no token to rotate). |
+| [change-loop.md](./change-loop.md) | Operating the change loop (Loop A): the `agent-ready` label that hands a qualifying bug to the Copilot coding agent. |
 | [incident-response.md](./incident-response.md) | The app is down / erroring and you need first-response triage. |
 | [sync-troubleshooting.md](./sync-troubleshooting.md) | A user's data stopped updating or a connection shows `auth_required`. |
 | [backup-and-restore.md](./backup-and-restore.md) | You need to back up or restore the database. |
