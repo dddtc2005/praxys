@@ -22,7 +22,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Link2, Gauge, SlidersHorizontal, Target, Activity, User, Check, Clock, Trash2 } from 'lucide-react';
+import { Link2, Gauge, SlidersHorizontal, Target, Activity, User, Check, Clock, Trash2, Loader2 } from 'lucide-react';
 import GoalEditor from '@/components/GoalEditor';
 import { formatTime, formatPace } from '@/lib/format';
 import { WEB_VERSION } from '@/lib/version';
@@ -1091,6 +1091,14 @@ export default function Settings() {
                   <p className="text-[10px] text-muted-foreground">
                     <Trans>Select the region matching your COROS account.</Trans>
                   </p>
+                </div>
+              )}
+              {connectPlatform === 'garmin' && connecting && (
+                <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+                  <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin" />
+                  <span>
+                    <Trans>Securely signing in to Garmin. This can take 15-30 seconds because Garmin rate-limits automated logins. Please keep this window open.</Trans>
+                  </span>
                 </div>
               )}
               <div className="flex justify-end gap-2">

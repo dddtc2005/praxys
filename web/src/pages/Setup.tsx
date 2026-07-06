@@ -19,7 +19,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Check, Link2, RefreshCw, Gauge, Target, ChevronRight, Sparkles } from 'lucide-react';
+import { Check, Link2, RefreshCw, Gauge, Target, ChevronRight, Sparkles, Loader2 } from 'lucide-react';
 import GoalEditor from '@/components/GoalEditor';
 import { Trans, Plural, useLingui } from '@lingui/react/macro';
 import { GarminWordmark, StrydWordmark, StravaWordmark, OuraWordmark, CorosWordmark } from '@/components/PlatformWordmark';
@@ -1006,6 +1006,14 @@ export default function Setup() {
                 </div>
               )}
 
+              {connectPlatform === 'garmin' && connecting && (
+                <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+                  <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin" />
+                  <span>
+                    <Trans>Securely signing in to Garmin. This can take 15-30 seconds because Garmin rate-limits automated logins. Please keep this window open.</Trans>
+                  </span>
+                </div>
+              )}
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="ghost" onClick={() => closeConnectDialog()} disabled={connecting}>
                   <Trans>Cancel</Trans>
