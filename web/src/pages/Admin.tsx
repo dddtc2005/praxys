@@ -30,7 +30,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Users, Ticket, Copy, Check, Trash2, Plus, ShieldCheck, ChevronUp, ChevronDown, Eye, Megaphone, MessageSquarePlus, ExternalLink, RotateCcw, RefreshCw, UserPlus, Activity, Send, AlertTriangle, Mail } from 'lucide-react';
+import { Users, Ticket, Copy, Check, Trash2, Plus, ShieldCheck, ChevronUp, ChevronDown, Eye, Megaphone, Languages, MessageSquarePlus, ExternalLink, RotateCcw, RefreshCw, UserPlus, Activity, Send, AlertTriangle, Mail } from 'lucide-react';
 import type { SystemAnnouncement, AdminFeedbackItem, AdminFeedbackSyncResult, FeedbackStatus, AdminConfig, WaitlistSignupItem, WaitlistInviteResult, ServiceIncident, IncidentImpact, IncidentStatus } from '@/types/api';
 import AdminFeedbackImages from '@/components/AdminFeedbackImages';
 import { Trans, useLingui } from '@lingui/react/macro';
@@ -116,6 +116,10 @@ export default function Admin() {
   const [newType, setNewType] = useState<'info' | 'warning' | 'success'>('info');
   const [newLinkText, setNewLinkText] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('');
+  // Issue #355: optional zh translation authored alongside the English base.
+  const [newTitleZh, setNewTitleZh] = useState('');
+  const [newBodyZh, setNewBodyZh] = useState('');
+  const [newLinkTextZh, setNewLinkTextZh] = useState('');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -183,6 +187,13 @@ export default function Admin() {
     if (!newTitle.trim()) return;
     setCreating(true);
     setCreateError(null);
+    // Assemble the optional zh translation; omit blank fields so the backend
+    // never persists a phantom override that would shadow the English base.
+    const zh: Record<string, string> = {};
+    if (newTitleZh.trim()) zh.title = newTitleZh.trim();
+    if (newBodyZh.trim()) zh.body = newBodyZh.trim();
+    if (newLinkTextZh.trim()) zh.link_text = newLinkTextZh.trim();
+    const translations = Object.keys(zh).length ? { zh } : undefined;
     const res = await fetch(`${API_BASE}/api/admin/announcements`, {
       method: 'POST',
       headers: { ...getAuthHeaders() as Record<string, string>, 'Content-Type': 'application/json' },
@@ -192,6 +203,7 @@ export default function Admin() {
         type: newType,
         link_text: newLinkText.trim() || null,
         link_url: newLinkUrl.trim() || null,
+        translations,
       }),
     });
     setCreating(false);
@@ -199,6 +211,7 @@ export default function Admin() {
       const created = await res.json();
       setAnnouncements((prev) => [created, ...prev]);
       setNewTitle(''); setNewBody(''); setNewType('info'); setNewLinkText(''); setNewLinkUrl('');
+      setNewTitleZh(''); setNewBodyZh(''); setNewLinkTextZh('');
     } else {
       setCreateError('Failed to create announcement');
     }
@@ -1018,16 +1031,47 @@ export default function Admin() {
           {/* Create form */}
           <div className="rounded-lg border border-dashed border-border p-4 space-y-3">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide"><Trans>New announcement</Trans></p>
-            <Input
-              placeholder={t`Title`}
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-            />
-            <Input
-              placeholder={t`Body (optional)`}
-              value={newBody}
-              onChange={(e) => setNewBody(e.target.value)}
-            />
+            {/* Default (English) content -- the fallback shown when no locale matches. */}
+            <div className="space-y-2">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70"><Trans>Default (English)</Trans></p>
+              <Input
+                placeholder={t`Title`}
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+              />
+              <Input
+                placeholder={t`Body (optional)`}
+                value={newBody}
+                onChange={(e) => setNewBody(e.target.value)}
+              />
+              <Input
+                placeholder={t`Link text (optional)`}
+                value={newLinkText}
+                onChange={(e) => setNewLinkText(e.target.value)}
+              />
+            </div>
+            {/* Optional Chinese translation -- shown to zh-locale users (issue #355). */}
+            <div className="space-y-2">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
+                中文 <span className="normal-case font-normal opacity-70">(<Trans>optional</Trans>)</span>
+              </p>
+              <Input
+                placeholder={t`Title`}
+                value={newTitleZh}
+                onChange={(e) => setNewTitleZh(e.target.value)}
+              />
+              <Input
+                placeholder={t`Body (optional)`}
+                value={newBodyZh}
+                onChange={(e) => setNewBodyZh(e.target.value)}
+              />
+              <Input
+                placeholder={t`Link text (optional)`}
+                value={newLinkTextZh}
+                onChange={(e) => setNewLinkTextZh(e.target.value)}
+              />
+            </div>
+            {/* Language-neutral fields. */}
             <div className="flex gap-2">
               <select
                 value={newType}
@@ -1038,11 +1082,6 @@ export default function Admin() {
                 <option value="warning">warning</option>
                 <option value="success">success</option>
               </select>
-              <Input
-                placeholder={t`Link text (optional)`}
-                value={newLinkText}
-                onChange={(e) => setNewLinkText(e.target.value)}
-              />
               <Input
                 placeholder={t`Link URL (optional)`}
                 value={newLinkUrl}
@@ -1066,6 +1105,11 @@ export default function Admin() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="text-xs shrink-0">{ann.type}</Badge>
+                      {ann.translations && Object.keys(ann.translations).length > 0 && (
+                        <Badge variant="outline" className="text-[10px] shrink-0 gap-1 text-muted-foreground">
+                          <Languages className="h-3 w-3" />中文
+                        </Badge>
+                      )}
                       <span className="font-medium truncate">{ann.title}</span>
                     </div>
                     {ann.body && <p className="text-xs text-muted-foreground mt-0.5 truncate">{ann.body}</p>}

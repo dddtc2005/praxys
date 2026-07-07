@@ -588,6 +588,13 @@ export interface HistoryResponse {
   offset: number;
 }
 
+/** Per-locale override for an announcement's translatable text (Issue #355). */
+export interface AnnouncementTranslation {
+  title?: string;
+  body?: string;
+  link_text?: string;
+}
+
 export interface SystemAnnouncement {
   id: number;
   title: string;
@@ -596,6 +603,10 @@ export interface SystemAnnouncement {
   is_active: boolean;
   link_text: string | null;
   link_url: string | null;
+  // Issue #355: optional per-locale overrides. The backend keeps the English
+  // base at the top level; the frontend prefers translations[locale] and falls
+  // back to the top-level fields (mirrors the AiInsight #103 contract).
+  translations?: Partial<Record<'zh' | 'en', AnnouncementTranslation>>;
   created_at: string;
   updated_at: string;
 }

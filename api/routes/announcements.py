@@ -4,6 +4,13 @@ GET /api/announcements        — all authenticated users; returns active banner
 POST /api/admin/announcements — admin only; create
 PATCH /api/admin/announcements/{id} — admin only; update
 DELETE /api/admin/announcements/{id} — admin only; delete
+
+Issue #355: announcements are bilingual. The top-level ``title`` / ``body`` /
+``link_text`` are the canonical base (English) fallback; ``translations`` holds
+per-locale overrides (``{"zh": {"title", "body", "link_text"}}``). Mirrors the
+AiInsight.translations contract (#103) so a ``zh`` user never sees an
+English-only banner against localized UI chrome. Authoring both language
+versions before release is what fixes the "mixed Chinese and English" report.
 """
 from datetime import datetime
 
@@ -17,6 +24,48 @@ from db.session import get_db
 
 router = APIRouter()
 
+# Locales that may carry a translation override. Top-level fields are the
+# English base, so only non-English locales meaningfully override; ``en`` is
+# accepted for symmetry but redundant with the top-level fields.
+_ALLOWED_LOCALES = {"en", "zh"}
+# Per-locale fields an admin may translate. Everything else on the row
+# (``type``, ``is_active``, ``link_url``) is language-neutral.
+_TRANSLATABLE_FIELDS = {"title", "body", "link_text"}
+
+
+def _normalize_translations(raw) -> dict:
+    """Validate + clean an incoming ``translations`` payload.
+
+    Returns a dict of ``{locale: {field: str}}`` with blank fields dropped and
+    empty locale blocks removed, so ``{"zh": {"title": "  "}}`` normalizes to
+    ``{}`` rather than persisting a phantom override. Raises HTTP 422 on any
+    unknown locale / field or non-string value.
+    """
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise HTTPException(422, "translations must be an object keyed by locale")
+    cleaned: dict = {}
+    for locale, fields in raw.items():
+        if locale not in _ALLOWED_LOCALES:
+            raise HTTPException(422, f"unsupported translation locale: {locale}")
+        if not isinstance(fields, dict):
+            raise HTTPException(422, f"translations[{locale}] must be an object")
+        block: dict = {}
+        for key, value in fields.items():
+            if key not in _TRANSLATABLE_FIELDS:
+                raise HTTPException(422, f"unsupported translation field: {key}")
+            if value is None:
+                continue
+            if not isinstance(value, str):
+                raise HTTPException(422, f"translations[{locale}][{key}] must be a string")
+            trimmed = value.strip()
+            if trimmed:
+                block[key] = trimmed
+        if block:
+            cleaned[locale] = block
+    return cleaned
+
 
 def _serialize(ann) -> dict:
     """Serialize a SystemAnnouncement ORM row to a response dict."""
@@ -28,6 +77,7 @@ def _serialize(ann) -> dict:
         "is_active": ann.is_active,
         "link_text": ann.link_text,
         "link_url": ann.link_url,
+        "translations": ann.translations or {},
         "created_at": utc_isoformat(ann.created_at),
         "updated_at": utc_isoformat(ann.updated_at),
     }
@@ -65,6 +115,8 @@ class AnnouncementCreate(BaseModel):
     is_active: bool = True
     link_text: str | None = None
     link_url: str | None = None
+    # {"zh": {"title", "body", "link_text"}} — see module docstring.
+    translations: dict | None = None
 
 
 class AnnouncementUpdate(BaseModel):
@@ -75,6 +127,7 @@ class AnnouncementUpdate(BaseModel):
     is_active: bool | None = None
     link_text: str | None = None
     link_url: str | None = None
+    translations: dict | None = None
 
 
 @router.post("/admin/announcements")
@@ -95,6 +148,7 @@ def create_announcement(
         is_active=payload.is_active,
         link_text=payload.link_text,
         link_url=payload.link_url,
+        translations=_normalize_translations(payload.translations),
     )
     db.add(ann)
     db.commit()
@@ -129,6 +183,10 @@ def update_announcement(
         ann.link_text = payload.link_text
     if payload.link_url is not None:
         ann.link_url = payload.link_url
+    if payload.translations is not None:
+        # Full replace of the translation blob — the admin form always submits
+        # the complete set for the announcement.
+        ann.translations = _normalize_translations(payload.translations)
     ann.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(ann)

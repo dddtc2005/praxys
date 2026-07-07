@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { X, Info, AlertTriangle, CheckCircle } from 'lucide-react';
+import { useLingui } from '@lingui/react/macro';
+import { useLocale } from '@/contexts/LocaleContext';
 import { API_BASE, getAuthHeaders } from '@/hooks/useApi';
 import type { SystemAnnouncement } from '@/types/api';
 
@@ -32,6 +34,8 @@ const TYPE_ICONS = {
 
 export default function SystemBanner() {
   const [banners, setBanners] = useState<SystemAnnouncement[]>([]);
+  const { locale } = useLocale();
+  const { t } = useLingui();
 
   useEffect(() => {
     const headers = getAuthHeaders();
@@ -60,6 +64,13 @@ export default function SystemBanner() {
         const type = (banner.type as keyof typeof TYPE_STYLES) in TYPE_STYLES
           ? (banner.type as keyof typeof TYPE_STYLES)
           : 'info';
+        // Issue #355: prefer the active locale's translation, fall back to the
+        // English base fields so single-language announcements still render and
+        // a zh user never sees an English-only banner.
+        const tr = banner.translations?.[locale];
+        const title = tr?.title || banner.title;
+        const body = tr?.body || banner.body;
+        const linkText = tr?.link_text || banner.link_text;
         return (
           <div
             key={banner.id}
@@ -67,23 +78,23 @@ export default function SystemBanner() {
           >
             {TYPE_ICONS[type]}
             <div className="flex-1 min-w-0">
-              <span className="font-medium">{banner.title}</span>
-              {banner.body && (
-                <span className="ml-1 text-muted-foreground">{banner.body}</span>
+              <span className="font-medium">{title}</span>
+              {body && (
+                <span className="ml-1 text-muted-foreground">{body}</span>
               )}
-              {banner.link_url && banner.link_text && (
+              {banner.link_url && linkText && (
                 <a
                   href={banner.link_url}
                   className="ml-2 underline underline-offset-2 font-medium hover:opacity-80"
                 >
-                  {banner.link_text}
+                  {linkText}
                 </a>
               )}
             </div>
             <button
               onClick={() => dismiss(banner.id)}
               className="shrink-0 rounded p-0.5 hover:bg-black/10 transition-colors"
-              aria-label="Dismiss"
+              aria-label={t`Dismiss`}
             >
               <X className="h-4 w-4" />
             </button>

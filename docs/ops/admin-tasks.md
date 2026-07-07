@@ -72,6 +72,12 @@ appear in **Admin → Waitlist**.
 
 - UI: Admin → Announcements (site-wide banners; `info`/`warning`/`success`).
 - API: `POST/PATCH/DELETE /api/admin/announcements`; users read `GET /api/announcements`.
+- Bilingual (#355): fill the **Default (English)** fields (the fallback) and,
+  optionally, the **中文** fields. Content is stored as an English base plus a
+  per-locale `translations` override (`{"zh": {title, body, link_text}}`); a user
+  sees `translations[<their locale>]` and falls back to the English base, so a
+  `zh` user never gets an English-only banner. Author both language versions
+  before publishing to avoid mixed-language banners.
 
 ## Feedback triage
 
@@ -107,4 +113,4 @@ To get emailed when something needs review, wire the alert in
 - [monitoring-and-alerts.md](./monitoring-and-alerts.md) · `api/routes/admin.py` · `api/routes/announcements.py`
 
 ---
-_Last reviewed: 2026-07-04 · Owner: @dddtc2005_
+_Last reviewed: 2026-07-07 · Owner: @dddtc2005_

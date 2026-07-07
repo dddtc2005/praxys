@@ -462,6 +462,12 @@ class SystemAnnouncement(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     link_text = Column(String(100), nullable=True)
     link_url = Column(String(500), nullable=True)
+    # Issue #355: bilingual payload. Top-level title/body/link_text stay the
+    # canonical base (English) fallback; translations["zh"] = {title, body,
+    # link_text} overrides per locale. Mirrors the AiInsight.translations
+    # contract (#103): the frontend prefers translations[locale] and falls back
+    # to the top-level fields, so single-language announcements keep working.
+    translations = Column(JSON, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
