@@ -25,6 +25,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Link2, Gauge, SlidersHorizontal, Target, Activity, User, Check, Clock, Trash2, Loader2 } from 'lucide-react';
 import GoalEditor from '@/components/GoalEditor';
 import { MobileAppCard } from '@/components/MobileApp';
+import StatusIndicator from '@/components/StatusIndicator';
 import { formatTime, formatPace } from '@/lib/format';
 import { WEB_VERSION } from '@/lib/version';
 import { useAuth } from '@/hooks/useAuth';
@@ -1567,6 +1568,9 @@ export default function Settings() {
           <> <span aria-hidden>·</span> API {apiVersion}</>
         )}
       </p>
+      <div className="mt-3 flex justify-center">
+        <StatusIndicator className="text-[11px] font-data text-muted-foreground/60 hover:text-muted-foreground" />
+      </div>
     </div>
   );
 }

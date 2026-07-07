@@ -242,6 +242,16 @@ def start_scheduler():
     logger.info("Sync scheduler started (check every %ds)", CHECK_INTERVAL_SEC)
 
 
+def scheduler_running() -> bool:
+    """Return True if the background sync scheduler thread is alive.
+
+    Read by the public status page (``GET /api/status``) to report the
+    Background Sync component's health. A ``None`` thread (never started) or a
+    dead thread both read as not running.
+    """
+    return _scheduler_thread is not None and _scheduler_thread.is_alive()
+
+
 def stop_scheduler():
     """Stop the background sync scheduler."""
     _stop_event.set()

@@ -600,6 +600,59 @@ export interface SystemAnnouncement {
   updated_at: string;
 }
 
+// --- Service status page (public) ---
+
+/** Per-component health, ascending severity. */
+export type ComponentStatus =
+  | 'operational'
+  | 'degraded_performance'
+  | 'partial_outage'
+  | 'major_outage';
+
+/** Overall banner state (worst of component + active-incident severities). */
+export type OverallStatus =
+  | 'operational'
+  | 'degraded'
+  | 'partial_outage'
+  | 'major_outage';
+
+export type IncidentStatus = 'investigating' | 'identified' | 'monitoring' | 'resolved';
+
+export type IncidentImpact = 'minor' | 'major' | 'critical';
+
+export interface StatusComponent {
+  key: string;
+  name: string;
+  status: ComponentStatus;
+}
+
+export interface IncidentUpdate {
+  id: number;
+  status: IncidentStatus;
+  body: string;
+  created_at: string;
+}
+
+export interface ServiceIncident {
+  id: number;
+  title: string;
+  status: IncidentStatus;
+  impact: IncidentImpact;
+  started_at: string;
+  resolved_at: string | null;
+  created_at: string;
+  updated_at: string;
+  updates: IncidentUpdate[];
+}
+
+/** Response of GET /api/status (public). */
+export interface ServiceStatus {
+  overall: OverallStatus;
+  components: StatusComponent[];
+  incidents: ServiceIncident[];
+  updated_at: string;
+}
+
 // --- Feedback (bug report / feature request / general) ---
 
 export type FeedbackKind = 'bug' | 'feature' | 'other';

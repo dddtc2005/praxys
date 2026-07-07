@@ -22,6 +22,7 @@ diagnose X". It complements — and links out to — the setup-oriented
 | [setup-github-app.md](./setup-github-app.md) | Setting up feedback → GitHub issue filing (GitHub App auth — no token to rotate). |
 | [change-loop.md](./change-loop.md) | Operating the change loop (Loop A): the `agent-ready` label that hands a qualifying bug to the Copilot coding agent. |
 | [incident-response.md](./incident-response.md) | The app is down / erroring and you need first-response triage. |
+| [status-page.md](./status-page.md) | You need to declare / update / resolve an incident on the public status page (`/status`). |
 | [sync-troubleshooting.md](./sync-troubleshooting.md) | A user's data stopped updating or a connection shows `auth_required`. |
 | [backup-and-restore.md](./backup-and-restore.md) | You need to back up or restore the database. |
 | [postgres-migration.md](./postgres-migration.md) | You are migrating the database from SQLite to Azure Postgres (#360), or provisioning Postgres. |

@@ -582,3 +582,65 @@ class AppConfig(Base):
     # ondelete=SET NULL: keep the operator flag row when the admin who last
     # toggled it is deleted; just drop the stale reference (issue #366).
     updated_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+
+class ServiceIncident(Base):
+    """An operator-declared service incident shown on the public status page.
+
+    Models the Atlassian Statuspage-style lifecycle: an incident opens with an
+    ``impact`` and moves through ``status`` states (investigating -> identified
+    -> monitoring -> resolved) via a running timeline of
+    :class:`ServiceIncidentUpdate` rows. Active (unresolved) incidents drive the
+    overall banner on ``GET /api/status``; resolved ones remain as history.
+    """
+
+    __tablename__ = "service_incidents"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    title = Column(String(200), nullable=False)
+    # investigating | identified | monitoring | resolved -- validated at the
+    # route layer. An incident is "active" while status != 'resolved'.
+    status = Column(String(20), nullable=False, default="investigating")
+    # minor | major | critical -- maps to the public severity of the banner
+    # (degraded / partial outage / major outage).
+    impact = Column(String(20), nullable=False, default="minor")
+    # When the incident began affecting users (operator-settable; defaults to
+    # creation time). Distinct from created_at, the row's insert timestamp.
+    started_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    # Set when status flips to 'resolved'; NULL while the incident is open.
+    resolved_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    updates = relationship(
+        "ServiceIncidentUpdate",
+        back_populates="incident",
+        cascade="all, delete-orphan",
+        order_by="ServiceIncidentUpdate.created_at",
+    )
+
+
+class ServiceIncidentUpdate(Base):
+    """One timeline entry on a :class:`ServiceIncident`.
+
+    Each post records the incident ``status`` at that moment plus the
+    operator's ``body`` message, so the public status page can render a
+    chronological narrative ("Identified -- we found the cause", "Resolved").
+    """
+
+    __tablename__ = "service_incident_updates"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    incident_id = Column(
+        Integer,
+        ForeignKey("service_incidents.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    # The incident status as of this update (investigating | identified |
+    # monitoring | resolved) -- lets the timeline show state transitions.
+    status = Column(String(20), nullable=False)
+    body = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    incident = relationship("ServiceIncident", back_populates="updates")

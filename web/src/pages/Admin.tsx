@@ -31,7 +31,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Users, Ticket, Copy, Check, Trash2, Plus, ShieldCheck, ChevronUp, ChevronDown, Eye, Megaphone, MessageSquarePlus, ExternalLink, RotateCcw, RefreshCw, UserPlus, Activity, Send, AlertTriangle, Mail } from 'lucide-react';
-import type { SystemAnnouncement, AdminFeedbackItem, AdminFeedbackSyncResult, FeedbackStatus, AdminConfig, WaitlistSignupItem, WaitlistInviteResult } from '@/types/api';
+import type { SystemAnnouncement, AdminFeedbackItem, AdminFeedbackSyncResult, FeedbackStatus, AdminConfig, WaitlistSignupItem, WaitlistInviteResult, ServiceIncident, IncidentImpact, IncidentStatus } from '@/types/api';
 import AdminFeedbackImages from '@/components/AdminFeedbackImages';
 import { Trans, useLingui } from '@lingui/react/macro';
 
@@ -119,6 +119,15 @@ export default function Admin() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
+  // Service incidents (public status page)
+  const [incidents, setIncidents] = useState<ServiceIncident[]>([]);
+  const [incTitle, setIncTitle] = useState('');
+  const [incImpact, setIncImpact] = useState<IncidentImpact>('minor');
+  const [incBody, setIncBody] = useState('');
+  const [incCreating, setIncCreating] = useState(false);
+  const [incError, setIncError] = useState<string | null>(null);
+  const [incUpdateBody, setIncUpdateBody] = useState<Record<number, string>>({});
+
   // Feedback
   const [feedback, setFeedback] = useState<AdminFeedbackItem[]>([]);
   const [feedbackBusy, setFeedbackBusy] = useState<number | null>(null);
@@ -155,14 +164,16 @@ export default function Admin() {
       fetch(`${API_BASE}/api/admin/feedback${feedbackQuery(feedbackFilter)}`, { headers: getAuthHeaders() }).then((r) => r.ok ? r.json() : []),
       fetch(`${API_BASE}/api/admin/config`, { headers: getAuthHeaders() }).then((r) => r.ok ? r.json() : null),
       fetch(`${API_BASE}/api/admin/waitlist`, { headers: getAuthHeaders() }).then((r) => r.ok ? r.json() : { signups: [] }),
+      fetch(`${API_BASE}/api/admin/incidents`, { headers: getAuthHeaders() }).then((r) => r.ok ? r.json() : []),
     ])
-      .then(([u, i, a, f, cfg, wl]) => {
+      .then(([u, i, a, f, cfg, wl, inc]) => {
         setUsers(u.users || []);
         setInvitations(i.invitations || []);
         setAnnouncements(Array.isArray(a) ? a : []);
         setFeedback(Array.isArray(f) ? f : []);
         if (cfg) { setConfig(cfg); setMaxUsersInput(String(cfg.registration.max_users)); }
         setWaitlist(wl?.signups || []);
+        setIncidents(Array.isArray(inc) ? inc : []);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -211,6 +222,47 @@ export default function Admin() {
       headers: getAuthHeaders(),
     });
     if (res.ok) setAnnouncements((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  const handleCreateIncident = async () => {
+    if (!incTitle.trim()) return;
+    setIncCreating(true);
+    setIncError(null);
+    const res = await fetch(`${API_BASE}/api/admin/incidents`, {
+      method: 'POST',
+      headers: { ...getAuthHeaders() as Record<string, string>, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: incTitle.trim(), impact: incImpact, body: incBody.trim() }),
+    });
+    setIncCreating(false);
+    if (res.ok) {
+      const created = await res.json();
+      setIncidents((prev) => [created, ...prev]);
+      setIncTitle(''); setIncBody(''); setIncImpact('minor');
+    } else {
+      setIncError('Failed to create incident');
+    }
+  };
+
+  const handleIncidentUpdate = async (inc: ServiceIncident, status: IncidentStatus) => {
+    const body = (incUpdateBody[inc.id] || '').trim();
+    const res = await fetch(`${API_BASE}/api/admin/incidents/${inc.id}/updates`, {
+      method: 'POST',
+      headers: { ...getAuthHeaders() as Record<string, string>, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, body }),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setIncidents((prev) => prev.map((x) => (x.id === inc.id ? updated : x)));
+      setIncUpdateBody((prev) => ({ ...prev, [inc.id]: '' }));
+    }
+  };
+
+  const handleDeleteIncident = async (id: number) => {
+    const res = await fetch(`${API_BASE}/api/admin/incidents/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (res.ok) setIncidents((prev) => prev.filter((x) => x.id !== id));
   };
 
   const handleFeedbackAction = async (id: number, action: 'retry' | 'reject' | 'approve') => {
@@ -1034,6 +1086,101 @@ export default function Admin() {
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Service Incidents */}
+      <Card className="mt-8">
+        <CardHeader>
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+              <AlertTriangle className="h-4 w-4" />
+            </div>
+            <div className="flex-1">
+              <CardTitle className="text-base"><Trans>Service Incidents</Trans></CardTitle>
+              <CardDescription className="text-xs">
+                <Trans>Declare incidents shown on the public</Trans>{' '}
+                <a href="/status" target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                  <Trans>status page</Trans>
+                </a>
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Create form */}
+          <div className="rounded-lg border border-dashed border-border p-4 space-y-3">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide"><Trans>New incident</Trans></p>
+            <Input
+              placeholder={t`Title (e.g. Elevated API latency)`}
+              value={incTitle}
+              onChange={(e) => setIncTitle(e.target.value)}
+            />
+            <Input
+              placeholder={t`Opening update message (optional)`}
+              value={incBody}
+              onChange={(e) => setIncBody(e.target.value)}
+            />
+            <div className="flex items-center gap-2">
+              <select
+                value={incImpact}
+                onChange={(e) => setIncImpact(e.target.value as IncidentImpact)}
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="minor">minor</option>
+                <option value="major">major</option>
+                <option value="critical">critical</option>
+              </select>
+              <Button size="sm" onClick={handleCreateIncident} disabled={incCreating || !incTitle.trim()}>
+                <Plus className="h-3.5 w-3.5 mr-1.5" />
+                {incCreating ? <Trans>Creating...</Trans> : <Trans>Open incident</Trans>}
+              </Button>
+            </div>
+            {incError && <p className="text-xs text-destructive">{incError}</p>}
+          </div>
+
+          {/* Existing incidents */}
+          {incidents.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4"><Trans>No incidents yet</Trans></p>
+          ) : (
+            <div className="space-y-2">
+              {incidents.map((inc) => (
+                <div key={inc.id} className={`rounded-lg border p-3 text-sm ${inc.status === 'resolved' ? 'opacity-60' : ''}`}>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs shrink-0">{inc.impact}</Badge>
+                    <span className="font-medium truncate flex-1">{inc.title}</span>
+                    <Badge variant="secondary" className="text-xs shrink-0">{inc.status}</Badge>
+                    <Button
+                      variant="ghost" size="sm"
+                      className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                      onClick={() => handleDeleteIncident(inc.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                  {inc.status !== 'resolved' && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <Input
+                        placeholder={t`Update message (optional)`}
+                        value={incUpdateBody[inc.id] || ''}
+                        onChange={(e) => setIncUpdateBody((prev) => ({ ...prev, [inc.id]: e.target.value }))}
+                        className="h-8 flex-1 min-w-[12rem]"
+                      />
+                      <Button size="sm" variant="outline" className="h-8" onClick={() => handleIncidentUpdate(inc, 'identified')}>
+                        <Trans>Identified</Trans>
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-8" onClick={() => handleIncidentUpdate(inc, 'monitoring')}>
+                        <Trans>Monitoring</Trans>
+                      </Button>
+                      <Button size="sm" className="h-8" onClick={() => handleIncidentUpdate(inc, 'resolved')}>
+                        <Trans>Resolve</Trans>
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

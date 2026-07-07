@@ -664,9 +664,14 @@ export default function Login() {
 
           {/* ───────────── Form footer ───────────── */}
           <div className="login-form-foot">
-            <a href={`mailto:${SUPPORT_EMAIL}`}>
-              <Trans>Need help? {SUPPORT_EMAIL}</Trans>
-            </a>
+            <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
+              <a href={`mailto:${SUPPORT_EMAIL}`}>
+                <Trans>Need help? {SUPPORT_EMAIL}</Trans>
+              </a>
+              <Link to="/status" target="_blank" rel="noreferrer">
+                <Trans>Service status</Trans>
+              </Link>
+            </span>
             <div className="login-form-foot-controls" role="group" aria-label={t`Display preferences`}>
               <button
                 type="button"

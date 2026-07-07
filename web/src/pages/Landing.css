@@ -708,6 +708,22 @@ html[lang="zh"] .landing-close h2 { letter-spacing: 0.005em; line-height: 1.35; 
   opacity: 0.78;
 }
 
+/* Live service-status pill. Opts out of the footer's uppercase ghost caption
+   treatment so the colour dot + readable label reads as a distinct, slightly
+   more prominent element than the legal links beside it. */
+.landing-status {
+  font-family: var(--l-font-data);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--l-ink-soft);
+  transition: color 0.15s ease;
+}
+.landing-status:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 /* ─── Entry animation ───────────────────────────────────── */
 @keyframes landingRise {
   from { opacity: 0; transform: translateY(12px); }

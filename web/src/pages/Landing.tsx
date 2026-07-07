@@ -4,6 +4,7 @@ import { ArrowUpRight } from 'lucide-react';
 import { useLocale } from '@/contexts/LocaleContext';
 import { useAuth } from '@/hooks/useAuth';
 import { PraxysFlag } from '@/components/PraxysFlag';
+import StatusIndicator from '@/components/StatusIndicator';
 import type { SupportedLocale } from '@/i18n/init';
 import './Landing.css';
 
@@ -346,6 +347,7 @@ export default function Landing() {
             <span>{t.footerLeft}</span>
           </div>
           <span className="fnote">{t.footerStravaNote}</span>
+          <StatusIndicator className="landing-status" />
           <span><a href="/terms">{t.termsLink}</a> · <a href="/privacy">{t.privacyLink}</a></span>
           <span>{t.footerRight}</span>
         </footer>
