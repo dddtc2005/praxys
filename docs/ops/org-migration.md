@@ -81,6 +81,10 @@ az ad app federated-credential create --id $APP --parameters '{
 > a workflow triggers on a specific tag via OIDC). The current deploys log in on
 > `push`→`main`, so the `main` subject covers them.
 
+> **Status (2026-07-08): already staged.** The two creds above exist on
+> `trainsight-cicd` (`github-deploy-praxysrun`, `i18n-praxysrun`); the old
+> `dddtc2005` creds are retained, so prod is unaffected until Phase 4 cleanup.
+
 ### 0.2 Note the retired-name behavior 🧑
 After transfer, `dddtc2005/praxys` (100+ Actions uses/week) is **permanently
 retired** — redirects work, but **never recreate** a repo at the old path or the
@@ -159,6 +163,21 @@ az ad app federated-credential create --id <OPS_APP_ID> --parameters '{
 ```
 Also update any `owner: dddtc2005` / cross-repo references in the ops-agent
 workflows to `praxys-run`.
+
+### 2.7 Update local clones' remotes & submodule 🤖
+Git redirects the old URL after transfer, but repoint every working copy for
+correctness (do this **only after** the transfer — before it, the new URL 404s):
+
+```bash
+# in each local checkout of praxys:
+git remote set-url origin https://github.com/praxys-run/praxys.git
+git remote -v            # verify origin now points at praxys-run
+git submodule sync --recursive   # picks up the .gitmodules change from step 2.4
+```
+
+> All `git worktree`s of a checkout share one `.git`, so a single `set-url`
+> covers every worktree. Repeat for local clones of `praxys-coach-plugin` and
+> `praxys-ops-agent`.
 
 ---
 
