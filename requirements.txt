@@ -51,7 +51,7 @@ fitparse>=1.2.0
 # When unavailable, get_client() returns None and the rule-based prose
 # elsewhere serves as the fallback — but in production we want the LLM
 # path live, so this is a hard requirement, not optional.
-openai>=1.50.0
+openai>=2.45.0
 
 # Azure Blob storage for private feedback screenshot attachments (issue #337).
 # Guarded import (api/feedback_storage.py): when unset/uninstalled the app falls
