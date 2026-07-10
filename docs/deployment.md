@@ -73,7 +73,7 @@ The database (`data/trainsight.db`) is created automatically on first startup. N
 ## Prerequisites (Azure)
 
 - Azure subscription
-- GitHub repository (dddtc2005/praxys)
+- GitHub repository (praxys-run/praxys)
 - Azure CLI installed locally
 
 ## Azure Setup (One-Time)
@@ -285,7 +285,7 @@ Repository → Settings → Secrets and variables → Actions → Variables tab.
 
 ```bash
 # Create app registration
-az ad app create --display-name trainsight-ci
+az ad app create --display-name trainsight-cicd
 
 # Create federated credential for GitHub Actions
 az ad app federated-credential create \
@@ -293,7 +293,7 @@ az ad app federated-credential create \
   --parameters '{
     "name": "github-main",
     "issuer": "https://token.actions.githubusercontent.com",
-    "subject": "repo:dddtc2005/praxys:ref:refs/heads/main",
+    "subject": "repo:praxys-run/praxys:ref:refs/heads/main",
     "audiences": ["api://AzureADTokenExchange"]
   }'
 

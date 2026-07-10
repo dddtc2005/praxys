@@ -72,7 +72,7 @@ jobs:
   #   Variables:
   #     AZURE_AI_ENDPOINT      (https://<resource>.cognitiveservices.azure.com/)
   # The federated credential on the app must trust the subject
-  #   repo:dddtc2005/praxys:ref:refs/heads/main
+  #   repo:praxys-run/praxys:ref:refs/heads/main
   # (plus any additional refs you want to run from). The app needs
   # "Cognitive Services OpenAI User" on the Foundry resource — scope it there,
   # not at subscription level.

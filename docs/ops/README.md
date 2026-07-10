@@ -56,6 +56,6 @@ Full detail: [environment.md](./environment.md).
 Incident response, backup/restore, DR, secret rotation, scaling/cost, and sync
 troubleshooting now have runbooks. Remaining open items (on-call/escalation
 definitions, RPO/RTO targets, the Key Vault re-wrap drill, optionally exposing
-runbooks as a `plugins/praxys` skill) are tracked in **dddtc2005/praxys#338** and
+runbooks as a `plugins/praxys` skill) are tracked in **praxys-run/praxys#338** and
 flagged inline as `TODO(@dddtc2005)`. Add new runbooks against
 [`_TEMPLATE.md`](./_TEMPLATE.md) and link them from the index above.

@@ -130,7 +130,7 @@ python scripts/analyze_baseline.py --baseline-dir docs/perf-baselines/<YYYY-MM-D
 ## Azure resources
 
 All in `rg-trainsight`, subscription `3ff02750-211c-4579-94a6-8c9af4e6d891`.
-Already provisioned on the dddtc2005/praxys account.
+Already provisioned on the praxys-run/praxys account.
 
 | Resource | Name | Purpose |
 |---|---|---|

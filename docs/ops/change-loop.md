@@ -8,7 +8,7 @@
 
 Praxys runs two agentic loops. **The change loop (a.k.a. Loop A) lives here** and
 is GitHub-native: feedback → a drafted fix PR. The **incident loop (Loop B)** —
-AIOps / incident response — lives in the private `dddtc2005/praxys-ops-agent`
+AIOps / incident response — lives in the private `praxys-run/praxys-ops-agent`
 repo. This runbook is the change loop.
 
 ## How it works
@@ -98,8 +98,8 @@ gh api graphql -f query='query($o:String!,$n:String!){
 ### 2. Create the labels
 
 ```bash
-gh label create agent-ready -c 1D76DB -d "Trigger: hand this issue to the Copilot coding agent (change loop)" -R dddtc2005/praxys
-gh label create backlog     -c 5319E7 -d "Deferred; ineligible for auto-assign even if a bug" -R dddtc2005/praxys
+gh label create agent-ready -c 1D76DB -d "Trigger: hand this issue to the Copilot coding agent (change loop)" -R praxys-run/praxys
+gh label create backlog     -c 5319E7 -d "Deferred; ineligible for auto-assign even if a bug" -R praxys-run/praxys
 ```
 
 The workflow also honours an existing `later` label as a backlog synonym.
@@ -114,7 +114,7 @@ tokens` (issue #400). Without `COPILOT_ASSIGN_TOKEN` the workflow now fails
 
 Create a **fine-grained PAT**, least-privilege:
 
-- **Resource owner:** `dddtc2005`; **Repository access:** *Only select
+- **Resource owner:** `praxys-run`; **Repository access:** *Only select
   repositories* → `praxys` (this repo only).
 - **Permissions:** *Issues → Read and write* (nothing else).
 - **Expiration:** set one (e.g. 90 days) and calendar a rotation.
@@ -122,7 +122,7 @@ Create a **fine-grained PAT**, least-privilege:
 Then store it and re-run:
 
 ```bash
-gh secret set COPILOT_ASSIGN_TOKEN -R dddtc2005/praxys   # paste the PAT when prompted
+gh secret set COPILOT_ASSIGN_TOKEN -R praxys-run/praxys   # paste the PAT when prompted
 ```
 
 Manual assignment via the GitHub UI keeps working without this token (it uses
@@ -138,7 +138,7 @@ So the agent can draft but never ship, protect `main`:
   PR so the check name is selectable.
 
 ```bash
-gh api repos/dddtc2005/praxys/branches/main/protection --jq '{reviews:.required_pull_request_reviews, checks:.required_status_checks}'
+gh api repos/praxys-run/praxys/branches/main/protection --jq '{reviews:.required_pull_request_reviews, checks:.required_status_checks}'
 ```
 
 ## Tuning the agent (quality knobs)
@@ -234,7 +234,7 @@ and the cost is low).
 - Shadow mode on → no label is applied, but the decision is logged.
 
 ```bash
-gh run list --workflow=assign-copilot.yml -R dddtc2005/praxys --limit 5
+gh run list --workflow=assign-copilot.yml -R praxys-run/praxys --limit 5
 ```
 
 ## Rollback / Recovery
@@ -253,7 +253,7 @@ gh run list --workflow=assign-copilot.yml -R dddtc2005/praxys --limit 5
 - Agent guidance: `.github/copilot-instructions.md`.
 - Secrets / flags: [config-and-secrets.md](./config-and-secrets.md) (`COPILOT_ASSIGN_TOKEN`, `PRAXYS_AGENT_READY_SHADOW`).
 - Issue-filing setup: [setup-github-app.md](./setup-github-app.md).
-- Design: dddtc2005/praxys#362 (the change loop); #361 (backend pytest gate); #377 (self-improvement).
+- Design: praxys-run/praxys#362 (the change loop); #361 (backend pytest gate); #377 (self-improvement).
 
 ---
 _Last reviewed: 2026-07-05 · Owner: @dddtc2005_

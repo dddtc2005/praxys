@@ -26,7 +26,7 @@ Gather these before step 3 — an agent can't derive them:
 
 Steps 1–3 (create / install / store config) can run any time and are safe to do
 early. **Step 4 (deploy → verify) only takes effect once the deployed backend
-includes the GitHub App support (PR dddtc2005/praxys#328 or later)** — setting the
+includes the GitHub App support (PR praxys-run/praxys#328 or later)** — setting the
 config before that ships just sits idle until the next backend deploy.
 
 ## Steps
@@ -44,7 +44,7 @@ GitHub → *Settings → Developer settings → GitHub Apps → New GitHub App*:
 
 ### 2. Install it on the repo  — human
 
-App → *Install App* → install on `dddtc2005/praxys` (or your triage repo), *Only
+App → *Install App* → install on `praxys-run/praxys` (or your triage repo), *Only
 select repositories* → that repo. After installing, the browser URL ends in
 `…/installations/<INSTALLATION_ID>` — **that number is the Installation ID.**
 
@@ -59,13 +59,13 @@ settings don't keep multi-line cleanly; the backend restores the newlines).
 
 ```bash
 # App ID + Installation ID are non-secret → Actions variables
-gh variable set PRAXYS_GITHUB_APP_ID --repo dddtc2005/praxys --body '<APP_ID>'
-gh variable set PRAXYS_GITHUB_APP_INSTALLATION_ID --repo dddtc2005/praxys --body '<INSTALLATION_ID>'
-gh variable set PRAXYS_FEEDBACK_GITHUB_REPO --repo dddtc2005/praxys --body 'dddtc2005/praxys'
+gh variable set PRAXYS_GITHUB_APP_ID --repo praxys-run/praxys --body '<APP_ID>'
+gh variable set PRAXYS_GITHUB_APP_INSTALLATION_ID --repo praxys-run/praxys --body '<INSTALLATION_ID>'
+gh variable set PRAXYS_FEEDBACK_GITHUB_REPO --repo praxys-run/praxys --body 'praxys-run/praxys'
 
 # Private key → Actions secret, flattened to one line with literal \n
 KEY_ONELINE=$(awk 'BEGIN{ORS="\\n"}{print}' path/to/private-key.pem)
-printf '%s' "$KEY_ONELINE" | gh secret set PRAXYS_GITHUB_APP_PRIVATE_KEY --repo dddtc2005/praxys
+printf '%s' "$KEY_ONELINE" | gh secret set PRAXYS_GITHUB_APP_PRIVATE_KEY --repo praxys-run/praxys
 ```
 
 ### 4. Roll out  — agent-executable
@@ -110,7 +110,7 @@ the app.
 ## Related
 
 - [config-and-secrets.md](./config-and-secrets.md) · [admin-tasks.md](./admin-tasks.md) · `api/github_issues.py`
-- Feedback feature: dddtc2005/praxys#328
+- Feedback feature: praxys-run/praxys#328
 
 ---
 _Last reviewed: 2026-06-30 · Owner: @dddtc2005_

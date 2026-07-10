@@ -39,7 +39,7 @@
   *Key Vault Crypto User* (key wrap/unwrap) and *Monitoring Metrics Publisher*.
   See `api/main.py` (managed-identity wiring) and `.env.example`.
 - **GitHub Actions → Azure:** OIDC federated credentials on `trainsight-cicd`
-  (subjects `repo:dddtc2005/praxys:ref:refs/heads/main` and `…:i18n-azure-openai`).
+  (subjects `repo:praxys-run/praxys:ref:refs/heads/main` and `…:i18n-azure-openai`).
   No client secret. Moving repos to the `praxys-run` org changes these subjects —
   see [org-migration.md](./org-migration.md). See
   [config-and-secrets.md](./config-and-secrets.md).
@@ -58,7 +58,8 @@
 
 ## Repo governance
 
-- **`main` branch protection.** A required status check `backend-tests` (from `.github/workflows/ci-backend.yml`, issue #361) gates every PR to `main`: a failing backend `pytest` run blocks merge, **admins included** (`enforce_admins`). No required human review (`required_pull_request_reviews` unset) so the solo maintainer can self-merge a green PR. Managed via the branch-protection API on `repos/dddtc2005/praxys/branches/main/protection` — update that rule to change the required checks.
+- **Owner:** the repos live in the **`praxys-run`** org (GitHub **Free**; public repos keep branch protection + unlimited Actions minutes). Migrated from the `dddtc2005` personal account on 2026-07-10 — see [org-migration.md](./org-migration.md).
+- **`main` protection is two layers.** (1) **Classic branch protection**: required status check `backend-tests` (`ci-backend.yml`, #361) blocks merge on a failing `pytest`, **admins included** (`enforce_admins`); managed via `repos/praxys-run/praxys/branches/main/protection`. (2) **Repo ruleset `default`** (id `15208143`): **squash-only** merges + **1 required review**, with a **repo-admin `Always` bypass** so the solo maintainer self-merges a green PR; managed via the rulesets API. ⚠️ **Transfer gotcha:** moving a repo between accounts **wipes the ruleset's `bypass_actors`** — after the org migration the bypass list was empty (deadlocking solo self-merge) and had to be restored (`PUT repos/praxys-run/praxys/rulesets/15208143`, requires `admin:org` scope + the full ruleset body).
 
 ## Related
 

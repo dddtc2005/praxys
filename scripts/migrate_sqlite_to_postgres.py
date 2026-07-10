@@ -9,7 +9,7 @@ optionally, that the migrated credential blobs still decrypt).
 Rows are streamed in bounded chunks (memory-safe for large tables such as
 activity_samples), and orphaned user foreign keys left by SQLite's lack of FK
 enforcement are cleaned during copy (nullable -> NULL, NOT NULL -> row skipped;
-both reported). See dddtc2005/praxys#366.
+both reported). See praxys-run/praxys#366.
 
 Usage:
     python -m scripts.migrate_sqlite_to_postgres \
@@ -150,7 +150,7 @@ def migrate(
     # source can hold rows whose user-FK points at a since-deleted user (e.g.
     # invitations.used_by). PostgreSQL enforces FKs, so orphans are cleaned on
     # copy: a *nullable* orphaned FK is set NULL; a NOT NULL orphaned FK row is
-    # skipped. Both are reported. See dddtc2005/praxys#366.
+    # skipped. Both are reported. See praxys-run/praxys#366.
     with src.connect() as sconn:
         valid_users = {
             x[0] for x in sconn.exec_driver_sql("SELECT id FROM users").fetchall()

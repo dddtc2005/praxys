@@ -105,8 +105,8 @@ Auto-filing + the sensitivity gate are configured via the GitHub App settings
 To get emailed when something needs review, wire the alert in
 [monitoring-and-alerts.md](./monitoring-and-alerts.md).
 
-> The feedback feature ships in dddtc2005/praxys#328; ticket status sync, status
-> filtering, and priority suggestions in dddtc2005/praxys#359.
+> The feedback feature ships in praxys-run/praxys#328; ticket status sync, status
+> filtering, and priority suggestions in praxys-run/praxys#359.
 
 ## Related
 

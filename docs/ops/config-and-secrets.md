@@ -76,7 +76,7 @@ to boot without a JWT secret.
 
 > Example: the feedback → GitHub-issue settings (`PRAXYS_GITHUB_APP_*`,
 > `PRAXYS_FEEDBACK_GITHUB_*`) follow exactly this pattern and are intentionally
-> optional. (Added by the feedback feature — dddtc2005/praxys#328.)
+> optional. (Added by the feedback feature — praxys-run/praxys#328.)
 
 ### Feedback screenshot storage (Azure Blob, keyless)
 

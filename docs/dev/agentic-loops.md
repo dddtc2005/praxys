@@ -129,10 +129,10 @@ toward auto-act, and only behind a fast rollback.
 
 ## 6. How it maps to the repos
 
-- **`dddtc2005/praxys` (this repo, public).** Hosts the **change loop** and the
+- **`praxys-run/praxys` (this repo, public).** Hosts the **change loop** and the
   **product/quality loop**, and is the natural home for the **shared substrate**
   (telemetry, the decisions/outcomes store, the eval corpus, the policy files).
-- **`dddtc2005/praxys-ops-agent` (private).** Hosts the **incident loop**;
+- **`praxys-run/praxys-ops-agent` (private).** Hosts the **incident loop**;
   consumes the same substrate. Event-triggered + ephemeral, acting on praxys via a
   scoped GitHub App + Azure OIDC.
 - **Cross-loop edges** (the interesting part): the incident loop can *emit into*
@@ -180,5 +180,5 @@ and product loops.
 - #362 — the change loop; **PR #373** — its implementation (+ shadow primitive,
   actionability gate). `docs/ops/change-loop.md` — the operator runbook.
 - **#377** — the self-improvement platform tracker (the substrate above).
-- `dddtc2005/praxys-ops-agent` — the incident loop (Loop B).
+- `praxys-run/praxys-ops-agent` — the incident loop (Loop B).
 - `docs/dev/architecture.md` — the (non-agentic) system architecture.

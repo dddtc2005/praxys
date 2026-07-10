@@ -30,7 +30,7 @@ Garmin/Stryd/Oura APIs → sync/*.py → db/sync_writer.py → SQLite (trainsigh
 | `frontend_server/` | Static SPA host on its own App Service site (`praxys-frontend`) | `main.py` (`create_app(dist_dir)` factory, `SPAStaticFiles` with 404→`index.html` fallback for non-asset paths, cache-control middleware, `/healthz`). Decoupled from `api/` so the same `web/dist/` artifact can later sit on Tencent COS (CN audience, post-ICP) without Azure-specific glue. |
 | `web/src/` | React SPA | `pages/` (Today, Training, Goal, History, Science, Settings, Admin, Login, Setup), `components/`, `hooks/`, `contexts/`, `types/api.ts`, `lib/` |
 | `miniapp/` | WeChat Mini Program (native + Skyline + TypeScript) | `pages/` (login WebView, plus Skyline pages: today, training, goal, history, settings, science, legal), `components/` (`nav-bar` custom Skyline header, `line-chart` Canvas 2D), `utils/` (`api-client.ts` wx.request + JWT, `auth.ts` wx.login flow, `format.ts`/`share.ts`/`theme.ts`), `types/api.ts` auto-synced from `web/src/types/api.ts` by `scripts/sync-types.cjs`, and the EULA + Privacy text (`utils/legal.ts`) from `web/src/lib/legal.ts` by `scripts/sync-legal.cjs` (both run on `npm run typecheck`). The `legal` page renders those Terms/Privacy docs in-app and the login page links to them + gates the waitlist / account-link email capture behind an explicit consent checkbox (WeChat audit requirement). Build: WeChat DevTools handles TypeScript + Sass via `project.config.json` `useCompilerPlugins` — no webpack/babel toolchain. Open `miniapp/` as the DevTools project root; only devDeps are `miniprogram-api-typings` + `typescript` for `tsc --noEmit` CI checks. **Mini program position**: a view + manage companion to the web app. The mini program **owns the waitlist signup** as a CN-friendly entry point — WeChat is the primary discovery channel for that audience and the waitlist is just intent capture (email + optional note), no platform setup. **Full registration + the platform-connection wizard stays on praxys.run** because Garmin / Stryd / Oura OAuth is painful inside a miniapp WebView. Existing users link their account by email / password and then use the mini program day-to-day (signal, training, goal, sync, theory, training-base, theme / language). New users either join the waitlist inside WeChat or, if they already have an invitation code, are deep-linked to praxys.run to register. |
-| `plugins/praxys/` | Praxys plugin (**git submodule** of public [`dddtc2005/praxys-coach-plugin`](https://github.com/dddtc2005/praxys-coach-plugin), MIT) | `skills/` (8 SKILL.md), `mcp-server/` (local + remote MCP). Edits to anything inside `plugins/praxys/` are commits in the plugin repo, not this one — PRs there, then bump the submodule pointer here. |
+| `plugins/praxys/` | Praxys plugin (**git submodule** of public [`praxys-run/praxys-coach-plugin`](https://github.com/praxys-run/praxys-coach-plugin), MIT) | `skills/` (8 SKILL.md), `mcp-server/` (local + remote MCP). Edits to anything inside `plugins/praxys/` are commits in the plugin repo, not this one — PRs there, then bump the submodule pointer here. |
 | `tests/` | pytest suite | |
 | `data/` | Fixtures + science YAML | `sample/` (test CSVs — not live data), `science/` (theory YAMLs) |
 | `scripts/` | Utility + skill helpers | |
@@ -83,7 +83,7 @@ Domain-specific gotchas (Garmin sync quirks, CIQ field conventions, CN endpoint 
 - Visual design **may diverge** between web and miniapp: web is a desktop-first React + shadcn surface; miniapp is a mobile-first Skyline surface with native-feeling chrome (custom nav bar, custom tab bar, FAB share buttons). Keep brand tokens (colors, typography intent, semantic palette) consistent; layout and interaction patterns can be platform-appropriate.
 
 ### Git
-- **Commit / PR subjects state what the change does**, e.g. `Fix Garmin first-time sync…`. This repo is standalone (pushes to `dddtc2005/praxys`) — don't prefix with the folder name. The outer pensieve repo's `trail-running:` convention exists because that repo hosts multiple top-level projects; it doesn't apply here.
+- **Commit / PR subjects state what the change does**, e.g. `Fix Garmin first-time sync…`. This repo is standalone (pushes to `praxys-run/praxys`) — don't prefix with the folder name. The outer pensieve repo's `trail-running:` convention exists because that repo hosts multiple top-level projects; it doesn't apply here.
 - Commit body explains the *why* (motivation, root cause, trade-off). The diff shows the *what*.
 - Never put sensitive content (credentials, `.env` values, personal data) in commit messages or PR descriptions.
 
@@ -127,8 +127,8 @@ Always use the project venv at `.venv/` for Python commands.
 
 ```bash
 # First time: clone with submodules so plugins/praxys/ is populated
-# (the plugin is its own public repo, dddtc2005/praxys-coach-plugin)
-git clone --recurse-submodules https://github.com/dddtc2005/praxys.git
+# (the plugin is its own public repo, praxys-run/praxys-coach-plugin)
+git clone --recurse-submodules https://github.com/praxys-run/praxys.git
 cd praxys
 # (already cloned without --recurse-submodules? run: git submodule update --init)
 
@@ -251,7 +251,7 @@ Automations live in `.claude/` and are committed so every contributor using Clau
 
 ## AI Skills
 
-8 skills in `plugins/praxys/skills/` (submodule from public [`dddtc2005/praxys-coach-plugin`](https://github.com/dddtc2005/praxys-coach-plugin)) expose training features via the Praxys plugin (MCP server + skills):
+8 skills in `plugins/praxys/skills/` (submodule from public [`praxys-run/praxys-coach-plugin`](https://github.com/praxys-run/praxys-coach-plugin)) expose training features via the Praxys plugin (MCP server + skills):
 
 | Skill | Purpose |
 |-------|---------|

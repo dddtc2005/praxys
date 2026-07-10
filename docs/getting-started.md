@@ -85,7 +85,7 @@ Run everything on your machine. Same features, same auth flow.
 ### 1. Clone and Install
 
 ```bash
-git clone https://github.com/dddtc2005/praxys.git
+git clone https://github.com/praxys-run/praxys.git
 cd praxys
 
 # Python dependencies

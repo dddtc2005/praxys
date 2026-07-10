@@ -58,7 +58,7 @@ Even with MI auth, the backend still needs to know _where_ to send telemetry —
 
 The frontend value is a **repository variable**, not a secret — connection strings are write-only ingestion tokens and ship in every client bundle by design. Browsers have no MI path, so this is the correct pattern (see auth model summary above and the comment at the top of `web/src/lib/appinsights.ts`).
 
-1. GitHub → `dddtc2005/praxys` → **Settings** → **Secrets and variables** → **Actions** → **Variables** tab.
+1. GitHub → `praxys-run/praxys` → **Settings** → **Secrets and variables** → **Actions** → **Variables** tab.
 2. **New repository variable:**
    - **Name:** `VITE_APPINSIGHTS_CONNECTION_STRING`
    - **Value:** the same connection string from step 1.5
