@@ -14,7 +14,7 @@
 garminconnect>=0.3.6,<0.4.0
 requests>=2.33.1
 python-dotenv>=1.0.0
-pandas>=2.1.0
+pandas>=3.0.3
 pytest>=7.0.0
 fastapi>=0.136.1
 uvicorn[standard]>=0.50.2
