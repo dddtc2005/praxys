@@ -5,6 +5,7 @@ import logging
 from dataclasses import dataclass
 
 from fastapi import HTTPException
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from db.models import (
@@ -26,8 +27,22 @@ from db.models import (
     UserConnection,
     WaitlistSignup,
 )
+from db.cache_revision import lock_revision_writes
+from db.session import begin_serialized_write
 
 logger = logging.getLogger(__name__)
+
+_ACCOUNT_DELETION_GUARD_KEY = 0x5072617879734445
+
+
+def begin_active_admin_guard(db: Session) -> None:
+    """Serialize the active-admin guard across workers and database backends."""
+    begin_serialized_write(db)
+    if db.get_bind().dialect.name == "postgresql":
+        db.execute(
+            text("SELECT pg_advisory_xact_lock(:lock_key)"),
+            {"lock_key": _ACCOUNT_DELETION_GUARD_KEY},
+        )
 
 
 @dataclass(frozen=True)
@@ -130,26 +145,59 @@ def delete_user_account(
     enforced for self-service deletion and kept enabled for admin deletion as a
     defense-in-depth check.
     """
-    user = db.query(User).filter(User.id == user_id).first()
+    begin_active_admin_guard(db)
+    lock_revision_writes(db, user_id)
+    user = (
+        db.query(User)
+        .populate_existing()
+        .with_for_update()
+        .filter(User.id == user_id)
+        .first()
+    )
     if not user:
+        db.rollback()
         raise HTTPException(404, "USER_NOT_FOUND")
 
-    if enforce_last_admin_guard and user.is_superuser:
-        admin_count = db.query(User).filter(User.is_superuser == True).count()  # noqa: E712
-        if admin_count <= 1:
-            raise HTTPException(400, "LAST_ADMIN_CANNOT_DELETE_ACCOUNT")
-
     email = user.email
-    user.is_active = False
-    try:
-        db.commit()
-    except Exception:
-        db.rollback()
-        logger.exception("Failed to mark account deleting for user %s", user_id)
-        raise HTTPException(500, "ACCOUNT_DELETE_FAILED")
-    deleted_user_ids: list[str] = []
+    if user.is_active:
+        if enforce_last_admin_guard and user.is_superuser:
+            admin_count = db.query(User).filter(
+                User.is_superuser == True,  # noqa: E712
+                User.is_active == True,  # noqa: E712
+            ).count()
+            if admin_count <= 1:
+                db.rollback()
+                raise HTTPException(400, "LAST_ADMIN_CANNOT_DELETE_ACCOUNT")
 
-    demo_users = db.query(User).filter(User.demo_of == user_id).all()
+        user.is_active = False
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            logger.exception("Failed to mark account deleting for user %s", user_id)
+            raise HTTPException(500, "ACCOUNT_DELETE_FAILED")
+
+        begin_serialized_write(db)
+        lock_revision_writes(db, user_id)
+        user = (
+            db.query(User)
+            .populate_existing()
+            .with_for_update()
+            .filter(User.id == user_id)
+            .first()
+        )
+        if user is None:
+            db.rollback()
+            raise HTTPException(404, "USER_NOT_FOUND")
+
+    deleted_user_ids: list[str] = []
+    demo_users = (
+        db.query(User)
+        .populate_existing()
+        .with_for_update()
+        .filter(User.demo_of == user_id)
+        .all()
+    )
     for demo_user in demo_users:
         _delete_user_owned_rows(db, demo_user.id)
         db.delete(demo_user)

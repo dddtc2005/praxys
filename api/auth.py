@@ -5,6 +5,7 @@ from the Authorization header. Tokens are issued by the /api/auth/login endpoint
 """
 import logging
 from datetime import datetime, timedelta
+from typing import Any
 
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
@@ -37,8 +38,8 @@ def _touch_last_seen(db: Session, user) -> None:
         db.rollback()
 
 
-def get_current_user_id(request: Request, db: Session = Depends(get_db)) -> str:
-    """Get current user ID from JWT token in the Authorization header."""
+def _get_token_user(request: Request, db: Session) -> tuple[str, Any]:
+    """Validate the bearer token and return its current database user."""
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
         raise HTTPException(401, "Not authenticated")
@@ -55,20 +56,36 @@ def get_current_user_id(request: Request, db: Session = Depends(get_db)) -> str:
         if not user_id:
             raise HTTPException(401, "Invalid token: no subject")
 
-        # Verify user still exists and is active
         from db.models import User
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
             raise HTTPException(401, "User not found")
-        if not user.is_active:
-            raise HTTPException(401, "User account is deactivated")
-
-        _touch_last_seen(db, user)
-        return user_id
+        return user_id, user
     except jwt.ExpiredSignatureError:
         raise HTTPException(401, "Token expired")
     except jwt.InvalidTokenError as e:
         raise HTTPException(401, f"Invalid token: {e}")
+
+
+def get_current_user_id(request: Request, db: Session = Depends(get_db)) -> str:
+    """Get the active user ID from the JWT bearer token."""
+    user_id, user = _get_token_user(request, db)
+    if not user.is_active:
+        raise HTTPException(401, "User account is deactivated")
+
+    _touch_last_seen(db, user)
+    return user_id
+
+
+def require_account_deletion_access(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> str:
+    """Allow a token owner, including a pending inactive account, to self-delete."""
+    user_id, user = _get_token_user(request, db)
+    if user.is_demo:
+        raise HTTPException(403, "Demo accounts cannot modify data")
+    return user_id
 
 
 def get_data_user_id(request: Request, db: Session = Depends(get_db)) -> str:

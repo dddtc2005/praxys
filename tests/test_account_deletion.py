@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import importlib
 import tempfile
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -47,11 +47,11 @@ def account_client(monkeypatch):
             db.close()
 
     from fastapi import HTTPException
-    from api.auth import get_current_user_id, require_write_access
+    from api.auth import get_current_user_id, require_account_deletion_access
     from db.models import User
     from db.session import get_db
 
-    def _override_write_access() -> str:
+    def _override_delete_access() -> str:
         db = db_session.SessionLocal()
         try:
             user = db.query(User).filter(User.id == current_user_id["value"]).first()
@@ -62,7 +62,7 @@ def account_client(monkeypatch):
             db.close()
 
     app.dependency_overrides[get_current_user_id] = _override_user
-    app.dependency_overrides[require_write_access] = _override_write_access
+    app.dependency_overrides[require_account_deletion_access] = _override_delete_access
     app.dependency_overrides[get_db] = _override_db
     client = TestClient(app)
     client.current_user_id = current_user_id  # type: ignore[attr-defined]
@@ -242,6 +242,70 @@ def test_delete_me_removes_user_and_owned_rows(account_client):
         db.close()
 
 
+def test_inactive_account_can_retry_cleanup(account_client, monkeypatch):
+    client, db_session = account_client
+    _seed_account_rows(db_session)
+
+    from api import account_deletion
+    from db.models import User
+
+    db = db_session.SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == "delete-me").one()
+        user.is_active = False
+        db.commit()
+    finally:
+        db.close()
+
+    monkeypatch.setattr(account_deletion, "_clear_tokenstore", lambda user_id: None)
+    response = client.delete("/api/me")
+
+    assert response.status_code == 200, response.text
+    assert response.json() == {"status": "deleted", "email": "athlete@example.test"}
+    db = db_session.SessionLocal()
+    try:
+        assert db.query(User).filter(User.id.in_(["delete-me", "demo-user"])).count() == 0
+    finally:
+        db.close()
+
+
+def test_delete_access_accepts_valid_token_for_inactive_user(account_client):
+    _, db_session = account_client
+
+    import jwt
+
+    from api.auth import require_account_deletion_access
+    from api.auth_secrets import get_jwt_secret
+    from db.models import User
+
+    db = db_session.SessionLocal()
+    try:
+        db.add(User(
+            id="pending-delete",
+            email="pending@example.test",
+            hashed_password="x",
+            is_active=False,
+        ))
+        db.commit()
+
+        token = jwt.encode(
+            {
+                "sub": "pending-delete",
+                "aud": "fastapi-users:auth",
+                "exp": datetime.now(timezone.utc) + timedelta(minutes=5),
+            },
+            get_jwt_secret(),
+            algorithm="HS256",
+        )
+
+        class _StubRequest:
+            headers = {"Authorization": f"Bearer {token}"}
+
+        assert require_account_deletion_access(_StubRequest(), db) == "pending-delete"
+    finally:
+        db.close()
+
+
 def test_delete_me_rejects_last_admin(account_client):
     """The only admin cannot delete their own account and strand the app adminless."""
     client, db_session = account_client
@@ -252,6 +316,13 @@ def test_delete_me_rejects_last_admin(account_client):
     db = db_session.SessionLocal()
     try:
         db.add(User(id="solo-admin", email="admin@example.test", hashed_password="x", is_superuser=True))
+        db.add(User(
+            id="inactive-admin",
+            email="former-admin@example.test",
+            hashed_password="x",
+            is_superuser=True,
+            is_active=False,
+        ))
         db.commit()
     finally:
         db.close()
@@ -262,9 +333,157 @@ def test_delete_me_rejects_last_admin(account_client):
 
     db = db_session.SessionLocal()
     try:
-        assert db.query(User).filter(User.id == "solo-admin").count() == 1
+        solo = db.query(User).filter(User.id == "solo-admin").one()
+        assert solo.is_active is True
     finally:
         db.close()
+
+
+def test_deletion_takes_revision_lock_before_user_row(account_client, monkeypatch):
+    _, db_session = account_client
+    _seed_account_rows(db_session)
+
+    from sqlalchemy import event
+
+    from api import account_deletion
+    from db.models import User
+
+    setup_db = db_session.SessionLocal()
+    try:
+        user = setup_db.query(User).filter(User.id == "delete-me").one()
+        user.is_active = False
+        setup_db.commit()
+    finally:
+        setup_db.close()
+
+    events: list[str] = []
+    monkeypatch.setattr(
+        account_deletion,
+        "lock_revision_writes",
+        lambda _db, _user_id: events.append("revision-lock"),
+    )
+    monkeypatch.setattr(account_deletion, "_clear_tokenstore", lambda _user_id: None)
+
+    db = db_session.SessionLocal()
+
+    def _track_user_select(
+        _conn,
+        _cursor,
+        statement,
+        _parameters,
+        _context,
+        _executemany,
+    ) -> None:
+        normalized = statement.lstrip().upper()
+        if normalized.startswith("SELECT") and "FROM USERS" in normalized:
+            events.append("user-select")
+
+    event.listen(db.get_bind(), "before_cursor_execute", _track_user_select)
+    try:
+        account_deletion.delete_user_account(db, "delete-me")
+    finally:
+        event.remove(db.get_bind(), "before_cursor_execute", _track_user_select)
+        db.close()
+
+    assert events.index("revision-lock") < events.index("user-select")
+
+
+def test_delete_refreshes_preloaded_user_before_last_admin_guard(account_client):
+    _, db_session = account_client
+    _seed_account_rows(db_session)
+
+    from fastapi import HTTPException
+
+    from api.account_deletion import delete_user_account
+    from db.models import User
+
+    stale_db = db_session.SessionLocal()
+    fresh_db = db_session.SessionLocal()
+    try:
+        cached = stale_db.query(User).filter(User.id == "delete-me").one()
+        assert cached.is_superuser is False
+
+        promoted = fresh_db.query(User).filter(User.id == "delete-me").one()
+        promoted.is_superuser = True
+        prior_admin = fresh_db.query(User).filter(User.id == "admin").one()
+        prior_admin.is_superuser = False
+        fresh_db.commit()
+
+        with pytest.raises(HTTPException) as exc:
+            delete_user_account(stale_db, "delete-me")
+        assert exc.value.status_code == 400
+        assert exc.value.detail == "LAST_ADMIN_CANNOT_DELETE_ACCOUNT"
+    finally:
+        stale_db.close()
+        fresh_db.close()
+
+    db = db_session.SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == "delete-me").one()
+        assert user.is_active is True
+        assert user.is_superuser is True
+    finally:
+        db.close()
+
+
+def test_concurrent_admin_demotions_leave_one_active_admin(account_client):
+    _, db_session = account_client
+
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    from fastapi import HTTPException
+    from api.routes.admin import RoleChangeRequest, update_user_role
+    from db.models import User
+
+    db = db_session.SessionLocal()
+    try:
+        db.add_all([
+            User(id="admin-a", email="a@example.test", hashed_password="x", is_superuser=True),
+            User(id="admin-b", email="b@example.test", hashed_password="x", is_superuser=True),
+        ])
+        db.commit()
+    finally:
+        db.close()
+
+    barrier = Barrier(2)
+
+    def _demote(actor: str, target: str) -> int:
+        thread_db = db_session.SessionLocal()
+        try:
+            # Mirror request auth: the actor is already in the identity map
+            # before the serialized role-change transaction starts.
+            thread_db.query(User).filter(User.id == actor).one()
+            barrier.wait()
+            update_user_role(
+                target_user_id=target,
+                body=RoleChangeRequest(is_superuser=False),
+                user_id=actor,
+                db=thread_db,
+            )
+            return 200
+        except HTTPException as exc:
+            return exc.status_code
+        finally:
+            thread_db.close()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        statuses = list(executor.map(
+            lambda pair: _demote(*pair),
+            [("admin-a", "admin-b"), ("admin-b", "admin-a")],
+        ))
+
+    assert sorted(statuses) == [200, 403]
+    db = db_session.SessionLocal()
+    try:
+        assert db.query(User).filter(
+            User.is_superuser == True,  # noqa: E712
+            User.is_active == True,  # noqa: E712
+        ).count() == 1
+    finally:
+        db.close()
+
+
 
 def test_delete_me_rejects_demo_account(account_client):
     """Demo users stay read-only and cannot self-delete the shared demo account."""

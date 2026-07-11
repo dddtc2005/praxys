@@ -8,7 +8,7 @@ from datetime import date, datetime
 
 from sqlalchemy.orm import Session
 
-from db.cache_revision import bump_revisions
+from db.cache_revision import bump_revisions, lock_revision_writes
 from db.models import Activity, ActivitySample, ActivitySplit, RecoveryData, FitnessData, TrainingPlan
 
 logger = logging.getLogger(__name__)
@@ -107,6 +107,7 @@ def write_activities(user_id: str, rows: list[dict], db: Session) -> int:
     """
     if not rows:
         return 0
+    lock_revision_writes(db, user_id)
     existing = {
         obj.activity_id: obj for obj in db.query(Activity).filter(
             Activity.user_id == user_id
@@ -160,6 +161,7 @@ def write_splits(user_id: str, rows: list[dict], db: Session) -> int:
     """
     if not rows:
         return 0
+    lock_revision_writes(db, user_id)
     existing = {
         (obj.activity_id, obj.split_num): obj
         for obj in db.query(ActivitySplit).filter(
@@ -212,6 +214,7 @@ def write_recovery(user_id: str, readiness_rows: list[dict],
     ``recovery_source`` controls the source tag for garmin_recovery rows
     (default "garmin"; pass "coros" etc. for other platforms).
     """
+    lock_revision_writes(db, user_id)
     count = 0
 
     # --- Oura recovery ---
@@ -369,6 +372,7 @@ def write_recovery(user_id: str, readiness_rows: list[dict],
 
 def write_daily_metrics(user_id: str, rows: list[dict], db: Session) -> int:
     """Write Garmin daily metrics to fitness_data table. Returns count of new."""
+    lock_revision_writes(db, user_id)
     count = 0
     metrics = [
         ("vo2max", "vo2max", False),
@@ -416,6 +420,7 @@ def write_profile_thresholds(
     """
     if not profile:
         return 0
+    lock_revision_writes(db, user_id)
     when = as_of or date.today()
     count = 0
     # cp_watts is intentionally stored under the same `cp_estimate` metric
@@ -481,6 +486,7 @@ def update_cp_from_activities(user_id: str, db: Session, **kwargs) -> dict | Non
     if result is None:
         return None
 
+    lock_revision_writes(db, user_id)
     existing = db.query(FitnessData).filter(
         FitnessData.user_id == user_id,
         FitnessData.date == result.as_of,
@@ -510,6 +516,7 @@ def update_cp_from_activities(user_id: str, db: Session, **kwargs) -> dict | Non
 
 def write_lactate_threshold(user_id: str, rows: list[dict], db: Session) -> int:
     """Write lactate threshold data to fitness_data table. Returns count of new."""
+    lock_revision_writes(db, user_id)
     count = 0
     for row in rows:
         d = _parse_date(row.get("date"))
@@ -553,6 +560,7 @@ def write_samples(user_id: str, rows: list[dict], db: Session) -> int:
     """
     if not rows:
         return 0
+    lock_revision_writes(db, user_id)
 
     # Dialect-agnostic upsert: SQLite and PostgreSQL both expose
     # on_conflict_do_nothing(index_elements=...) on their INSERT construct,
@@ -617,6 +625,7 @@ def write_training_plan(user_id: str, rows: list[dict], source: str,
     """
     if not rows:
         return 0
+    lock_revision_writes(db, user_id)
     count = 0
     for row in rows:
         d = _parse_date(row.get("date"))

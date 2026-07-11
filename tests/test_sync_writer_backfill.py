@@ -491,3 +491,55 @@ def test_upcoming_workouts_emits_iso_z_start_time():
         "start_time": pd.Timestamp("2026-06-29 16:00:00")}])
     out = upcoming_workouts(df)
     assert out and out[0]["start_time"].endswith("Z") and "T" in out[0]["start_time"]
+
+def test_sync_writer_locks_revision_before_autoflush(monkeypatch):
+    """Acquire the revision lock before ORM autoflush can touch the User FK."""
+    from sqlalchemy import create_engine, event
+    from sqlalchemy.orm import sessionmaker
+
+    from db import sync_writer
+    from db.models import Base, User
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)  # Default autoflush=True is intentional.
+    db = Session()
+    try:
+        user_id = "revision-order-user"
+        db.add(User(id=user_id, email="revision@example.test", hashed_password="x"))
+        db.commit()
+
+        events: list[str] = []
+        monkeypatch.setattr(
+            sync_writer,
+            "lock_revision_writes",
+            lambda _db, _user_id: events.append("revision-lock"),
+        )
+
+        def _track_fitness_insert(
+            _conn,
+            _cursor,
+            statement,
+            _parameters,
+            _context,
+            _executemany,
+        ) -> None:
+            normalized = statement.lstrip().upper()
+            if normalized.startswith("INSERT") and "FITNESS_DATA" in normalized:
+                events.append("fitness-insert")
+
+        event.listen(engine, "before_cursor_execute", _track_fitness_insert)
+        try:
+            count = sync_writer.write_daily_metrics(
+                user_id,
+                [{"date": date.today().isoformat(), "vo2max": 52.0}],
+                db,
+            )
+        finally:
+            event.remove(engine, "before_cursor_execute", _track_fitness_insert)
+
+        assert count == 1
+        assert events.index("revision-lock") < events.index("fitness-insert")
+    finally:
+        db.close()
+        engine.dispose()

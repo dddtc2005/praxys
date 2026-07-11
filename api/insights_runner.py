@@ -81,7 +81,7 @@ def run_insights_for_user(
 
 
 def _generation_lock_key(user_id: str) -> int:
-    """Return a stable session-lock key for one user's LLM generation."""
+    """Return a stable transaction-lock key for one user's LLM generation."""
     digest = hashlib.blake2b(
         f"insight-generation:{user_id}".encode("utf-8"),
         digest_size=8,
@@ -90,19 +90,10 @@ def _generation_lock_key(user_id: str) -> int:
 
 
 def _lock_generation(db: Session, user_id: str) -> None:
-    """Serialize insight generation across PostgreSQL workers."""
+    """Serialize insight generation within the current PostgreSQL transaction."""
     if db.get_bind().dialect.name == "postgresql":
         db.execute(
-            text("SELECT pg_advisory_lock(:lock_key)"),
-            {"lock_key": _generation_lock_key(user_id)},
-        )
-
-
-def _unlock_generation(db: Session, user_id: str) -> None:
-    """Release the cross-worker insight generation lock."""
-    if db.get_bind().dialect.name == "postgresql":
-        db.execute(
-            text("SELECT pg_advisory_unlock(:lock_key)"),
+            text("SELECT pg_advisory_xact_lock(:lock_key)"),
             {"lock_key": _generation_lock_key(user_id)},
         )
 
@@ -114,11 +105,11 @@ def _run_serialized(db: Session, user_id: str) -> dict:
         _lock_generation(db, user_id)
         try:
             return _run(db, user_id)
-        except Exception:
-            db.rollback()
-            raise
         finally:
-            _unlock_generation(db, user_id)
+            # Early-return paths do not commit, so roll back their read
+            # transaction to release the transaction-scoped advisory lock.
+            if db.in_transaction():
+                db.rollback()
 
 
 def _run(db: Session, user_id: str) -> dict:
@@ -195,9 +186,14 @@ def _run(db: Session, user_id: str) -> dict:
             continue
         pending.append((itype, payload, new_hash))
 
-    # No database row locks are held during the LLM calls above. The first
-    # upsert takes the shared source-revision transaction lock, and that lock
-    # remains held through this short write batch and commit.
+    # No database row locks are held during the LLM calls above. Serialize the
+    # short write batch before its active-user and revision checks. PostgreSQL
+    # uses the revision advisory lock inside _upsert_insight; SQLite needs an
+    # explicit writer transaction so deletion cannot interleave before commit.
+    if pending:
+        from db.session import begin_serialized_write
+
+        begin_serialized_write(db)
     for itype, payload, new_hash in pending:
         if not _upsert_insight(
             db,
@@ -305,6 +301,17 @@ def _upsert_insight(
     """Upsert unless a later-started runner already published this slot."""
     from db.models import AiInsight, User
 
+    _lock_insight_version(db, user_id, itype)
+    from db.cache_revision import get_revisions, lock_revision_writes
+
+    # Sync writers acquire this revision lock before flushing rows whose
+    # foreign keys touch User. Keep the same order here to avoid a
+    # revision-lock ↔ User-row deadlock on PostgreSQL.
+    lock_revision_writes(db, user_id)
+    current_revisions = get_revisions(db, user_id, source_revisions.keys())
+    if current_revisions != source_revisions:
+        return False
+
     user = (
         db.query(User)
         .populate_existing()
@@ -313,14 +320,6 @@ def _upsert_insight(
         .first()
     )
     if user is None or not user.is_active:
-        return False
-
-    _lock_insight_version(db, user_id, itype)
-    from db.cache_revision import get_revisions, lock_revision_writes
-
-    lock_revision_writes(db, user_id)
-    current_revisions = get_revisions(db, user_id, source_revisions.keys())
-    if current_revisions != source_revisions:
         return False
 
     row = (

@@ -37,6 +37,7 @@ def _lock_active_user(db: Session, user_id: str) -> None:
 
     user = (
         db.query(User)
+        .populate_existing()
         .with_for_update()
         .filter(User.id == user_id)
         .first()

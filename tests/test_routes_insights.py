@@ -345,6 +345,29 @@ def test_insight_writes_reject_inactive_account(insights_client, monkeypatch):
         db.close()
 
 
+def test_insight_lock_refreshes_preloaded_inactive_user(insights_client):
+    from fastapi import HTTPException
+
+    from api.routes import insights
+    from db import session as db_session
+    from db.models import User
+
+    stale_db = db_session.SessionLocal()
+    fresh_db = db_session.SessionLocal()
+    try:
+        stale_db.query(User).filter(User.id == "test-user-insights").one()
+        user = fresh_db.query(User).filter(User.id == "test-user-insights").one()
+        user.is_active = False
+        fresh_db.commit()
+
+        with pytest.raises(HTTPException) as exc:
+            insights._lock_active_user(stale_db, "test-user-insights")
+        assert exc.value.status_code == 401
+        assert exc.value.detail == "UNAUTHORIZED"
+    finally:
+        stale_db.close()
+        fresh_db.close()
+
 
 def test_concurrent_feedback_submissions_serialize_on_sqlite(
     insights_client, monkeypatch,

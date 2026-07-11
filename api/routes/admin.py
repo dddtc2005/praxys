@@ -9,6 +9,7 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
 from api import app_config, email_content, email_sender, invitations
+from api.account_deletion import begin_active_admin_guard
 from api.auth import get_current_user_id
 from api.views import utc_isoformat, require_admin as _require_admin
 from db.session import get_db
@@ -133,13 +134,22 @@ def update_user_role(
     db: Session = Depends(get_db),
 ) -> dict:
     """Toggle admin role for a user."""
-    _require_admin(user_id, db)
     from db.models import User
 
     if target_user_id == user_id:
         raise HTTPException(400, "Cannot change your own role")
 
-    user = db.query(User).filter(User.id == target_user_id).first()
+    if not body.is_superuser:
+        begin_active_admin_guard(db)
+    _require_admin(user_id, db, lock=not body.is_superuser)
+
+    user = (
+        db.query(User)
+        .populate_existing()
+        .with_for_update()
+        .filter(User.id == target_user_id)
+        .first()
+    )
     if not user:
         raise HTTPException(404, "User not found")
 

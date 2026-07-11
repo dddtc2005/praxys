@@ -476,6 +476,38 @@ def test_today_feedback_claim_rejects_inactive_account(product_events_client):
         db.close()
 
 
+def test_today_feedback_lock_refreshes_preloaded_inactive_user(
+    product_events_client,
+):
+    from fastapi import HTTPException
+
+    from api.routes import product_events
+    from db import session as db_session
+    from db.models import User
+
+    stale_db = db_session.SessionLocal()
+    fresh_db = db_session.SessionLocal()
+    try:
+        stale_db.query(User).filter(User.id == "test-user-product-events").one()
+        user = fresh_db.query(User).filter(
+            User.id == "test-user-product-events",
+        ).one()
+        user.is_active = False
+        fresh_db.commit()
+
+        with pytest.raises(HTTPException) as exc:
+            product_events._locked_user_config(
+                stale_db,
+                "test-user-product-events",
+                create=True,
+            )
+        assert exc.value.status_code == 401
+        assert exc.value.detail == "UNAUTHORIZED"
+    finally:
+        stale_db.close()
+        fresh_db.close()
+
+
 def test_product_event_rejects_unknown_fields(product_events_client):
     response = product_events_client.post(
         "/api/product-events",

@@ -535,3 +535,159 @@ def test_generator_returns_none_leaves_existing_row_intact(db_session, stub_cont
     row = db_session.query(AiInsight).filter_by(user_id=USER_ID, insight_type="daily_brief").one()
     assert row.headline == "Old headline"
     assert row.meta["dataset_hash"] == "old-hash"
+
+def test_runner_serializes_write_batch_before_upserts(
+    db_session,
+    stub_context,
+    stub_pillars,
+    monkeypatch,
+):
+    fake = _FakeClient(json.dumps(_bilingual_response()))
+    monkeypatch.setattr(llm, "get_client", lambda: fake)
+
+    events: list[str] = []
+    monkeypatch.setattr(
+        "db.session.begin_serialized_write",
+        lambda _db: events.append("serialized-write"),
+    )
+    monkeypatch.setattr(
+        insights_runner,
+        "_upsert_insight",
+        lambda *args, **kwargs: events.append("upsert") or True,
+    )
+
+    result = insights_runner.run_insights_for_user(
+        USER_ID,
+        db_session,
+        {"activities": 1},
+        _session=db_session,
+    )
+
+    assert set(result.values()) == {"generated"}
+    assert events == ["serialized-write", "upsert", "upsert", "upsert"]
+
+
+def test_generation_lock_is_transaction_scoped_and_released_on_early_return(
+    monkeypatch,
+):
+    class _Dialect:
+        name = "postgresql"
+
+    class _Bind:
+        dialect = _Dialect()
+
+    class _FakeSession:
+        def __init__(self):
+            self.statements: list[str] = []
+            self.transaction_active = True
+            self.rollback_count = 0
+
+        def get_bind(self):
+            return _Bind()
+
+        def execute(self, statement, params=None):
+            self.statements.append(str(statement))
+
+        def in_transaction(self):
+            return self.transaction_active
+
+        def rollback(self):
+            self.rollback_count += 1
+            self.transaction_active = False
+
+    db = _FakeSession()
+    monkeypatch.setattr(
+        insights_runner,
+        "_run",
+        lambda _db, _user_id: {"skipped": "cap_reached"},
+    )
+
+    result = insights_runner._run_serialized(db, USER_ID)
+
+    assert result == {"skipped": "cap_reached"}
+    assert len(db.statements) == 1
+    assert "pg_advisory_xact_lock" in db.statements[0]
+    assert "pg_advisory_unlock" not in db.statements[0]
+    assert db.rollback_count == 1
+
+
+def test_upsert_takes_revision_lock_before_user_row(monkeypatch):
+    from types import SimpleNamespace
+
+    from db import cache_revision
+
+    events: list[str] = []
+
+    class _Dialect:
+        name = "sqlite"
+
+    class _Bind:
+        dialect = _Dialect()
+
+    class _FakeQuery:
+        def __init__(self, model):
+            self.model = model
+
+        def populate_existing(self):
+            return self
+
+        def with_for_update(self):
+            return self
+
+        def filter(self, *args):
+            return self
+
+        def first(self):
+            events.append(f"first:{self.model.__name__}")
+            if self.model is User:
+                return SimpleNamespace(is_active=True)
+            return None
+
+    class _FakeSession:
+        def get_bind(self):
+            return _Bind()
+
+        def query(self, model):
+            events.append(f"query:{model.__name__}")
+            return _FakeQuery(model)
+
+        def add(self, row):
+            events.append(f"add:{type(row).__name__}")
+
+    monkeypatch.setattr(
+        cache_revision,
+        "lock_revision_writes",
+        lambda _db, _user_id: events.append("revision-lock"),
+    )
+    monkeypatch.setattr(
+        cache_revision,
+        "get_revisions",
+        lambda _db, _user_id, _scopes: (
+            events.append("revision-read") or SOURCE_REVISIONS
+        ),
+    )
+    monkeypatch.setattr(
+        insights_runner,
+        "merge_feedback_meta",
+        lambda _db, _user_id, _itype, incoming, _existing: incoming,
+    )
+
+    written = insights_runner._upsert_insight(
+        _FakeSession(),
+        USER_ID,
+        "daily_brief",
+        {
+            "headline": "Current snapshot",
+            "summary": "Current summary",
+            "findings": [],
+            "recommendations": [],
+            "translations": {},
+            "meta_extra": {"model": "gpt-test", "pillars": PILLARS},
+        },
+        "a" * 64,
+        SOURCE_REVISIONS,
+        datetime.utcnow(),
+    )
+
+    assert written is True
+    assert events.index("revision-lock") < events.index("query:User")

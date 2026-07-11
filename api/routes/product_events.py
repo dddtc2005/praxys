@@ -84,6 +84,7 @@ def _locked_user_config(
     begin_serialized_write(db)
     user = (
         db.query(User)
+        .populate_existing()
         .with_for_update()
         .filter(User.id == user_id)
         .first()
