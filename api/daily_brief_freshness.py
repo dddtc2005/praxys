@@ -28,7 +28,12 @@ def build_daily_brief_freshness_meta(
 
 
 def compute_current_daily_brief_freshness(user_id: str, db: Any) -> dict[str, str]:
-    """Compute the current daily-brief freshness state via the lightweight Today path."""
+    """Compute the current daily-brief freshness state via the lightweight Today path.
+
+    Returns a server-owned dict with:
+    - ``for_date``: the server-local date the brief is valid for
+    - ``today_hash``: the canonical daily-brief input hash for that date
+    """
     from api.packs import RequestContext
     from api.deps import _get_todays_plan
     from analysis.metrics import daily_training_signal
@@ -88,7 +93,11 @@ def is_current_daily_brief_freshness(
     meta: object,
     current_freshness: dict[str, str] | None,
 ) -> bool:
-    """Return whether stored freshness metadata matches the current Today state."""
+    """Return whether stored freshness metadata matches the current Today state.
+
+    Returns ``False`` for unverifiable rows (missing metadata, wrong types, or
+    malformed hashes) as well as for definite freshness mismatches.
+    """
     if current_freshness is None:
         return False
     if not isinstance(meta, dict):

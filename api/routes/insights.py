@@ -108,7 +108,12 @@ def _current_daily_brief_freshness(
     user_id: str,
     db: Session,
 ) -> dict[str, str] | None:
-    """Compute the current daily-brief freshness state, or ``None`` on failure."""
+    """Compute the current daily-brief freshness state, or ``None`` on failure.
+
+    Failure means the lightweight Today-path computation raised (for example,
+    because required source data could not be loaded). In that case the read
+    path suppresses the AI brief and falls back to deterministic Today guidance.
+    """
     try:
         return compute_current_daily_brief_freshness(user_id, db)
     except Exception:

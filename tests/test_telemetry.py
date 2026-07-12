@@ -504,7 +504,13 @@ def test_run_insights_emits_hash_match_status(fake_meter, monkeypatch):
     call would silently flatten the cache effectiveness chart, and this
     test would catch it.
     """
+    from datetime import date
+
     from analysis.insight_hash import compute_dataset_hash
+    from api.daily_brief_freshness import (
+        DAILY_BRIEF_FRESHNESS_KEY,
+        build_daily_brief_freshness_meta,
+    )
     from db.models import AiInsight
     from api import insights_runner, llm
 
@@ -515,13 +521,20 @@ def test_run_insights_emits_hash_match_status(fake_meter, monkeypatch):
     # the loop into the hash_match branch for every itype.
     for itype in insights_runner.GENERATORS_ORDER:
         h = compute_dataset_hash(_FAKE_CTX, itype, science_pillars=_FAKE_PILLARS)
+        meta = {"dataset_hash": h}
+        if itype == "daily_brief":
+            meta[DAILY_BRIEF_FRESHNESS_KEY] = build_daily_brief_freshness_meta(
+                _FAKE_CTX,
+                _FAKE_PILLARS,
+                for_date=date.today(),
+            )
         session.add(AiInsight(
             user_id="user-2",
             insight_type=itype,
             headline="cached", summary="cached",
             findings=[], recommendations=[],
             translations={},
-            meta={"dataset_hash": h},
+            meta=meta,
         ))
     session.commit()
 

@@ -9,6 +9,10 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 
 
+def _raise_if_called(*_args, **_kwargs):
+    raise AssertionError("should not be called")
+
+
 @pytest.fixture
 def insights_client(monkeypatch):
     """TestClient with a seeded user and JWT auth dependency-overridden."""
@@ -214,7 +218,7 @@ def test_non_daily_insight_get_does_not_build_daily_freshness(insights_client, m
     assert insights_client.post("/api/insights", json=body).status_code == 200
     monkeypatch.setattr(
         "api.routes.insights._current_daily_brief_freshness",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("should not be called")),
+        _raise_if_called,
     )
 
     response = insights_client.get("/api/insights/training_review")
@@ -236,7 +240,7 @@ def test_non_daily_insight_list_does_not_build_daily_freshness_without_daily_bri
     assert insights_client.post("/api/insights", json=body).status_code == 200
     monkeypatch.setattr(
         "api.routes.insights._current_daily_brief_freshness",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("should not be called")),
+        _raise_if_called,
     )
 
     response = insights_client.get("/api/insights")
