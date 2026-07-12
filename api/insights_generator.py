@@ -1,9 +1,10 @@
 """Bilingual (en + zh) LLM insight generators.
 
-One generator function per ``insight_type``. Each takes a training context
-(:func:`api.ai.build_training_context`) and the user's selected science
-pillars, and returns the upsert payload for an ``AiInsight`` row, or ``None``
-when the LLM is unavailable / errored / returned an unparsable response.
+Training review and race forecast each take a training context
+(:func:`api.ai.build_training_context`) plus the user's selected science
+pillars and return an ``AiInsight`` upsert payload. The daily entry point
+intentionally returns ``None`` so Today uses the deterministic metric instead
+of free-form model advice.
 
 Returned payload shape (matches ``db.models.AiInsight`` columns):
 
@@ -32,6 +33,7 @@ import json
 import logging
 from typing import Any
 
+from analysis.insight_hash import build_training_review_inputs
 from api import llm
 from api.coach import COACH_PERSONA
 
@@ -46,22 +48,17 @@ logger = logging.getLogger(__name__)
 def generate_daily_brief(
     context: dict, science_pillars: dict[str, str]
 ) -> dict | None:
-    """Generate today's recovery + signal one-liner narrative."""
-    restrictive_reason = _restrictive_today_fallback_reason(context)
-    if restrictive_reason is not None:
-        logger.debug(
-            "Insight %s skipped: reason=%s",
-            "daily_brief",
-            restrictive_reason,
-        )
-        return None
-    return _generate(
-        context=context,
-        science_pillars=science_pillars,
-        insight_type="daily_brief",
-        system_prompt=_daily_brief_system(context),
-        user_payload=_daily_brief_inputs(context),
-    )
+    """Use the deterministic Today signal instead of free-form model advice.
+
+    A model can produce fluent prose that contradicts the canonical action even
+    when prompted or asked for a matching decision enum. Until daily coaching is
+    represented by a fully server-owned structured action, the pure metric is the
+    sole source of Today advice. Training review and race forecast remain model-
+    generated because they do not compete with a same-day safety verdict.
+    """
+    _ = context, science_pillars
+    logger.debug("Insight daily_brief skipped: deterministic_today_signal")
+    return None
 
 
 def generate_training_review(
@@ -73,7 +70,7 @@ def generate_training_review(
         science_pillars=science_pillars,
         insight_type="training_review",
         system_prompt=_training_review_system(context),
-        user_payload=_training_review_inputs(context),
+        user_payload=build_training_review_inputs(context),
     )
 
 
@@ -123,11 +120,6 @@ def _generate(
     if not ok:
         _log_rejection(insight_type, reason, raw)
         return None
-    if insight_type == "daily_brief":
-        ok, reason = _validate_daily_brief_alignment(raw, context)
-        if not ok:
-            _log_rejection(insight_type, reason, raw)
-            return None
 
     en = raw["en"]
     zh = raw["zh"]
@@ -167,6 +159,7 @@ Return STRICT JSON in this exact shape:
 }
 
 Hard rules:
+
 - 'type' values are STABLE English enum keys: positive, warning, neutral. NEVER translate them.
 - 'findings' arrays in en and zh MUST have the same length and the same 'type' value at each index.
 - 'recommendations' arrays in en and zh MUST have the same length. Length is 0-3 entries each. Fewer is better than padded — return 0 if there's nothing concrete to say, 1-3 if there is. Do not invent advice to hit a quota.
@@ -176,10 +169,7 @@ Hard rules:
 - Plain text only — no markdown, no bullet points, no headings.
 
 Context-awareness rules:
-- If `today_signal` is present, treat it as the canonical recommendation for TODAY and keep the brief aligned with it.
-- If `today_signal.recommendation` is `rest`, `easy`, `modify`, or `reduce_intensity`, do NOT tell the athlete to complete a harder planned workout today. You may mention rescheduling only after clearly stating today's priority.
 - If a race is ≤ 14 days away AND load (ATL, weekly volume) is dropping, recognize this as a planned taper. Do NOT flag the drop as a regression; affirm the taper and focus advice on freshness, sleep, race execution.
-- If today's "planned_workout" is rest or easy, do not push the athlete to add intensity.
 - If the athlete is in race mode (race_date set, days_left ≤ 28), keep advice consistent with closing the gap to the goal — don't suggest brand-new training blocks.
 """
 
@@ -210,37 +200,19 @@ def _frame_intro(context: dict) -> str:
     )
 
 
-def _daily_brief_system(context: dict) -> str:
-    return (
-        _frame_intro(context)
-        + "\n\nYou will receive today's recovery + fitness state and the planned "
-        "workout (if any). Produce a tight, actionable brief: headline conveys "
-        "the core message in ≤8 words, summary explains why in 2-3 sentences, "
-        "findings highlight 1-3 specific signals (e.g. HRV below threshold, "
-        "low TSB).\n\n"
-        "Recommendations rules — TODAY-specific, never generic:\n"
-        "- If a workout is planned, advise either 'continue as planned' (when "
-        "  signals support it) OR a specific adjustment ('cut to 30 min easy', "
-        "  'replace intervals with Z2', 'shift to tomorrow').\n"
-        "- If no workout is planned, advise something concrete for TODAY based "
-        "  on recovery state (an easy 30-min run, full rest, mobility).\n"
-        "- Do NOT give long-horizon training advice here — that belongs in the "
-        "  training review.\n"
-        "- 0-3 entries. If recovery is normal and the plan already fits, 0-1 "
-        "  recommendations is fine. Don't pad.\n"
-        + _BILINGUAL_RULES
-    )
-
-
 def _training_review_system(context: dict) -> str:
     return (
         _frame_intro(context)
         + "\n\nYou will receive 6-8 weeks of training sessions (date, distance, "
-        "RSS, average power per session) and weekly aggregates. Produce a "
-        "diagnosis: headline names the dominant pattern, summary explains the "
-        "trajectory, findings flag specific issues (volume trend, intensity "
-        "distribution vs the zone framework's target distribution, consistency, "
-        "threshold trend).\n\n"
+        "RSS, duration), weekly aggregates, and a deterministic diagnosis whose "
+        "intensity fields come only from timestamped samples or activity splits. "
+        "Produce a diagnosis: headline names the dominant pattern, summary explains "
+        "the trajectory, and findings flag specific issues (volume trend, interval "
+        "intensity, distribution vs the zone framework's target distribution, "
+        "consistency, threshold trend). Distribution and target fields are omitted "
+        "when evidence is incomplete; never infer a distribution when they are absent. "
+        "Never infer interval intensity or zone distribution from activity "
+        "averages in any training base.\n\n"
         "Recommendations rules — next-cycle structural, consistent with the goal:\n"
         "- Concrete next-cycle actions ('add 1x supra-CP session/week', "
         "  'cut volume 15% next 2 weeks').\n"
@@ -281,8 +253,8 @@ def _goal_context(context: dict) -> dict:
     """Goal + race-countdown summary surfaced to every prompt.
 
     The Coach persona uses this to recognize taper windows, race-week
-    behavior, and goal-mode framing. Including it in every prompt means
-    the LLM has the same context on Today, Training, and Goal pages.
+    behavior, and goal-mode framing in training-review and race-forecast
+    prompts.
     """
     cf = context.get("current_fitness") or {}
     ap = context.get("athlete_profile") or {}
@@ -291,54 +263,6 @@ def _goal_context(context: dict) -> dict:
         "race_countdown": cf.get("race_countdown"),
     }
 
-
-def _daily_brief_inputs(context: dict) -> dict:
-    rs = context.get("recovery_state") or {}
-    cf = context.get("current_fitness") or {}
-    # `planned_today` is the plan row for today's date, or None when today
-    # has no scheduled workout (rest). Don't fall back to current_plan[0]
-    # — when today is unscheduled, that's the next future workout, and the
-    # LLM would advise on a session that isn't on today's docket.
-    return {
-        "today": {
-            "hrv_ms": rs.get("hrv_ms"),
-            "hrv_trend_pct": rs.get("hrv_trend_pct"),
-            "sleep_score": rs.get("sleep_score"),
-            "readiness": rs.get("readiness"),
-        },
-        "fitness": {
-            "ctl": cf.get("ctl"),
-            "atl": cf.get("atl"),
-            "tsb": cf.get("tsb"),
-        },
-        "today_signal": context.get("today_signal"),
-        "planned_workout": context.get("planned_today"),
-        **_goal_context(context),
-    }
-
-
-def _training_review_inputs(context: dict) -> dict:
-    rt = context.get("recent_training") or {}
-    cf = context.get("current_fitness") or {}
-    science = context.get("science") or {}
-    zones = science.get("zones") or {}
-    return {
-        "weekly_summary": rt.get("weekly_summary") or [],
-        "sessions": [
-            {
-                "date": s.get("date"),
-                "distance_km": s.get("distance_km"),
-                "rss": s.get("rss"),
-                "avg_power": s.get("avg_power"),
-                "duration_min": s.get("duration_min"),
-            }
-            for s in (rt.get("sessions") or [])
-        ],
-        "cp_trend": cf.get("cp_trend"),
-        "zone_target_distribution": zones.get("target_distribution"),
-        "zone_names": zones.get("zone_names"),
-        **_goal_context(context),
-    }
 
 
 def _race_forecast_inputs(context: dict) -> dict:
@@ -401,48 +325,6 @@ def _validate_bilingual_shape(raw: Any) -> tuple[bool, str]:
         if en_f["type"] != zh_f["type"]:
             return False, "finding_type_mismatch"
     return True, "ok"
-
-
-_RESTRICTIVE_TODAY_RECOMMENDATIONS = {
-    "rest",
-    "easy",
-    "modify",
-    "reduce_intensity",
-}
-_RESTRICTIVE_FALLBACK_REASONS = {
-    "rest": "today_signal_rest_fallback",
-    "easy": "today_signal_easy_fallback",
-    "modify": "today_signal_modify_fallback",
-    "reduce_intensity": "today_signal_reduce_intensity_fallback",
-}
-
-
-def _restrictive_today_fallback_reason(context: dict) -> str | None:
-    """Return the restrictive Today fallback reason, or ``None`` if not needed."""
-    today_signal = context.get("today_signal")
-    if not isinstance(today_signal, dict):
-        return None
-    recommendation = today_signal.get("recommendation")
-    if recommendation not in _RESTRICTIVE_TODAY_RECOMMENDATIONS:
-        return None
-    return _RESTRICTIVE_FALLBACK_REASONS[recommendation]
-
-
-def _validate_daily_brief_alignment(raw: dict[str, Any], context: dict) -> tuple[bool, str]:
-    """Reject daily briefs that contradict the canonical Today verdict.
-
-    Returns ``(is_valid, reason_code)`` where ``reason_code`` is ``"ok"``
-    for aligned output or a short stable tag such as
-    ``"today_signal_rest_conflict"`` for logging and tests.
-    """
-    today_signal = context.get("today_signal")
-    if not isinstance(today_signal, dict):
-        return True, "ok"
-
-    restrictive_reason = _restrictive_today_fallback_reason(context)
-    if restrictive_reason is None:
-        return True, "ok"
-    return False, restrictive_reason
 
 
 def _log_rejection(insight_type: str, reason: str, raw: Any) -> None:

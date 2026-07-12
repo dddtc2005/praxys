@@ -311,6 +311,60 @@ def _ensure_numeric_pace(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def select_preferred_source(
+    df: pd.DataFrame,
+    preferred_source: str | None,
+) -> pd.DataFrame:
+    """Select one provider from a multi-source recovery or plan frame.
+
+    The configured provider wins when it has rows. If it is temporarily
+    unavailable, the fallback is the provider with the newest dated row, then
+    the most rows, then the lexically smallest name. This keeps the fallback
+    deterministic without blending duplicate daily records across providers.
+    Frames without a ``source`` column retain their existing behavior.
+    """
+    if df.empty or "source" not in df.columns:
+        return df
+
+    source_names = df["source"].fillna("").astype(str).str.strip()
+    source_keys = source_names.str.casefold()
+    preferred_key = str(preferred_source or "").strip().casefold()
+    if preferred_key and (source_keys == preferred_key).any():
+        return df.loc[source_keys == preferred_key].copy().reset_index(drop=True)
+
+    candidates = sorted(key for key in source_keys.unique() if key)
+    if not candidates:
+        return df
+
+    dates = (
+        pd.to_datetime(df["date"], errors="coerce")
+        if "date" in df.columns
+        else pd.Series(pd.NaT, index=df.index)
+    )
+    ranked: list[tuple[pd.Timestamp, int, str]] = []
+    for source_key in candidates:
+        mask = source_keys == source_key
+        latest = dates.loc[mask].max()
+        ranked.append((
+            latest if pd.notna(latest) else pd.Timestamp.min,
+            int(mask.sum()),
+            source_key,
+        ))
+    best_latest, best_count = max((latest, count) for latest, count, _ in ranked)
+    fallback_key = min(
+        source_key
+        for latest, count, source_key in ranked
+        if latest == best_latest and count == best_count
+    )
+    if preferred_key:
+        logger.info(
+            "Preferred source %s has no rows; using %s",
+            preferred_source,
+            fallback_key,
+        )
+    return df.loc[source_keys == fallback_key].copy().reset_index(drop=True)
+
+
 # ---------------------------------------------------------------------------
 # Database-based loading (multi-user deployable architecture)
 # ---------------------------------------------------------------------------

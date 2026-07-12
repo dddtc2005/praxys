@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy.orm import Session
 
 from api import telemetry
@@ -18,12 +18,10 @@ from api.insight_feedback import (
     merge_feedback_meta as _merge_feedback_meta,
 )
 from api.auth_rate_limit import _SlidingWindow
-from api.daily_brief_freshness import (
-    DAILY_BRIEF_FRESHNESS_KEY,
-    compute_current_daily_brief_freshness,
-    is_current_daily_brief_freshness,
-)
+from api.daily_brief_freshness import DAILY_BRIEF_FRESHNESS_KEY
+
 from api.views import utc_isoformat
+
 from db.session import begin_serialized_write, get_db
 
 logger = logging.getLogger(__name__)
@@ -34,6 +32,92 @@ VALID_INSIGHT_TYPES = {"training_review", "daily_brief", "race_forecast"}
 _INSIGHT_FEEDBACK_RATE_LIMIT = _SlidingWindow(
     limit=12, window_secs=60, max_clients=10_000
 )
+
+
+class InsightFinding(BaseModel):
+    """One validated finding emitted by the coaching pipeline."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["positive", "warning", "neutral"]
+    text: str = Field(min_length=1, max_length=1000)
+
+    @field_validator("text")
+    @classmethod
+    def normalize_text(cls, value: str) -> str:
+        """Reject whitespace-only finding text."""
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("finding text cannot be blank")
+        return normalized
+
+
+class InsightTranslation(BaseModel):
+    """One complete localized insight payload."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    headline: str = Field(min_length=1, max_length=300)
+    summary: str = Field(min_length=1, max_length=4000)
+    findings: list[InsightFinding] = Field(default_factory=list)
+    recommendations: list[str] = Field(default_factory=list, max_length=3)
+
+    @field_validator("headline", "summary")
+    @classmethod
+    def normalize_required_text(cls, value: str) -> str:
+        """Reject whitespace-only localized prose."""
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("localized text cannot be blank")
+        return normalized
+
+    @field_validator("recommendations")
+    @classmethod
+    def normalize_recommendations(cls, values: list[str]) -> list[str]:
+        """Reject empty recommendation entries."""
+        normalized = [value.strip() for value in values]
+        if any(not value for value in normalized):
+            raise ValueError("recommendations cannot contain blank entries")
+        return normalized
+
+
+class InsightTranslations(BaseModel):
+    """Required aligned English and Chinese insight payloads."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    en: InsightTranslation | None = None
+    zh: InsightTranslation | None = None
+
+    @model_validator(mode="after")
+    def validate_alignment(self) -> "InsightTranslations":
+        """Keep structure aligned when both localized blocks are present."""
+        if self.en is None or self.zh is None:
+            return self
+        if len(self.en.findings) != len(self.zh.findings):
+            raise ValueError("finding counts must match across languages")
+        if len(self.en.recommendations) != len(self.zh.recommendations):
+            raise ValueError("recommendation counts must match across languages")
+        if any(
+            en_finding.type != zh_finding.type
+            for en_finding, zh_finding in zip(self.en.findings, self.zh.findings)
+        ):
+            raise ValueError("finding types must match across languages")
+        return self
+
+
+class PushInsightRequest(BaseModel):
+    """Strict contract for durable generated insights."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    insight_type: Literal["training_review", "daily_brief", "race_forecast"]
+    headline: str = Field(min_length=1, max_length=300)
+    summary: str = Field(min_length=1, max_length=4000)
+    findings: list[InsightFinding] = Field(default_factory=list)
+    recommendations: list[str] = Field(default_factory=list, max_length=3)
+    meta: dict[str, Any] = Field(default_factory=dict)
+    translations: InsightTranslations = Field(default_factory=InsightTranslations)
 
 
 def _lock_active_user(db: Session, user_id: str) -> None:
@@ -82,7 +166,7 @@ def _serialize_insight(
     *,
     feedback_allowed: bool,
 ) -> dict[str, Any]:
-    """Serialize one insight with server-derived feedback eligibility."""
+    """Serialize one insight with safe legacy-data normalization."""
     meta = row.meta
     if feedback_allowed and isinstance(meta, dict):
         meta = _merge_feedback_meta(
@@ -92,70 +176,42 @@ def _serialize_insight(
             meta,
             meta,
         )
+
+    translations: dict[str, Any] = {}
+    try:
+        translations = InsightTranslations.model_validate(row.translations).model_dump(exclude_none=True)
+    except (TypeError, ValueError):
+        # Legacy rows may predate the bilingual schema. Top-level English
+        # fields still render after normalization below.
+        translations = {}
+
+    findings: list[dict[str, str]] = []
+    if isinstance(row.findings, list):
+        for finding in row.findings:
+            try:
+                findings.append(InsightFinding.model_validate(finding).model_dump())
+            except (TypeError, ValueError):
+                continue
+
+    recommendations = [
+        item.strip()
+        for item in (row.recommendations if isinstance(row.recommendations, list) else [])
+        if isinstance(item, str) and item.strip()
+    ][:3]
+    english = translations.get("en", {})
+    headline = row.headline.strip() if isinstance(row.headline, str) else ""
+    summary = row.summary.strip() if isinstance(row.summary, str) else ""
+
     return {
-        "headline": row.headline,
-        "summary": row.summary,
-        "findings": row.findings or [],
-        "recommendations": row.recommendations or [],
+        "headline": headline or english.get("headline", ""),
+        "summary": summary or english.get("summary", ""),
+        "findings": findings or english.get("findings", []),
+        "recommendations": recommendations or english.get("recommendations", []),
         "meta": _serialize_meta(meta, feedback_allowed=feedback_allowed),
-        "translations": row.translations or {},
+        "translations": translations,
         "generated_at": utc_isoformat(row.generated_at),
         "feedback_allowed": feedback_allowed,
     }
-
-
-def _current_daily_brief_freshness(
-    user_id: str,
-    db: Session,
-) -> dict[str, str] | None:
-    """Compute the current daily-brief freshness state, or ``None`` on failure.
-
-    Failure means the lightweight Today-path computation raised (for example,
-    because required source data could not be loaded). In that case the read
-    path suppresses the AI brief and falls back to deterministic Today guidance.
-    """
-    try:
-        return compute_current_daily_brief_freshness(user_id, db)
-    except Exception:
-        logger.exception(
-            "Failed to validate daily_brief freshness for user=%s",
-            user_id,
-        )
-        return None
-
-
-def _is_current_daily_brief(
-    row: Any,
-    current_freshness: dict[str, str] | None,
-) -> bool:
-    """Return whether the stored daily brief still matches today's inputs.
-
-    Non-``daily_brief`` rows are always current. ``daily_brief`` rows must carry
-    trusted server-owned freshness metadata; unverifiable rows are suppressed on
-    read so the Today surface falls back to deterministic guidance.
-    """
-    if row.insight_type != "daily_brief":
-        return True
-    return is_current_daily_brief_freshness(row.meta, current_freshness)
-
-
-class InsightFinding(BaseModel):
-    type: str  # positive, warning, neutral
-    text: str
-
-
-class PushInsightRequest(BaseModel):
-    insight_type: str
-    headline: str
-    summary: str
-    findings: list[InsightFinding] = []
-    recommendations: list[str] = []
-    meta: dict[str, Any] = {}
-    # Optional bilingual payload — written by the post-sync LLM runner.
-    # Legacy CLI / MCP push paths may omit this; old rows render English from
-    # the top-level fields. Issue #103.
-    translations: dict = {}
-
 
 class InsightFeedbackRequest(BaseModel):
     """One vote on the exact generated insight version the athlete saw."""
@@ -184,10 +240,13 @@ def push_insight(
     """Push AI-generated insights (from CLI skills). Upserts per insight_type."""
     if body.insight_type not in VALID_INSIGHT_TYPES:
         raise HTTPException(400, f"Invalid insight_type. Must be one of: {VALID_INSIGHT_TYPES}")
+    if body.insight_type == "daily_brief":
+        raise HTTPException(410, detail="DAILY_BRIEF_DETERMINISTIC")
 
     from db.models import AiInsight
 
     begin_serialized_write(db)
+
     _lock_active_user(db, user_id)
     existing = (
         db.query(AiInsight)
@@ -216,7 +275,7 @@ def push_insight(
         existing.findings = findings_dicts
         existing.recommendations = body.recommendations
         existing.meta = incoming_meta
-        existing.translations = body.translations
+        existing.translations = body.translations.model_dump(exclude_none=True)
         existing.generated_at = datetime.utcnow()
     else:
         db.add(AiInsight(
@@ -227,8 +286,9 @@ def push_insight(
             findings=findings_dicts,
             recommendations=body.recommendations,
             meta=incoming_meta,
-            translations=body.translations,
+            translations=body.translations.model_dump(exclude_none=True),
         ))
+
 
     db.commit()
     return {"status": "saved", "insight_type": body.insight_type}
@@ -247,6 +307,8 @@ def submit_insight_feedback(
             400,
             detail=f"Invalid insight_type. Must be one of: {VALID_INSIGHT_TYPES}",
         )
+    if insight_type == "daily_brief":
+        raise HTTPException(410, detail="DAILY_BRIEF_DETERMINISTIC")
     allowed, retry_after = _INSIGHT_FEEDBACK_RATE_LIMIT.check_and_record(user_id)
     if not allowed:
         raise HTTPException(
@@ -336,24 +398,19 @@ def submit_insight_feedback(
 
 @router.get("/insights")
 def get_insights(
+    snapshot: str | None = None,
     current_user_id: str = Depends(get_current_user_id),
     data_user_id: str = Depends(get_data_user_id),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Get all AI insights for the current user."""
+    """Get durable AI insights; Today guidance is deterministic."""
     from db.models import AiInsight
 
     feedback_allowed = current_user_id == data_user_id
-    rows = db.query(AiInsight).filter(AiInsight.user_id == data_user_id).all()
-    needs_daily_brief_freshness = any(
-        row.insight_type == "daily_brief"
-        for row in rows
-    )
-    current_daily_brief_freshness = (
-        _current_daily_brief_freshness(data_user_id, db)
-        if needs_daily_brief_freshness
-        else None
-    )
+    rows = db.query(AiInsight).filter(
+        AiInsight.user_id == data_user_id,
+        AiInsight.insight_type != "daily_brief",
+    ).all()
     return {
         "insights": {
             row.insight_type: _serialize_insight(
@@ -362,7 +419,6 @@ def get_insights(
                 feedback_allowed=feedback_allowed,
             )
             for row in rows
-            if _is_current_daily_brief(row, current_daily_brief_freshness)
         }
     }
 
@@ -370,12 +426,16 @@ def get_insights(
 @router.get("/insights/{insight_type}")
 def get_insight(
     insight_type: str,
+    snapshot: str | None = None,
     current_user_id: str = Depends(get_current_user_id),
     data_user_id: str = Depends(get_data_user_id),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Get a specific AI insight by type."""
+    """Get one durable AI insight."""
     from db.models import AiInsight
+
+    if insight_type == "daily_brief":
+        return {"insight": None}
 
     row = db.query(AiInsight).filter(
         AiInsight.user_id == data_user_id,
@@ -383,11 +443,6 @@ def get_insight(
     ).first()
 
     if not row:
-        return {"insight": None}
-    current_daily_brief_freshness = None
-    if row.insight_type == "daily_brief":
-        current_daily_brief_freshness = _current_daily_brief_freshness(data_user_id, db)
-    if not _is_current_daily_brief(row, current_daily_brief_freshness):
         return {"insight": None}
 
     return {

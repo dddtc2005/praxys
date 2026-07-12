@@ -33,6 +33,11 @@ from fastapi import Depends, Request, Response
 from sqlalchemy.orm import Session
 
 from api.auth import get_data_user_id
+from api.daily_brief_freshness import (
+    PLAN_RESPONSE_VERSION,
+    TODAY_RESPONSE_VERSION,
+    TRAINING_RESPONSE_VERSION,
+)
 from db.cache_revision import get_revisions
 from db.session import get_db
 
@@ -48,23 +53,23 @@ logger = logging.getLogger(__name__)
 #                      training_plans meta, so plans matters even though
 #                      the Today widget is "training-base agnostic"); plus
 #                      today_widgets which reads activities and plan.
-#   /api/training    — diagnosis (activities, splits, recovery, fitness)
+#   /api/training    — diagnosis (activities, splits, samples, recovery, fitness)
 #                      + fitness_pack (activities, plans, fitness).
 #   /api/goal        — race pack reads thresholds (fitness), latest CP
 #                      (activities + fitness), and goal config.
 #   /api/history     — activities + splits only; goal/recovery edits do
 #                      NOT bust the History page.
 #   /api/science     — config only; sync writes do NOT bust Science.
-#   /api/plan        — plan rows only. Stryd push/delete handlers also bump
+#   /api/plan        — plan rows plus config-derived connection state. Stryd push/delete handlers also bump
 #                      ``plans`` so the JSON-file ``stryd_status`` field
 #                      isn't served stale via 304 after a push.
 ENDPOINT_SCOPES: dict[str, tuple[str, ...]] = {
     "today":    ("activities", "recovery", "plans", "fitness", "config"),
-    "training": ("activities", "splits", "recovery", "plans", "fitness", "config"),
+    "training": ("activities", "splits", "samples", "recovery", "plans", "fitness", "config"),
     "goal":     ("activities", "fitness", "config"),
     "history":  ("activities", "splits", "config"),
     "science":  ("config",),
-    "plan":     ("plans",),
+    "plan":     ("plans", "config"),
 }
 
 
@@ -78,6 +83,14 @@ ENDPOINT_SCOPES: dict[str, tuple[str, ...]] = {
 # even when no plan rows changed.
 _DATE_SALTED_ENDPOINTS: frozenset[str] = frozenset({"today", "training", "goal", "plan"})
 
+# Bump an endpoint's value whenever its response shape changes in a way that
+# makes a pre-deploy browser body unsafe to reuse after a 304. Today uses an
+# explicit version because its signal contract is cached across deployments.
+ENDPOINT_RESPONSE_VERSIONS: dict[str, str] = {
+    "today": TODAY_RESPONSE_VERSION,
+    "training": TRAINING_RESPONSE_VERSION,
+    "plan": PLAN_RESPONSE_VERSION,
+}
 
 CACHE_CONTROL = "private, must-revalidate, max-age=0"
 
@@ -163,10 +176,9 @@ class ETagGuard:
 def etag_guard_for_endpoint(endpoint: str):
     """Build a FastAPI dependency that yields an ``ETagGuard`` per request.
 
-    ``endpoint`` is one of the keys in ``ENDPOINT_SCOPES``. When the
-    endpoint is in ``_DATE_SALTED_ENDPOINTS``, ``date.today()`` is mixed
-    into the ETag salt so a 304 cannot replay yesterday's window-framed
-    body across midnight.
+    ``endpoint`` is one of the keys in ``ENDPOINT_SCOPES``. The salt includes
+    the current date for time-windowed endpoints and a response-schema version
+    when one is declared, so a 304 cannot replay an incompatible cached body.
 
     Usage in a route:
 
@@ -188,7 +200,13 @@ def etag_guard_for_endpoint(endpoint: str):
         user_id: str = Depends(get_data_user_id),
         db: Session = Depends(get_db),
     ) -> ETagGuard:
-        salt = f"d={date.today().isoformat()}" if date_salted else None
+        salt_parts: list[str] = []
+        if date_salted:
+            salt_parts.append(f"d={date.today().isoformat()}")
+        response_version = ENDPOINT_RESPONSE_VERSIONS.get(endpoint)
+        if response_version:
+            salt_parts.append(f"v={response_version}")
+        salt = "&".join(salt_parts) or None
         etag = compute_etag(db, user_id, scopes, salt=salt)
         return ETagGuard(etag, request.headers.get("if-none-match"))
 

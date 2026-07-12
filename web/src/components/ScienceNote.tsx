@@ -16,9 +16,32 @@ import { Trans, useLingui } from '@lingui/react/macro';
  * standalone narrative reasoning surfaces use the `coach-receipt`
  * component instead.
  */
-export default function ScienceNote({ text, sourceUrl, sourceLabel }: { text: string; sourceUrl?: string; sourceLabel?: string }) {
+export interface ScienceSource {
+  url: string;
+  label: string;
+}
+
+interface ScienceNoteProps {
+  text: string;
+  sourceUrl?: string;
+  sourceLabel?: string;
+  sources?: ScienceSource[];
+}
+
+export default function ScienceNote({
+  text,
+  sourceUrl,
+  sourceLabel,
+  sources,
+}: ScienceNoteProps) {
   const [expanded, setExpanded] = useState(false);
   const { t } = useLingui();
+  const resolvedSources = sources?.length
+    ? sources
+    : sourceUrl
+      ? [{ url: sourceUrl, label: sourceLabel || t`Source` }]
+      : [];
+
   return (
     // No own border. Page-level section hairlines do the separation
     // work in flat-page contexts; on surfaces that still need a
@@ -35,16 +58,19 @@ export default function ScienceNote({ text, sourceUrl, sourceLabel }: { text: st
       {expanded && (
         <p className="text-[13px] text-muted-foreground mt-2 leading-relaxed">
           {text}{' '}
-          {sourceUrl && (
-            <a
-              href={sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-accent-cobalt underline-offset-2 hover:underline"
-            >
-              {sourceLabel || t`Source`}
-            </a>
-          )}
+          {resolvedSources.map((source, index) => (
+            <span key={source.url}>
+              {index > 0 && ' · '}
+              <a
+                href={source.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent-cobalt underline-offset-2 hover:underline"
+              >
+                {source.label}
+              </a>
+            </span>
+          ))}
         </p>
       )}
     </div>

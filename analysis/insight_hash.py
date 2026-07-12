@@ -23,6 +23,8 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+TRAINING_REVIEW_PROMPT_VERSION = "evidence-gated-diagnosis-v2"
+
 
 def compute_dataset_hash(
     context: dict,
@@ -47,11 +49,10 @@ def compute_dataset_hash(
     if insight_type == "daily_brief":
         rs = context.get("recovery_state", {}) or {}
         cf = context.get("current_fitness", {}) or {}
-        # Hash projects today's workout slot — same input the LLM sees for
-        # daily_brief. Falling back to current_plan[0] (the next future
-        # workout when today is rest) would entangle the rest-day cache
-        # with whichever workout happens to be next, so a plan tweak two
-        # weeks out would burn a regen for today.
+        ap = context.get("athlete_profile", {}) or {}
+        # Hash projects today's workout slot. Falling back to current_plan[0]
+        # would make an unscheduled day depend on the next future workout, so a
+        # distant plan edit could incorrectly change today's snapshot identity.
         proj: dict[str, Any] = {
             "hrv_ms": _round(rs.get("hrv_ms"), 0.5),
             "hrv_trend_pct": _round(rs.get("hrv_trend_pct"), 1.0),
@@ -62,35 +63,14 @@ def compute_dataset_hash(
             "ctl": _round(cf.get("ctl"), 0.5),
             "today_signal": _project_today_signal(context.get("today_signal")),
             "planned_today": _project_plan_entry(context.get("planned_today")),
+            "goal": ap.get("goal"),
+            "race_countdown": cf.get("race_countdown"),
             "pillars": pillar_set,
         }
     elif insight_type == "training_review":
-        rt = context.get("recent_training", {}) or {}
-        sessions = rt.get("sessions") or []
-        session_sigs = [
-            (
-                s.get("date"),
-                _round(s.get("distance_km"), 0.5),
-                _round(s.get("rss"), 5.0),
-                _bucket(s.get("avg_power"), 10),
-            )
-            for s in sessions
-        ]
-        weekly = [
-            (
-                w.get("week"),
-                _round(w.get("volume_km"), 1.0),
-                _round(w.get("load"), 5.0),
-                w.get("sessions"),
-            )
-            for w in (rt.get("weekly_summary") or [])
-        ]
-        cp_trend = (context.get("current_fitness", {}) or {}).get("cp_trend") or {}
         proj = {
-            "sessions": session_sigs,
-            "weekly": weekly,
-            "cp_direction": cp_trend.get("direction"),
-            "cp_slope": _round(cp_trend.get("slope_per_month"), 0.5),
+            "prompt_version": TRAINING_REVIEW_PROMPT_VERSION,
+            "inputs": build_training_review_inputs(context),
             "pillars": pillar_set,
         }
     elif insight_type == "race_forecast":
@@ -114,6 +94,53 @@ def compute_dataset_hash(
     payload = json.dumps(proj, sort_keys=True, default=str)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
+
+def build_training_review_inputs(context: dict) -> dict:
+    """Return the exact, evidence-gated training-review model payload."""
+    recent = context.get("recent_training") or {}
+    fitness = context.get("current_fitness") or {}
+    profile = context.get("athlete_profile") or {}
+    science = context.get("science") or {}
+    zones = science.get("zones") or {}
+
+    raw_diagnosis = recent.get("diagnosis") or {}
+    diagnosis = dict(raw_diagnosis) if isinstance(raw_diagnosis, dict) else {}
+    data_meta = diagnosis.get("data_meta") or {}
+    distribution_complete = data_meta.get("distribution_complete") is True
+    if not distribution_complete:
+        # Zero-filled or partial distributions are display placeholders, not
+        # evidence the model may interpret as the athlete's actual training mix.
+        diagnosis.pop("distribution", None)
+    interval_power = diagnosis.get("interval_power")
+    if (
+        not isinstance(interval_power, dict)
+        or interval_power.get("evidence_complete") is not True
+    ):
+        # Partial split coverage cannot support whole-window interval claims.
+        diagnosis.pop("interval_power", None)
+
+    payload = {
+        "weekly_summary": recent.get("weekly_summary") or [],
+        "split_level_diagnosis": diagnosis,
+        "sessions": [
+            {
+                "date": session.get("date"),
+                "distance_km": session.get("distance_km"),
+                "rss": session.get("rss"),
+                "duration_min": session.get("duration_min"),
+            }
+            for session in (recent.get("sessions") or [])
+        ],
+        "cp_trend": fitness.get("cp_trend"),
+        "goal": profile.get("goal"),
+        "race_countdown": fitness.get("race_countdown"),
+    }
+    if distribution_complete:
+        target_distribution = zones.get("target_distribution")
+        if target_distribution:
+            payload["zone_target_distribution"] = target_distribution
+            payload["zone_names"] = zones.get("zone_names")
+    return payload
 
 def _round(v: Any, step: float) -> float | None:
     """Bucket ``v`` to the nearest ``step``. Returns None for missing/non-numeric.
@@ -147,12 +174,20 @@ def _project_plan_entry(entry: Any) -> Any:
     """Keep only the fields of a plan workout that meaningfully shape the brief."""
     if not isinstance(entry, dict):
         return None
+    # Workout prescriptions are emitted to the model verbatim. Keep them exact
+    # so a changed target can never inherit prose generated for an older plan.
     return {
         "workout_type": entry.get("workout_type"),
-        "planned_duration_min": _round(entry.get("planned_duration_min"), 5.0),
-        "planned_distance_km": _round(entry.get("planned_distance_km"), 0.5),
-        "target_power_min": _bucket(entry.get("target_power_min"), 10),
-        "target_power_max": _bucket(entry.get("target_power_max"), 10),
+        "start_time": entry.get("start_time"),
+        "planned_duration_min": entry.get("planned_duration_min"),
+        "planned_distance_km": entry.get("planned_distance_km"),
+        "target_power_min": entry.get("target_power_min"),
+        "target_power_max": entry.get("target_power_max"),
+        "target_hr_min": entry.get("target_hr_min"),
+        "target_hr_max": entry.get("target_hr_max"),
+        "target_pace_min": entry.get("target_pace_min"),
+        "target_pace_max": entry.get("target_pace_max"),
+        "workout_description": entry.get("workout_description"),
     }
 
 

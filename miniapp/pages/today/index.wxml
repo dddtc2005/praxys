@@ -98,16 +98,17 @@
         </view>
         <text class="signal-subtitle signal-subtitle--{{signalColor}}">{{signalSubtitle}}</text>
         <text wx:if="{{signalReason}}" class="signal-reason">{{signalReason}}</text>
+        <view wx:if="{{signalAlternatives.length > 0}}" class="signal-alternatives">
+          <view wx:for="{{signalAlternatives}}" wx:key="index" class="coach-row">
+            <text class="coach-tag coach-tag--rec">{{item.index}}</text>
+            <text class="coach-text">{{item.text}}</text>
+          </view>
+        </view>
       </view>
 
       <!--
-        Praxys Coach receipt — the LLM-generated daily brief. Sits
-        between the rule-based signal hero and the supporting cells so
-        the coach narrative is the first interpretive layer the athlete
-        sees. Renders nothing when no AiInsight row exists (LLM
-        disabled, generation cap hit, transient error). Visual treatment
-        is a flat cobalt-banner block so it reads as a separate
-        interpretive voice rather than another metric tile.
+        Deterministic Praxys Coach receipt. It uses the same canonical
+        signal as the verdict, with progressive disclosure for alternatives.
       -->
       <view wx:if="{{hasCoach}}" class="coach-receipt {{dataStale && !staleDismissed ? 'is-sync-stale' : ''}}" aria-label="{{coachTr.aria}}">
         <view class="coach-banner">
@@ -161,13 +162,7 @@
             </view>
           </block>
         </view>
-        <insight-feedback
-          wx:if="{{coachDatasetHash}}"
-          insight-type="daily_brief"
-          dataset-hash="{{coachDatasetHash}}"
-          initial-vote="{{coachFeedbackVote}}"
-          bindstale="onCoachFeedbackStale"
-        />
+
         <view wx:if="{{coach.attribution}}" class="coach-foot">
           <text class="coach-foot-text">{{coach.attribution}}</text>
         </view>
@@ -175,7 +170,7 @@
 
       <!--
         Supporting cells: a flat 2-col grid mirroring web's PR #238
-        layout. Five cells in source order — HRV, 7d Trend, RHR, Sleep,
+        layout. Five cells in source order — HRV, observation trend, RHR, Sleep,
         TSB. Cardless on warm paper with hairline separators between
         cells; the last cell (TSB, index 4) spans both columns to avoid
         a stranded empty slot. Pure data-driven; the cells array is
@@ -202,6 +197,26 @@
       <view class="today-plan">
         <text class="today-plan-eyebrow">{{planEyebrow}}</text>
         <text class="today-plan-text">{{planText}}</text>
+      </view>
+
+      <view class="today-methodology">
+        <view class="today-methodology-toggle" bindtap="toggleMethodology">
+          <text class="today-methodology-arrow">{{methodologyExpanded ? '▾' : '▸'}}</text>
+          <text class="today-methodology-label">{{methodologyLabel}}</text>
+        </view>
+        <view wx:if="{{methodologyExpanded}}" class="today-methodology-body">
+          <text class="today-methodology-text">{{methodologyText}}</text>
+          <view
+            wx:for="{{methodologySources}}"
+            wx:key="id"
+            class="today-methodology-source-row"
+            data-url="{{item.url}}"
+            bindtap="onTapMethodologySource"
+          >
+            <text class="today-methodology-source">{{item.label}}</text>
+            <text class="today-methodology-source-action">{{methodologySourceActionLabel}}</text>
+          </view>
+        </view>
       </view>
 
       <view wx:if="{{hasWarnings}}" class="today-warnings">

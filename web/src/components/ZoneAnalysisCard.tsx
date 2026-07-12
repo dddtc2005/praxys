@@ -1,6 +1,7 @@
 import type { ZoneDistribution, ZoneRange, DisplayConfig } from '@/types/api';
 import { Trans, useLingui } from '@lingui/react/macro';
 import { tDisplay } from '@/lib/display-labels';
+import ScienceNote from '@/components/ScienceNote';
 
 interface Props {
   distribution: ZoneDistribution[];
@@ -60,7 +61,7 @@ function formatRange(range: ZoneRange): string {
  * interpretation surface). Don't re-introduce the standalone Alert.
  */
 export default function ZoneAnalysisCard({ distribution, zoneRanges, theoryName, display, theoryDescription }: Props) {
-  const { i18n } = useLingui();
+  const { i18n, t } = useLingui();
   const thresholdLabel = display ? display.threshold_abbrev : '';
   // Zones come in ascending intensity from the API; the visual ladder
   // reads better top-to-bottom from easiest to hardest, so keep order.
@@ -134,6 +135,11 @@ export default function ZoneAnalysisCard({ distribution, zoneRanges, theoryName,
           );
         })}
       </div>
+      <ScienceNote
+        text={t`Distribution match uses Bray-Curtis similarity to compare observed and target time-in-zone shares. It appears only when every recent activity has at least 90% duration coverage from valid splits or timestamped samples; sample streams also require a median cadence of 5 seconds or less. These evidence gates are Praxys operational estimates.`}
+        sourceUrl="https://doi.org/10.2307/1942268"
+        sourceLabel="Bray & Curtis (1957)"
+      />
     </div>
   );
 }

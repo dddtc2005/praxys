@@ -1,16 +1,75 @@
 import math
 
 import pandas as pd
+import pytest
 from datetime import date
 from analysis.metrics import (
+    compute_distribution_match_pct,
     compute_ewma_load,
+    compute_load_compliance_pct,
     compute_tsb,
+    has_sufficient_load_history,
     predict_marathon_time,
     analyze_recovery,
     daily_training_signal,
     cp_milestone_check,
     diagnose_training,
 )
+
+
+def test_compute_distribution_match_pct_requires_complete_evidence():
+    distribution = [
+        {"actual_pct": 70, "target_pct": 80},
+        {"actual_pct": 20, "target_pct": 5},
+        {"actual_pct": 10, "target_pct": 15},
+    ]
+
+    assert compute_distribution_match_pct(distribution, True) == 85
+    assert compute_distribution_match_pct(distribution, False) is None
+
+
+def test_compute_distribution_match_pct_requires_every_target():
+    distribution = [
+        {"actual_pct": 80, "target_pct": 80},
+        {"actual_pct": 20, "target_pct": None},
+    ]
+
+    assert compute_distribution_match_pct(distribution, True) is None
+
+
+def test_compute_load_compliance_pct_is_descriptive_mean_ratio():
+    assert compute_load_compliance_pct([80, 120], [100, 100]) == 100
+    assert compute_load_compliance_pct([150, 90, 30], [100, 100, 0]) == 120
+    assert compute_load_compliance_pct([150, 30], [100, 0]) is None
+    assert compute_load_compliance_pct([80, 120], [100, 100], False) is None
+    assert compute_load_compliance_pct(
+        [80, 120, 100],
+        [100, 100, 100],
+        eligible_weeks=[True, True, False],
+    ) == 100
+    assert compute_load_compliance_pct([30], [0]) is None
+
+
+def test_load_history_sufficiency_uses_active_ctl_window():
+    assert has_sufficient_load_history(41, 42) is False
+    assert has_sufficient_load_history(42, 42) is True
+    assert has_sufficient_load_history(20, 20) is True
+    assert has_sufficient_load_history(42, 0) is False
+
+
+def test_daily_signal_preserves_unavailable_tsb_without_load_decision():
+    recovery = {
+        "status": "normal",
+        "hrv": {"trend": "stable", "rolling_cv": 2.0},
+        "sleep_score": None,
+        "readiness_score": None,
+        "rhr_trend": None,
+    }
+
+    signal = daily_training_signal(recovery, tsb=None, planned_workout="interval")
+
+    assert signal["recommendation"] == "follow_plan"
+    assert signal["recovery"]["tsb"] is None
 
 
 def test_compute_ewma_load():
@@ -72,6 +131,47 @@ def test_analyze_recovery_insufficient_data():
     assert analysis["resting_hr"] is None
 
 
+def test_analyze_recovery_zero_variance_is_indeterminate():
+    """Identical history must not fabricate a usable reference band."""
+    analysis = analyze_recovery([50.0] * 14, today_hrv_ms=50.0)
+
+    assert analysis["status"] == "insufficient_data"
+    assert analysis["classification_reason"] == "zero_variance"
+    assert analysis["hrv"] is not None
+    assert analysis["hrv"]["baseline_sd_ln"] == 0
+
+
+def test_analyze_recovery_rejects_invalid_window_configuration():
+    with pytest.raises(ValueError, match="baseline_days"):
+        analyze_recovery([50.0] * 7, today_hrv_ms=50.0, baseline_days=1)
+
+
+def test_daily_signal_explains_zero_variance_baseline():
+    analysis = analyze_recovery([50.0] * 14, today_hrv_ms=50.0)
+
+    signal = daily_training_signal(analysis, tsb=0, planned_workout="easy")
+
+    assert signal["recommendation"] == "follow_plan"
+    assert signal["reason_code"] == "hrv_zero_variance"
+    assert "no measurable variation" in signal["reason"]
+
+
+def test_analyze_recovery_insufficient_hrv_preserves_context():
+    """Sleep, readiness, and RHR remain visible when HRV is insufficient."""
+    analysis = analyze_recovery(
+        [50, 48, 52],
+        today_sleep=76,
+        today_readiness=81,
+        today_rhr=54,
+    )
+
+    assert analysis["status"] == "insufficient_data"
+    assert analysis["hrv"] is None
+    assert analysis["sleep_score"] == 76
+    assert analysis["readiness_score"] == 81
+    assert analysis["resting_hr"] == 54
+
+
 def test_daily_training_signal_rest():
     series = _make_hrv_series(50.0, 30)
     analysis = analyze_recovery(series, today_hrv_ms=30.0)  # fatigued
@@ -80,18 +180,33 @@ def test_daily_training_signal_rest():
     assert "hrv" in signal["reason"].lower()
 
 
-def test_daily_training_signal_rest_keeps_alternatives_rest_compatible():
-    """Fatigued + hard workout must not pair a rest verdict with do-it-today advice."""
+def test_daily_training_signal_hard_aliases_keep_rest_alternative_safe():
+    """Known demanding labels must all protect a fatigued athlete."""
     series = _make_hrv_series(50.0, 30)
-    analysis = analyze_recovery(series, today_hrv_ms=30.0)  # fatigued
+    analysis = analyze_recovery(series, today_hrv_ms=30.0)
 
-    signal = daily_training_signal(analysis, tsb=-10, planned_workout="long")
+    for workout_type in (
+        "long",
+        "long_run",
+        "long run",
+        "intervals",
+        "time trial",
+        "hill-repeats",
+        "hill_repeat",
+        "fartlek",
+        "repetition",
+        "repetitions",
+    ):
+        signal = daily_training_signal(
+            analysis,
+            tsb=-10,
+            planned_workout=workout_type,
+        )
 
-    assert signal["recommendation"] == "rest"
-    assert signal["alternatives"] == [
-        "Make today a full recovery day and reassess the hard session tomorrow",
-        "If you must move, walk 30 min only",
-    ]
+        assert signal["recommendation"] == "rest", workout_type
+        assert signal["alternatives"] == [
+            "Make today a full recovery day and reassess the hard session tomorrow",
+        ]
 
 
 def test_daily_training_signal_follow_plan():
@@ -99,6 +214,87 @@ def test_daily_training_signal_follow_plan():
     analysis = analyze_recovery(series, today_hrv_ms=60.0, today_sleep=85)  # fresh
     signal = daily_training_signal(analysis, tsb=5, planned_workout="tempo")
     assert signal["recommendation"] == "follow_plan"
+
+
+def test_daily_training_signal_unscheduled_day_is_neutral():
+    series = _make_hrv_series(50.0, 30)
+    analysis = analyze_recovery(series, today_hrv_ms=60.0, today_sleep=85)
+
+    signal = daily_training_signal(analysis, tsb=5, planned_workout="")
+
+    assert signal["recommendation"] == "unscheduled"
+    assert signal["reason"] == (
+        "No workout is scheduled. Add a session only if it fits your broader plan."
+    )
+    assert signal["alternatives"] == []
+    assert signal["plan"] == {}
+
+
+def test_daily_training_signal_unscheduled_day_respects_recovery_and_load():
+    """Missing plan data must not invite intensity under restrictive signals."""
+    series = _make_hrv_series(50.0, 30)
+    fatigued = analyze_recovery(series, today_hrv_ms=30.0)
+
+    recovery_signal = daily_training_signal(
+        fatigued,
+        tsb=-5,
+        planned_workout="",
+    )
+    assert recovery_signal["recommendation"] == "unscheduled"
+    assert "restorative" in recovery_signal["reason"].lower()
+    assert recovery_signal["alternatives"] == [
+        "Rest, walk, or do gentle mobility",
+    ]
+
+    normal = analyze_recovery(series, today_hrv_ms=50.0)
+    load_signal = daily_training_signal(
+        normal,
+        tsb=-25,
+        planned_workout="",
+    )
+    assert load_signal["recommendation"] == "unscheduled"
+    assert "avoid adding intensity" in load_signal["reason"].lower()
+    assert load_signal["alternatives"] == [
+        "Keep any optional movement easy and short",
+    ]
+
+
+def test_daily_training_signal_rest_aliases_stay_rest_when_fatigued():
+    series = _make_hrv_series(50.0, 30)
+    analysis = analyze_recovery(series, today_hrv_ms=30.0)
+
+    for workout_type in ("rest", "off"):
+        signal = daily_training_signal(
+            analysis,
+            tsb=-10,
+            planned_workout=workout_type,
+            planned_detail={"workout_description": "Full recovery day."},
+        )
+
+        assert signal["recommendation"] == "rest"
+        assert signal["reason"] == (
+            "Rest day scheduled. Follow the plan and prioritize recovery."
+        )
+        assert signal["alternatives"] == []
+        assert signal["plan"] == {
+            "workout_type": workout_type,
+            "description": "Full recovery day.",
+        }
+
+
+def test_daily_training_signal_recovery_run_remains_active():
+    series = _make_hrv_series(50.0, 30)
+    analysis = analyze_recovery(series, today_hrv_ms=60.0, today_sleep=85)
+
+    signal = daily_training_signal(
+        analysis,
+        tsb=5,
+        planned_workout="recovery",
+        planned_detail={"planned_duration_min": 30},
+    )
+
+    assert signal["recommendation"] == "follow_plan"
+    assert signal["plan"] == {"workout_type": "recovery", "duration_min": 30}
 
 
 def test_daily_training_signal_hrv_warning():
@@ -123,6 +319,49 @@ def test_analyze_recovery_cv_override():
     assert analysis["hrv"]["rolling_cv"] > 10
     # Status should NOT be "fresh" due to CV override
     assert analysis["status"] != "fresh"
+
+
+def test_analyze_recovery_cv_threshold_is_configurable():
+    """The selected recovery theory owns the operational CV threshold."""
+    stable = [50.0] * 23
+    volatile = [30.0, 70.0, 25.0, 75.0, 35.0, 65.0, 40.0]
+    analysis = analyze_recovery(
+        stable + volatile,
+        today_hrv_ms=70.0,
+        cv_threshold=100.0,
+    )
+
+    assert analysis["hrv"]["rolling_cv"] > 10
+    assert analysis["status"] == "fresh"
+
+
+def test_daily_training_signal_uses_recovery_cv_threshold():
+    analysis = {
+        "status": "normal",
+        "hrv": {
+            "today_ms": 50,
+            "today_ln": 3.9,
+            "baseline_mean_ln": 3.85,
+            "baseline_sd_ln": 0.15,
+            "threshold_ln": 3.7,
+            "swc_upper_ln": 3.93,
+            "rolling_mean_ln": 3.9,
+            "rolling_cv": 15.0,
+            "trend": "stable",
+        },
+        "sleep_score": 80,
+        "resting_hr": 52,
+        "rhr_trend": "stable",
+    }
+
+    signal = daily_training_signal(
+        analysis,
+        tsb=-5,
+        planned_workout="interval",
+        recovery_thresholds={"cv_threshold": 20.0},
+    )
+
+    assert signal["recommendation"] == "follow_plan"
 
 
 def test_analyze_recovery_declining_trend_override():
@@ -248,7 +487,8 @@ def test_daily_training_signal_insufficient_data():
                 "resting_hr": None, "rhr_trend": None}
     signal = daily_training_signal(analysis, tsb=0, planned_workout="tempo")
     assert signal["recommendation"] == "follow_plan"
-    assert "requires hrv" in signal["reason"].lower()
+    assert signal["reason_code"] == "hrv_unavailable"
+    assert "current hrv" in signal["reason"].lower()
     assert signal["alternatives"] == []
 
 
@@ -324,8 +564,12 @@ def test_diagnose_with_supra_cp_intervals():
     result = diagnose_training(activities, splits, trend, lookback_weeks=4, current_date=today)
 
     assert result["interval_power"]["supra_cp_sessions"] >= 1
+    assert result["interval_power"]["evidence_complete"] is False
     assert result["volume"]["weekly_avg_km"] > 0
-    assert any(d["type"] == "positive" for d in result["diagnosis"])
+    assert any(
+        "conclusions are withheld" in item["message"]
+        for item in result["diagnosis"]
+    )
 
 
 def test_diagnose_no_intensity():
@@ -342,9 +586,9 @@ def test_diagnose_no_intensity():
     result = diagnose_training(activities, splits, trend, lookback_weeks=4, current_date=today)
 
     assert result["interval_power"]["supra_cp_sessions"] == 0
-    # Should flag missing supra-CP work
-    warnings = [d for d in result["diagnosis"] if d["type"] == "warning"]
-    assert any("supra-CP" in w["message"] or "above CP" in w["message"] for w in warnings)
+    observations = [item["message"] for item in result["diagnosis"]]
+    assert any("No intervals at or above CP" in message for message in observations)
+    assert not any("likely reason" in message for message in observations)
     assert len(result["suggestions"]) > 0
 
 
@@ -352,13 +596,16 @@ def test_diagnose_empty_splits():
     today = date(2026, 3, 23)
     dates = [date(2026, 3, d) for d in [2, 4, 7]]
     activities = _make_activities(dates, [8, 10, 20])
+    activities["avg_power"] = [400, 410, 420]
+    activities["duration_sec"] = [3600, 3600, 7200]
     splits = pd.DataFrame()
     trend = {"current": 270.0, "direction": "flat", "slope_per_month": 0.5}
     result = diagnose_training(activities, splits, trend, lookback_weeks=4, current_date=today)
 
     # Should handle gracefully
     assert "interval_power" in result
-    assert any("split" in d["message"].lower() or "interval" in d["message"].lower() for d in result["diagnosis"])
+    assert all(zone["actual_pct"] == 0 for zone in result["distribution"])
+    assert any("split-level intensity" in item["message"].lower() for item in result["diagnosis"])
 
 
 def test_diagnose_distribution_uses_zone_boundaries():
@@ -527,9 +774,255 @@ def test_diagnose_distribution_pace_base_inverts_ratio():
     )
     dist = {d["name"]: d["actual_pct"] for d in result["distribution"]}
 
+    assert result["interval_power"]["max"] == 285.0
     # Recovery dominates because splits are slower than threshold.
     assert dist["Recovery"] >= 75, f"expected Recovery ~80%, got {dist}"
     assert dist["Tempo"] >= 15, f"expected Tempo ~20%, got {dist}"
     assert dist["VO2max"] == 0
     assert dist["Endurance"] == 0
     assert dist["Threshold"] == 0
+
+def test_diagnose_invalid_split_intensity_is_unavailable():
+    """Null and non-positive split power must not become zero completed work."""
+    today = date(2026, 3, 23)
+    activities = _make_activities([date(2026, 3, 20)], [10])
+    splits = _make_splits(["0", "0"], [None, 0], [600, 600])
+    trend = {"current": 250.0, "direction": "flat", "slope_per_month": 0.0}
+
+    result = diagnose_training(
+        activities, splits, trend, lookback_weeks=4, current_date=today,
+    )
+
+    interval = result["interval_power"]
+    assert interval["data_available"] is False
+    assert interval["supra_cp_sessions"] is None
+    assert interval["total_quality_sessions"] is None
+    assert result["data_meta"]["distribution_resolution"] == "unavailable"
+    assert all(zone["actual_pct"] == 0 for zone in result["distribution"])
+    messages = [item["message"] for item in result["diagnosis"]]
+    assert not any("likely reason" in message for message in messages)
+    assert not any("supra-CP intervals" in suggestion for suggestion in result["suggestions"])
+
+
+def test_diagnose_cold_start_keeps_stable_array_contracts():
+    """Cold-start responses expose arrays and explicit unavailable provenance."""
+    result = diagnose_training(
+        pd.DataFrame(), pd.DataFrame(), {"current": 250.0},
+        current_date=date(2026, 3, 23),
+    )
+
+    assert isinstance(result["diagnosis"], list)
+    assert result["diagnosis"][0]["type"] == "warning"
+    assert result["suggestions"] == []
+    assert result["distribution"] == []
+    assert result["zone_ranges"] == []
+    assert result["interval_power"]["data_available"] is False
+    assert result["data_meta"] == {
+        "distribution_resolution": "unavailable",
+        "distribution_complete": False,
+        "distribution_coverage_pct": 0,
+    }
+
+
+def test_diagnose_pace_activity_average_fallback_uses_inverted_zones():
+    """Pace-only fallback must classify slower averages into easier zones."""
+    today = date(2026, 3, 23)
+    activities = _make_activities(
+        [date(2026, 3, 20), date(2026, 3, 22)], [10, 10],
+    )
+    activities["duration_sec"] = [3600, 3600]
+    activities["avg_pace_sec_km"] = [350.0, 285.0]
+    trend = {"current": 260.0, "direction": "flat", "slope_per_month": 0.0}
+
+    result = diagnose_training(
+        activities, pd.DataFrame(), trend,
+        lookback_weeks=4, current_date=today, base="pace",
+    )
+    dist = {d["name"]: d["actual_pct"] for d in result["distribution"]}
+
+    assert result["data_meta"]["distribution_resolution"] == "activity_averages"
+    assert dist["Recovery"] == 50
+    assert dist["Tempo"] == 50
+    assert dist["VO2max"] == 0
+
+
+def test_diagnose_honors_ultra_duration_and_volume_thresholds():
+    """Selected load-theory diagnosis settings must change actual findings."""
+    today = date(2026, 3, 23)
+    activities = _make_activities(
+        [date(2026, 3, 2), date(2026, 3, 9), date(2026, 3, 16), date(2026, 3, 20)],
+        [70, 70, 70, 70],
+    )
+    splits = _make_splits(["0", "1", "2", "3"], [270, 270, 270, 270], [3600] * 4)
+    trend = {"current": 250.0, "direction": "flat", "slope_per_month": 0.0}
+
+    result = diagnose_training(
+        activities, splits, trend,
+        lookback_weeks=4,
+        current_date=today,
+        diagnosis_params={
+            "work_split_min_sec": 120,
+            "work_split_max_sec": 3600,
+            "volume_strong_km": 80,
+            "volume_moderate_km": 60,
+        },
+    )
+
+    assert result["interval_power"]["max"] == 270.0
+    assert any(
+        item["message"] == "Weekly volume averaged 70.0 km, within the configured reference range."
+        for item in result["diagnosis"]
+    )
+
+def test_diagnose_volume_average_includes_empty_weeks():
+    """A rolling weekly average includes zero-activity weeks."""
+    today = date(2026, 3, 23)
+    activities = _make_activities([date(2026, 3, 20)], [40])
+    splits = _make_splits(["0"], [200], [3600])
+
+    result = diagnose_training(
+        activities,
+        splits,
+        {"current": 250.0, "direction": "flat"},
+        lookback_weeks=4,
+        current_date=today,
+    )
+
+    assert result["volume"]["weekly_avg_km"] == 10.0
+
+
+def test_diagnose_withholds_conclusions_for_partial_split_evidence():
+    """Missing activity intensity prevents whole-window conclusions."""
+    today = date(2026, 3, 23)
+    activities = _make_activities(
+        [date(2026, 3, 20), date(2026, 3, 22)], [10, 10],
+    )
+    splits = _make_splits(["0"], [190], [3600])
+
+    result = diagnose_training(
+        activities,
+        splits,
+        {"current": 250.0, "direction": "flat"},
+        lookback_weeks=4,
+        current_date=today,
+    )
+
+    interval = result["interval_power"]
+    assert interval["evidence_complete"] is False
+    assert interval["activities_with_intensity_data"] == 1
+    assert interval["activities_expected"] == 2
+    messages = [item["message"] for item in result["diagnosis"]]
+    assert any("conclusions are withheld" in message for message in messages)
+    assert not any("No intervals at or above CP" in message for message in messages)
+    assert result["data_meta"]["distribution_complete"] is False
+
+def test_distribution_requires_ninety_percent_coverage_per_activity():
+    """One long covered workout cannot mask a nearly uncovered short one."""
+    today = date(2026, 3, 23)
+    activities = _make_activities(
+        [date(2026, 3, 20), date(2026, 3, 22)], [20, 2],
+    )
+    activities["duration_sec"] = [9000.0, 1000.0]
+    splits = _make_splits(["0", "1"], [200.0, 200.0], [9000.0, 1.0])
+
+    result = diagnose_training(
+        activities,
+        splits,
+        {"current": 250.0, "direction": "flat"},
+        lookback_weeks=4,
+        current_date=today,
+    )
+
+    assert result["data_meta"]["distribution_coverage_pct"] == 90
+    assert result["data_meta"]["distribution_complete"] is False
+    assert result["interval_power"]["evidence_complete"] is False
+
+
+@pytest.mark.parametrize(
+    ("base", "column", "values", "threshold"),
+    [
+        ("hr", "avg_hr", [145.0, 155.0], 170.0),
+        ("pace", "avg_pace_sec_km", [330.0, 300.0], 280.0),
+    ],
+)
+def test_activity_average_distribution_never_counts_as_complete_evidence(
+    base, column, values, threshold,
+):
+    """Activity averages may render a coarse chart but cannot prove zone mix."""
+    today = date(2026, 3, 23)
+    activities = _make_activities(
+        [date(2026, 3, 20), date(2026, 3, 22)], [10, 10],
+    )
+    activities["duration_sec"] = [3600.0, 3600.0]
+    activities[column] = values
+
+    result = diagnose_training(
+        activities,
+        pd.DataFrame(),
+        {"current": threshold, "direction": "flat"},
+        lookback_weeks=4,
+        current_date=today,
+        base=base,
+        threshold_value=threshold,
+    )
+
+    assert result["data_meta"]["distribution_resolution"] == "activity_averages"
+    assert result["data_meta"]["distribution_complete"] is False
+    assert result["interval_power"]["evidence_complete"] is False
+    assert result["interval_power"]["activities_with_intensity_data"] == 2
+    assert result["interval_power"]["activities_expected"] == 2
+    assert any(
+        "activity averages do not preserve interval-level zone exposure"
+        in item["message"]
+        for item in result["diagnosis"]
+    )
+
+
+def test_compute_diagnosis_wires_selected_load_theory_settings():
+    """The API data layer must pass the active load theory into diagnosis."""
+    from types import SimpleNamespace
+
+    from api.deps import _compute_diagnosis
+
+    today = date(2026, 3, 23)
+    activities = _make_activities(
+        [
+            date(2026, 2, 16), date(2026, 2, 23), date(2026, 3, 2),
+            date(2026, 3, 9), date(2026, 3, 16), date(2026, 3, 20),
+        ],
+        [70] * 6,
+    )
+    splits = _make_splits(
+        ["0", "1", "2", "3", "4", "5"], [270] * 6, [3600] * 6,
+    )
+    config = SimpleNamespace(
+        training_base="power",
+        zones={"power": [0.55, 0.75, 0.90, 1.05]},
+    )
+    thresholds = SimpleNamespace(
+        cp_watts=250.0,
+        lthr_bpm=None,
+        threshold_pace_sec_km=None,
+    )
+    load_theory = SimpleNamespace(diagnosis={
+        "work_split_min_sec": 120,
+        "work_split_max_sec": 3600,
+        "volume_strong_km": 80,
+        "volume_moderate_km": 60,
+    })
+
+    result = _compute_diagnosis(
+        activities,
+        splits,
+        {"current": 250.0, "direction": "flat", "slope_per_month": 0.0},
+        config,
+        thresholds,
+        {"load": load_theory},
+        current_date=today,
+    )
+
+    assert result["interval_power"]["max"] == 270.0
+    assert any(
+        item["message"] == "Weekly volume averaged 70.0 km, within the configured reference range."
+        for item in result["diagnosis"]
+    )

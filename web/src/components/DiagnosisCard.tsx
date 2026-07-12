@@ -20,13 +20,14 @@ function FindingIcon({ type }: { type: DiagnosisFinding['type'] }) {
 }
 
 export default function DiagnosisCard({ diagnosis, display }: Props) {
-  const { volume, interval_power, distribution, diagnosis: findings, suggestions } = diagnosis;
+  const { volume, interval_power, distribution, data_meta, diagnosis: findings, suggestions } = diagnosis;
   const { i18n } = useLingui();
 
   const intensityLabel = tDisplay(display?.intensity_metric ?? 'Power', i18n);
   const unit = display?.threshold_unit ?? 'W';
   const distArr = Array.isArray(distribution) ? distribution : [];
   const topZoneName = tDisplay(distArr.length > 0 ? distArr[distArr.length - 1].name : 'VO2max', i18n);
+  const distributionAvailable = data_meta.distribution_resolution !== 'unavailable';
 
   return (
     <Card>
@@ -67,7 +68,13 @@ export default function DiagnosisCard({ diagnosis, display }: Props) {
 
       {/* Distribution bar */}
       <div className="mb-6">
-        <DistributionBar distribution={distArr} />
+        {distributionAvailable ? (
+          <DistributionBar distribution={distArr} />
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            <Trans>Intensity distribution is unavailable until valid workout intensity data is synced.</Trans>
+          </p>
+        )}
       </div>
 
       {/* Findings */}

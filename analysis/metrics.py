@@ -62,14 +62,14 @@ class RecoveryResult(TypedDict):
     status: Literal["fresh", "normal", "fatigued", "insufficient_data"]
     hrv: HrvAnalysisResult | None
     sleep_score: float | None
-    # Readiness is a separate platform-emitted score (Oura, Garmin
-    # Body Battery, etc.). Conceptually distinct from sleep_score —
-    # the dashboard renders both side-by-side when the source provides
-    # them — but treated identically by this analyzer (informational,
-    # never combined into a weighted composite).
+    # Readiness is a separate platform-emitted score. It remains
+    # informational and is never combined with HRV into a composite.
     readiness_score: float | None
     resting_hr: float | None
     rhr_trend: Literal["stable", "elevated", "low"] | None
+    classification_reason: Literal[
+        "missing_hrv", "insufficient_history", "zero_variance", "stale_hrv"
+    ] | None
 
 
 def analyze_recovery(
@@ -82,146 +82,128 @@ def analyze_recovery(
     rhr_series: list[float] | None = None,
     rolling_days: int = 7,
     baseline_days: int = 30,
+    cv_threshold: float = 10.0,
 ) -> RecoveryResult:
-    """Analyze recovery status using research-backed HRV methodology.
+    """Analyze recovery with a documented Praxys adaptation of HRV research.
 
-    Combines two established protocols:
+    Plews et al. (2012) supports monitoring ln(RMSSD) rolling means and
+    variability, while Kiviniemi et al. (2007) supports individualized
+    HRV-guided training adjustment. The exact status bands below are Praxys
+    operational guardrails, not thresholds validated by either paper.
 
-    1. **Kiviniemi et al (2007):** Binary threshold — compare today's HRV
-       to personal reference value (baseline_mean − 1 SD). Below → fatigued.
-       Original protocol used HF power; we use RMSSD as a validated proxy
-       (highly correlated, both reflect parasympathetic activity).
-       Ref: Eur J Appl Physiol, doi:10.1007/s00421-007-0552-2
+    References:
+    - Plews et al. 2012, Eur J Appl Physiol, DOI: 10.1007/s00421-012-2354-4
+    - Kiviniemi et al. 2007, Eur J Appl Physiol, DOI: 10.1007/s00421-007-0552-2
 
-    2. **Plews et al (2012):** Monitor ln(RMSSD) via 7-day rolling mean
-       and coefficient of variation (CV). Declining rolling mean signals
-       maladaptation. SWC (Smallest Worthwhile Change) = ±0.5 × baseline SD.
-       Ref: Eur J Appl Physiol, doi:10.1007/s00421-012-2354-4
-
-    **Status classification (combining both protocols):**
-      - "fatigued": today < baseline_mean − 1 SD (Kiviniemi threshold)
-      - "fresh": today > baseline_mean + 0.5 SD (Plews SWC upper bound)
-      - "normal": between the two thresholds
-      - "insufficient_data": <5 valid HRV readings
-
-    Sleep and RHR are included as informational signals — they are NOT
-    combined into a weighted composite score, as no controlled study
+    Sleep, readiness, and RHR remain informational signals. They are not
+    combined with HRV into a weighted score because no controlled study
     validates a specific weighting formula.
 
     Args:
-        hrv_series: Recent RMSSD values in ms (oldest first), at least
-            baseline_days of history for reliable analysis.
-        today_hrv_ms: Today's RMSSD in ms (if not included in series).
+        hrv_series: Historical RMSSD observations in ms, oldest first. The
+            current observation must not be included.
+        today_hrv_ms: Current RMSSD observation in ms.
         today_sleep: Sleep quality score (0-100), informational.
-        today_rhr: Resting heart rate in bpm, informational.
-        rhr_series: Recent RHR values (oldest first), for trend analysis.
-        rolling_days: Window for rolling statistics (default 7, per Plews).
-        baseline_days: Window for personal baseline (default 30).
+        today_rhr: Current resting heart rate in bpm, informational.
+        today_readiness: Platform readiness score, informational.
+        rhr_series: Historical RHR observations, oldest first. The current
+            observation must not be included.
+        rolling_days: Number of valid HRV observations in the rolling window.
+        baseline_days: Maximum valid observations in the personal baseline.
+        cv_threshold: Product caution threshold for rolling CV.
     """
-    insufficient: RecoveryResult = {
-        "status": "insufficient_data",
-        "hrv": None,
-        "sleep_score": None,
-        "readiness_score": None,
-        "resting_hr": None,
-        "rhr_trend": None,
-    }
+    if rolling_days < 2:
+        raise ValueError("rolling_days must be at least 2")
+    if baseline_days < 2:
+        raise ValueError("baseline_days must be at least 2")
+    if cv_threshold <= 0:
+        raise ValueError("cv_threshold must be positive")
 
-    # --- HRV analysis (Plews + Kiviniemi) ---
-    # Separate today's value from the historical baseline pool
-    history = [v for v in hrv_series if v > 0]
+    def insufficient_result(
+        reason: Literal["missing_hrv", "insufficient_history"],
+    ) -> RecoveryResult:
+        return {
+            "status": "insufficient_data",
+            "hrv": None,
+            "sleep_score": today_sleep,
+            "readiness_score": today_readiness,
+            "resting_hr": today_rhr,
+            "rhr_trend": None,
+            "classification_reason": reason,
+        }
 
-    # Validate today's value (sensor can return 0 or negatives)
+    history = [float(v) for v in hrv_series if v is not None and v > 0]
     today_valid = today_hrv_ms if (today_hrv_ms is not None and today_hrv_ms > 0) else None
+    minimum_history = max(5, rolling_days)
+    if today_valid is None:
+        return insufficient_result("missing_hrv")
+    if len(history) < minimum_history:
+        return insufficient_result("insufficient_history")
 
-    if len(history) < 5 and today_valid is None:
-        return insufficient
-
-    # Step 1: ln-transform (Plews protocol — all analysis uses ln RMSSD)
     ln_history = [math.log(v) for v in history]
-    if len(ln_history) < 5:
-        return insufficient
+    today_ln = math.log(today_valid)
 
-    # Determine today's ln value
-    if today_valid is not None:
-        today_ln = math.log(today_valid)
-    else:
-        # No valid today value — can't classify status
-        return insufficient
-
-    # Step 2: Baseline statistics from history (excluding today)
-    # Kiviniemi used a short rolling baseline; we use baseline_days for
-    # stability with consumer-grade devices (Oura Ring vs lab equipment)
     baseline_pool = ln_history[-baseline_days:]
     baseline_n = len(baseline_pool)
     baseline_mean = sum(baseline_pool) / baseline_n
-    # Sample SD (N-1) for small samples, population SD (N) for large
-    sd_divisor = max(1, baseline_n - 1) if baseline_n < 20 else baseline_n
-    baseline_sd = (sum((x - baseline_mean) ** 2 for x in baseline_pool) / sd_divisor) ** 0.5
+    baseline_sd = (
+        sum((x - baseline_mean) ** 2 for x in baseline_pool) / (baseline_n - 1)
+    ) ** 0.5
 
-    if baseline_sd == 0:
-        # All values identical — can't compute meaningful thresholds
-        baseline_sd = 0.01  # prevent division by zero
-
-    # Step 3: 7-day rolling mean and CV (Plews protocol)
-    # Include today in the rolling window (it's a current snapshot)
     recent = (ln_history + [today_ln])[-rolling_days:]
     rolling_mean = sum(recent) / len(recent)
-    rolling_sd = (sum((x - rolling_mean) ** 2 for x in recent) / len(recent)) ** 0.5
+    rolling_sd = (
+        sum((x - rolling_mean) ** 2 for x in recent) / max(1, len(recent) - 1)
+    ) ** 0.5
     rolling_cv = (rolling_sd / abs(rolling_mean) * 100) if rolling_mean != 0 else 0
 
-    # Step 4: Trend — slope of 7-day rolling mean (Plews)
     trend: Literal["stable", "improving", "declining"] = "stable"
     all_ln = ln_history + [today_ln]
-    if len(all_ln) >= rolling_days + 7:
+    if baseline_sd > 0 and len(all_ln) >= rolling_days + 7:
         rolling_means = []
         for i in range(min(14, len(all_ln) - rolling_days + 1)):
             end = len(all_ln) - i
             start = end - rolling_days
             window = all_ln[start:end]
             rolling_means.append(sum(window) / len(window))
-        rolling_means.reverse()  # oldest first
+        rolling_means.reverse()
         if len(rolling_means) >= 3:
             n = len(rolling_means)
             x_mean = (n - 1) / 2
             y_mean = sum(rolling_means) / n
-            num = sum((i - x_mean) * (y - y_mean) for i, y in enumerate(rolling_means))
-            den = sum((i - x_mean) ** 2 for i in range(n))
-            slope = num / den if den > 0 else 0
-            # Plews SWC = 0.5 SD; slope threshold = 0.5 SD spread over
-            # ~14 days ≈ 0.036 SD/day. We use a conservative practical
-            # threshold (not directly from Plews, who used visual trend
-            # inspection rather than a numeric cutoff).
-            swc_per_day = 0.5 * baseline_sd / 14
-            if slope > swc_per_day:
+            numerator = sum(
+                (i - x_mean) * (value - y_mean)
+                for i, value in enumerate(rolling_means)
+            )
+            denominator = sum((i - x_mean) ** 2 for i in range(n))
+            slope = numerator / denominator if denominator > 0 else 0
+            # ESTIMATE -- Plews supports rolling-trend monitoring but not this
+            # numeric slope cutoff. Praxys uses half an SD over 14 observations
+            # as a conservative operational change band.
+            swc_per_observation = 0.5 * baseline_sd / 14
+            if slope > swc_per_observation:
                 trend = "improving"
-            elif slope < -swc_per_day:
+            elif slope < -swc_per_observation:
                 trend = "declining"
 
-    # Step 5: Classify status
-    # Fatigued threshold: Kiviniemi — baseline_mean − 1 SD
     threshold_ln = baseline_mean - baseline_sd
-    # Fresh threshold: Plews SWC — baseline_mean + 0.5 SD
-    # (meaningfully above baseline per Plews' smallest worthwhile change)
     swc_upper_ln = baseline_mean + 0.5 * baseline_sd
-
-    status: Literal["fresh", "normal", "fatigued", "insufficient_data"]
-    if today_ln < threshold_ln:
+    status: Literal["fresh", "normal", "fatigued", "insufficient_data"] = "normal"
+    classification_reason: Literal["zero_variance"] | None = None
+    if baseline_sd <= 1e-12:
+        # Identical history does not provide a defensible dispersion estimate.
+        # Preserve the observation for display, but suppress HRV classification.
+        status = "insufficient_data"
+        classification_reason = "zero_variance"
+    elif today_ln < threshold_ln:
         status = "fatigued"
     elif today_ln > swc_upper_ln:
         status = "fresh"
-    else:
-        status = "normal"
 
-    # Override: high CV signals autonomic disturbance. This is a practical
-    # guideline used by HRV monitoring tools — Plews tracked CV trends
-    # rather than absolute thresholds, but consistently low or high CV
-    # outside ~3-10% range warrants caution.
-    if rolling_cv > 10 and status == "fresh":
+    # ESTIMATE -- Plews tracked CV trends rather than validating one universal
+    # cutoff. The active recovery theory supplies this product caution band.
+    if rolling_cv > cv_threshold and status == "fresh":
         status = "normal"
-
-    # Override: declining trend is a warning (Plews — declining 7-day
-    # rolling mean signals maladaptation progression)
     if trend == "declining" and status == "fresh":
         status = "normal"
 
@@ -244,14 +226,19 @@ def analyze_recovery(
         "readiness_score": today_readiness,
         "resting_hr": today_rhr,
         "rhr_trend": None,
+        "classification_reason": classification_reason,
     }
 
-    # --- RHR trend (informational) ---
-    if rhr_series and len(rhr_series) >= 5 and today_rhr is not None:
-        rhr_recent = rhr_series[-baseline_days:]
+    valid_rhr_history = [
+        float(v) for v in (rhr_series or []) if v is not None and v > 0
+    ]
+    if len(valid_rhr_history) >= 5 and today_rhr is not None and today_rhr > 0:
+        rhr_recent = valid_rhr_history[-baseline_days:]
         rhr_mean = sum(rhr_recent) / len(rhr_recent)
-        rhr_n = len(rhr_recent)
-        rhr_sd = (sum((x - rhr_mean) ** 2 for x in rhr_recent) / max(1, rhr_n - 1)) ** 0.5
+        rhr_sd = (
+            sum((x - rhr_mean) ** 2 for x in rhr_recent)
+            / max(1, len(rhr_recent) - 1)
+        ) ** 0.5
         if rhr_sd > 0:
             if today_rhr > rhr_mean + rhr_sd:
                 result["rhr_trend"] = "elevated"
@@ -261,7 +248,6 @@ def analyze_recovery(
                 result["rhr_trend"] = "stable"
 
     return result
-
 
 def compute_ewma_load(daily_rss: pd.Series, time_constant: int) -> pd.Series:
     """Compute EWMA of daily load using the standard PMC time constant.
@@ -281,6 +267,22 @@ def compute_ewma_load(daily_rss: pd.Series, time_constant: int) -> pd.Series:
 def compute_tsb(ctl: pd.Series, atl: pd.Series) -> pd.Series:
     """Training Stress Balance = CTL - ATL."""
     return ctl - atl
+
+
+def has_sufficient_load_history(
+    data_days: int,
+    ctl_time_constant_days: int,
+) -> bool:
+    """Return whether modeled load balance has enough history for display.
+
+    Banister-style impulse-response models motivate the CTL time constant, but
+    they do not validate a universal minimum-history cutoff for product display.
+    """
+    if data_days < 0 or ctl_time_constant_days <= 0:
+        return False
+    # ESTIMATE -- one active CTL time constant is a Praxys stability guardrail,
+    # not a physiologically validated sufficiency threshold.
+    return data_days >= ctl_time_constant_days
 
 
 def project_tsb(
@@ -428,60 +430,108 @@ def predict_marathon_time(
     return predicted_pace * marathon_distance_km
 
 
+# ``recovery`` is an active low-power workout in the Stryd taxonomy.
+REST_WORKOUT_TYPES = frozenset({"rest", "off"})
+
+# ESTIMATE -- conservative source-label taxonomy for sessions that should be
+# protected when recovery is impaired. This is not an intensity model;
+# exact interval intensity still comes from activity splits elsewhere.
+HARD_WORKOUT_TYPES = frozenset({
+    "fartlek",
+    "hill_repeat",
+    "hill_repeats",
+    "interval",
+    "intervals",
+    "long",
+    "long_run",
+    "race",
+    "repetition",
+    "repetitions",
+    "speed",
+    "tempo",
+    "threshold",
+    "time_trial",
+    "vo2_max",
+    "vo2max",
+})
+
+
+def _normalize_workout_type(workout_type: object) -> str:
+    """Normalize common source separators without changing label meaning."""
+    return "_".join(str(workout_type or "").strip().lower().replace("-", " ").split())
+
+
+def is_rest_workout(workout_type: object) -> bool:
+    """Return whether a planned workout is a passive rest/off day."""
+    return _normalize_workout_type(workout_type) in REST_WORKOUT_TYPES
+
+
+def is_hard_workout(workout_type: object) -> bool:
+    """Return whether a planned workout uses a known demanding-session label."""
+    return _normalize_workout_type(workout_type) in HARD_WORKOUT_TYPES
+
+
 def daily_training_signal(
     recovery_analysis: RecoveryResult,
-    tsb: float,
+    tsb: float | None,
     planned_workout: str,
     *,
     planned_detail: dict | None = None,
     signal_thresholds: dict | None = None,
+    recovery_thresholds: dict | None = None,
     hrv_only: bool = False,
 ) -> dict:
-    """Generate today's training recommendation from recovery analysis + plan.
+    """Generate today's deterministic recommendation from recovery and plan.
 
-    Uses categorical HRV status from analyze_recovery() (Plews/Kiviniemi
-    protocols) rather than an invented numeric score.
+    Stable reason and alternative codes let each client localize the guidance
+    without changing its decision or scientific meaning.
 
     Args:
         recovery_analysis: Output of analyze_recovery().
-        tsb: Training Stress Balance.
-        planned_workout: Workout type string (e.g. "steady aerobic").
-        planned_detail: Full plan row dict with duration, distance, power targets.
-        signal_thresholds: Overrides from science theory (tsb_high_fatigue, etc).
-        hrv_only: If True (HRV-Primary mode), only HRV status drives the
-            recommendation — sleep and RHR do not modify the decision.
+        tsb: Training Stress Balance from the selected load model, or ``None``
+            until the model has enough history for display and decisions.
+        planned_workout: Workout type string (for example, `tempo`).
+        planned_detail: Full plan row with duration, distance, and targets.
+        signal_thresholds: Selected load-theory signal parameters.
+        recovery_thresholds: Selected recovery-theory parameters.
+        hrv_only: If true, sleep and RHR never modify the HRV decision.
     """
     st = signal_thresholds or {}
+    # ESTIMATE -- Banister PMC motivates the TSB construct, but no controlled
+    # study defines a universal daily cutoff. The selected load theory owns this
+    # operational threshold. https://doi.org/10.1152/jappl.1990.69.3.1171
     fatigue_thresh = st.get("tsb_high_fatigue", -20)
+    cv_threshold = (recovery_thresholds or {}).get("cv_threshold", 10)
 
-    # Classify workout difficulty
-    hard_types = {"threshold", "tempo", "interval", "race", "long"}
-    is_hard = planned_workout.lower() in hard_types if planned_workout else False
+    workout_type = _normalize_workout_type(planned_workout)
+    is_unscheduled = not workout_type
+    is_rest_day = is_rest_workout(workout_type)
+    is_hard = is_hard_workout(workout_type)
 
     status = recovery_analysis.get("status", "normal")
     hrv_info = recovery_analysis.get("hrv") or {}
     hrv_trend = hrv_info.get("trend", "stable")
     hrv_cv = hrv_info.get("rolling_cv", 0)
     sleep_score = recovery_analysis.get("sleep_score")
+    readiness_score = recovery_analysis.get("readiness_score")
     today_hrv = hrv_info.get("today_ms")
     rhr_trend = recovery_analysis.get("rhr_trend")
 
-    # Build recovery context for frontend display
-    recovery = {"tsb": round(tsb, 1)}
+    recovery = {"tsb": round(tsb, 1) if tsb is not None else None}
     if today_hrv is not None:
         recovery["hrv_ms"] = today_hrv
     if hrv_trend != "stable":
         if hrv_info.get("baseline_mean_ln") and hrv_info.get("today_ln"):
-            # ln difference approximates fractional change (accurate for
-            # small deviations; understates large ones)
+            # ln difference approximates fractional change for small deviations.
             hrv_pct = (hrv_info["today_ln"] - hrv_info["baseline_mean_ln"]) * 100
             recovery["hrv_trend_pct"] = round(hrv_pct, 1)
     if sleep_score is not None:
         recovery["sleep_score"] = sleep_score
+    if readiness_score is not None:
+        recovery["readiness"] = readiness_score
 
-    # Build plan context
     plan = {}
-    if planned_workout:
+    if workout_type:
         plan["workout_type"] = planned_workout
     if planned_detail:
         if planned_detail.get("planned_duration_min"):
@@ -495,86 +545,210 @@ def daily_training_signal(
         if planned_detail.get("workout_description"):
             plan["description"] = planned_detail["workout_description"]
 
-    # Decision logic
-    if status == "insufficient_data":
-        rec = "follow_plan"
-        reason = "Recovery requires HRV data. Connect an HRV-capable device to receive recovery suggestions."
+    if is_unscheduled:
+        rec = "unscheduled"
+        if status == "fatigued":
+            reason_code = "unscheduled_hrv_caution"
+            reason_args = {}
+            reason = (
+                "No workout is scheduled, and HRV is below your personal "
+                "caution band. Keep the day restorative rather than adding a hard session."
+            )
+            alternatives = ["Rest, walk, or do gentle mobility"]
+            alternative_codes = [{"code": "restorative_movement", "args": {}}]
+        elif status == "normal" and tsb is not None and tsb < fatigue_thresh:
+            reason_code = "unscheduled_high_load"
+            reason_args = {"tsb": round(tsb)}
+            reason = (
+                f"No workout is scheduled, and modeled load balance is low (TSB {tsb:.0f}). "
+                "Avoid adding intensity today."
+            )
+            alternatives = ["Keep any optional movement easy and short"]
+            alternative_codes = [{"code": "optional_easy_short", "args": {}}]
+        else:
+            reason_code = "unscheduled_open"
+            reason_args = {}
+            reason = "No workout is scheduled. Add a session only if it fits your broader plan."
+            alternatives = []
+            alternative_codes = []
+
+    elif is_rest_day:
+        rec = "rest"
+        reason_code = "rest_scheduled"
+        reason_args = {}
+        reason = "Rest day scheduled. Follow the plan and prioritize recovery."
         alternatives = []
+        alternative_codes = []
+
+    elif status == "insufficient_data":
+        rec = "follow_plan"
+        reason_args = {}
+        classification_reason = recovery_analysis.get("classification_reason")
+        if recovery_analysis.get("hrv_is_stale"):
+            reason_code = "hrv_stale"
+            reason = (
+                "The latest HRV reading is out of date. Follow the plan without "
+                "an HRV-based recovery adjustment."
+            )
+        elif classification_reason == "zero_variance":
+            reason_code = "hrv_zero_variance"
+            reason = (
+                "Recent HRV observations have no measurable variation, so Praxys "
+                "cannot form a reliable recovery band yet. Follow the plan without "
+                "an HRV-based adjustment."
+            )
+        elif classification_reason == "insufficient_history":
+            reason_code = "hrv_history_insufficient"
+            reason = (
+                "More historical HRV observations are needed before Praxys can form "
+                "a personal recovery band. Follow the plan without an HRV-based adjustment."
+            )
+        else:
+            reason_code = "hrv_unavailable"
+            reason = (
+                "Recovery requires current HRV data. Connect or sync an HRV-capable "
+                "device to receive recovery suggestions."
+            )
+        alternatives = []
+        alternative_codes = []
 
     elif status == "fatigued":
+        reason_args = {}
         if is_hard:
             rec = "rest"
-            reason = "HRV is below your personal threshold (Kiviniemi). Autonomic recovery incomplete."
+            reason_code = "hrv_below_hard"
+            reason = (
+                "HRV is below your personal caution band. Treat this as a recovery "
+                "signal, not a diagnosis."
+            )
             alternatives = [
                 "Make today a full recovery day and reassess the hard session tomorrow",
-                "If you must move, walk 30 min only",
             ]
+            alternative_codes = [{"code": "full_recovery_reassess", "args": {}}]
         else:
             rec = "easy"
-            reason = "HRV below threshold. Keep today easy to support recovery."
+            reason_code = "hrv_below_easy"
+            reason = "HRV is below your personal caution band. Keep today easy to support recovery."
             alternatives = []
+            alternative_codes = []
 
-    elif status == "normal" and is_hard and tsb < fatigue_thresh:
+    elif (
+        status == "normal"
+        and is_hard
+        and tsb is not None
+        and tsb < fatigue_thresh
+    ):
         rec = "modify"
-        reason = f"HRV is normal but training load is high (TSB {tsb:.0f}). Modify the hard session."
+        reason_code = "high_load_hard"
+        reason_args = {"tsb": round(tsb), "workout": planned_workout}
+        reason = (
+            f"HRV is within your personal reference band, but modeled load balance is low (TSB {tsb:.0f}). "
+            "Modify the hard session."
+        )
         alternatives = [
             "Drop to easy run (keep power in recovery zone)",
             f"Push {planned_workout} to tomorrow if tomorrow is rest/easy",
             "Run as planned but cap at low end of power range",
         ]
+        alternative_codes = [
+            {"code": "drop_to_easy", "args": {}},
+            {"code": "push_to_tomorrow_if_easy", "args": {"workout": planned_workout}},
+            {"code": "cap_low_power", "args": {}},
+        ]
 
     elif hrv_trend == "declining":
-        # Plews: declining 7-day rolling mean signals maladaptation
         if is_hard:
             rec = "reduce_intensity"
-            reason = "HRV rolling mean is declining (Plews). Reduce intensity to prevent overreaching."
+            reason_code = "hrv_declining_hard"
+            reason_args = {"workout": planned_workout}
+            reason = (
+                "HRV rolling mean is declining. Reduce intensity as a conservative "
+                "coaching adjustment."
+            )
             alternatives = [f"Swap {planned_workout} for easy run"]
+            alternative_codes = [{"code": "swap_for_easy", "args": {"workout": planned_workout}}]
         else:
             rec = "easy"
-            reason = "HRV trend declining. Stay easy today."
+            reason_code = "hrv_declining_easy"
+            reason_args = {}
+            reason = "HRV rolling mean is lower than its prior window. Stay easy today."
             alternatives = []
+            alternative_codes = []
 
-    elif hrv_cv > 10 and is_hard:
+    # ESTIMATE -- Plews supports tracking ln(RMSSD) CV, but the selected
+    # threshold is a product caution band, not a validated universal cutoff.
+    elif hrv_cv > cv_threshold and is_hard:
         rec = "modify"
-        reason = f"HRV variability is high (CV {hrv_cv:.0f}%). Autonomic system unsettled."
+        reason_code = "hrv_variability_high"
+        reason_args = {"cv": round(hrv_cv), "workout": planned_workout}
+        reason = (
+            f"HRV variability is high (CV {hrv_cv:.0f}%), above the selected "
+            "coaching caution threshold."
+        )
         alternatives = [
             "Drop intensity by one zone",
             f"Push {planned_workout} to tomorrow",
         ]
+        alternative_codes = [
+            {"code": "drop_one_zone", "args": {}},
+            {"code": "push_to_tomorrow", "args": {"workout": planned_workout}},
+        ]
 
-    # Supplementary signals — only when HRV model allows contextual modifiers
+    # ESTIMATE -- 55 is a conservative platform-score heuristic. Sleep remains
+    # secondary because no validated weighting with HRV exists.
     elif not hrv_only and sleep_score is not None and sleep_score < 55 and is_hard:
         rec = "modify"
-        reason = f"Sleep quality poor ({sleep_score:.0f}). Consider reducing today's intensity."
+        reason_code = "sleep_low_hard"
+        reason_args = {"sleep": round(sleep_score)}
+        reason = f"Sleep score is low ({sleep_score:.0f}). Consider reducing today's intensity."
         alternatives = [
-            "Run as planned but listen to body closely",
-            "Shorten the session if fatigue sets in",
+            "Run as planned but monitor how you feel",
+            "Shorten the session if fatigue develops",
+        ]
+        alternative_codes = [
+            {"code": "proceed_monitor_body", "args": {}},
+            {"code": "shorten_if_fatigued", "args": {}},
         ]
 
     elif not hrv_only and rhr_trend == "elevated" and is_hard:
         rec = "modify"
-        reason = "Resting heart rate elevated above your baseline. May indicate incomplete recovery."
+        reason_code = "resting_hr_elevated_hard"
+        reason_args = {}
+        reason = (
+            "Resting heart rate is elevated above your baseline. This can be a "
+            "caution signal, but it is not diagnostic."
+        )
         alternatives = [
             "Run easy instead",
-            "Proceed but monitor HR drift during session",
+            "Proceed but monitor heart-rate drift during the session",
+        ]
+        alternative_codes = [
+            {"code": "run_easy", "args": {}},
+            {"code": "monitor_hr_drift", "args": {}},
         ]
 
     else:
         rec = "follow_plan"
+        reason_args = {}
         if status == "fresh":
-            reason = "HRV above baseline — good recovery. Follow plan as written."
+            reason_code = "hrv_above_baseline"
+            reason = "HRV is above your personal reference band. Follow the plan as written."
         else:
-            reason = "Recovery signals normal. Follow plan as written."
+            reason_code = "recovery_normal"
+            reason = "Recovery signals are within their recent reference bands. Follow the plan as written."
         alternatives = []
+        alternative_codes = []
 
     return {
         "recommendation": rec,
         "reason": reason,
+        "reason_code": reason_code,
+        "reason_args": reason_args,
         "alternatives": alternatives,
+        "alternative_codes": alternative_codes,
         "recovery": recovery,
         "plan": plan,
     }
-
 
 # --- Race reality check ---
 
@@ -915,6 +1089,86 @@ def cp_milestone_check(
     }
 
 
+def compute_distribution_match_pct(
+    distribution: list[dict], evidence_complete: bool,
+) -> int | None:
+    """Return Bray-Curtis similarity between actual and target zone shares.
+
+    The score is descriptive: 100 means the observed and configured
+    distributions are identical, while 0 means they do not overlap. It is
+    unavailable when the intensity evidence is incomplete or any zone lacks a
+    target. Formula: Bray & Curtis (1957), DOI: 10.2307/1942268.
+    """
+    if not evidence_complete or not distribution:
+        return None
+
+    actual: list[float] = []
+    target: list[float] = []
+    for zone in distribution:
+        actual_value = zone.get("actual_pct")
+        target_value = zone.get("target_pct")
+        if (
+            not isinstance(actual_value, (int, float))
+            or not isinstance(target_value, (int, float))
+            or not math.isfinite(float(actual_value))
+            or not math.isfinite(float(target_value))
+            or actual_value < 0
+            or target_value < 0
+        ):
+            return None
+        actual.append(float(actual_value))
+        target.append(float(target_value))
+
+    denominator = sum(actual) + sum(target)
+    if denominator <= 0:
+        return None
+    similarity = 1.0 - sum(
+        abs(actual_value - target_value)
+        for actual_value, target_value in zip(actual, target)
+    ) / denominator
+    return round(max(0.0, min(1.0, similarity)) * 100)
+
+
+def compute_load_compliance_pct(
+    actual_load: list[float | None],
+    planned_load: list[float | None],
+    evidence_complete: bool = True,
+    eligible_weeks: list[bool] | None = None,
+) -> int | None:
+    """Return Praxys weekly actual-to-planned load compliance percentage.
+
+    Weeks without a positive planned load are excluded, and at least two
+    comparable completed weeks are required. Estimated or otherwise incomplete
+    evidence must pass ``evidence_complete=False`` or an ``eligible_weeks`` mask.
+    This is a Praxys-defined operational execution ratio, not a physiological
+    quality, safety, recovery, or readiness score.
+    """
+    if not evidence_complete:
+        return None
+
+    ratios: list[float] = []
+    for index, (actual, planned) in enumerate(zip(actual_load, planned_load)):
+        if (
+            eligible_weeks is not None
+            and (index >= len(eligible_weeks) or not eligible_weeks[index])
+        ):
+            continue
+        if (
+            not isinstance(actual, (int, float))
+            or not isinstance(planned, (int, float))
+            or not math.isfinite(float(actual))
+            or not math.isfinite(float(planned))
+            or actual < 0
+            or planned <= 0
+        ):
+            continue
+        ratios.append(float(actual) / float(planned) * 100)
+    # ESTIMATE -- two comparable weeks is a product data-sufficiency guardrail,
+    # not a validated physiological threshold.
+    if len(ratios) < 2:
+        return None
+    return round(sum(ratios) / len(ratios))
+
 # --- Training diagnosis ---
 
 
@@ -922,8 +1176,8 @@ def diagnose_training(
     merged_activities: pd.DataFrame,
     splits: pd.DataFrame,
     cp_trend: dict,
+    current_date: date,
     lookback_weeks: int = 6,
-    current_date: date | None = None,
     base: TrainingBase = "power",
     threshold_value: float | None = None,
     zone_boundaries: list[float] | None = None,
@@ -931,11 +1185,18 @@ def diagnose_training(
     target_distribution: list[float] | None = None,
     theory_name: str | None = None,
     samples: pd.DataFrame | None = None,
+    diagnosis_params: dict | None = None,
 ) -> dict:
     """Analyze recent training and diagnose issues holding back threshold progression.
 
-    Uses per-second stream samples when available for 1-second zone resolution;
-    falls back to split-level duration weighting for activities without samples.
+    Uses sufficiently complete per-second streams for 1-second zone resolution;
+    otherwise falls back to split-duration weighting. Power intensity never uses
+    activity averages. Training-intensity distribution is expressed as time in
+    zone, following Seiler (2006):
+    https://doi.org/10.1111/j.1600-0838.2004.00418.x
+
+    Work-split and volume cutoffs come from the selected load theory. They are
+    operational coaching heuristics, not validated outputs of the Banister model.
     Supports power, HR, and pace bases.
 
     Args:
@@ -943,7 +1204,7 @@ def diagnose_training(
         splits: per-split data (has activity_id, avg_power, avg_hr, duration_sec)
         cp_trend: dict from compute_cp_trend/compute_threshold_trend
         lookback_weeks: how many weeks to analyze
-        current_date: override for testing (defaults to today)
+        current_date: request-scoped date anchoring the analysis window
         base: training base ("power", "hr", or "pace")
         threshold_value: threshold for the active base (CP watts, LTHR bpm, or threshold pace sec/km)
         zone_boundaries: zone boundary fractions (N boundaries -> N+1 zones); defaults to Coggan 5-zone
@@ -952,21 +1213,52 @@ def diagnose_training(
         theory_name: name of the zone theory (e.g. "Seiler Polarized 3-Zone"); optional
         samples: per-second stream DataFrame with columns activity_id, power_watts,
             hr_bpm, pace_sec_km (from activity_samples table); optional
+        diagnosis_params: selected load theory's work-split duration and weekly
+            volume thresholds; optional
     """
-    today = current_date or date.today()
-    cutoff = today - timedelta(weeks=lookback_weeks)
+    today = current_date
+    cutoff = today - timedelta(days=lookback_weeks * 7 - 1)
+    params = diagnosis_params or {}
+    work_split_min_sec = int(params.get("work_split_min_sec", 120))
+    work_split_max_sec = int(params.get("work_split_max_sec", 1800))
+    volume_strong_km = float(params.get("volume_strong_km", 60))
+    volume_moderate_km = float(params.get("volume_moderate_km", 40))
 
-    # Use provided threshold, or fall back to CP from trend
+    # Use provided threshold, or fall back to CP from trend.
     current_cp = threshold_value or cp_trend.get("current") or 0
+    default_bounds = zone_boundaries or DEFAULT_ZONES.get(base, DEFAULT_ZONES["power"])
+    default_theory_name = theory_name or (
+        "Coggan 5-Zone" if len(default_bounds) == 4 else f"{len(default_bounds) + 1}-Zone"
+    )
 
     result = {
         "lookback_weeks": lookback_weeks,
-        "interval_power": {},
-        "volume": {},
-        "distribution": {},
-        "consistency": {},
+        "interval_power": {
+            "max": None,
+            "avg_work": None,
+            "supra_cp_sessions": None,
+            "total_quality_sessions": None,
+            "data_available": False,
+            "evidence_complete": False,
+            "activities_with_intensity_data": 0,
+            "activities_expected": 0,
+        },
+        "volume": {"weekly_avg_km": 0, "trend": "insufficient_data"},
+        "distribution": [],
+        "consistency": {
+            "weeks_with_gaps": 0,
+            "longest_gap_days": 0,
+            "total_sessions": 0,
+        },
         "diagnosis": [],
         "suggestions": [],
+        "zone_ranges": [],
+        "theory_name": default_theory_name,
+        "data_meta": {
+            "distribution_resolution": "unavailable",
+            "distribution_complete": False,
+            "distribution_coverage_pct": 0,
+        },
     }
 
     if current_cp <= 0:
@@ -980,30 +1272,34 @@ def diagnose_training(
 
     recent = merged_activities.copy()
     recent["_date"] = pd.to_datetime(recent["date"]).dt.date
-    recent = recent[recent["_date"] >= cutoff]
+    recent = recent[
+        (recent["_date"] >= cutoff) & (recent["_date"] <= today)
+    ]
 
     if recent.empty:
         result["diagnosis"].append({"type": "warning", "message": f"No activities in the last {lookback_weeks} weeks."})
         return result
 
     # --- Volume analysis ---
-    recent["_week"] = pd.to_datetime(recent["_date"]).apply(
-        lambda d: d.isocalendar()[1]
-    )
-    recent["_year"] = pd.to_datetime(recent["_date"]).apply(
-        lambda d: d.isocalendar()[0]
+    # Rolling seven-day buckets include zero-activity weeks. Omitting empty
+    # weeks would inflate the stated N-week average and hide consistency gaps.
+    recent["_week_bucket"] = recent["_date"].apply(
+        lambda activity_date: (today - activity_date).days // 7
     )
     if "distance_km" in recent.columns:
-        recent["_dist"] = pd.to_numeric(recent["distance_km"], errors="coerce").fillna(0)
+        recent["_dist"] = pd.to_numeric(
+            recent["distance_km"], errors="coerce",
+        ).fillna(0)
     else:
         recent["_dist"] = 0.0
 
-    weekly_vol = recent.groupby(["_year", "_week"]).agg(
+    weekly_vol = recent.groupby("_week_bucket").agg(
         km=("_dist", "sum"),
-        sessions=("_dist", "count"),
-    )
-    weekly_avg_km = round(float(weekly_vol["km"].mean()), 1) if not weekly_vol.empty else 0
-    weeks_data = weekly_vol["km"].values
+        sessions=("_dist", "size"),
+    ).reindex(range(lookback_weeks), fill_value=0)
+    weekly_avg_km = round(float(weekly_vol["km"].mean()), 1)
+    # Oldest bucket first so the trend comparison preserves chronology.
+    weeks_data = weekly_vol.sort_index(ascending=False)["km"].to_numpy()
 
     if len(weeks_data) >= 2:
         first_half = weeks_data[: len(weeks_data) // 2].mean()
@@ -1043,124 +1339,281 @@ def diagnose_training(
     else:
         metric_col = "avg_power"
 
-    if splits.empty or metric_col not in splits.columns:
-        # Fall back to avg_power if the base metric isn't in splits
-        if "avg_power" in splits.columns if not splits.empty else False:
-            metric_col = "avg_power"
+    sample_columns = {"power": "power_watts", "hr": "hr_bpm", "pace": "pace_sec_km"}
+    sample_col = sample_columns.get(base, "power_watts")
+    recent_ids = (
+        set(recent["activity_id"].astype(str).values)
+        if "activity_id" in recent.columns
+        else set()
+    )
+    expected_duration_by_aid: dict[str, float] = {}
+    if "activity_id" in recent.columns and "duration_sec" in recent.columns:
+        activity_durations = pd.to_numeric(
+            recent["duration_sec"], errors="coerce",
+        )
+        duration_frame = pd.DataFrame({
+            "_aid": recent["activity_id"].astype(str),
+            "_duration": activity_durations,
+        })
+        duration_frame = duration_frame[
+            duration_frame["_duration"].notna()
+            & (duration_frame["_duration"] > 0)
+        ]
+        expected_duration_by_aid.update(
+            duration_frame.groupby("_aid")["_duration"].max().to_dict()
+        )
+
+    has_sample_metric = False
+    if (
+        samples is not None
+        and not samples.empty
+        and sample_col in samples.columns
+        and "activity_id" in samples.columns
+        and "t_sec" in samples.columns
+        and recent_ids
+    ):
+        candidate_samples = samples[samples["activity_id"].astype(str).isin(recent_ids)].copy()
+        candidate_samples[sample_col] = pd.to_numeric(
+            candidate_samples[sample_col], errors="coerce",
+        )
+        has_sample_metric = bool(
+            (candidate_samples[sample_col].notna() & (candidate_samples[sample_col] > 0)).any()
+        )
+
+    if (splits.empty or metric_col not in splits.columns) and not has_sample_metric:
+        result["interval_power"] = {
+            "max": None,
+            "avg_work": None,
+            "supra_cp_sessions": None,
+            "total_quality_sessions": None,
+            "data_available": False,
+            "evidence_complete": False,
+            "activities_with_intensity_data": 0,
+            "activities_expected": 0,
+        }
+        bounds = zone_boundaries or DEFAULT_ZONES.get(base, DEFAULT_ZONES["power"])
+        n_zones = len(bounds) + 1
+        names = (
+            zone_names
+            if zone_names and len(zone_names) == n_zones
+            else _ZONE_DEFAULT_NAMES.get(base, [f"Zone {i + 1}" for i in range(n_zones)])
+        )
+        targets = (
+            [round(target * 100) for target in target_distribution]
+            if target_distribution and len(target_distribution) == n_zones
+            else [None] * n_zones
+        )
+
+        abs_bounds = [round(current_cp * factor) for factor in bounds]
+        zone_time = [0.0] * n_zones
+        total_time = 0.0
+        covered_activity_ids: set[str] = set()
+        # Activity-average power is intentionally never used for intensity
+        # analysis because warmup, recovery, and cooldown dilute intervals.
+        act_metric_col = (
+            metric_col
+            if base in {"hr", "pace"} and metric_col in recent.columns
+            else None
+        )
+        if act_metric_col and "duration_sec" in recent.columns:
+            for _, row in recent.iterrows():
+                value = pd.to_numeric(row.get(act_metric_col), errors="coerce")
+                duration = pd.to_numeric(row.get("duration_sec"), errors="coerce")
+                if (
+                    pd.isna(value) or value <= 0
+                    or pd.isna(duration) or duration <= 0
+                ):
+                    continue
+                total_time += duration
+                if "activity_id" in recent.columns:
+                    covered_activity_ids.add(str(row.get("activity_id")))
+                if base == "pace":
+                    ratio = current_cp / value if value > 0 else 0
+                    inverted_bounds = [1.0 / boundary for boundary in bounds]
+                    zone_idx = 0
+                    for j in range(len(inverted_bounds) - 1, -1, -1):
+                        if ratio >= inverted_bounds[j]:
+                            zone_idx = j + 1
+                            break
+                else:
+                    zone_idx = 0
+                    for j, boundary in enumerate(abs_bounds):
+                        if value >= boundary:
+                            zone_idx = j + 1
+                        else:
+                            break
+                zone_time[min(zone_idx, n_zones - 1)] += duration
+
+        result["distribution"] = [
+            {
+                "name": names[i],
+                "actual_pct": (
+                    round(zone_time[i] / total_time * 100) if total_time > 0 else 0
+                ),
+                "target_pct": targets[i],
+            }
+            for i in range(n_zones)
+        ]
+        result["zone_ranges"] = compute_zones(
+            base,
+            current_cp,
+            bounds,
+            names if zone_names else None,
+        )
+        result["theory_name"] = theory_name or (
+            "Coggan 5-Zone" if len(bounds) == 4 else f"{n_zones}-Zone"
+        )
+        if base == "power":
+            message = "Power-zone distribution unavailable without split-level power data."
+        elif total_time > 0:
+            message = (
+                "Zone distribution based on activity averages because split-level "
+                "data is unavailable."
+            )
         else:
-            result["interval_power"] = {"max": None, "avg_work": None, "supra_cp_sessions": 0, "total_quality_sessions": 0}
-            bounds = zone_boundaries or DEFAULT_ZONES.get(base, DEFAULT_ZONES["power"])
-            n_zones = len(bounds) + 1
-            names = zone_names if (zone_names and len(zone_names) == n_zones) else _ZONE_DEFAULT_NAMES.get(base, [f"Zone {i+1}" for i in range(n_zones)])
-            targets = [round(t * 100) for t in target_distribution] if target_distribution and len(target_distribution) == n_zones else [None] * n_zones
+            message = "Zone distribution unavailable because no valid intensity data exists."
+        expected_total = sum(expected_duration_by_aid.values())
+        coverage_pct = (
+            min(100, round(total_time / expected_total * 100))
+            if expected_total > 0 else 0
+        )
+        # Activity averages erase interval structure. They can support a coarse
+        # HR/pace display, but never complete distribution-match evidence.
+        distribution_complete = False
+        result["interval_power"].update({
+            "activities_with_intensity_data": len(covered_activity_ids),
+            "activities_expected": len(recent_ids),
+        })
+        result["data_meta"] = {
+            "distribution_resolution": "activity_averages" if total_time > 0 else "unavailable",
+            "distribution_complete": distribution_complete,
+            "distribution_coverage_pct": coverage_pct,
+        }
+        result["diagnosis"].append({"type": "neutral", "message": message})
+        _add_diagnosis_items(
+            result, current_cp, cp_trend.get("direction", "unknown"), base,
+            diagnosis_params=params,
+        )
+        return result
+    # Join splits with activity dates. Sample-only activities intentionally use
+    # an empty split frame so their per-second data can still drive distribution.
+    if splits.empty or metric_col not in splits.columns:
+        splits_copy = pd.DataFrame(columns=["activity_id", metric_col, "duration_sec"])
+    else:
+        splits_copy = splits.copy()
+        splits_copy[metric_col] = pd.to_numeric(splits_copy[metric_col], errors="coerce")
+        if "duration_sec" in splits_copy.columns:
+            splits_copy["duration_sec"] = pd.to_numeric(
+                splits_copy["duration_sec"], errors="coerce",
+            )
+        else:
+            splits_copy["duration_sec"] = np.nan
 
-            # Use activity-level avg metric for zone distribution (less accurate than splits but better than nothing)
-            abs_bounds = [round(current_cp * f) for f in bounds]
-            zone_time = [0.0] * n_zones
-            total_time = 0.0
-            act_metric_col = metric_col if metric_col in recent.columns else "avg_power"
-            if act_metric_col in recent.columns and "duration_sec" in recent.columns:
-                for _, row in recent.iterrows():
-                    val = pd.to_numeric(row.get(act_metric_col), errors="coerce")
-                    dur = pd.to_numeric(row.get("duration_sec"), errors="coerce")
-                    if pd.isna(val) or pd.isna(dur) or dur <= 0:
-                        continue
-                    total_time += dur
-                    # For pace, lower value = faster = harder zone
-                    # Iterate bounds from highest (slowest) to lowest (fastest)
-                    if base == "pace":
-                        zone_idx = n_zones - 1
-                        for j, b in enumerate(reversed(abs_bounds)):
-                            if val > b:
-                                zone_idx = j
-                                break
-                    else:
-                        zone_idx = 0
-                        for j, b in enumerate(abs_bounds):
-                            if val >= b:
-                                zone_idx = j + 1
-                            else:
-                                break
-                    zone_time[min(zone_idx, n_zones - 1)] += dur
-
-            if total_time > 0:
-                result["distribution"] = [
-                    {"name": names[i], "actual_pct": round(zone_time[i] / total_time * 100), "target_pct": targets[i]}
-                    for i in range(n_zones)
-                ]
-            else:
-                result["distribution"] = [
-                    {"name": names[i], "actual_pct": 0, "target_pct": targets[i]}
-                    for i in range(n_zones)
-                ]
-
-            result["zone_ranges"] = compute_zones(base, current_cp, bounds, names if zone_names else None)
-            result["theory_name"] = theory_name or ("Coggan 5-Zone" if len(bounds) == 4 else f"{n_zones}-Zone")
-            result["diagnosis"].append({"type": "neutral", "message": "Zone distribution based on activity averages (no split data). Connect Garmin for more accurate per-interval analysis."})
-            _add_diagnosis_items(result, current_cp, base)
-            return result
-
-    # Join splits with activity dates
-    splits_copy = splits.copy()
-    splits_copy[metric_col] = pd.to_numeric(splits_copy[metric_col], errors="coerce")
-    splits_copy["duration_sec"] = pd.to_numeric(splits_copy["duration_sec"], errors="coerce")
-
-    recent_ids: set[str] = set()
-    if "activity_id" in splits_copy.columns and "activity_id" in recent.columns:
-        recent_ids = set(recent["activity_id"].astype(str).values)
+    if "activity_id" in splits_copy.columns and recent_ids:
         splits_copy["_aid"] = splits_copy["activity_id"].astype(str)
         recent_splits = splits_copy[splits_copy["_aid"].isin(recent_ids)]
     else:
-        recent_splits = splits_copy
+        recent_splits = splits_copy.iloc[0:0].copy()
 
-    # Identify "work" splits: duration 120-1800s, intensity > 80% of threshold
-    # For pace, lower value = harder, so comparison is inverted
+    positive_duration_splits = recent_splits[
+        recent_splits["duration_sec"].notna()
+        & (recent_splits["duration_sec"] > 0)
+    ]
+    if "_aid" in positive_duration_splits.columns:
+        split_duration_by_aid = (
+            positive_duration_splits.groupby("_aid")["duration_sec"].sum().to_dict()
+        )
+        for aid, duration in split_duration_by_aid.items():
+            expected_duration_by_aid.setdefault(aid, float(duration))
+
+    # ESTIMATE -- 90% per-activity duration coverage is a conservative Praxys
+    # data-quality gate, not an exercise-science threshold.
+    duration_coverage_ratio = 0.90
+    valid_interval_splits = recent_splits[
+        recent_splits[metric_col].notna()
+        & (recent_splits[metric_col] > 0)
+        & recent_splits["duration_sec"].notna()
+        & (recent_splits["duration_sec"] > 0)
+    ].copy()
+    valid_split_aids = (
+        set(valid_interval_splits["_aid"].unique())
+        if "_aid" in valid_interval_splits.columns else set()
+    )
+    valid_split_duration_by_aid = (
+        valid_interval_splits.groupby("_aid")["duration_sec"].sum().to_dict()
+        if "_aid" in valid_interval_splits.columns else {}
+    )
+    interval_data_available = bool(valid_split_aids)
+    interval_evidence_complete = bool(
+        recent_ids
+        and all(
+            expected_duration_by_aid.get(aid, 0) > 0
+            and float(valid_split_duration_by_aid.get(aid, 0))
+            >= expected_duration_by_aid[aid] * duration_coverage_ratio
+            for aid in recent_ids
+        )
+    )
+
+    # Identify work splits using the selected load theory's operational window.
+    # ESTIMATE -- 80% of power/HR threshold and 114% of threshold pace are
+    # conservative product filters for excluding warmup and recovery splits;
+    # they are not validated universal definitions of interval work.
+    # For pace, lower value = harder, so comparison is inverted.
     if base == "pace" and current_cp > 0:
-        work_threshold = current_cp * 1.14  # pace slower than 114% of threshold is easy
-        work_splits = recent_splits[
-            (recent_splits["duration_sec"] >= 120)
-            & (recent_splits["duration_sec"] <= 1800)
-            & (recent_splits[metric_col] < work_threshold)
-            & (recent_splits[metric_col] > 0)
+        work_threshold = current_cp * 1.14
+        work_splits = valid_interval_splits[
+            (valid_interval_splits["duration_sec"] >= work_split_min_sec)
+            & (valid_interval_splits["duration_sec"] <= work_split_max_sec)
+            & (valid_interval_splits[metric_col] < work_threshold)
         ].copy()
     else:
         work_threshold = current_cp * 0.80
-        work_splits = recent_splits[
-            (recent_splits["duration_sec"] >= 120)
-            & (recent_splits["duration_sec"] <= 1800)
-            & (recent_splits[metric_col] > work_threshold)
+        work_splits = valid_interval_splits[
+            (valid_interval_splits["duration_sec"] >= work_split_min_sec)
+            & (valid_interval_splits["duration_sec"] <= work_split_max_sec)
+            & (valid_interval_splits[metric_col] > work_threshold)
         ].copy()
 
-    max_interval = round(float(work_splits[metric_col].max()), 1) if not work_splits.empty else None
-    avg_work = round(float(work_splits[metric_col].mean()), 1) if not work_splits.empty else None
-
-    # Count sessions with supra-threshold splits
-    if base == "pace" and current_cp > 0:
-        supra_threshold = current_cp * 1.00  # at or faster than threshold pace
-        if not work_splits.empty and "activity_id" in work_splits.columns:
-            work_splits["_aid"] = work_splits["activity_id"].astype(str)
-            session_best = work_splits.groupby("_aid")[metric_col].min()  # min pace = fastest
-            supra_cp_sessions = int((session_best <= supra_threshold).sum())
-            total_quality_sessions = len(session_best)
-        else:
-            supra_cp_sessions = 0
-            total_quality_sessions = 0
+    if work_splits.empty:
+        max_interval = None
+    elif base == "pace":
+        # Lower sec/km is faster, so the peak pace is the minimum value.
+        max_interval = round(float(work_splits[metric_col].min()), 1)
     else:
-        supra_threshold = current_cp * 0.98
-        if not work_splits.empty and "activity_id" in work_splits.columns:
-            work_splits["_aid"] = work_splits["activity_id"].astype(str)
-            session_best = work_splits.groupby("_aid")[metric_col].max()
-            supra_cp_sessions = int((session_best >= supra_threshold).sum())
-            total_quality_sessions = int((session_best >= work_threshold).sum())
+        max_interval = round(float(work_splits[metric_col].max()), 1)
+    avg_work = round(float(work_splits[metric_col].mean()), 1) if not work_splits.empty else None
+    supra_cp_sessions: int | None = None
+    total_quality_sessions: int | None = None
+
+    # Count sessions only when valid split evidence exists. Missing evidence is
+    # unavailable, not proof that the athlete completed zero quality sessions.
+    if interval_data_available:
+        supra_cp_sessions = 0
+        total_quality_sessions = 0
+        if base == "pace" and current_cp > 0:
+            supra_threshold = current_cp
+            if not work_splits.empty and "activity_id" in work_splits.columns:
+                work_splits["_aid"] = work_splits["activity_id"].astype(str)
+                session_best = work_splits.groupby("_aid")[metric_col].min()
+                supra_cp_sessions = int((session_best <= supra_threshold).sum())
+                total_quality_sessions = len(session_best)
         else:
-            supra_cp_sessions = 0
-            total_quality_sessions = 0
+            supra_threshold = current_cp
+            if not work_splits.empty and "activity_id" in work_splits.columns:
+                work_splits["_aid"] = work_splits["activity_id"].astype(str)
+                session_best = work_splits.groupby("_aid")[metric_col].max()
+                supra_cp_sessions = int((session_best >= supra_threshold).sum())
+                total_quality_sessions = int((session_best >= work_threshold).sum())
 
     result["interval_power"] = {
         "max": max_interval,
         "avg_work": avg_work,
         "supra_cp_sessions": supra_cp_sessions,
         "total_quality_sessions": total_quality_sessions,
+        "data_available": interval_data_available,
+        "evidence_complete": interval_evidence_complete,
+        "activities_with_intensity_data": len(valid_split_aids),
+        "activities_expected": len(recent_ids),
     }
 
     # --- Training distribution (dynamic zones) ---
@@ -1201,34 +1654,66 @@ def diagnose_training(
     # Time-in-zone computation. Target distributions (Coggan / Seiler 2006 /
     # Filipas 2022) are fractions of training TIME per zone.
     #
-    # When per-second samples are available (activity_samples table), each row
-    # contributes 1 second to the zone it falls in — giving true 1-second
-    # resolution. For activities without samples, the split-duration fallback
-    # is used: each split's average metric is classified and its full duration
-    # added to that zone. The two paths are mixed per-activity so newly synced
-    # activities get full resolution immediately while historical ones still
-    # contribute via splits.
-
-    # Column names in the samples DataFrame per training base
-    _SAMPLE_COL = {"power": "power_watts", "hr": "hr_bpm", "pace": "pace_sec_km"}
-    sample_col = _SAMPLE_COL.get(base, "power_watts")
-
-    # Determine which recent activities have samples available
-    aids_with_samples: set[str] = set()
+    # Sample streams are weighted by their timestamp cadence rather than row
+    # count. Sparse streams fall back to split durations so an isolated sample
+    # cannot stand in for a whole workout.
+    # ESTIMATE -- a <=5-second median cadence is a conservative Praxys
+    # data-quality gate, not an exercise-science threshold.
+    sample_max_cadence_sec = 5.0
+    aids_with_complete_samples: set[str] = set()
+    complete_sample_seconds_by_aid: dict[str, float] = {}
     recent_samples_filtered = pd.DataFrame()
     if (
         samples is not None
         and not samples.empty
         and sample_col in samples.columns
         and "activity_id" in samples.columns
+        and "t_sec" in samples.columns
     ):
         s = samples.copy()
+        s["_aid"] = s["activity_id"].astype(str)
         s[sample_col] = pd.to_numeric(s[sample_col], errors="coerce")
-        s = s[s["activity_id"].astype(str).isin(recent_ids)]
-        s = s[s[sample_col].notna() & (s[sample_col] > 0)]
+        s["_t_sec"] = pd.to_numeric(s["t_sec"], errors="coerce")
+        s = s[
+            s["_aid"].isin(recent_ids) & s["_t_sec"].notna()
+        ].sort_values(["_aid", "_t_sec"])
         if not s.empty:
-            recent_samples_filtered = s
-            aids_with_samples = set(s["activity_id"].astype(str).unique())
+            next_t = s.groupby("_aid", sort=False)["_t_sec"].shift(-1)
+            delta = next_t - s["_t_sec"]
+            positive_delta = delta.where(delta > 0)
+            cadence_by_aid = positive_delta.groupby(s["_aid"], sort=False).median()
+            s["_cadence_sec"] = s["_aid"].map(cadence_by_aid).fillna(1.0)
+            s["_sample_weight_sec"] = np.where(
+                delta > 0,
+                np.minimum(delta, s["_cadence_sec"] * 2),
+                s["_cadence_sec"],
+            )
+            s["_metric_valid"] = (
+                s[sample_col].notna()
+                & (s[sample_col] > 0)
+                & np.isfinite(s[sample_col])
+                & (s["_cadence_sec"] <= sample_max_cadence_sec)
+            )
+            sample_seconds = (
+                s[s["_metric_valid"]]
+                .groupby("_aid")["_sample_weight_sec"]
+                .sum()
+            )
+            aids_with_complete_samples = {
+                aid
+                for aid, covered_seconds in sample_seconds.items()
+                if expected_duration_by_aid.get(aid, 0) > 0
+                and float(covered_seconds)
+                >= expected_duration_by_aid[aid] * duration_coverage_ratio
+            }
+            complete_sample_seconds_by_aid = {
+                str(aid): float(sample_seconds[aid])
+                for aid in aids_with_complete_samples
+            }
+            recent_samples_filtered = s[
+                s["_metric_valid"]
+                & s["_aid"].isin(aids_with_complete_samples)
+            ].copy()
 
     # Vectorized array form of the scalar ``_classify`` above —
     # bit-for-bit equivalent on every supported base, exercised by
@@ -1278,8 +1763,12 @@ def diagnose_training(
 
     zone_time = [0.0] * n_zones
     total_time = 0.0
+    sample_time = 0.0
+    split_time = 0.0
+    covered_activity_ids: set[str] = set()
+    covered_seconds_by_aid: dict[str, float] = {}
 
-    # Per-second path: 1 second per sample row.
+    # Timestamp-weighted sample path.
     if not recent_samples_filtered.empty:
         s = recent_samples_filtered
         val_arr = pd.to_numeric(s[sample_col], errors="coerce").to_numpy(dtype=float)
@@ -1287,16 +1776,24 @@ def diagnose_training(
         cp_arr = _build_per_row_cp(aid_arr)
         zone_idx, valid = _classify_array(val_arr, cp_arr)
         if valid.any():
-            counts = np.bincount(zone_idx[valid], minlength=n_zones)
+            sample_weights = s["_sample_weight_sec"].to_numpy(dtype=float)
+            weighted = np.bincount(
+                zone_idx[valid],
+                weights=sample_weights[valid],
+                minlength=n_zones,
+            )
             for z in range(n_zones):
-                zone_time[z] += float(counts[z])
-            total_time += float(valid.sum())
+                zone_time[z] += float(weighted[z])
+            sample_time = float(sample_weights[valid].sum())
+            total_time += sample_time
+            covered_activity_ids.update(aid_arr[valid].tolist())
+            covered_seconds_by_aid.update(complete_sample_seconds_by_aid)
 
     # Split-duration fallback for activities that have no samples.
     if not recent_splits.empty:
         fallback_splits = recent_splits[
-            ~recent_splits["activity_id"].astype(str).isin(aids_with_samples)
-        ] if aids_with_samples else recent_splits
+            ~recent_splits["activity_id"].astype(str).isin(aids_with_complete_samples)
+        ] if aids_with_complete_samples else recent_splits
         if not fallback_splits.empty:
             val_arr = pd.to_numeric(
                 fallback_splits[metric_col], errors="coerce",
@@ -1316,9 +1813,28 @@ def diagnose_training(
                 )
                 for z in range(n_zones):
                     zone_time[z] += float(weighted[z])
-                total_time += float(dur_arr[valid].sum())
+                split_time = float(dur_arr[valid].sum())
+                total_time += split_time
+                covered_activity_ids.update(aid_arr[valid].tolist())
+                valid_durations = pd.Series(
+                    dur_arr[valid],
+                    index=aid_arr[valid],
+                    dtype=float,
+                ).groupby(level=0).sum()
+                for aid, duration in valid_durations.items():
+                    covered_seconds_by_aid[str(aid)] = (
+                        covered_seconds_by_aid.get(str(aid), 0.0)
+                        + float(duration)
+                    )
 
-    resolution = "samples" if aids_with_samples else "splits"
+    if sample_time > 0 and split_time > 0:
+        resolution = "mixed"
+    elif sample_time > 0:
+        resolution = "samples"
+    elif split_time > 0:
+        resolution = "splits"
+    else:
+        resolution = "unavailable"
 
     if total_time > 0:
         result["distribution"] = [
@@ -1331,15 +1847,43 @@ def diagnose_training(
         ]
     else:
         result["distribution"] = [
-            {"name": names[i], "actual_pct": 100 if i == 0 else 0, "target_pct": targets[i]}
+            {"name": names[i], "actual_pct": 0, "target_pct": targets[i]}
             for i in range(n_zones)
         ]
 
-    result["data_meta"] = {"distribution_resolution": resolution}
+    expected_total = sum(expected_duration_by_aid.values())
+    coverage_pct = (
+        min(100, round(total_time / expected_total * 100))
+        if expected_total > 0 else 0
+    )
+    every_activity_complete = bool(
+        recent_ids
+        and all(
+            expected_duration_by_aid.get(aid, 0) > 0
+            and covered_seconds_by_aid.get(aid, 0)
+            >= expected_duration_by_aid[aid] * duration_coverage_ratio
+            for aid in recent_ids
+        )
+    )
+    distribution_complete = bool(
+        total_time > 0
+        and recent_ids
+        and recent_ids.issubset(expected_duration_by_aid)
+        and recent_ids.issubset(covered_activity_ids)
+        and every_activity_complete
+    )
+    result["data_meta"] = {
+        "distribution_resolution": resolution,
+        "distribution_complete": distribution_complete,
+        "distribution_coverage_pct": coverage_pct,
+    }
     result["zone_ranges"] = compute_zones(base, current_cp, bounds, names if zone_names else None)
     result["theory_name"] = theory_name or ("Coggan 5-Zone" if len(bounds) == 4 else f"{n_zones}-Zone")
 
-    _add_diagnosis_items(result, current_cp, base)
+    _add_diagnosis_items(
+        result, current_cp, cp_trend.get("direction", "unknown"), base,
+        diagnosis_params=params,
+    )
     return result
 
 
@@ -1351,8 +1895,18 @@ _BASE_LABELS = {
 }
 
 
-def _add_diagnosis_items(result: dict, current_threshold: float, base: TrainingBase = "power") -> None:
-    """Generate diagnosis findings and suggestions based on computed metrics."""
+def _add_diagnosis_items(
+    result: dict,
+    current_threshold: float,
+    threshold_trend: str,
+    base: TrainingBase = "power",
+    diagnosis_params: dict | None = None,
+) -> None:
+    """Add evidence-qualified observations to a training diagnosis."""
+    params = diagnosis_params or {}
+    volume_moderate_km = float(params.get("volume_moderate_km", 40))
+    volume_strong_km = float(params.get("volume_strong_km", 60))
+
     diag = result["diagnosis"]
     suggestions = result["suggestions"]
     interval = result["interval_power"]
@@ -1361,98 +1915,130 @@ def _add_diagnosis_items(result: dict, current_threshold: float, base: TrainingB
     consistency = result["consistency"]
 
     labels = _BASE_LABELS.get(base, _BASE_LABELS["power"])
-    t_name = labels["threshold"]
-    t_unit = labels["unit"]
+    threshold_name = labels["threshold"]
+    threshold_unit = labels["unit"]
 
-    # Volume assessment
     avg_km = volume.get("weekly_avg_km", 0)
-    if avg_km >= 60:
-        diag.append({"type": "positive", "message": f"Volume is strong at {avg_km} km/week."})
-    elif avg_km >= 40:
-        diag.append({"type": "neutral", "message": f"Volume is moderate at {avg_km} km/week."})
+    if avg_km >= volume_strong_km:
+        diag.append({
+            "type": "positive",
+            "message": f"Weekly volume averaged {avg_km} km, above the configured {volume_strong_km:g} km reference.",
+        })
+    elif avg_km >= volume_moderate_km:
+        diag.append({
+            "type": "neutral",
+            "message": f"Weekly volume averaged {avg_km} km, within the configured reference range.",
+        })
     else:
-        diag.append({"type": "warning", "message": f"Volume is low at {avg_km} km/week — may limit {t_name} progression."})
-        suggestions.append("Gradually increase weekly volume toward 50-60 km for better aerobic base.")
+        diag.append({
+            "type": "neutral",
+            "message": f"Weekly volume averaged {avg_km} km, below the configured {volume_moderate_km:g} km reference.",
+        })
 
     if volume.get("trend") == "decreasing":
-        diag.append({"type": "warning", "message": "Weekly volume is trending down."})
+        diag.append({"type": "neutral", "message": "Weekly volume decreased across the analysis window."})
 
-    # Consistency
     if consistency.get("longest_gap_days", 0) >= 7:
         diag.append({
             "type": "warning",
-            "message": f"Training gap of {consistency['longest_gap_days']} days detected — breaks disrupt {t_name} adaptation.",
+            "message": f"A training gap of {consistency['longest_gap_days']} days was recorded.",
         })
     if consistency.get("weeks_with_gaps", 0) > 0:
         diag.append({
             "type": "neutral",
-            "message": f"{consistency['weeks_with_gaps']} week(s) with fewer than 3 sessions.",
+            "message": f"{consistency['weeks_with_gaps']} week(s) contained fewer than 3 sessions.",
         })
 
-    # Supra-threshold stimulus
-    supra = interval.get("supra_cp_sessions", 0)
-    quality = interval.get("total_quality_sessions", 0)
-    max_val = interval.get("max")
+    supra = interval.get("supra_cp_sessions")
+    quality = interval.get("total_quality_sessions")
+    peak_value = interval.get("max")
+    evidence_complete = interval.get("evidence_complete", False)
 
-    if supra == 0:
+    if not interval.get("data_available", False):
         diag.append({
-            "type": "warning",
-            "message": f"No sessions with intervals at or above {t_name} — this is the likely reason {t_name} is flat.",
+            "type": "neutral",
+            "message": "Interval-quality assessment is unavailable without valid split-level intensity data.",
         })
-        if base == "power":
-            suggestions.append(f"Add supra-{t_name} intervals: 5x4min @ {current_threshold:.0f}-{current_threshold * 1.05:.0f}{t_unit} every other week.")
-        elif base == "hr":
-            suggestions.append(f"Add threshold intervals: 3x10min @ {current_threshold:.0f}+ {t_unit} every other week.")
-        else:
-            suggestions.append(f"Add threshold intervals: 3x10min at or faster than {current_threshold:.0f} {t_unit}.")
-    elif supra <= 1:
+    elif not evidence_complete:
+        observed = interval.get("activities_with_intensity_data", 0)
+        expected = interval.get("activities_expected", 0)
         diag.append({
-            "type": "warning",
-            "message": f"Only {supra} session with supra-{t_name} intervals — not enough stimulus.",
+            "type": "neutral",
+            "message": (
+                "Interval-quality conclusions are withheld because split-level "
+                f"intensity evidence covers {observed} of {expected} activities."
+            ),
         })
-        suggestions.append(f"Increase threshold sessions to 2-3 per {result['lookback_weeks']} weeks.")
     else:
-        diag.append({
-            "type": "positive",
-            "message": f"{supra} sessions with supra-{t_name} intervals — good stimulus.",
-        })
+        if supra == 0:
+            message = f"No intervals at or above {threshold_name} were observed in the complete split evidence."
+            if threshold_trend in {"flat", "decreasing"}:
+                message += (
+                    f" The {threshold_name} trend was {threshold_trend}; these observations "
+                    "coincide but do not establish causation."
+                )
+                suggestions.append(
+                    f"If improving {threshold_name} is the current goal, review whether threshold-specific work fits the broader plan and current recovery."
+                )
+            diag.append({"type": "neutral", "message": message})
+        elif supra is not None:
+            diag.append({
+                "type": "neutral",
+                "message": f"{supra} session(s) included intervals at or above {threshold_name}.",
+            })
 
-    if quality > 0 and max_val:
-        if base == "pace":
-            pct = current_threshold / max_val * 100 if max_val > 0 else 0
+        if quality and peak_value:
+            if base == "pace":
+                percentage = current_threshold / peak_value * 100 if peak_value > 0 else 0
+            else:
+                percentage = peak_value / current_threshold * 100 if current_threshold > 0 else 0
+            diag.append({
+                "type": "neutral",
+                "message": (
+                    f"Peak observed interval {labels['metric']}: {peak_value:.0f}{threshold_unit} "
+                    f"({percentage:.0f}% of {threshold_name}) across {quality} quality sessions."
+                ),
+            })
+
+    data_meta = result.get("data_meta", {})
+    distribution_available = data_meta.get("distribution_resolution") != "unavailable"
+    distribution_complete = data_meta.get("distribution_complete", False)
+    coverage_pct = data_meta.get("distribution_coverage_pct", 0)
+    if distribution_available and not distribution_complete:
+        if data_meta.get("distribution_resolution") == "activity_averages":
+            message = (
+                "Zone-distribution conclusions are withheld because activity "
+                "averages do not preserve interval-level zone exposure."
+            )
         else:
-            pct = max_val / current_threshold * 100 if current_threshold > 0 else 0
-        diag.append({
-            "type": "positive" if pct >= 95 else "neutral",
-            "message": f"Peak interval {labels['metric']}: {max_val:.0f}{t_unit} ({pct:.0f}% of {t_name}) across {quality} quality sessions.",
-        })
-
-    # Distribution check (dist is a list of zone dicts)
-    if isinstance(dist, list) and len(dist) > 0:
-        easy_pct = dist[0].get("actual_pct", 0)
-        hard_pct = sum(d.get("actual_pct", 0) for d in dist[2:])  # zones above the 2nd
-        has_targets = any(d.get("target_pct") is not None for d in dist)
-
+            message = (
+                "Zone-distribution conclusions are withheld because intensity "
+                f"evidence covers {coverage_pct}% of expected activity duration "
+                "and at least one activity is below the 90% coverage gate."
+            )
+        diag.append({"type": "neutral", "message": message})
+    elif distribution_complete and isinstance(dist, list) and dist:
+        has_targets = any(zone.get("target_pct") is not None for zone in dist)
         if has_targets:
-            # Compare actual vs target, flag deviations > 5 percentage points
-            for d in dist:
-                target = d.get("target_pct")
-                actual = d.get("actual_pct", 0)
+            for zone in dist:
+                target = zone.get("target_pct")
+                actual = zone.get("actual_pct", 0)
                 if target is not None and abs(actual - target) > 5:
-                    direction = "over" if actual > target else "under"
+                    direction = "above" if actual > target else "below"
                     diag.append({
                         "type": "warning",
-                        "message": f"{d['name']} zone is {direction}-represented: {actual}% actual vs {target}% target.",
+                        "message": (
+                            f"{zone['name']} was {actual}%, {direction} the configured "
+                            f"{target}% target by more than 5 percentage points."
+                        ),
                     })
         else:
-            # Generic polarization check (no targets available)
-            if easy_pct > 85 and hard_pct < 10:
-                diag.append({
-                    "type": "warning",
-                    "message": f"Training is {easy_pct}% easy — insufficient hard sessions for {t_name} adaptation.",
-                })
-            elif 70 <= easy_pct <= 85:
-                diag.append({
-                    "type": "positive",
-                    "message": f"Good polarization: {easy_pct}% easy, {hard_pct}% hard.",
-                })
+            easy_pct = dist[0].get("actual_pct", 0)
+            hard_pct = sum(zone.get("actual_pct", 0) for zone in dist[2:])
+            diag.append({
+                "type": "neutral",
+                "message": (
+                    f"Observed distribution was {easy_pct}% in {dist[0]['name']} and "
+                    f"{hard_pct}% across zones 3 and above; no target distribution is configured."
+                ),
+            })

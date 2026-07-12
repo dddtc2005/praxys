@@ -231,6 +231,7 @@ def _build_random_samples(
         "pace_sec_km": np.nan,
         "source": "stryd",
     })
+    df["t_sec"] = df.groupby("activity_id").cumcount()
     df[sample_col] = rng.uniform(low, high, size=n)
     return df
 
@@ -300,6 +301,8 @@ def test_vectorized_zone_seconds_match_scalar_oracle_power():
     }
 
     activities = _activities_with_cp(activity_ids, cp_values, today)
+    sample_counts = samples.groupby("activity_id").size()
+    activities["duration_sec"] = activities["activity_id"].map(sample_counts)
     splits = _splits_per_activity(activity_ids)
 
     bounds = [0.55, 0.75, 0.90, 1.05]  # Coggan
@@ -312,7 +315,7 @@ def test_vectorized_zone_seconds_match_scalar_oracle_power():
 
     result = diagnose_training(
         activities, splits, cp_trend,
-        base="power", threshold_value=cp,
+        current_date=today, base="power", threshold_value=cp,
         zone_boundaries=bounds,
         zone_names=["Recovery", "Endurance", "Tempo", "Threshold", "VO2max"],
         target_distribution=[0.0, 0.7, 0.1, 0.15, 0.05],
@@ -352,6 +355,8 @@ def test_vectorized_zone_seconds_match_scalar_oracle_pace():
     activities = _activities_with_cp(
         activity_ids, [threshold_pace] * n_acts, today,
     )
+    sample_counts = samples.groupby("activity_id").size()
+    activities["duration_sec"] = activities["activity_id"].map(sample_counts)
     splits = _splits_per_activity(
         activity_ids, avg_power=threshold_pace, duration_sec=60.0,
     )
@@ -368,7 +373,7 @@ def test_vectorized_zone_seconds_match_scalar_oracle_pace():
 
     result = diagnose_training(
         activities, splits, {"current": threshold_pace, "direction": "stable"},
-        base="pace", threshold_value=threshold_pace,
+        current_date=today, base="pace", threshold_value=threshold_pace,
         zone_boundaries=bounds,
         zone_names=["Recovery", "Endurance", "Tempo", "Threshold", "VO2max"],
         samples=samples,
@@ -428,7 +433,7 @@ def test_vectorized_splits_fallback_matches_scalar_oracle():
 
     result = diagnose_training(
         activities, splits, {"current": cp, "direction": "stable"},
-        base="power", threshold_value=cp,
+        current_date=today, base="power", threshold_value=cp,
         zone_boundaries=bounds,
         zone_names=["Recovery", "Endurance", "Tempo", "Threshold", "VO2max"],
         samples=None,
@@ -465,6 +470,7 @@ def test_diagnose_training_handles_50k_samples_quickly():
     t0 = time.perf_counter()
     diagnose_training(
         activities, splits, {"current": cp, "direction": "stable"},
+        current_date=today,
         base="power",
         threshold_value=cp,
         zone_boundaries=[0.55, 0.75, 0.90, 1.05],

@@ -49,19 +49,19 @@ function CustomTooltip({ active, payload, label, tsbZones, chartColors }: any) {
       <div className="space-y-1 text-[12px] font-data">
         {ctl && (
           <div className="flex justify-between gap-6">
-            <span className="text-muted-foreground"><Trans>Fitness</Trans></span>
+            <span className="text-muted-foreground"><Trans>Long-term load</Trans></span>
             <span style={{ color: chartColors.fitness }}>{ctl.value?.toFixed(1)}</span>
           </div>
         )}
         {atl && (
           <div className="flex justify-between gap-6">
-            <span className="text-muted-foreground"><Trans>Fatigue</Trans></span>
+            <span className="text-muted-foreground"><Trans>Recent load</Trans></span>
             <span style={{ color: chartColors.fatigue }}>{atl.value?.toFixed(1)}</span>
           </div>
         )}
         {tsb && (
           <div className="flex justify-between gap-6 pt-1 border-t border-border">
-            <span className="text-muted-foreground"><Trans>Form</Trans></span>
+            <span className="text-muted-foreground"><Trans>Load balance</Trans></span>
             <span style={{ color: zone.color }} className="font-semibold">
               {tsbVal.toFixed(1)}
             </span>
@@ -191,15 +191,15 @@ export default function FitnessFatigueChart({ data, scienceNote }: Props) {
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-0.5 rounded-full" style={{ backgroundColor: chartColors.fitness }} />
-            <span className="text-muted-foreground"><Trans>Fitness</Trans> <span className="font-data">CTL</span></span>
+            <span className="text-muted-foreground"><Trans>Long-term load</Trans> <span className="font-data">CTL</span></span>
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-0.5 rounded-full" style={{ backgroundColor: chartColors.fatigue }} />
-            <span className="text-muted-foreground"><Trans>Fatigue</Trans> <span className="font-data">ATL</span></span>
+            <span className="text-muted-foreground"><Trans>Recent load</Trans> <span className="font-data">ATL</span></span>
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-0.5 rounded-full" style={{ backgroundColor: chartColors.form }} />
-            <span className="text-muted-foreground"><Trans>Form</Trans> <span className="font-data">TSB</span></span>
+            <span className="text-muted-foreground"><Trans>Load balance</Trans> <span className="font-data">TSB</span></span>
           </span>
           {hasProjection && (
             <span className="flex items-center gap-1.5">
@@ -278,9 +278,9 @@ export default function FitnessFatigueChart({ data, scienceNote }: Props) {
 
             <Area type="monotone" dataKey="tsb" fill="url(#tsbAreaGrad)" stroke="none" connectNulls={false} isAnimationActive={false} />
 
-            <Line type="monotone" dataKey="ctl" stroke={chartColors.fitness} strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={false} name={t`CTL (Fitness)`} />
-            <Line type="monotone" dataKey="atl" stroke={chartColors.fatigue} strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={false} name={t`ATL (Fatigue)`} />
-            <Line type="monotone" dataKey="tsb" stroke={chartColors.form} strokeWidth={2.5} dot={false} connectNulls={false} isAnimationActive={false} name={t`TSB (Form)`} />
+            <Line type="monotone" dataKey="ctl" stroke={chartColors.fitness} strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={false} name={t`CTL (long-term load)`} />
+            <Line type="monotone" dataKey="atl" stroke={chartColors.fatigue} strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={false} name={t`ATL (recent load)`} />
+            <Line type="monotone" dataKey="tsb" stroke={chartColors.form} strokeWidth={2.5} dot={false} connectNulls={false} isAnimationActive={false} name={t`TSB (load balance)`} />
 
             {hasProjection && (
               <>
@@ -298,7 +298,7 @@ export default function FitnessFatigueChart({ data, scienceNote }: Props) {
 
 
         <ScienceNote
-          text={scienceNote?.description || "Fitness (CTL) is an exponentially weighted moving average of daily training load. Fatigue (ATL) uses a shorter window. Form (TSB) = CTL \u2212 ATL."}
+          text={scienceNote?.description || "CTL models longer-term training load, ATL models recent training load, and TSB is their difference. These are load-model estimates, not direct measures of recovery or readiness."}
           sourceUrl={scienceNote?.citations?.[0]?.url || "https://help.trainingpeaks.com/hc/en-us/articles/204071944"}
           sourceLabel={scienceNote?.citations?.[0]?.label || "TrainingPeaks PMC"}
         />

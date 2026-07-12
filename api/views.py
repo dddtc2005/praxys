@@ -63,13 +63,15 @@ def last_activity(activities: list[dict]) -> dict | None:
     }
 
 
-def upcoming_workouts(plan_df: pd.DataFrame | None, limit: int = 3) -> list[dict]:
-    """Extract next N planned workouts after today."""
+def upcoming_workouts(
+    plan_df: pd.DataFrame | None, limit: int = 3, *, current_date: date | None = None,
+) -> list[dict]:
+    """Extract next N planned workouts after the request date."""
     if plan_df is None or plan_df.empty:
         return []
     if "date" not in plan_df.columns:
         return []
-    today_str = date.today().isoformat()
+    today_str = (current_date or date.today()).isoformat()
     df = plan_df.copy()
     df["_date"] = pd.to_datetime(df["date"], errors="coerce")
     df = df.dropna(subset=["_date"])

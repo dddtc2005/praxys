@@ -551,6 +551,11 @@ def _upsert_connection_credentials(
         )
         db.add(conn)
 
+    # Connection state feeds UserConfig.connections and /api/plan.sync_target.
+    # Stage the revision in the same transaction as the connection mutation.
+    from db.cache_revision import bump_revisions
+    bump_revisions(db, user_id, ["config"])
+
 
 def _strava_redirect_target(
     web_origin: str,
@@ -918,7 +923,10 @@ def disconnect_platform(
         UserConnection.platform == platform,
     ).first()
     if conn:
+        from db.cache_revision import bump_revisions
+
         db.delete(conn)
+        bump_revisions(db, user_id, ["config"])
         db.commit()
 
     if platform == "garmin":

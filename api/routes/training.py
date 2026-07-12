@@ -22,6 +22,11 @@ def _build_training_payload(user_id: str, db: Session) -> dict:
         "fitness_fatigue": fitness["fitness_fatigue"],
         "cp_trend": fitness["cp_trend"],
         "weekly_review": fitness["weekly_review"],
+        "summary": {
+            "current_tsb": fitness["current_tsb"],
+            "distribution_match_pct": diagnosis["distribution_match_pct"],
+            "load_compliance_pct": fitness["load_compliance_pct"],
+        },
         "workout_flags": diagnosis["workout_flags"],
         "sleep_perf": diagnosis["sleep_perf"],
         "training_base": ctx.config.training_base,

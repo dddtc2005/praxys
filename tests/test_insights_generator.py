@@ -41,6 +41,14 @@ def _fake_context() -> dict:
             "race_countdown": {"days_left": 124, "status": "on_track"},
         },
         "recent_training": {
+            "diagnosis": {
+                "distribution": [{"name": "Endurance", "actual_pct": 80}],
+                "interval_power": {"max": 300, "evidence_complete": True},
+                "data_meta": {
+                    "distribution_complete": True,
+                    "distribution_coverage_pct": 100,
+                },
+            },
             "weekly_summary": [
                 {"week": "2026-W17", "volume_km": 40.0, "load": 250.0,
                  "sessions": 5},
@@ -59,6 +67,16 @@ def _fake_context() -> dict:
              "planned_distance_km": 8.0, "target_power_min": 180,
              "target_power_max": 210},
         ],
+        "planned_today": {
+            "workout_type": "easy", "planned_duration_min": 45,
+            "planned_distance_km": 8.0, "target_power_min": 180,
+            "target_power_max": 210,
+        },
+        "today_signal": {
+            "recommendation": "follow_plan",
+            "reason": "Recovery signals normal. Follow plan as written.",
+            "alternatives": [],
+        },
         "science": {
             "load": {"id": "banister_pmc", "name": "Banister PMC", "params": {}},
             "recovery": {"id": "hrv_based", "name": "Plews HRV-guided"},
@@ -80,7 +98,7 @@ def _valid_bilingual_response() -> dict:
                 {"type": "positive", "text": "HRV trending up per Plews HRV"},
                 {"type": "neutral", "text": "TSB +5 — fresh"},
             ],
-            "recommendations": ["Run the planned 45-min easy", "Hydrate well"],
+            "recommendations": [],
         },
         "zh": {
             "headline": "您已恢复 — 按计划进行轻松跑",
@@ -90,9 +108,15 @@ def _valid_bilingual_response() -> dict:
                 {"type": "positive", "text": "HRV 按 Plews HRV 趋势上升"},
                 {"type": "neutral", "text": "TSB +5 — 状态新鲜"},
             ],
-            "recommendations": ["按计划完成 45 分钟轻松跑", "注意补水"],
+            "recommendations": [],
         },
     }
+
+
+def test_training_review_prompt_forbids_all_activity_average_intensity_inference():
+    prompt = insights_generator._training_review_system(_fake_context())
+
+    assert "activity averages in any training base" in prompt
 
 
 # ---------------------------------------------------------------------------
@@ -152,20 +176,14 @@ def test_returns_none_when_client_unavailable(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def test_daily_brief_returns_payload_with_translations(monkeypatch):
-    fake = _FakeClient(json.dumps(_valid_bilingual_response()))
-    monkeypatch.setattr(llm, "get_client", lambda: fake)
+def test_daily_brief_uses_deterministic_fallback_without_llm(monkeypatch):
+    monkeypatch.setattr(
+        llm,
+        "get_client",
+        lambda: (_ for _ in ()).throw(AssertionError("LLM must not be called")),
+    )
 
-    payload = insights_generator.generate_daily_brief(_fake_context(), PILLARS)
-
-    assert payload is not None
-    assert payload["headline"] == "Recovered — follow today's easy run"
-    assert "Plews" in payload["summary"]
-    assert payload["findings"][0]["type"] == "positive"
-    assert "translations" in payload and "zh" in payload["translations"]
-    assert payload["translations"]["zh"]["headline"].startswith("您已恢复")
-    assert payload["meta_extra"]["pillars"] == PILLARS
-    assert payload["meta_extra"]["model"] == llm.INSIGHT_MODEL
+    assert insights_generator.generate_daily_brief(_fake_context(), PILLARS) is None
 
 
 def test_training_review_returns_payload(monkeypatch):
@@ -175,11 +193,36 @@ def test_training_review_returns_payload(monkeypatch):
     payload = insights_generator.generate_training_review(_fake_context(), PILLARS)
 
     assert payload is not None
-    # User-message JSON should include the zone target distribution from the
-    # selected zone framework (verifies pillar grounding).
     user_msg = json.loads(fake.chat.completions.last_call["messages"][1]["content"])
     assert user_msg["zone_target_distribution"] == [0.2, 0.6, 0.1, 0.05, 0.05]
+    assert user_msg["split_level_diagnosis"]["interval_power"]["max"] == 300
+    assert "avg_power" not in user_msg["sessions"][0]
 
+
+def test_training_review_omits_partial_distribution_evidence(monkeypatch):
+    """Partial display values cannot be interpreted as an actual training mix."""
+    context = _fake_context()
+    diagnosis = context["recent_training"]["diagnosis"]
+    diagnosis["distribution"] = [
+        {"name": "Endurance", "actual_pct": 0, "target_pct": 80},
+    ]
+    diagnosis["data_meta"] = {
+        "distribution_complete": False,
+        "distribution_coverage_pct": 35,
+    }
+    fake = _FakeClient(json.dumps(_valid_bilingual_response()))
+    monkeypatch.setattr(llm, "get_client", lambda: fake)
+
+    insights_generator.generate_training_review(context, PILLARS)
+
+    user_msg = json.loads(fake.chat.completions.last_call["messages"][1]["content"])
+    assert "distribution" not in user_msg["split_level_diagnosis"]
+    assert "zone_target_distribution" not in user_msg
+    assert "zone_names" not in user_msg
+    assert user_msg["split_level_diagnosis"]["data_meta"] == {
+        "distribution_complete": False,
+        "distribution_coverage_pct": 35,
+    }
 
 def test_race_forecast_returns_payload(monkeypatch):
     fake = _FakeClient(json.dumps(_valid_bilingual_response()))
@@ -192,16 +235,11 @@ def test_race_forecast_returns_payload(monkeypatch):
     assert user_msg["goal"]["target_time_sec"] == 10800
 
 
-# ---------------------------------------------------------------------------
-# Tests: prompt cites pillar names
-# ---------------------------------------------------------------------------
-
-
 def test_system_prompt_cites_pillar_names_by_name(monkeypatch):
     fake = _FakeClient(json.dumps(_valid_bilingual_response()))
     monkeypatch.setattr(llm, "get_client", lambda: fake)
 
-    insights_generator.generate_daily_brief(_fake_context(), PILLARS)
+    insights_generator.generate_training_review(_fake_context(), PILLARS)
 
     system_prompt = fake.chat.completions.last_call["messages"][0]["content"]
     assert "Banister PMC" in system_prompt
@@ -210,172 +248,34 @@ def test_system_prompt_cites_pillar_names_by_name(monkeypatch):
 
 
 def test_system_prompt_carries_coach_persona(monkeypatch):
-    """The Coach persona is the single source of voice — every system
-    prompt must inherit from it."""
     fake = _FakeClient(json.dumps(_valid_bilingual_response()))
     monkeypatch.setattr(llm, "get_client", lambda: fake)
 
-    insights_generator.generate_daily_brief(_fake_context(), PILLARS)
     insights_generator.generate_training_review(_fake_context(), PILLARS)
     insights_generator.generate_race_forecast(_fake_context(), PILLARS)
 
-    # All three system prompts include the same Praxys Coach persona —
-    # checking the last call is sufficient because the persona prefix is
-    # invariant across types.
     last_system_prompt = fake.chat.completions.last_call["messages"][0]["content"]
     assert "Praxys Coach" in last_system_prompt
 
 
-def test_daily_brief_user_payload_includes_goal_context(monkeypatch):
-    """Daily brief must see goal + race countdown so it can recognize taper
-    weeks and frame advice consistently with the athlete's race plan."""
-    fake = _FakeClient(json.dumps(_valid_bilingual_response()))
-    monkeypatch.setattr(llm, "get_client", lambda: fake)
-
-    insights_generator.generate_daily_brief(_fake_context(), PILLARS)
-    user_msg = json.loads(fake.chat.completions.last_call["messages"][1]["content"])
-    assert user_msg.get("goal", {}).get("race_date") == "2026-09-01"
-    assert user_msg.get("race_countdown", {}).get("days_left") == 124
-
-
-def test_daily_brief_payload_includes_canonical_today_signal(monkeypatch):
-    """The LLM must receive the app's canonical Today verdict to avoid conflicts."""
-    fake = _FakeClient(json.dumps(_valid_bilingual_response()))
-    monkeypatch.setattr(llm, "get_client", lambda: fake)
-
+@pytest.mark.parametrize(
+    "recommendation",
+    ["follow_plan", "unscheduled", "easy", "modify", "reduce_intensity", "rest"],
+)
+def test_daily_brief_never_requests_llm(monkeypatch, recommendation):
     ctx = _fake_context()
     ctx["today_signal"] = {
-        "recommendation": "continue_as_planned",
-        "reason": "Signals support the planned session.",
-        "alternatives": ["Run easy if legs feel flat"],
-    }
-    insights_generator.generate_daily_brief(ctx, PILLARS)
-
-    system_prompt = fake.chat.completions.last_call["messages"][0]["content"]
-    user_msg = json.loads(fake.chat.completions.last_call["messages"][1]["content"])
-    assert "today_signal" in system_prompt
-    assert user_msg["today_signal"]["recommendation"] == "continue_as_planned"
-    assert user_msg["today_signal"]["alternatives"] == ["Run easy if legs feel flat"]
-
-
-def test_daily_brief_rejects_conflicting_rest_signal(monkeypatch):
-    bad = _valid_bilingual_response()
-    bad["en"]["headline"] = "Recovered — do the planned threshold workout"
-    bad["en"]["summary"] = "Ignore the caution flag and complete the hard session today."
-    bad["en"]["recommendations"] = ["Complete the planned threshold workout today"]
-    bad["zh"]["headline"] = "您已恢复 — 完成计划中的阈值课"
-    bad["zh"]["summary"] = "忽略谨慎信号，今天完成高强度课程。"
-    bad["zh"]["recommendations"] = ["今天完成计划中的阈值课"]
-    fake = _FakeClient(json.dumps(bad))
-    monkeypatch.setattr(llm, "get_client", lambda: fake)
-
-    ctx = _fake_context()
-    ctx["today_signal"] = {
-        "recommendation": "rest",
-        "reason": "Recovery first.",
-        "alternatives": ["Walk only"],
-    }
-
-    assert insights_generator.generate_daily_brief(ctx, PILLARS) is None
-
-
-def test_daily_brief_restrictive_signal_skips_llm_call(monkeypatch):
-    ctx = _fake_context()
-    ctx["today_signal"] = {
-        "recommendation": "rest",
-        "reason": "Recovery first.",
-        "alternatives": ["Walk only"],
+        "recommendation": recommendation,
+        "reason": "Canonical deterministic guidance.",
+        "alternatives": [],
     }
     monkeypatch.setattr(
         llm,
         "get_client",
-        lambda: (_ for _ in ()).throw(AssertionError("LLM client should not be requested")),
+        lambda: (_ for _ in ()).throw(AssertionError("LLM must not be called")),
     )
 
     assert insights_generator.generate_daily_brief(ctx, PILLARS) is None
-
-
-def test_daily_brief_rejects_rest_signal_even_with_bypass_phrase(monkeypatch):
-    """Restrictive Today verdicts now fall back deterministically instead of
-    attempting any token-based semantic proof from model prose."""
-    bad = _valid_bilingual_response()
-    bad["en"]["summary"] = "Take a recovery walk, then complete the threshold workout."
-    bad["en"]["findings"] = [
-        {"type": "warning", "text": "You can still finish the hard session after the walk."},
-    ]
-    bad["zh"]["summary"] = "先做恢复散步，然后完成阈值课。"
-    bad["zh"]["findings"] = [
-        {"type": "warning", "text": "散步后仍可完成高强度课程。"},
-    ]
-    fake = _FakeClient(json.dumps(bad))
-    monkeypatch.setattr(llm, "get_client", lambda: fake)
-
-    ctx = _fake_context()
-    ctx["today_signal"] = {
-        "recommendation": "rest",
-        "reason": "Recovery first.",
-        "alternatives": ["Walk only"],
-    }
-
-    assert insights_generator.generate_daily_brief(ctx, PILLARS) is None
-
-
-def test_daily_brief_rejects_modify_signal_continue_as_planned(monkeypatch):
-    invalid_response = _valid_bilingual_response()
-    invalid_response["en"]["headline"] = "Modify today, but continue as planned"
-    invalid_response["en"]["recommendations"] = ["Continue as planned"]
-    invalid_response["zh"]["headline"] = "今天需调整，但按计划完成"
-    invalid_response["zh"]["recommendations"] = ["按计划完成"]
-    fake = _FakeClient(json.dumps(invalid_response))
-    monkeypatch.setattr(llm, "get_client", lambda: fake)
-
-    ctx = _fake_context()
-    ctx["today_signal"] = {
-        "recommendation": "modify",
-        "reason": "Back off the hard session.",
-        "alternatives": ["Drop to easy run"],
-    }
-
-    assert insights_generator.generate_daily_brief(ctx, PILLARS) is None
-
-
-def test_daily_brief_planned_workout_reads_planned_today_only(monkeypatch):
-    """Daily brief's planned_workout MUST be today's plan entry, not the
-    next future workout. Falling back to current_plan[0] silently surfaces
-    the next workout when today is rest, and the LLM then advises on a
-    session the athlete isn't supposed to do."""
-    fake = _FakeClient(json.dumps(_valid_bilingual_response()))
-    monkeypatch.setattr(llm, "get_client", lambda: fake)
-
-    ctx = _fake_context()
-    # Today is rest (no planned_today); current_plan still carries a
-    # future workout the planner intends for some other day.
-    ctx["planned_today"] = None
-    ctx["current_plan"] = [
-        {"workout_type": "threshold", "planned_duration_min": 90,
-         "target_power_min": 240, "target_power_max": 280},
-    ]
-    insights_generator.generate_daily_brief(ctx, PILLARS)
-    user_msg = json.loads(fake.chat.completions.last_call["messages"][1]["content"])
-    assert user_msg["planned_workout"] is None, (
-        "planned_workout must be None when today is unscheduled — "
-        "do not surface the next future workout as today's session"
-    )
-
-    # When planned_today is set, that exact entry is what the LLM sees.
-    ctx2 = _fake_context()
-    ctx2["planned_today"] = {
-        "workout_type": "easy", "planned_duration_min": 30,
-        "target_power_min": 180, "target_power_max": 200,
-    }
-    ctx2["current_plan"] = [
-        ctx2["planned_today"],
-        {"workout_type": "threshold", "planned_duration_min": 90},
-    ]
-    insights_generator.generate_daily_brief(ctx2, PILLARS)
-    user_msg2 = json.loads(fake.chat.completions.last_call["messages"][1]["content"])
-    assert user_msg2["planned_workout"]["workout_type"] == "easy"
-    assert user_msg2["planned_workout"]["planned_duration_min"] == 30
 
 
 def test_training_review_user_payload_includes_goal_context(monkeypatch):
@@ -399,7 +299,7 @@ def test_returns_none_on_invalid_json(monkeypatch):
     fake = _FakeClient("this is not json")
     monkeypatch.setattr(llm, "get_client", lambda: fake)
 
-    assert insights_generator.generate_daily_brief(_fake_context(), PILLARS) is None
+    assert insights_generator.generate_training_review(_fake_context(), PILLARS) is None
 
 
 def test_returns_none_when_zh_missing(monkeypatch):
@@ -407,7 +307,7 @@ def test_returns_none_when_zh_missing(monkeypatch):
     fake = _FakeClient(json.dumps(bad))
     monkeypatch.setattr(llm, "get_client", lambda: fake)
 
-    assert insights_generator.generate_daily_brief(_fake_context(), PILLARS) is None
+    assert insights_generator.generate_training_review(_fake_context(), PILLARS) is None
 
 
 def test_returns_none_when_finding_type_unknown(monkeypatch):
@@ -416,7 +316,7 @@ def test_returns_none_when_finding_type_unknown(monkeypatch):
     fake = _FakeClient(json.dumps(bad))
     monkeypatch.setattr(llm, "get_client", lambda: fake)
 
-    assert insights_generator.generate_daily_brief(_fake_context(), PILLARS) is None
+    assert insights_generator.generate_training_review(_fake_context(), PILLARS) is None
 
 
 def test_returns_none_when_findings_misaligned(monkeypatch):
@@ -425,7 +325,7 @@ def test_returns_none_when_findings_misaligned(monkeypatch):
     fake = _FakeClient(json.dumps(bad))
     monkeypatch.setattr(llm, "get_client", lambda: fake)
 
-    assert insights_generator.generate_daily_brief(_fake_context(), PILLARS) is None
+    assert insights_generator.generate_training_review(_fake_context(), PILLARS) is None
 
 
 def test_returns_none_when_finding_types_disagree(monkeypatch):
@@ -434,7 +334,7 @@ def test_returns_none_when_finding_types_disagree(monkeypatch):
     fake = _FakeClient(json.dumps(bad))
     monkeypatch.setattr(llm, "get_client", lambda: fake)
 
-    assert insights_generator.generate_daily_brief(_fake_context(), PILLARS) is None
+    assert insights_generator.generate_training_review(_fake_context(), PILLARS) is None
 
 
 def test_returns_none_when_headline_empty(monkeypatch):
@@ -443,7 +343,7 @@ def test_returns_none_when_headline_empty(monkeypatch):
     fake = _FakeClient(json.dumps(bad))
     monkeypatch.setattr(llm, "get_client", lambda: fake)
 
-    assert insights_generator.generate_daily_brief(_fake_context(), PILLARS) is None
+    assert insights_generator.generate_training_review(_fake_context(), PILLARS) is None
 
 
 def test_returns_none_when_recommendations_exceed_three(monkeypatch):
@@ -454,7 +354,7 @@ def test_returns_none_when_recommendations_exceed_three(monkeypatch):
     fake = _FakeClient(json.dumps(bad))
     monkeypatch.setattr(llm, "get_client", lambda: fake)
 
-    assert insights_generator.generate_daily_brief(_fake_context(), PILLARS) is None
+    assert insights_generator.generate_training_review(_fake_context(), PILLARS) is None
 
 
 def test_returns_none_when_recommendations_contain_non_strings(monkeypatch):
@@ -463,7 +363,7 @@ def test_returns_none_when_recommendations_contain_non_strings(monkeypatch):
     fake = _FakeClient(json.dumps(bad))
     monkeypatch.setattr(llm, "get_client", lambda: fake)
 
-    assert insights_generator.generate_daily_brief(_fake_context(), PILLARS) is None
+    assert insights_generator.generate_training_review(_fake_context(), PILLARS) is None
 
 
 def test_validator_returns_specific_reason_for_each_failure_class():

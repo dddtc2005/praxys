@@ -1,7 +1,7 @@
 """Post-sync LLM insight generation runner.
 
-Called after a sync finishes. Runs three insight generators (daily_brief,
-training_review, race_forecast), each gated by:
+Called after a sync finishes. Runs the durable training-review and race-forecast
+generators, each gated by:
 
 - A *content-addressable* dataset hash: skip if the inputs that drive the
   insight haven't materially changed since the last generation.
@@ -36,23 +36,19 @@ from api.insight_feedback import (
     build_generation_provenance,
     merge_feedback_meta,
 )
-from api.daily_brief_freshness import (
-    DAILY_BRIEF_FRESHNESS_KEY,
-    build_daily_brief_freshness_meta,
-    is_current_daily_brief_freshness,
-)
+
 
 logger = logging.getLogger(__name__)
 
 
-GENERATORS_ORDER = ("daily_brief", "training_review", "race_forecast")
+GENERATORS_ORDER = ("training_review", "race_forecast")
 _RUN_LOCKS = tuple(threading.Lock() for _ in range(64))
 
 
 def run_insights_for_user(
     user_id: str, db: Session, counts: dict, *, _session: Optional[Session] = None
 ) -> dict:
-    """Run all three insight generators for ``user_id``.
+    """Run the training-review and race-forecast generators for ``user_id``.
 
     Args:
         user_id: User the sync just completed for.
@@ -60,8 +56,8 @@ def run_insights_for_user(
             opens its own session for its work so its commits don't entangle
             with the sync transaction.
         counts: Per-platform row-count dict from the sync writer
-            (e.g. ``{"activities": 5, "splits": 23}``). When all values
-            are zero we know the sync was a no-op and skip generation.
+            (e.g. ``{"activities": 5, "splits": 23}``). A no-op sync skips
+            generation because Today guidance is computed deterministically.
         _session: Test-only override. Pass an in-memory session and the
             runner uses it directly instead of opening ``SessionLocal``.
 
@@ -70,20 +66,21 @@ def run_insights_for_user(
         ``cap_reached``, ``generator_returned_none``, or ``superseded``. A
         top-level ``skipped`` key short-circuits the whole run.
     """
-    if not _has_new_rows(counts):
-        return {"skipped": "no_new_rows"}
-
+    has_new_rows = _has_new_rows(counts)
     if _session is not None:
+        if not has_new_rows:
+            return {"skipped": "no_new_rows"}
         return _run_serialized(_session, user_id)
 
     from db.session import SessionLocal
 
     own_session = SessionLocal()
     try:
+        if not has_new_rows:
+            return {"skipped": "no_new_rows"}
         return _run_serialized(own_session, user_id)
     finally:
         own_session.close()
-
 
 def _generation_lock_key(user_id: str) -> int:
     """Return a stable transaction-lock key for one user's LLM generation."""
@@ -120,8 +117,6 @@ def _run_serialized(db: Session, user_id: str) -> dict:
 def _run(db: Session, user_id: str) -> dict:
     cap = _daily_cap()
     used_today = _count_today(user_id, db)
-    if used_today >= cap:
-        return {"skipped": "cap_reached"}
 
     # Imports deferred so this module is cheap to import (the post-sync hook
     # imports it on every sync, including ones with no new rows).
@@ -129,14 +124,12 @@ def _run(db: Session, user_id: str) -> dict:
     from analysis.insight_hash import compute_dataset_hash
     from api.ai import build_training_context
     from api.insights_generator import (
-        generate_daily_brief,
         generate_race_forecast,
         generate_training_review,
     )
     from db.models import AiInsight
 
     generators = {
-        "daily_brief": generate_daily_brief,
         "training_review": generate_training_review,
         "race_forecast": generate_race_forecast,
     }
@@ -148,12 +141,13 @@ def _run(db: Session, user_id: str) -> dict:
 
     try:
         for _attempt in range(2):
+            run_date = date.today()
             revisions_before = get_revisions(db, user_id, SCOPES)
             cfg = load_config_from_db(user_id, db)
             pillars = dict(getattr(cfg, "science", {}) or {})
             context = build_training_context(user_id=user_id, db=db)
             source_revisions = get_revisions(db, user_id, SCOPES)
-            if revisions_before == source_revisions:
+            if run_date == date.today() and revisions_before == source_revisions:
                 break
             db.expire_all()
         else:
@@ -164,11 +158,6 @@ def _run(db: Session, user_id: str) -> dict:
         return {"skipped": "context_build_failed"}
 
     run_started_at = datetime.utcnow()
-    daily_brief_freshness = build_daily_brief_freshness_meta(
-        context,
-        pillars,
-        for_date=date.today(),
-    )
 
     from api import telemetry
 
@@ -181,20 +170,12 @@ def _run(db: Session, user_id: str) -> dict:
             .filter(AiInsight.user_id == user_id, AiInsight.insight_type == itype)
             .first()
         )
-        freshness_matches = (
-            itype != "daily_brief"
-            or is_current_daily_brief_freshness(
-                existing.meta if existing is not None else None,
-                daily_brief_freshness,
-            )
-        )
         if (
             existing is not None
             and (existing.meta or {}).get("dataset_hash") == new_hash
-            and freshness_matches
+            and _generation_started_at(existing.meta) is not None
         ):
             results[itype] = "hash_match"
-
             continue
         if used_today + len(pending) >= cap:
             results[itype] = "cap_reached"
@@ -209,7 +190,7 @@ def _run(db: Session, user_id: str) -> dict:
 
     # No database row locks are held during the LLM calls above. Serialize the
     # short write batch before its active-user and revision checks. PostgreSQL
-    # uses the revision advisory lock inside _upsert_insight; SQLite needs an
+    # uses the revision advisory lock inside the write helpers; SQLite needs an
     # explicit writer transaction so deletion cannot interleave before commit.
     if pending:
         from db.session import begin_serialized_write
@@ -224,7 +205,6 @@ def _run(db: Session, user_id: str) -> dict:
             new_hash,
             source_revisions,
             run_started_at,
-            daily_brief_freshness=daily_brief_freshness if itype == "daily_brief" else None,
         ):
             results[itype] = "superseded"
 
@@ -232,7 +212,13 @@ def _run(db: Session, user_id: str) -> dict:
         used_today += 1
         results[itype] = "generated"
 
-    db.commit()
+    if date.today() != run_date:
+        db.rollback()
+        for itype, _payload, _new_hash in pending:
+            if results.get(itype) == "generated":
+                results[itype] = "superseded"
+    else:
+        db.commit()
     for itype in GENERATORS_ORDER:
         status = results.get(itype)
         if status is not None:
@@ -254,6 +240,7 @@ def _has_new_rows(counts: dict) -> bool:
     return any(isinstance(v, int) and v > 0 for v in (counts or {}).values())
 
 
+
 def _daily_cap() -> int:
     try:
         return int(os.environ.get("PRAXYS_INSIGHT_DAILY_CAP", "30"))
@@ -272,7 +259,11 @@ def _count_today(user_id: str, db: Session) -> int:
     today_midnight = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     return (
         db.query(AiInsight)
-        .filter(AiInsight.user_id == user_id, AiInsight.generated_at >= today_midnight)
+        .filter(
+            AiInsight.user_id == user_id,
+            AiInsight.insight_type.in_(GENERATORS_ORDER),
+            AiInsight.generated_at >= today_midnight,
+        )
         .count()
     )
 
@@ -311,6 +302,7 @@ def _generation_started_at(meta: object) -> datetime | None:
     except ValueError:
         return None
 
+
 def _upsert_insight(
     db: Session,
     user_id: str,
@@ -319,7 +311,6 @@ def _upsert_insight(
     dataset_hash: str,
     source_revisions: dict[str, int],
     run_started_at: datetime,
-    daily_brief_freshness: dict[str, str] | None = None,
 ) -> bool:
     """Upsert unless a later-started runner already published this slot."""
     from db.models import AiInsight, User
@@ -385,11 +376,6 @@ def _upsert_insight(
             **meta_extra,
             "dataset_hash": dataset_hash,
             GENERATION_PROVENANCE_KEY: provenance,
-            **(
-                {DAILY_BRIEF_FRESHNESS_KEY: daily_brief_freshness}
-                if itype == "daily_brief" and daily_brief_freshness is not None
-                else {}
-            ),
         },
         row.meta,
     )

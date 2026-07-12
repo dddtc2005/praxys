@@ -141,7 +141,11 @@ def load_theory(pillar: str, theory_id: str, locale: str | None = None) -> Theor
     Validates params against the pillar-specific Pydantic schema at load time.
     Raises pydantic.ValidationError if required fields are missing or wrong type.
     """
-    from analysis.theory_schema import validate_theory_params
+    from analysis.theory_schema import (
+        validate_diagnosis_params,
+        validate_signal_params,
+        validate_theory_params,
+    )
 
     path = _locale_theory_path(pillar, theory_id, locale)
     if not os.path.exists(path):
@@ -149,9 +153,10 @@ def load_theory(pillar: str, theory_id: str, locale: str | None = None) -> Theor
     with open(path, encoding="utf-8") as f:
         data = yaml.safe_load(f)
 
-    # Validate params against pillar schema (fail fast on bad YAML)
-    raw_params = data.get("params", {})
-    validate_theory_params(pillar, raw_params)
+    # Validate and retain normalized/defaulted theory configuration.
+    params = validate_theory_params(pillar, data.get("params", {}))
+    signal = validate_signal_params(data.get("signal", {}))
+    diagnosis = validate_diagnosis_params(data.get("diagnosis", {}))
 
     theory = Theory(
         id=data["id"],
@@ -162,10 +167,10 @@ def load_theory(pillar: str, theory_id: str, locale: str | None = None) -> Theor
         advanced_description=data.get("advanced_description", ""),
         author=data.get("author", "system"),
         citations=_parse_citations(data.get("citations")),
-        params=data.get("params", {}),
+        params=params,
         tsb_zones=_parse_tsb_zones(data.get("tsb_zones")),
-        signal=data.get("signal", {}),
-        diagnosis=data.get("diagnosis", {}),
+        signal=signal,
+        diagnosis=diagnosis,
     )
 
     # Prediction-specific fields

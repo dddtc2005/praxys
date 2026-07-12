@@ -23,13 +23,13 @@ import type { MessageDescriptor } from '@lingui/core';
 // missing we fall back to `label`: lossless for en (key === label in
 // English), silent miss for zh (translated label won't match any key).
 const ZONE_INSIGHTS: Record<string, MessageDescriptor> = {
-  Performance: msg`Freshened up — good window for racing or testing.`,
-  Optimal: msg`Good balance of fitness and recovery. Ready for quality work.`,
-  Productive: msg`Building fitness with manageable fatigue.`,
-  'Productive & Maintenance': msg`Absorbing training while maintaining fitness.`,
-  Cautionary: msg`Fatigue is climbing — watch recovery before adding load.`,
-  Overreaching: msg`High fatigue accumulation. Prioritize recovery.`,
-  Detraining: msg`Extended rest period. Fitness declining.`,
+  Performance: msg`Long-term modeled load is above recent modeled load.`,
+  Optimal: msg`Long-term and recent modeled loads are near balance.`,
+  Productive: msg`Recent modeled load is moderately above long-term modeled load.`,
+  'Productive & Maintenance': msg`Recent modeled load is slightly above long-term modeled load.`,
+  Cautionary: msg`Recent modeled load is above long-term modeled load.`,
+  Overreaching: msg`Recent modeled load is substantially above long-term modeled load.`,
+  Detraining: msg`Recent modeled load is substantially below long-term modeled load.`,
 };
 
 interface Props {
@@ -116,7 +116,7 @@ export default function FormSparkline({ data, scienceNote }: Props) {
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          <Trans>Form (TSB)</Trans>
+          <Trans>Load balance (TSB)</Trans>
         </CardTitle>
         <div className="flex items-center gap-2">
           <span
@@ -251,7 +251,7 @@ export default function FormSparkline({ data, scienceNote }: Props) {
         <ZoneLegend zones={tsbZones} />
 
         <ScienceNote
-          text={scienceNote?.description || "Form (TSB) = Fitness (CTL) − Fatigue (ATL). Positive TSB means you're fresh; negative means fatigued."}
+          text={scienceNote?.description || i18n._(msg`CTL and ATL are long-term and recent modeled training loads. TSB = CTL − ATL; it is not a direct measure of recovery or readiness.`)}
           sourceUrl={scienceNote?.citations?.[0]?.url}
           sourceLabel={scienceNote?.citations?.[0]?.label || scienceNote?.name}
         />

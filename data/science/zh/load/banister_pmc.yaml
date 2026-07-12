@@ -2,30 +2,56 @@ id: banister_pmc
 pillar: load
 name: Banister PMC 表现管理模型
 author: system
-description: 行业标准的表现管理模型（Performance Management Chart）。体能（CTL）大约在 6 周内累积，疲劳（ATL）大约在
-  1 周内消退。TSB = CTL − ATL。最适合每周训练 4-6 天的 5K 到马拉松跑者。
-simple_description: 您的仪表盘会跟踪体能：即每日训练压力的 6 周移动平均，以及疲劳：即 1 周移动平均。两者之间的差距就是您的“竞技状态”（form）——当它为正时，您处于充分恢复状态，已准备好参赛；当它为负时，您正带着近期训练留下的疲劳。训练期间出现这种情况是正常且符合预期的。
-advanced_description: "## Banister 表现管理模型\n\n**指数加权移动平均（EWMA）：**\n\
-  - **CTL**（长期训练负荷 / 体能）= EWMA(daily_load, α = 1/42)\n- **ATL**（短期训练负荷\
-  \ / 疲劳）= EWMA(daily_load, α = 1/7)\n- **TSB**（训练压力平衡 / 竞技状态）= CTL − ATL\n\n\
-  平滑常数 α = 1/τ 遵循 TrainingPeaks、\nStryd 和 Intervals.icu 使用的约定。42 天和 7 天的时间常数是 Banister\
-  \ 原始范围的名义近似值（体能 30–50 天，\n疲劳 5–10 天）。\n\n**TSB 区间边界：**\n| 区间 | TSB 范围 | 含义 |\n\
-  |------|-----------|----------------|\n| 竞赛状态 | 5 至 25 | 充分恢复，准备好参赛 |\n| 最佳平衡\
-  \ | −10 至 5 | 训练/恢复平衡 |\n| 高效训练 | −25 至 −10 | 正在吸收训练负荷 |\n| 过度训练 | < −25 |\
-  \ 高疲劳，受伤风险 |\n\n**参考文献：**\n- Banister (1975) \"A systems model of training\
-  \ for athletic performance\"\n- Banister (1991) \"Modeling elite athletic performance\"\
-  \ — exponential k-weighted TRIMP（k_male 1.92, k_female 1.67）的来源\n- Morton, Fitz-Clarke\
-  \ & Banister (1990) \"Modeling human performance in\n  running\" — 消耗型 TRIMP 脉冲响应模型\n\
-  - TrainingPeaks, \"The Science of the Performance Manager\""
+description: >
+  行业常用的表现管理模型（Performance Management Chart）。CTL 表示较长期训练负荷模型，
+  ATL 表示较短期训练负荷模型，TSB = CTL - ATL。TSB 是模型化负荷平衡，不是疲劳、
+  恢复、准备度或受伤风险的直接测量。
+simple_description: >
+  仪表盘比较约 6 周的长期训练负荷模型与约 1 周的近期训练负荷模型。两者之差用于描述
+  负荷平衡：正值表示长期模型高于近期模型，负值表示近期模型高于长期模型。该数值不能
+  单独判断您今天是否恢复充分或适合比赛。
+advanced_description: |
+  ## Banister 表现管理模型
+
+  **指数加权移动平均（EWMA）：**
+  - **CTL**（长期训练负荷）= EWMA(daily_load, alpha = 1/42)
+  - **ATL**（短期训练负荷）= EWMA(daily_load, alpha = 1/7)
+  - **TSB**（训练压力平衡）= CTL - ATL
+
+  行业内常把 CTL、ATL 和 TSB 简称为“体能”“疲劳”和“竞技状态”。这些只是模型标签，
+  并非直接的生理测量。平滑常数 alpha = 1/tau 沿用 TrainingPeaks、Stryd 和
+  Intervals.icu 的约定。42 天和 7 天是对 Banister 原始长期与短期时间范围的名义近似。
+
+  **TSB 运营区间：**
+  | 区间 | TSB 范围 | 负荷模型含义 |
+  |------|----------|--------------|
+  | 较高正值 | 5 至 25 | 长期模型负荷高于近期模型负荷 |
+  | 接近平衡 | -10 至 5 | 长期与近期模型负荷较为接近 |
+  | 近期负荷占优 | -25 至 -10 | 近期模型负荷高于长期模型负荷 |
+  | 近期负荷明显占优 | < -25 | 近期模型负荷显著更高，教练建议应更谨慎 |
+
+  工作分段和每周训练量的诊断阈值同样属于 Praxys 运营启发式规则，并非 Banister 模型
+  验证过的输出。
+
+  这些区间和每日建议阈值是参考 PMC 惯例制定的 Praxys 运营估计，并非经过验证的通用
+  恢复、准备度、表现或受伤风险阈值。
+
+  **参考文献：**
+  - Banister (1975) "A systems model of training for athletic performance"
+  - Banister (1991) "Modeling elite athletic performance"
+  - Morton, Fitz-Clarke & Banister (1990) "Modeling human performance in running"
+  - TrainingPeaks, "The Science of the Performance Manager"
 citations:
 - key: banister1975
   title: A systems model of training for athletic performance
   year: 1975
   journal: Australian Journal of Sports Medicine
+  url: https://collection.sl.nsw.gov.au/record/74VvZDVa0D0X
 - key: banister1991
   title: Modeling elite athletic performance
   year: 1991
   journal: Physiological Testing of Elite Athletes (Human Kinetics), pp. 403–424
+  url: https://openlibrary.org/books/OL1875494M/Physiological_testing_of_the_high-performance_athlete
 - key: morton1990
   title: Modeling human performance in running
   year: 1990

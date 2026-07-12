@@ -4,17 +4,16 @@ import { apiGet, apiPost } from '../../utils/api-client';
 import { generateShareCard } from '../../utils/share-image';
 import type { ApiError } from '../../utils/api-client';
 import type {
-  AiInsight,
-  AiInsightFinding,
-  InsightFeedbackVote,
   PlanData,
   RecoveryAnalysis,
   TodayResponse,
+  TrainingSignal,
 } from '../../types/api';
 import { applyThemeChrome, themeClassName } from '../../utils/theme';
-import { t, tFmt, detectLocale } from '../../utils/i18n';
-import { coachToggleLabel, fetchInsight, insightFeedbackState, localizedInsight } from '../../utils/insights';
+import { t, tFmt, tNamed, detectLocale } from '../../utils/i18n';
+import { coachToggleLabel } from '../../utils/insights';
 import { recordProductEventOnce } from '../../utils/product-events';
+import { copyUrlToClipboard } from '../../utils/markdown';
 import {
   buildShareMessage,
   buildTimelineMessage,
@@ -36,6 +35,7 @@ interface SignalMeta {
 function signalMeta(): Record<string, SignalMeta> {
   return {
     follow_plan: { label: 'GO', subtitle: t('Follow Plan'), color: 'green' },
+    unscheduled: { label: 'NO PLAN', subtitle: t('No Workout Scheduled'), color: 'amber' },
     easy: { label: 'EASY', subtitle: t('Go Easy'), color: 'amber' },
     modify: { label: 'MODIFY', subtitle: t('Adjust Workout'), color: 'amber' },
     reduce_intensity: { label: 'CAUTION', subtitle: t('Reduce Intensity'), color: 'amber' },
@@ -54,7 +54,7 @@ interface CoachFindingRow {
   /** Glyph derived from `tone`; same convention as web's coach-receipt. */
   marker: CoachMarker;
   /** Tone class suffix used for `coach-row--{{tone}}` styling. */
-  tone: AiInsightFinding['type'];
+  tone: 'positive' | 'warning' | 'neutral';
   text: string;
 }
 
@@ -66,8 +66,7 @@ interface CoachRecRow {
 }
 
 interface CoachReceipt {
-  /** Time-since-generated, e.g. "2h ago" / "5分钟前". Empty when no
-   *  generated_at on the row (legacy inserts). */
+  /** Deterministic Today guidance has no generation-time stamp. */
   stamp: string;
   headline: string;
   hasFindings: boolean;
@@ -91,7 +90,7 @@ interface CoachTranslations {
 
 /** A single supporting metric cell — flat 2-col grid mirrors web's
  *  PR #238 layout. Five cells when readiness is unavailable (HRV /
- *  7d Trend / RHR / Sleep / TSB); six when an Oura-style readiness
+ *  observation-count Trend / RHR / Sleep / TSB); six when an Oura-style readiness
  *  score is present, inserting Readiness between Sleep and TSB so
  *  sleep + readiness pair visually. */
 interface SupportingCell {
@@ -113,139 +112,215 @@ interface SupportingCell {
   span: boolean;
 }
 
-/**
- * Format a relative-time stamp ("2h ago" / "5分钟前") for the coach
- * receipt header. Buckets into minute / hour / day via
- * `Intl.RelativeTimeFormat` — Skyline's Intl support is base-library
- * dependent, and an older runtime that lacks `RelativeTimeFormat`, or
- * a malformed ISO date, falls back to an empty string (the headline
- * and body still read; the `wx:if="{{coach.stamp}}"` gate hides the
- * empty chip cleanly).
- */
-function timeAgo(isoDate: string, locale: 'en' | 'zh'): string {
-  try {
-    const diff = Date.now() - new Date(isoDate).getTime();
-    const rtf = new Intl.RelativeTimeFormat(locale === 'zh' ? 'zh-CN' : 'en-US', { style: 'short' });
-    const mins = Math.floor(diff / 60_000);
-    if (mins < 60) return rtf.format(-mins, 'minute');
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return rtf.format(-hours, 'hour');
-    const days = Math.floor(hours / 24);
-    return rtf.format(-days, 'day');
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.warn('[today] timeAgo failed; dropping stamp:', isoDate, e);
-    return '';
+function localizedSignalReason(signal: TrainingSignal): string {
+  const rawTsb = signal.reason_args?.tsb ?? signal.recovery.tsb;
+  const tsb = rawTsb == null ? '' : Number(rawTsb).toFixed(0);
+  const cv = Number(signal.reason_args?.cv ?? 0).toFixed(0);
+  const sleep = Number(signal.reason_args?.sleep ?? 0).toFixed(0);
+
+  switch (signal.reason_code) {
+    case 'unscheduled_hrv_caution':
+      return t('No workout is scheduled, and HRV is below your personal caution band. Keep the day restorative rather than adding a hard session.');
+    case 'unscheduled_high_load':
+      return tNamed('No workout is scheduled, and modeled load balance is low (TSB {tsb}). Avoid adding intensity today.', { tsb });
+    case 'unscheduled_open':
+      return t('No workout is scheduled. Add a session only if it fits your broader plan.');
+    case 'rest_scheduled':
+      return t('Rest day scheduled. Follow the plan and prioritize recovery.');
+    case 'hrv_stale':
+      return t('The latest HRV reading is out of date. Follow the plan without an HRV-based recovery adjustment.');
+    case 'hrv_zero_variance':
+      return t('Recent HRV observations have no measurable variation, so Praxys cannot form a reliable recovery band yet. Follow the plan without an HRV-based adjustment.');
+    case 'hrv_history_insufficient':
+      return t('More historical HRV observations are needed before Praxys can form a personal recovery band. Follow the plan without an HRV-based adjustment.');
+    case 'hrv_unavailable':
+      return t('Recovery requires current HRV data. Connect or sync an HRV-capable device to receive recovery suggestions.');
+    case 'hrv_below_hard':
+      return t('HRV is below your personal caution band. Treat this as a recovery signal, not a diagnosis.');
+    case 'hrv_below_easy':
+      return t('HRV is below your personal caution band. Keep today easy to support recovery.');
+    case 'high_load_hard':
+      return tNamed('HRV is within your personal reference band, but modeled load balance is low (TSB {tsb}). Modify the hard session.', { tsb });
+    case 'hrv_declining_hard':
+      return t('HRV rolling mean is lower than its prior window. Reduce intensity as a conservative coaching adjustment.');
+    case 'hrv_declining_easy':
+      return t('HRV rolling mean is lower than its prior window. Stay easy today.');
+    case 'hrv_variability_high':
+      return tNamed('HRV variability is high (CV {cv}%), above the selected coaching caution threshold.', { cv });
+    case 'sleep_low_hard':
+      return tNamed("Sleep score is low ({sleep}). Consider reducing today's intensity.", { sleep });
+    case 'resting_hr_elevated_hard':
+      return t('Resting heart rate is elevated above your baseline. This can be a caution signal, but it is not diagnostic.');
+    case 'hrv_above_baseline':
+      return t('HRV is above your personal reference band. Follow the plan as written.');
+    case 'recovery_normal':
+      return t('Recovery signals are within their recent reference bands. Follow the plan as written.');
+    default:
+      return signal.reason;
   }
 }
 
+function localizedSignalAlternatives(signal: TrainingSignal): string[] {
+  if (!signal.alternative_codes?.length) return signal.alternatives;
+
+  return signal.alternative_codes.map((item, index) => {
+    const workout = String(item.args.workout ?? signal.plan.workout_type ?? '');
+    switch (item.code) {
+      case 'restorative_movement':
+        return t('Rest, walk, or do gentle mobility');
+      case 'optional_easy_short':
+        return t('Keep any optional movement easy and short');
+      case 'full_recovery_reassess':
+        return t('Make today a full recovery day and reassess the hard session tomorrow');
+      case 'drop_to_easy':
+        return t('Drop to easy run (keep power in recovery zone)');
+      case 'push_to_tomorrow_if_easy':
+        return tNamed('Push {workout} to tomorrow if tomorrow is rest/easy', { workout });
+      case 'cap_low_power':
+        return t('Run as planned but cap at low end of power range');
+      case 'swap_for_easy':
+        return tNamed('Swap {workout} for easy run', { workout });
+      case 'drop_one_zone':
+        return t('Drop intensity by one zone');
+      case 'push_to_tomorrow':
+        return tNamed('Push {workout} to tomorrow', { workout });
+      case 'proceed_monitor_body':
+        return t('Run as planned but monitor how you feel');
+      case 'shorten_if_fatigued':
+        return t('Shorten the session if fatigue develops');
+      case 'run_easy':
+        return t('Run easy instead');
+      case 'monitor_hr_drift':
+        return t('Proceed but monitor heart-rate drift during the session');
+      default:
+        return signal.alternatives[index] ?? '';
+    }
+  }).filter(Boolean);
+}
+
+/** Build the deterministic Coach receipt from the canonical Today signal. */
 function buildCoachReceipt(
-  insight: AiInsight,
-  locale: 'en' | 'zh',
+  response: TodayResponse,
   recoveryName: string | undefined,
   loadName: string | undefined,
 ): CoachReceipt {
-  const view = localizedInsight(insight, locale);
-  const findings: CoachFindingRow[] = view.findings.map((f, i) => ({
-    id: `${i}`,
-    marker: f.type === 'positive' ? '[+]' : f.type === 'warning' ? '[!]' : '[·]',
-    tone: f.type,
-    text: f.text,
-  }));
-  const recommendations: CoachRecRow[] = view.recommendations.map((r, i) => ({
-    index: `${i + 1}`,
-    text: r,
-  }));
+  const recommendations: CoachRecRow[] = localizedSignalAlternatives(response.signal).map(
+    (text, index) => ({ index: `${index + 1}`, text }),
+  );
   const attribution = [recoveryName, loadName].filter((s): s is string => !!s).join(' · ');
   return {
-    stamp: insight.generated_at ? timeAgo(insight.generated_at, locale) : '',
-    headline: view.headline,
-    hasFindings: findings.length > 0,
-    findings,
+    stamp: '',
+    headline: localizedSignalReason(response.signal),
+    hasFindings: false,
+    findings: [],
     hasRecommendations: recommendations.length > 0,
     recommendations,
     attribution,
   };
 }
-
 const TREND_ARROW: Record<'stable' | 'improving' | 'declining', string> = {
   stable: '→',
   improving: '↑',
   declining: '↓',
 };
 
-// Banister PMC interpretation of training stress balance (TSB):
-//   ≥ +10  strongly positive — peaked freshness, primed to perform
-//   0..10  positive — freshness, training adapted
-//   -10..0 mild fatigue — adaptation in progress
-//   < -10  fatigued — accumulated fatigue, recovery prioritized
-// Source: Banister, E.W. (1991). Modeling elite athletic performance.
+const HRV_TREND_LABEL: Record<'stable' | 'improving' | 'declining', string> = {
+  stable: 'stable',
+  improving: 'rising',
+  declining: 'falling',
+};
+
+const RHR_TREND_LABEL: Record<'stable' | 'elevated' | 'low', string> = {
+  stable: 'near baseline',
+  elevated: 'above baseline',
+  low: 'below baseline',
+};
+
+// ESTIMATE: Praxys display labels for modeled training stress balance (TSB).
+// Banister motivates the load model, but does not validate these product bands.
+//   ≥ +10  positive balance
+//   0..10  slightly positive
+//   -10..0 slightly negative
+//   < -10  negative balance
 const TSB_STRONGLY_POSITIVE = 10;
 const TSB_MILD_FATIGUE = -10;
 
-function tsbDescriptor(tsb: number): string {
-  if (tsb >= TSB_STRONGLY_POSITIVE) return t('strongly positive');
-  if (tsb > 0) return t('positive');
-  if (tsb > TSB_MILD_FATIGUE) return t('mild fatigue');
-  return t('fatigued');
+function tsbDescriptor(tsb: number | null): string {
+  if (tsb == null) return t('not enough load history');
+  if (tsb >= TSB_STRONGLY_POSITIVE) return t('positive balance');
+  if (tsb > 0) return t('slightly positive');
+  if (tsb > TSB_MILD_FATIGUE) return t('slightly negative');
+  return t('negative balance');
 }
 
 /** Build the supporting metrics row that replaces the prior Form/TSB
  *  sparkline + Recovery card. Order mirrors web's PR #238: HRV,
- *  7d Trend, RHR, Sleep, [Readiness when present], TSB. The last
+ *  observation-count Trend, RHR, Sleep, [Readiness when present], TSB. The last
  *  cell is marked `span` only when the total count is odd, so the
  *  2-col grid never strands an empty slot. */
 function buildSupportingCells(
   ra: RecoveryAnalysis | null,
-  tsb: number,
+  tsb: number | null,
+  observationCount: number,
+  locale: 'en' | 'zh',
 ): SupportingCell[] {
   const noData = t('no data');
   const hrv = ra?.hrv ?? null;
+  const provenance = (metricDate: string | null | undefined): string | null => (
+    metricDate ? tFmt('from {0}', formatIsoDateShort(metricDate, locale)) : null
+  );
 
-  // Cell 1 — HRV (today's ln RMSSD).
+  // Cell 1 — HRV (latest ln RMSSD observation).
   const hrvValue = hrv ? hrv.today_ln.toFixed(2) : '—';
   const hrvSub = hrv
-    ? (hrv.today_ms != null ? `${hrv.today_ms} ms · ` : '') +
-      tFmt('vs {0} baseline', hrv.baseline_mean_ln.toFixed(2))
+    ? [
+        hrv.today_ms != null ? `${hrv.today_ms} ms` : null,
+        tFmt('vs {0} baseline', hrv.baseline_mean_ln.toFixed(2)),
+        provenance(ra?.hrv_latest_date),
+      ].filter(Boolean).join(' · ')
     : noData;
 
-  // Cell 2 — 7d Trend (arrow + label + rolling CV%).
+  // Cell 2 — observation-count Trend (arrow + neutral direction + rolling CV%).
   const trendValue = hrv ? TREND_ARROW[hrv.trend] : '—';
   const trendSub = hrv
-    ? `${t(hrv.trend)} · CV ${hrv.rolling_cv.toFixed(1)}%`
+    ? `${t(HRV_TREND_LABEL[hrv.trend])} · CV ${hrv.rolling_cv.toFixed(1)}%`
     : noData;
 
-  // Cell 3 — Resting HR. Round the 7-day mean float; only show the
-  // trend chip when the API actually emits one (the API returns null
-  // for "no signal" — falling back to a literal "normal" would assert
-  // information that isn't there).
+  // Cell 3 — Resting HR. Show a baseline comparison only when available.
   const rhrValue = ra?.resting_hr != null ? `${Math.round(ra.resting_hr)}` : '—';
   let rhrSub: string;
   if (ra?.resting_hr == null) {
     rhrSub = noData;
-  } else if (ra.rhr_trend) {
-    rhrSub = `bpm · ${t(ra.rhr_trend)}`;
   } else {
-    rhrSub = 'bpm';
+    rhrSub = [
+      'bpm',
+      ra.rhr_trend ? t(RHR_TREND_LABEL[ra.rhr_trend]) : null,
+      provenance(ra.rhr_latest_date),
+    ].filter(Boolean).join(' · ');
   }
 
   // Cell 4 — Sleep score (Oura/Garmin daily sleep score, 0–100).
   const sleepValue = ra?.sleep_score != null ? `${Math.round(ra.sleep_score)}` : '—';
-  const sleepSub = ra?.sleep_score != null ? t('overnight score') : noData;
+  const sleepSub = ra?.sleep_score != null
+    ? [t('overnight score'), provenance(ra.sleep_latest_date)].filter(Boolean).join(' · ')
+    : noData;
 
   // Cell 5 (Oura only) — Readiness score (0–100). Distinct from
   // sleep_score; rendered side-by-side when the source provides both.
   const hasReadiness = ra?.readiness_score != null;
   const readinessValue = hasReadiness && ra ? `${Math.round(ra.readiness_score!)}` : '—';
-  const readinessSub = t('daily score');
+  const readinessSub = [
+    t('daily score'),
+    provenance(ra?.readiness_latest_date),
+  ].filter(Boolean).join(' · ');
 
   // TSB (signed, 1dp). Tint green when freshness is positive.
-  const tsbValue = `${tsb >= 0 ? '+' : ''}${tsb.toFixed(1)}`;
-  const tsbAccent = tsb > 0 ? 'today-cell-value-positive' : '';
+  const tsbValue = tsb == null ? '—' : `${tsb >= 0 ? '+' : ''}${tsb.toFixed(1)}`;
+  const tsbAccent = tsb != null && tsb > 0 ? 'today-cell-value-positive' : '';
 
   const cells: SupportingCell[] = [
     { id: 'hrv', label: t('HRV (ln RMSSD)'), value: hrvValue, sub: hrvSub, valueAccent: '', span: false },
-    { id: 'trend', label: t('7d Trend'), value: trendValue, sub: trendSub, valueAccent: '', span: false },
+    { id: 'trend', label: tNamed('{observationCount}-observation Trend', { observationCount }), value: trendValue, sub: trendSub, valueAccent: '', span: false },
     { id: 'rhr', label: t('RHR'), value: rhrValue, sub: rhrSub, valueAccent: '', span: false },
     { id: 'sleep', label: t('Sleep'), value: sleepValue, sub: sleepSub, valueAccent: '', span: false },
   ];
@@ -263,10 +338,10 @@ function buildSupportingCells(
   return cells;
 }
 
-/** Format the planned-workout one-liner. Returns the rest-day fallback
+/** Format the planned-workout one-liner. Returns the unscheduled fallback
  *  when no workout is scheduled. Mirrors web/src/pages/Today.tsx. */
 function formatPlan(plan: PlanData | null | undefined): string {
-  if (!plan?.workout_type) return t('Rest day. No workout scheduled.');
+  if (!plan?.workout_type) return t('No workout scheduled.');
   const parts: string[] = [plan.workout_type];
   if (plan.distance_km != null) parts.push(`${plan.distance_km.toFixed(1)} km`);
   if (plan.duration_min != null) parts.push(`${plan.duration_min} min`);
@@ -292,10 +367,8 @@ interface RenderState {
    *  banner. Suppressed when `dataStale` is also true so the
    *  page-level banner below is the single voice on the surface. */
   stalenessText: string;
-  /** Page-level data-staleness state — true when the freshest data
-   *  point's calendar date in the user's local TZ is older than today.
-   *  Anchored on `data_as_of` (not the sync attempt) so a successful
-   *  sync that pulled no rows correctly leaves this on. */
+  /** Page-level data-staleness state. Anchored on source measurements,
+   *  with the server's one-day grace for overnight recovery data. */
   dataStale: boolean;
   /** Pre-formatted "Sat 9:00 PM" / "周六 21:00" stamp for the banner. */
   dataAsOfLabel: string;
@@ -323,13 +396,10 @@ interface RenderState {
   signalLabel: string;
   signalSubtitle: string;
   signalColor: 'green' | 'amber' | 'red';
-  /** Rule-based reason text. Invariant: empty string iff `hasCoach`
-   *  is true — the Coach receipt below covers the same ground in a
-   *  more specific voice, so we render only one. WXML's
-   *  `wx:if="{{signalReason}}"` treats `''` as falsy and skips the
-   *  block. Rule-based prose is the deterministic fallback when the
-   *  brief is missing (LLM disabled, transient endpoint failure). */
+  /** Canonical reason text. It is hidden when the same deterministic
+   *  sentence is rendered in the Coach receipt below. */
   signalReason: string;
+  signalAlternatives: CoachRecRow[];
   hasCoach: boolean;
   coach: CoachReceipt | null;
   coachTr: CoachTranslations | null;
@@ -341,17 +411,20 @@ interface RenderState {
    *  collapsed, "Hide details" when expanded. Empty string hides the
    *  toggle entirely (zero findings + zero recs). */
   coachToggleLabel: string;
-  coachDatasetHash: string;
-  coachFeedbackVote: InsightFeedbackVote | '';
   decisionCheckEligible: boolean;
 
-  /** Five supporting metrics in source order: HRV, 7d Trend, RHR,
-   *  Sleep, TSB. Always present once `hasResponse` is true; cells
-   *  show `—` for absent data with a `no data` sub. */
+  /** Five or six supporting metrics: HRV, trend, RHR, sleep, optional
+   *  readiness, and TSB. Missing values render as `—`. */
   cells: SupportingCell[];
 
   planEyebrow: string;
   planText: string;
+
+  methodologyExpanded: boolean;
+  methodologyLabel: string;
+  methodologyText: string;
+  methodologySourceActionLabel: string;
+  methodologySources: Array<{ id: string; label: string; url: string }>;
 
   hasWarnings: boolean;
   warnings: string[];
@@ -422,18 +495,22 @@ function formatDataAsOf(iso: string, locale: 'en' | 'zh'): string {
   }
 }
 
-// Decide whether the page-level banner fires. The data row's calendar
-// date in the user's local TZ is compared to local today — if older,
-// the banner goes up. Returns false for null/invalid input so we don't
-// render a banner when there's nothing to anchor on (fresh user).
-function isDataStaleNow(dataAsOf: string | null | undefined): boolean {
+// A prior-date snapshot is stale unless it carries a recovery reading the
+// server still considers current. Overnight sleep/HRV is commonly stored
+// under yesterday's date, so the backend's one-day grace must also keep the
+// Today decision check active on the mini program.
+function isDataStaleNow(
+  dataAsOf: string | null | undefined,
+  recovery: RecoveryAnalysis | null | undefined,
+): boolean {
   if (!dataAsOf) return false;
   const d = new Date(dataAsOf);
   if (Number.isNaN(d.getTime())) return false;
   const dataLocal = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const now = new Date();
   const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  return dataLocal < todayLocal;
+  if (dataLocal >= todayLocal) return false;
+  return !recovery?.latest_date || recovery.is_stale;
 }
 
 function isCurrentLocalDay(timestamp: number): boolean {
@@ -452,7 +529,7 @@ function isDecisionCheckEligibleNow(response: TodayResponse): boolean {
   );
   return (
     hasDecisionContext
-    && !isDataStaleNow(response.data_as_of)
+    && !isDataStaleNow(response.data_as_of, response.recovery_analysis)
     && !buildStalenessText(response.recovery_analysis ?? null, detectLocale())
   );
 }
@@ -461,7 +538,6 @@ function buildRenderState(
   response: TodayResponse | null,
   themeClass: string,
   today: string,
-  insight: AiInsight | null,
   staleDismissed = false,
   staleSyncing = false,
 ): Partial<RenderState> {
@@ -478,12 +554,9 @@ function buildRenderState(
   const localeForDate = detectLocale();
   const eyebrowDate = formatIsoDateLong(response.as_of_date, localeForDate);
 
-  // Page-level data-staleness — anchored on the actual data timestamp
-  // (`data_as_of`), not on the sync attempt time. Suppresses the
-  // older recovery-only banner when active (the page-level signal is
-  // strictly more general — fires for any stale data, not just
-  // recovery ≥2 days behind).
-  const dataStale = isDataStaleNow(response.data_as_of);
+  // Page-level staleness uses source measurements and honors the backend's
+  // one-day grace for yesterday-dated overnight recovery data.
+  const dataStale = isDataStaleNow(response.data_as_of, response.recovery_analysis);
   const dataAsOfLabel = response.data_as_of
     ? formatDataAsOf(response.data_as_of, localeForDate)
     : '';
@@ -506,40 +579,22 @@ function buildRenderState(
     ? tFmt('From {0}', dataAsOfLabel)
     : '';
 
-  // Coach receipt: the LLM-generated daily brief, rendered between the
-  // signal hero and the supporting cells. When present, suppresses the
-  // rule-based signal.reason above so the user doesn't read the same
-  // idea twice in two voices. A throw inside buildCoachReceipt (e.g.
-  // a future schema change yields an unexpected finding shape) must
-  // not blank the whole page — degrade to "no receipt" and let the
-  // rule-based prose re-appear.
-  const locale = detectLocale();
+  // Today has one same-day narrative source: the deterministic signal.
+  // Render it in the established Coach receipt without fetching or accepting
+  // a persisted daily insight row.
   const recoveryNoteName = response.science_notes?.recovery?.name;
   const loadNoteName = response.science_notes?.load?.name;
-  let coach: CoachReceipt | null = null;
-  if (insight) {
-    try {
-      coach = buildCoachReceipt(insight, locale, recoveryNoteName, loadNoteName);
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.warn('[today] coach receipt build failed; suppressing receipt:', e);
-    }
-  }
-  const hasCoach = coach != null;
-  const feedbackState = hasCoach
-    ? insightFeedbackState(insight)
-    : { datasetHash: '', vote: '' as InsightFeedbackVote | '' };
-  const coachDatasetHash = feedbackState.datasetHash;
-  const coachFeedbackVote = feedbackState.vote;
+  const coach = buildCoachReceipt(response, recoveryNoteName, loadNoteName);
+  const hasCoach = Boolean(coach.headline);
   const coachTr: CoachTranslations | null = hasCoach
     ? {
         mark: t('Praxys Coach'),
         findings: t('Findings'),
         recommendations: t('Recommendations'),
-        aria: t('Praxys Coach insight'),
+        aria: t('Praxys Coach guidance'),
       }
     : null;
-  // Reset detailsOpen on every refetch — the receipt content has
+  // Reset detailsOpen on every refetch. The deterministic receipt content may
   // changed (different findings / recs), so showing the prior
   // expanded state would surface a stale-looking detail block.
   const detailsOpen = false;
@@ -554,9 +609,20 @@ function buildRenderState(
   const cells = buildSupportingCells(
     response.recovery_analysis ?? null,
     response.signal.recovery.tsb,
+    response.recovery_theory?.params.rolling_days ?? 7,
+    localeForDate,
   );
 
   const warnings = response.warnings ?? [];
+  const methodologySources = [
+    response.science_notes?.recovery?.citations?.[0],
+    response.science_notes?.load?.citations?.[0],
+  ].filter((citation): citation is { label: string; url: string } => Boolean(citation?.url))
+    .map((citation, index) => ({
+      id: `${index}-${citation.url}`,
+      label: citation.label,
+      url: citation.url,
+    }));
 
   return {
     themeClass,
@@ -581,19 +647,29 @@ function buildRenderState(
     signalSubtitle: meta.subtitle,
     signalColor: meta.color,
     signalReason: hasCoach ? '' : response.signal.reason,
+    signalAlternatives: hasCoach
+      ? []
+      : (response.signal.alternatives || []).map((text, index) => ({
+          index: `${index + 1}`,
+          text,
+        })),
     hasCoach,
     coach,
     coachTr,
     detailsOpen,
     coachToggleLabel: coachLabel,
-    coachDatasetHash,
-    coachFeedbackVote,
     decisionCheckEligible: isDecisionCheckEligibleNow(response),
 
     cells,
 
     planEyebrow: t('Planned · Today'),
     planText: formatPlan(response.signal.plan),
+
+    methodologyExpanded: false,
+    methodologyLabel: t('How this is calculated'),
+    methodologyText: t("Today's recommendation combines the scheduled workout with Praxys operational adaptations of your active recovery and load models. HRV requires a current reading, while TSB is modeled load balance rather than a direct measure of fatigue. Praxys TSB display labels and the one-CTL-window history gate are operational estimates, not validated cutoffs. These coaching guardrails are not a medical diagnosis."),
+    methodologySourceActionLabel: t('Copy source URL'),
+    methodologySources,
 
     hasWarnings: warnings.length > 0,
     warnings,
@@ -662,19 +738,24 @@ const initialData: RenderState & RefreshState = {
   signalSubtitle: '',
   signalColor: 'green',
   signalReason: '',
+  signalAlternatives: [],
   hasCoach: false,
   coach: null,
   coachTr: null,
   detailsOpen: false,
   coachToggleLabel: '',
-  coachDatasetHash: '',
-  coachFeedbackVote: '',
   decisionCheckEligible: false,
 
   cells: [],
 
   planEyebrow: '',
   planText: '',
+
+  methodologyExpanded: false,
+  methodologyLabel: '',
+  methodologyText: '',
+  methodologySourceActionLabel: '',
+  methodologySources: [],
 
   hasWarnings: false,
   warnings: [],
@@ -726,10 +807,16 @@ Page({
     // active locale so we detect drift without a storage read).
     const curLocale = getApp<IAppOption>().globalData.locale;
     const pgMut = this as unknown as Record<string, unknown>;
+    const returningToTab = pgMut._hasShownOnce === true;
+    pgMut._hasShownOnce = true;
+    let localeChanged = false;
     if (curLocale !== pgMut._locale) {
       pgMut._locale = curLocale;
+      localeChanged = true;
       this.setData({ tr: buildTranslations() });
-      void this.refetch();
+    }
+    if (returningToTab || localeChanged) {
+      void this.refetch({ background: true });
     }
     const cachedResponse = pgMut._todayResponse as TodayResponse | undefined;
     const fetchedAt = typeof pgMut._todayResponseFetchedAt === 'number'
@@ -843,15 +930,12 @@ Page({
     this.setData({ staleDismissed: true });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cached = (this as unknown as Record<string, any>)._todayResponse;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const cachedInsight = (this as unknown as Record<string, any>)._dailyBriefInsight;
     if (cached) {
       this.setData(
         buildRenderState(
           cached,
           this.data.themeClass,
           this.data.today,
-          cachedInsight ?? null,
           true,
           this.data.staleSyncing as boolean,
         ) as Record<string, unknown>,
@@ -862,9 +946,9 @@ Page({
   /** "Sync now" handler — kicks the existing /api/sync route and
    *  polls /api/sync/status until no source reports ``syncing``.
    *  data_as_of advances only if the sync pulled new rows; on a no-op
-   *  sync, the banner correctly stays up. The 60s deadline is the
-   *  hard upper bound — Garmin's first-time backfill can run 30+
-   *  seconds, so a bare 6s sleep would re-arm the button before sync
+   *  sync, the banner correctly stays up. The five-minute deadline covers
+   *  first-time backfill plus the two durable insight-generation calls;
+   *  a bare 6s sleep would re-arm the button before sync
    *  could plausibly finish. Errors swallow at this layer because the
    *  failure mode the user cares about — "did the data refresh?" —
    *  is observable from the banner staying or going away. */
@@ -878,7 +962,7 @@ Page({
         // eslint-disable-next-line no-console
         console.warn('[today] manual sync kick failed; refetching anyway:', e);
       }
-      const deadline = Date.now() + 60_000;
+      const deadline = Date.now() + 300_000;
       while (Date.now() < deadline) {
         await new Promise((r) => setTimeout(r, 2_000));
         try {
@@ -921,10 +1005,7 @@ Page({
     if (!response) return;
     const theme = this.data.chartTheme;
     const meta = signalMeta()[response.signal?.recommendation] ?? signalMeta().follow_plan;
-    // Prefer the Coach headline when a receipt is rendering — otherwise
-    // the on-screen narrative and the screenshot would carry different
-    // sentences for the same signal. Falls through to the rule-based
-    // reason when no receipt (LLM disabled, transient failure).
+    // The receipt and share card use the same deterministic signal reason.
     const coach = this.data.coach;
     const shareReason = coach?.headline || response.signal?.reason || '';
     try {
@@ -944,44 +1025,40 @@ Page({
     }
   },
 
-  onCoachFeedbackStale() {
-    void this.refetch();
+
+  toggleMethodology() {
+    this.setData({ methodologyExpanded: !this.data.methodologyExpanded });
   },
 
-  async refetch() {
+  onTapMethodologySource(event: WechatMiniprogram.TouchEvent) {
+    const url = String(event.currentTarget.dataset.url ?? '');
+    if (url) copyUrlToClipboard(url);
+  },
+
+  async refetch(options?: { background?: boolean }) {
     const pageState = this as unknown as Record<string, unknown>;
+    const background = options?.background === true && this.data.hasResponse;
     const previousRequestId = typeof pageState._refetchRequestId === 'number'
       ? pageState._refetchRequestId
       : 0;
     const requestId = previousRequestId + 1;
     pageState._refetchRequestId = requestId;
-    this.setData({ loading: true, errorMessage: '' });
+    this.setData(background
+      ? { errorMessage: '' }
+      : { loading: true, errorMessage: '' });
     try {
-      // The brief endpoint normally returns `{ insight: null }` when
-      // LLM is disabled — `.catch` here protects against a real
-      // transport / 5xx failure (which the rule-based signal.reason
-      // covers as deterministic fallback). Logged so a broken
-      // /api/insights/daily_brief is observable in WeChat DevTools
-      // and 实时日志 instead of silently regressing the receipt.
-      const [response, insight] = await Promise.all([
-        apiGet<TodayResponse>('/api/today'),
-        fetchInsight('daily_brief').catch((e) => {
-          // eslint-disable-next-line no-console
-          console.warn('[today] daily brief fetch failed; falling back to rule-based reason:', e);
-          return null;
-        }),
-      ]);
+      // Today guidance is deterministic. Fetch only the canonical signal;
+      // generated daily prose is intentionally not requested.
+      const response = await apiGet<TodayResponse>('/api/today');
       if (pageState._refetchRequestId !== requestId) return;
       // Cache raw response so renderShareCard / onStaleShowAnyway can
       // access it without a second network round-trip.
       pageState._todayResponse = response;
       pageState._todayResponseFetchedAt = Date.now();
-      pageState._dailyBriefInsight = insight;
       const renderState = buildRenderState(
         response,
         this.data.themeClass,
         this.data.today,
-        insight,
         this.data.staleDismissed as boolean,
         this.data.staleSyncing as boolean,
       );
@@ -1005,6 +1082,11 @@ Page({
         return;
       }
       const detail = err?.detail ?? String(e);
+      if (background) {
+        // eslint-disable-next-line no-console
+        console.warn('[today] background refresh failed; keeping cached Today response:', detail);
+        return;
+      }
       this.setData({ loading: false, errorMessage: detail, hasResponse: false });
     }
   },

@@ -10,14 +10,14 @@
  *      containing ASCII letters that isn't a single `{{…}}` binding
  *      gets reported. Allowlist below covers brand tokens, glyphs, etc.
  *
- *   2. `t(…)` / `tFmt(…)` keys whose zh translation is missing. Looks
+ *   2. `t(…)` / `tFmt(…)` / `tNamed(…)` keys whose zh translation is missing. Looks
  *      up in `utils/i18n-extra.ts` (mini-only overrides) and
  *      `utils/i18n-catalog.ts` (synced from web's lingui .po). Both
  *      missing → report.
  *
  *   3. Hardcoded English-looking string literals in TS files — only
  *      flagged when the literal looks like prose (length >= 6, has a
- *      space, has a 4+ letter word) and is NOT inside a t()/tFmt() call
+ *      space, has a 4+ letter word) and is NOT inside a t()/tFmt()/tNamed() call
  *      and NOT in the allowlist. Heuristic; same-line `// i18n-allow`
  *      silences a false positive.
  *
@@ -270,7 +270,7 @@ function scanWxml(file, findings) {
 
 function scanTsKeys(file, findings, knownKeys) {
   const txt = fs.readFileSync(file, 'utf8');
-  const callRe = /\bt(?:Fmt)?\s*\(\s*(?:'([^'\\]*(?:\\.[^'\\]*)*)'|"([^"\\]*(?:\\.[^"\\]*)*)")\s*[,)]/g;
+  const callRe = /\bt(?:Fmt|Named)?\s*\(\s*(?:'([^'\\]*(?:\\.[^'\\]*)*)'|"([^"\\]*(?:\\.[^"\\]*)*)")\s*[,)]/g;
   let m;
   while ((m = callRe.exec(txt))) {
     const key = unescapeStr(m[1] ?? m[2] ?? '');
@@ -290,10 +290,10 @@ function scanTsLiterals(file, findings) {
   let masked = txt;
   masked = masked.replace(/\/\*[\s\S]*?\*\//g, (s) => s.replace(/[^\n]/g, ' '));
   masked = masked.replace(/\/\/[^\n]*/g, (s) => s.replace(/[^\n]/g, ' '));
-  // Mask `t(…)` and `tFmt(…)` calls — including nested calls like
+  // Mask `t(…)`, `tFmt(…)`, and `tNamed(…)` calls, including nested calls like
   // `tFmt('Sleep Score vs {0}', t('Avg Power'))`. We do a balanced-paren
   // walk by hand; a regex can't handle arbitrary nesting cleanly.
-  masked = maskBalancedCalls(masked, /\bt(?:Fmt)?\s*\(/g);
+  masked = maskBalancedCalls(masked, /\bt(?:Fmt|Named)?\s*\(/g);
   masked = masked.replace(/^[\t ]*import[^;\n]*[;\n]/gm, (s) => s.replace(/[^\n]/g, ' '));
   masked = masked.replace(
     /^[\t ]*(?:type|interface)\s[\s\S]*?(?:^[\t ]*\}|\n;)/gm,
@@ -377,7 +377,7 @@ function main() {
     process.exit(0);
   }
   console.log(`\n[i18n-check] ${total} finding(s) total. ` +
-    `Wrap with t()/tFmt() and add zh entries (web .po or miniapp i18n-extra.ts).`);
+    `Wrap with t()/tFmt()/tNamed() and add zh entries (web .po or miniapp i18n-extra.ts).`);
   process.exit(1);
 }
 

@@ -355,27 +355,51 @@ def test_oversized_window_returns_400(api_client):
     assert "365" in huge.text
 
 
-def test_sync_target_reflects_stryd_connection(api_client, monkeypatch):
-    """``sync_target`` is ``"stryd"`` only when the user is actually
-    connected to Stryd — the Plan UI hides the sync column otherwise."""
+def test_nullable_workout_type_serializes_as_empty_string(api_client):
+    """Legacy nullable plan rows preserve the non-null API contract."""
+    client, user_id = api_client
+    target = date.today() + timedelta(days=2)
+    _seed_rows(user_id, [{
+        "date": target,
+        "source": "stryd",
+        "workout_type": None,
+    }])
+
+    body = client.get("/api/plan").json()
+    assert body["workouts"][0]["workout_type"] == ""
+
+
+
+def test_sync_target_reflects_connection_and_invalidates_etag(api_client):
+    """A real connection mutation updates both Plan content and its ETag."""
     client, _ = api_client
 
-    # No connections → sync_target null.
-    body = client.get("/api/plan").json()
-    assert body["sync_target"] is None
+    cold = client.get("/api/plan")
+    assert cold.status_code == 200
+    assert cold.json()["sync_target"] is None
+    cold_etag = cold.headers["etag"]
 
-    # Inject a stryd connection at the config layer.
-    from analysis import config as cfg_mod
+    connected = client.post(
+        "/api/settings/connections/stryd",
+        json={"email": "runner@example.com", "password": "test-password"},
+    )
+    assert connected.status_code == 200
+    assert connected.json()["status"] == "connected"
 
-    real_loader = cfg_mod.load_config_from_db
+    after_connect = client.get(
+        "/api/plan", headers={"If-None-Match": cold_etag},
+    )
+    assert after_connect.status_code == 200
+    assert after_connect.headers["etag"] != cold_etag
+    assert after_connect.json()["sync_target"] == "stryd"
 
-    def _with_stryd(user_id, db):
-        cfg = real_loader(user_id, db)
-        cfg.connections = list({*cfg.connections, "stryd"})
-        return cfg
+    disconnected = client.delete("/api/settings/connections/stryd")
+    assert disconnected.status_code == 200
 
-    monkeypatch.setattr("api.packs.load_config_from_db", _with_stryd)
-    body = client.get(
-        "/api/plan", headers={"If-None-Match": '"never"'},
-    ).json()
-    assert body["sync_target"] == "stryd"
+    after_disconnect = client.get(
+        "/api/plan",
+        headers={"If-None-Match": after_connect.headers["etag"]},
+    )
+    assert after_disconnect.status_code == 200
+    assert after_disconnect.headers["etag"] != after_connect.headers["etag"]
+    assert after_disconnect.json()["sync_target"] is None

@@ -82,3 +82,14 @@ export function tFmt(key: string, ...args: (string | number)[]): string {
     return args[n] != null ? String(args[n]) : '';
   });
 }
+
+/** Translate Lingui messages that use stable named placeholders. */
+export function tNamed(
+  key: string,
+  args: Record<string, string | number>,
+): string {
+  const tpl = t(key);
+  return tpl.replace(/\{([A-Za-z_]\w*)\}/g, (_, name: string) => (
+    args[name] != null ? String(args[name]) : ''
+  ));
+}

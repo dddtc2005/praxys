@@ -6,9 +6,9 @@ import type { MessageDescriptor } from '@lingui/core';
 interface Props {
   recommendation: string;
   /**
-   * Rule-based one-line reason. Pass null/undefined to suppress — Today.tsx
-   * does this when a Praxys Coach daily_brief insight exists, so the
-   * narrative isn't duplicated. The deterministic recommendation chip + label
+   * Deterministic one-line reason. Pass null/undefined when Today.tsx renders
+   * the same sentence in the Praxys Coach receipt, so the narrative isn't
+   * duplicated. The recommendation chip and label
    * always render.
    */
   reason: string | null;
@@ -18,6 +18,7 @@ type SignalColor = 'green' | 'amber' | 'red';
 
 const SIGNAL_MAP: Record<string, { label: MessageDescriptor; subtitle: MessageDescriptor; color: SignalColor }> = {
   follow_plan: { label: msg`GO`, subtitle: msg`Follow Plan`, color: 'green' },
+  unscheduled: { label: msg`NO PLAN`, subtitle: msg`No Workout Scheduled`, color: 'amber' },
   easy: { label: msg`EASY`, subtitle: msg`Go Easy`, color: 'amber' },
   modify: { label: msg`MODIFY`, subtitle: msg`Adjust Workout`, color: 'amber' },
   reduce_intensity: { label: msg`CAUTION`, subtitle: msg`Reduce Intensity`, color: 'amber' },

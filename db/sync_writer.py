@@ -609,6 +609,8 @@ def write_samples(user_id: str, rows: list[dict], db: Session) -> int:
         stmt = stmt.on_conflict_do_nothing(index_elements=["user_id", "activity_id", "t_sec"])
         result = db.execute(stmt)
         total += result.rowcount
+    if total > 0:
+        bump_revisions(db, user_id, ["samples"])
     return total
 
 

@@ -2,63 +2,61 @@ id: hrv_based
 pillar: recovery
 name: 基于 HRV 的恢复评估
 author: system
-description: 基于相对于个人基准的 ln(RMSSD) 的恢复评估。使用 Plews 等人（2012）的趋势 / CV 监测和 Kiviniemi
-  等人（2007）的阈值协议。只有在存在足够的 HRV 数据时，才可提供恢复结果。
-simple_description: 使用您的 HRV（ln RMSSD）相对于您自己的基准来将恢复状态归类为充分恢复、正常或疲劳。若 HRV 数据缺失或不足，则不提供恢复状态和建议。
-advanced_description: '## 基于 HRV 的恢复评估
-
+description: >
+  Praxys 的操作性方法，参考 Plews 等人（2012）对 ln(RMSSD) 的监测研究，
+  以及 Kiviniemi 等人（2007）的个体化 HRV 指导训练研究。状态区间和 10%
+  CV 警戒阈值属于产品护栏，并非研究验证的诊断阈值。
+simple_description: >
+  将当前 ln(RMSSD) 与此前的有效观测值比较，给出保守的训练提示。当前读数
+  不会计入自身基准；HRV 过期或数据不足时，不提供恢复分类。
+advanced_description: |
+  ## 基于 HRV 的恢复评估
 
   **主要信号：ln(RMSSD)**
+  - 对可穿戴设备记录的夜间 RMSSD 进行对数转换
+  - 与当前读数前 30 个日历日内的有效观测比较；当前读数不计入自身基准
+  - 默认 7 次观测滚动窗口下，至少需要 7 次此前有效观测
 
-  - 来自可穿戴设备的夜间 RMSSD 经对数转换后
+  **Praxys 操作性状态区间：**
+  | 条件 | 状态 | 依据 |
+  |------|------|------|
+  | ln(RMSSD) > 均值 + 0.5 SD | 充分恢复 | 参考 Plews 式变化监测的 Praxys 上参考区间 |
+  | 均值 - 1 SD <= ln(RMSSD) <= 均值 + 0.5 SD | 正常 | 介于 Praxys 两个参考区间之间 |
+  | ln(RMSSD) < 均值 - 1 SD | 疲劳 | 参考个体化 HRV 指导训练的 Praxys 下警戒区间 |
+  | 此前读数少于 7 次、无当前值、HRV 早于昨天，或基准方差为零 | 无数据 | 无法形成可靠的当日恢复区间 |
 
-  - 与 30 天滚动均值和标准差进行比较
+  这些具体区间是 Praxys 的产品适配。Plews 等人研究了 ln(RMSSD) 的趋势和
+  变异性监测；Kiviniemi 等人使用另一种 HRV 指标研究个体化 HRV 指导方案。
+  两篇论文都没有将这里的状态标签验证为诊断结论。
 
-
-  **状态判定（结合 Kiviniemi + Plews）：**
-
-  | 条件 | 状态 | 来源 |
-
-  |-----------|--------|--------|
-
-  | ln(RMSSD) > 均值 + 0.5 SD | 充分恢复 | Plews SWC（最小有意义变化） |
-
-  | 均值 − 1 SD ≤ ln(RMSSD) ≤ 均值 + 0.5 SD | 正常 | 介于两阈值之间 |
-
-  | ln(RMSSD) < 均值 − 1 SD | 疲劳 | Kiviniemi 阈值 |
-
-  | HRV 读数少于 5 次或当日无有效值 | 无数据 | 无法分类 |
-
-
-  **趋势监测（Plews 等，2012）：**
-
-  - ln(RMSSD) 的 7 天滚动均值：下降趋势提示适应不良
-
-  - 7 天变异系数（CV）：CV > 10% 表明自主神经紊乱
-
+  **趋势监测：**
+  - ln(RMSSD) 的 7 次观测滚动均值：下降时触发保守训练提示，不等同于判定适应不良
+  - 7 次观测变异系数（CV）：CV > 10% 是 Praxys 对异常波动的警戒提示，并非诊断
 
   **可用性策略：**
+  - 恢复分类要求 HRV 记录来自今天或昨天。
+  - 睡眠、准备度和静息心率继续作为彼此独立的信息性上下文。
+  - 没有当前 HRV 时，不做基于 HRV 的恢复调整。
+  - 历史值完全相同时，估计离散度为零；Praxys 会显示无数据，而不会虚构参考区间。
 
-  - 恢复评估需要 HRV 数据。
-
-  - 只有在存在 HRV 时，睡眠和静息心率才作为上下文参考。
-
-  - 没有 HRV 就没有恢复状态、评分或恢复建议。'
 citations:
-- key: plews2012
-  title: Heart rate variability in elite triathletes, is variation in variability
-    the key to effective training?
-  year: 2012
-  journal: European Journal of Applied Physiology
-  doi: 10.1007/s00421-012-2354-4
-- key: kiviniemi2007
-  title: Endurance training guided individually by daily heart rate variability measurements
-  year: 2007
-  journal: European Journal of Applied Physiology
-  doi: 10.1007/s00421-007-0552-2
+  - key: plews2012
+    title: Heart rate variability in elite triathletes, is variation in variability the key to effective training?
+    year: 2012
+    journal: European Journal of Applied Physiology
+    doi: 10.1007/s00421-012-2354-4
+    url: https://doi.org/10.1007/s00421-012-2354-4
+  - key: kiviniemi2007
+    title: Endurance training guided individually by daily heart rate variability measurements
+    year: 2007
+    journal: European Journal of Applied Physiology
+    doi: 10.1007/s00421-007-0552-2
+    url: https://doi.org/10.1007/s00421-007-0552-2
+
 params:
   rolling_days: 7
   baseline_days: 30
   cv_threshold: 10
+
 signal:
   tsb_high_fatigue: -20

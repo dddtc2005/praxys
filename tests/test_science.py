@@ -1,5 +1,10 @@
 """Tests for analysis/science.py — theory loading, validation, and recommendations."""
 import pytest
+from pydantic import ValidationError
+
+from analysis.theory_schema import (
+    DiagnosisParams, RecoveryTheoryParams, ZoneTheoryParams,
+)
 
 from analysis.science import (
     load_theory,
@@ -34,6 +39,8 @@ class TestLoadTheory:
         assert "power" in theory.zone_boundaries
         assert len(theory.zone_boundaries["power"]) == 4
         assert theory.zone_names["power"] == ["Recovery", "Endurance", "Tempo", "Threshold", "VO2max"]
+        assert theory.params["target_distribution"] == [0.05, 0.70, 0.10, 0.10, 0.05]
+        assert theory.target_distribution == [0.05, 0.70, 0.10, 0.10, 0.05]
 
     def test_load_critical_power(self):
         theory = load_theory("prediction", "critical_power")
@@ -47,6 +54,54 @@ class TestLoadTheory:
         assert theory.params["rolling_days"] == 7
         assert theory.params["baseline_days"] == 30
 
+    def test_load_ultra_diagnosis_defaults_are_retained(self):
+        theory = load_theory("load", "banister_ultra")
+        assert theory.diagnosis["work_split_max_sec"] == 3600
+        assert theory.diagnosis["volume_strong_km"] == 80
+
+    def test_recovery_schema_rejects_single_observation_baseline(self):
+        with pytest.raises(ValidationError):
+            RecoveryTheoryParams(baseline_days=1)
+
+    @pytest.mark.parametrize(
+        "values",
+        [
+            {"work_split_min_sec": 600, "work_split_max_sec": 120},
+            {"volume_moderate_km": 80, "volume_strong_km": 60},
+        ],
+    )
+    def test_diagnosis_schema_rejects_reversed_ranges(self, values):
+        with pytest.raises(ValidationError):
+            DiagnosisParams(**values)
+
+    def test_zone_schema_retains_target_distribution(self):
+        params = ZoneTheoryParams(
+            zone_count=3,
+            boundaries={"power": [0.82, 1.0]},
+            zone_names=["Easy", "Moderate", "Hard"],
+            target_distribution=[0.8, 0.05, 0.15],
+        )
+
+        assert params.model_dump()["target_distribution"] == [0.8, 0.05, 0.15]
+
+    @pytest.mark.parametrize(
+        "target_distribution",
+        [
+            [0.8, 0.2],
+            [0.8, -0.05, 0.25],
+            [0.8, 0.05, 0.10],
+        ],
+    )
+    def test_zone_schema_rejects_invalid_target_distribution(
+        self, target_distribution,
+    ):
+        with pytest.raises(ValidationError):
+            ZoneTheoryParams(
+                zone_count=3,
+                boundaries={"power": [0.82, 1.0]},
+                zone_names=["Easy", "Moderate", "Hard"],
+                target_distribution=target_distribution,
+            )
     def test_load_nonexistent_raises(self):
         with pytest.raises(FileNotFoundError):
             load_theory("load", "nonexistent_theory")
@@ -100,7 +155,7 @@ class TestMergeZonesWithLabels:
         merged = merge_zones_with_labels(zones, labels)
         assert len(merged) == 3
         assert merged[0].min == 25
-        assert merged[0].label == "Detraining"
+        assert merged[0].label == "High positive balance"
 
     def test_merge_populates_key_from_yaml(self):
         zones = [TsbZone(min=25), TsbZone(min=5, max=25)]

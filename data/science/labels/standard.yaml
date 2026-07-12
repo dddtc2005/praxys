@@ -6,8 +6,8 @@ author: system
 # zone-insight dictionary). `label` is the localized display string. zh files
 # mirror `key` and translate `label`.
 tsb_zone_labels:
-  - {key: "Detraining", label: "Detraining", color: "#64748b"}
-  - {key: "Performance", label: "Performance", color: "#00ff87"}
-  - {key: "Optimal", label: "Optimal", color: "#3b82f6"}
-  - {key: "Productive", label: "Productive", color: "#22c55e"}
-  - {key: "Overreaching", label: "Overreaching", color: "#ef4444"}
+  - {key: "Detraining", label: "High positive balance", color: "#64748b"}
+  - {key: "Performance", label: "Positive balance", color: "#00ff87"}
+  - {key: "Optimal", label: "Near balance", color: "#3b82f6"}
+  - {key: "Productive", label: "Recent load higher", color: "#22c55e"}
+  - {key: "Overreaching", label: "Recent load much higher", color: "#ef4444"}

@@ -34,7 +34,7 @@ export interface CoachFallback {
 }
 
 interface Props {
-  /** The insight slot to fetch (e.g. "daily_brief", "race_forecast"). */
+  /** Durable insight slot, or the disabled Today slot used with fallback content. */
   insightType: string;
   /** Optional theory attribution rendered in the muted receipt footer. */
   attribution?: string;
@@ -44,6 +44,8 @@ interface Props {
   onDetailsOpen?: () => void;
   /** Refresh the page dataset when the displayed insight version is stale. */
   onFeedbackStale?: () => void | Promise<void>;
+  /** Disable the insight request while retaining the deterministic fallback. */
+  fetchInsight?: boolean;
 }
 
 const PLUGIN_URL = 'https://github.com/praxys-run/praxys-coach-plugin#install';
@@ -68,8 +70,12 @@ export default function AiInsightsCard({
   fallback,
   onDetailsOpen,
   onFeedbackStale,
+  fetchInsight = true,
 }: Props) {
-  const { data, refetch } = useApi<AiInsightResponse>(`/api/insights/${insightType}`);
+  const { data, refetch } = useApi<AiInsightResponse>(
+    `/api/insights/${insightType}`,
+    { enabled: fetchInsight },
+  );
   const { locale } = useLocale();
   const { i18n } = useLingui();
 
@@ -82,7 +88,7 @@ export default function AiInsightsCard({
   const [feedbackStale, setFeedbackStale] = useState(false);
   const [feedbackError, setFeedbackError] = useState('');
 
-  const insight = data?.insight;
+  const insight = fetchInsight ? data?.insight : null;
   const rawDatasetHash = insight?.meta.dataset_hash;
   const datasetHash = insight?.feedback_allowed !== false
     && typeof rawDatasetHash === 'string'

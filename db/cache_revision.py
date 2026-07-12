@@ -10,8 +10,9 @@ each scope the endpoint consumes.
 Scope vocabulary (must stay in lockstep with ``api/etag.py::ENDPOINT_SCOPES``
 and the bump points in ``db/sync_writer.py`` + the config-mutation routes):
 
-    activities  — Activity rows (sync-written + AI insights)
+    activities  — Activity rows (sync-written)
     splits      — ActivitySplit rows
+    samples     — ActivitySample rows
     recovery    — RecoveryData rows (Oura sleep/HRV/RHR + Garmin variants)
     fitness     — FitnessData rows (CP, LTHR, threshold pace, max/rest HR)
     plans       — TrainingPlan rows (Stryd push, AI plan upload/upsert/delete)
@@ -42,6 +43,7 @@ logger = logging.getLogger(__name__)
 SCOPES: tuple[str, ...] = (
     "activities",
     "splits",
+    "samples",
     "recovery",
     "fitness",
     "plans",

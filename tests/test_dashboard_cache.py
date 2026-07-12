@@ -150,11 +150,9 @@ def cache_client(monkeypatch):
 
 
 def test_section_scopes_align_with_etag_endpoint_scopes(cache_client):
-    """L3 SECTION_SCOPES must equal L2 ENDPOINT_SCOPES for shared sections,
-    AND ``_DATE_SALTED_SECTIONS`` must equal ``_DATE_SALTED_ENDPOINTS`` for
-    those sections.
+    """L3 and L2 must align on scopes, date salts, and response versions.
 
-    Why both: the cache hit serves a body that the L2 ETag's 304 path
+    Why this matters: the cache hit serves a body that the L2 ETag's 304 path
     must agree on. If L3's invalidation schedule diverges from L2's, a
     304 from one layer combined with a stale read from the other could
     replay yesterday's framing or hide a fresh write.
@@ -188,6 +186,16 @@ def test_section_scopes_align_with_etag_endpoint_scopes(cache_client):
         "the ETag stays stale."
     )
 
+    l3_versions = dc_mod.SECTION_RESPONSE_VERSIONS
+    l2_versions = {
+        section: version
+        for section, version in etag_mod.ENDPOINT_RESPONSE_VERSIONS.items()
+        if section in l3_cached
+    }
+    assert l3_versions == l2_versions, (
+        f"response-version maps diverge: L3={l3_versions}, L2={l2_versions}"
+    )
+
 
 def test_compute_source_version_is_deterministic(cache_client):
     """Two calls with no DB writes between them produce the same string,
@@ -209,6 +217,10 @@ def test_compute_source_version_is_deterministic(cache_client):
         assert f"d={date.today().isoformat()}" in a, (
             "today is date-salted — date.today() must appear in source_version"
         )
+        assert "v=metric-provenance-today-v2" in a
+        training = compute_source_version(db, user_id, "training")
+        assert "samples=0" in training
+        assert "v=evidence-summary-v2" in training
     finally:
         db.close()
 
@@ -267,6 +279,9 @@ def test_today_cold_then_warm_hits_cache(cache_client):
     cold = client.get("/api/today")
     assert cold.status_code == 200
     cold_bytes = cold.content
+    cold_snapshot = cold.json()["coach_snapshot"]
+    assert isinstance(cold_snapshot, str) and len(cold_snapshot) == 32
+    int(cold_snapshot, 16)
     assert cold.headers.get("content-type", "").startswith("application/json")
     stats_after_cold = get_stats().get("today", {})
     assert stats_after_cold.get("misses") == 1, "first visit must be a miss"
@@ -284,6 +299,65 @@ def test_today_cold_then_warm_hits_cache(cache_client):
         "verbatim-byte hit path"
     )
 
+
+def test_today_recomputes_legacy_cache_without_snapshot(cache_client):
+    """A pre-deploy Today cache row cannot bypass snapshot pairing."""
+    from api.dashboard_cache import compute_source_version
+    from db import session as db_session
+    from db.models import DashboardCache
+
+    client, user_id = cache_client
+    db = db_session.SessionLocal()
+    try:
+        db.add(DashboardCache(
+            user_id=user_id,
+            section="today",
+            source_version=compute_source_version(db, user_id, "today"),
+            payload_json=b'{"legacy":true}',
+        ))
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.get("/api/today")
+    assert response.status_code == 200
+    payload = response.json()
+    assert "legacy" not in payload
+    assert isinstance(payload["coach_snapshot"], str)
+
+
+def test_today_recomputes_prior_response_version_with_snapshot(cache_client):
+    """A schema-version bump invalidates even a structurally modern body."""
+    from api.dashboard_cache import compute_source_version
+    from db import session as db_session
+    from db.models import DashboardCache
+
+    client, user_id = cache_client
+    db = db_session.SessionLocal()
+    try:
+        current_version = compute_source_version(db, user_id, "today")
+        prior_version = "|".join(
+            part for part in current_version.split("|")
+            if not part.startswith("v=")
+        )
+        db.add(DashboardCache(
+            user_id=user_id,
+            section="today",
+            source_version=prior_version,
+            payload_json=(
+                b'{"legacy":true,"coach_snapshot":"already-present"}'
+            ),
+        ))
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.get("/api/today")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert "legacy" not in payload
+    assert payload["coach_snapshot"] != "already-present"
 
 def test_training_cold_then_warm_hits_cache(cache_client):
     """Direct cold/warm assertion for /api/training, plus scope isolation
@@ -350,7 +424,9 @@ def test_settings_edit_invalidates_cache(cache_client):
 
     cold = client.get("/api/today")
     assert cold.status_code == 200
-    cold_training_base = cold.json()["training_base"]
+    cold_payload = cold.json()
+    cold_training_base = cold_payload["training_base"]
+    cold_snapshot = cold_payload["coach_snapshot"]
 
     # Flip training_base to a different valid value so the response visibly differs.
     new_base = "hr" if cold_training_base != "hr" else "pace"
@@ -359,10 +435,12 @@ def test_settings_edit_invalidates_cache(cache_client):
 
     after_edit = client.get("/api/today")
     assert after_edit.status_code == 200
-    assert after_edit.json()["training_base"] == new_base, (
+    after_payload = after_edit.json()
+    assert after_payload["training_base"] == new_base, (
         "settings edit must invalidate the cache so the next read sees "
         "the new training_base"
     )
+    assert after_payload["coach_snapshot"] != cold_snapshot
     stats = get_stats().get("today", {})
     # The post-edit read must be a miss (config revision advanced).
     assert stats.get("misses", 0) >= 2

@@ -142,6 +142,60 @@ def test_request_context_caches_shared_inputs(db_with_seeded_user):
     assert ctx.fitness_series is ctx.fitness_series
 
 
+def test_preferred_source_selector_uses_stable_lexical_tie_break():
+    """Equal recency/count fallbacks choose one deterministic provider."""
+    import pandas as pd
+    from analysis.data_loader import select_preferred_source
+
+    frame = pd.DataFrame({
+        "date": [date(2026, 7, 12), date(2026, 7, 12)],
+        "source": ["oura", "garmin"],
+        "value": [1, 2],
+    })
+
+    selected = select_preferred_source(frame, preferred_source=None)
+
+    assert selected["source"].tolist() == ["garmin"]
+
+
+def test_request_context_honors_recovery_and_plan_preferences(
+    db_with_seeded_user,
+):
+    """Recovery and plan inputs never blend configured providers."""
+    from api.packs import RequestContext
+    from db.models import RecoveryData, TrainingPlan, UserConfig as UserConfigModel
+
+    db, user_id = db_with_seeded_user
+    today = date.today()
+    db.add(UserConfigModel(
+        user_id=user_id,
+        preferences={"recovery": "garmin", "plan": "garmin"},
+    ))
+    db.add(RecoveryData(
+        user_id=user_id,
+        date=today,
+        sleep_score=66,
+        hrv_avg=42,
+        resting_hr=58,
+        readiness_score=64,
+        source="garmin",
+    ))
+    db.add(TrainingPlan(
+        user_id=user_id,
+        date=today,
+        workout_type="easy",
+        planned_duration_min=30,
+        source="garmin",
+    ))
+    db.commit()
+
+    ctx = RequestContext(user_id=user_id, db=db)
+
+    assert set(ctx.recovery["source"]) == {"garmin"}
+    assert set(ctx.plan["source"]) == {"garmin"}
+    assert ctx.plan.iloc[0]["workout_type"] == "easy"
+
+
 def test_signal_pack_returns_required_keys(db_with_seeded_user):
     from api.packs import get_signal_pack
     ctx = _ctx(db_with_seeded_user)
@@ -152,6 +206,28 @@ def test_signal_pack_returns_required_keys(db_with_seeded_user):
     assert "dates" in out["tsb_sparkline"]
     assert "values" in out["tsb_sparkline"]
     assert isinstance(out["warnings"], list)
+
+
+def test_today_payload_unscheduled_day_uses_neutral_verdict(db_with_seeded_user):
+    """The route-level fallback must agree with an empty training docket."""
+    from api.routes.today import _build_today_payload
+    from db.models import TrainingPlan
+
+    db, user_id = db_with_seeded_user
+    db.query(TrainingPlan).filter(
+        TrainingPlan.user_id == user_id,
+        TrainingPlan.date == date.today(),
+    ).delete(synchronize_session=False)
+    db.commit()
+
+    payload = _build_today_payload(user_id, db)
+
+    assert payload["signal"]["recommendation"] == "unscheduled"
+    assert payload["signal"]["reason"] == (
+        "No workout is scheduled. Add a session only if it fits your broader plan."
+    )
+    assert payload["signal"]["alternatives"] == []
+    assert payload["signal"]["plan"] == {}
 
 
 def test_today_widgets_pack_returns_required_keys(db_with_seeded_user):
@@ -170,7 +246,9 @@ def test_diagnosis_pack_returns_required_keys(db_with_seeded_user):
     from api.packs import get_diagnosis_pack
     ctx = _ctx(db_with_seeded_user)
     out = get_diagnosis_pack(ctx)
-    assert set(out.keys()) == {"diagnosis", "workout_flags", "sleep_perf"}
+    assert set(out.keys()) == {
+        "diagnosis", "distribution_match_pct", "workout_flags", "sleep_perf",
+    }
     assert isinstance(out["workout_flags"], list)
     # sleep_perf carries metric metadata even when pairs are empty.
     assert "metric_label" in out["sleep_perf"]
@@ -181,7 +259,10 @@ def test_fitness_pack_returns_required_keys(db_with_seeded_user):
     from api.packs import get_fitness_pack
     ctx = _ctx(db_with_seeded_user)
     out = get_fitness_pack(ctx)
-    assert set(out.keys()) == {"fitness_fatigue", "cp_trend", "weekly_review"}
+    assert set(out.keys()) == {
+        "fitness_fatigue", "cp_trend", "weekly_review",
+        "current_tsb", "load_compliance_pct",
+    }
     ff = out["fitness_fatigue"]
     assert {"dates", "ctl", "atl", "tsb"}.issubset(ff.keys())
     assert {
@@ -193,6 +274,21 @@ def test_fitness_pack_returns_required_keys(db_with_seeded_user):
     assert len(ff["dates"]) >= len(ff["ctl"])
     assert len(ff["projected_dates"]) == len(ff["projected_tsb"]) == 14
 
+
+def test_training_payload_exposes_server_summary_and_load_window(
+    db_with_seeded_user,
+):
+    from api.routes.training import _build_training_payload
+
+    db, user_id = db_with_seeded_user
+    payload = _build_training_payload(user_id, db)
+
+    assert set(payload["summary"]) == {
+        "current_tsb", "distribution_match_pct", "load_compliance_pct",
+    }
+    assert payload["summary"]["current_tsb"] is None
+    assert payload["data_meta"]["load_time_constant_days"] == 42
+    assert payload["data_meta"]["pmc_sufficient"] is False
 
 def test_race_pack_returns_required_keys(db_with_seeded_user):
     from api.packs import get_race_pack
@@ -634,9 +730,8 @@ def test_today_route_payload_includes_data_as_of(db_with_seeded_user):
     attempt time — so a sync that pulled no new rows correctly leaves
     the value alone and the banner stays up.
 
-    Composition is `max(insight.generated_at, recovery latest_date EOD,
-    last activity date EOD)`. With seeded activities and recovery rows
-    but no AiInsight, the value should be EOD on the latest seeded date.
+    Composition is the newest recovery or activity measurement. With seeded
+    source rows through yesterday, the value is yesterday at noon UTC.
     """
     from api.routes.today import _build_today_payload
 
@@ -655,25 +750,14 @@ def test_today_route_payload_includes_data_as_of(db_with_seeded_user):
     assert payload["data_as_of"] == f"{yesterday}T12:00:00Z"
 
 
-def test_data_as_of_uses_insight_generated_at_when_newest(db_with_seeded_user):
-    """When an AiInsight row exists and is newer than the latest data
-    rows, its generated_at is the anchor. This is the common steady
-    state — post-sync, the runner regenerates the brief, which advances
-    the timestamp past the noon-UTC date anchors that the recovery and
-    activity rows produce.
-
-    The fixture seeds activity/recovery rows ending at ``today - 1``,
-    which anchor at ``yesterday T12:00:00Z``. We pick a timestamp
-    strictly later than that (``today T03:00:00`` — past noon UTC of
-    yesterday) so the assertion can't tie on insertion order inside
-    ``max()``.
-    """
+def test_data_as_of_ignores_runner_generated_daily_brief(db_with_seeded_user):
+    """AI prose must not make old source measurements appear freshly synced."""
     from datetime import datetime, time
+    from api.insight_feedback import GENERATION_PROVENANCE_KEY
     from api.routes.today import _build_today_payload
     from db.models import AiInsight
 
     db, user_id = db_with_seeded_user
-    fixed = datetime.combine(date.today(), time(3, 0, 0))
     db.add(AiInsight(
         user_id=user_id,
         insight_type="daily_brief",
@@ -681,14 +765,36 @@ def test_data_as_of_uses_insight_generated_at_when_newest(db_with_seeded_user):
         summary="t",
         findings=[],
         recommendations=[],
-        generated_at=fixed,
+        meta={GENERATION_PROVENANCE_KEY: {}},
+        generated_at=datetime.combine(date.today(), time(3, 0, 0)),
     ))
     db.commit()
 
     payload = _build_today_payload(user_id, db)
-    # Server normalizes naive UTC datetimes to ISO + trailing `Z` so the
-    # browser doesn't re-interpret as local time at the day boundary.
-    assert payload["data_as_of"] == fixed.isoformat() + "Z"
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    assert payload["data_as_of"] == f"{yesterday}T12:00:00Z"
+
+def test_data_as_of_ignores_untrusted_pushed_daily_brief(db_with_seeded_user):
+    """A client push must not make old source data appear freshly synced."""
+    from datetime import datetime, time
+    from api.routes.today import _build_today_payload
+    from db.models import AiInsight
+
+    db, user_id = db_with_seeded_user
+    db.add(AiInsight(
+        user_id=user_id,
+        insight_type="daily_brief",
+        headline="Run threshold today",
+        summary="Client-pushed prose without server generation provenance.",
+        findings=[],
+        recommendations=["Complete the hard session"],
+        generated_at=datetime.combine(date.today(), time(3, 0, 0)),
+    ))
+    db.commit()
+
+    payload = _build_today_payload(user_id, db)
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    assert payload["data_as_of"] == f"{yesterday}T12:00:00Z"
 
 
 def test_data_as_of_uses_noon_utc_for_date_only_rows(db_with_seeded_user):
@@ -743,6 +849,54 @@ def test_data_as_of_is_none_with_no_data(monkeypatch):
     db.close()
 
 
+def test_short_history_tsb_does_not_drive_daily_guidance(
+    db_with_seeded_user, monkeypatch,
+):
+    """Modeled load balance stays unavailable until one CTL window exists."""
+    from api import deps, packs
+
+    db, user_id = db_with_seeded_user
+    pack_seen: dict[str, float | None] = {}
+    legacy_seen: dict[str, float | None] = {}
+
+    def pack_signal(_recovery, tsb, _workout, **_kwargs):
+        pack_seen["signal"] = tsb
+        return {"recommendation": "follow_plan"}
+
+    def pack_warnings(_recovery, current_tsb, _config, **_kwargs):
+        pack_seen["warnings"] = current_tsb
+        return []
+
+    real_pack = packs.get_signal_pack(packs.RequestContext(user_id=user_id, db=db))
+    assert real_pack["signal"]["recovery"]["tsb"] is None
+
+    monkeypatch.setattr(packs, "daily_training_signal", pack_signal)
+    monkeypatch.setattr(packs, "_build_warnings", pack_warnings)
+    ctx = packs.RequestContext(user_id=user_id, db=db)
+    packs.get_signal_pack(ctx)
+
+    def legacy_signal(_recovery, tsb, _workout, **_kwargs):
+        legacy_seen["signal"] = tsb
+        return {"recommendation": "follow_plan"}
+
+    def legacy_warnings(_recovery, current_tsb, _config, **_kwargs):
+        legacy_seen["warnings"] = current_tsb
+        return []
+
+    monkeypatch.setattr(deps, "daily_training_signal", legacy_signal)
+    monkeypatch.setattr(deps, "_build_warnings", legacy_warnings)
+    full = deps.get_dashboard_data(user_id=user_id, db=db)
+
+    assert ctx.data_meta["pmc_sufficient"] is False
+    assert pack_seen == {"signal": None, "warnings": None}
+    assert legacy_seen == {"signal": None, "warnings": None}
+    assert full["data_meta"]["load_time_constant_days"] == 42
+    assert full["data_meta"]["pmc_sufficient"] is False
+    assert full["summary"]["current_tsb"] is None
+    assert set(full["summary"]) == {
+        "current_tsb", "distribution_match_pct", "load_compliance_pct",
+    }
+
 def test_dashboard_data_and_packs_agree_on_signal(db_with_seeded_user):
     """Behavioral equivalence: signal_pack output equals dashboard_data['signal'].
 
@@ -759,3 +913,29 @@ def test_dashboard_data_and_packs_agree_on_signal(db_with_seeded_user):
     assert pack["signal"] == full["signal"]
     assert pack["tsb_sparkline"] == full["tsb_sparkline"]
     assert pack["warnings"] == full["warnings"]
+
+
+def test_build_warnings_uses_selected_cv_threshold():
+    from types import SimpleNamespace
+
+    from api.deps import _build_warnings
+
+    recovery_analysis = {
+        "hrv": {"trend": "stable", "rolling_cv": 15.0},
+    }
+    config = SimpleNamespace(preferences={})
+
+    assert _build_warnings(
+        recovery_analysis,
+        current_tsb=0,
+        config=config,
+        cv_threshold=20.0,
+    ) == []
+    assert _build_warnings(
+        recovery_analysis,
+        current_tsb=0,
+        config=config,
+        cv_threshold=10.0,
+    ) == [
+        "HRV variability high (CV 15%): above the coaching caution threshold",
+    ]

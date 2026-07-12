@@ -33,10 +33,8 @@
 
         <!-- Stat strip — 2x2 grid on phone (stacked rows of two,
              columns aligned). Each cell: mono uppercase label, big
-             tabular value with optional % unit, mono caption. The
-             accent class on .train-stat-value carries the verdict
-             tint; volume is intentionally untinted (context number,
-             not a verdict). -->
+             tabular value with optional % unit, mono caption. Values
+             remain neutral because these are descriptive metrics. -->
         <view class="train-stats">
           <view
             wx:for="{{cells}}"
@@ -45,7 +43,7 @@
           >
             <text class="train-stat-label">{{item.label}}</text>
             <view class="train-stat-row">
-              <text class="train-stat-value ts-value {{item.accent}}">{{item.value}}</text>
+              <text class="train-stat-value ts-value">{{item.value}}</text>
               <text wx:if="{{item.unit}}" class="train-stat-unit">{{item.unit}}</text>
             </view>
             <text class="train-stat-sub">{{item.sub}}</text>
@@ -109,7 +107,7 @@
                 <text class="train-zonebar-value ts-value">{{item.label}}</text>
               </view>
               <view class="train-zonebar-track">
-                <view class="train-zonebar-fill {{item.fillClass}}" style="width: {{item.actualClamped}}%;"></view>
+                <view class="train-zonebar-fill" style="width: {{item.actualClamped}}%;"></view>
                 <view
                   wx:if="{{item.hasTarget}}"
                   class="train-zonebar-target"
@@ -117,6 +115,7 @@
                 ></view>
               </view>
             </view>
+            <text class="train-methodology ts-muted">{{tr.zoneMethodology}}</text>
           </block>
 
           <block wx:if="{{activePill === 'compliance'}}">
@@ -130,16 +129,8 @@
                   <text class="train-bar-legend-label">{{tr.plannedLabel}}</text>
                 </view>
                 <view class="train-bar-legend-item">
-                  <view class="train-bar-legend-dot train-bar-legend-dot--ok"></view>
-                  <text class="train-bar-legend-label">{{tr.complianceOk}}</text>
-                </view>
-                <view class="train-bar-legend-item">
-                  <view class="train-bar-legend-dot train-bar-legend-dot--off"></view>
-                  <text class="train-bar-legend-label">{{tr.complianceOff}}</text>
-                </view>
-                <view class="train-bar-legend-item">
-                  <view class="train-bar-legend-dot train-bar-legend-dot--noplan"></view>
-                  <text class="train-bar-legend-label">{{tr.complianceNoPlan}}</text>
+                  <view class="train-bar-legend-dot train-bar-legend-dot--actual"></view>
+                  <text class="train-bar-legend-label">{{tr.actualLabel}}</text>
                 </view>
               </view>
               <bar-chart
@@ -148,9 +139,10 @@
                 weeks="{{complianceWeeks}}"
                 planned="{{compliancePlanned}}"
                 actual="{{complianceActual}}"
-                actual-colors="{{complianceActualColors}}"
+                estimated="{{complianceEstimated}}"
                 theme="{{chartTheme}}"
               />
+              <text class="train-methodology ts-muted">{{tr.complianceMethodology}}</text>
             </block>
             <view wx:else class="train-data-hint">
               <text class="train-data-hint-message ts-muted">{{complianceHintMessage}}</text>

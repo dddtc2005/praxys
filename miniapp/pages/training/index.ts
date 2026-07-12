@@ -9,7 +9,7 @@ import type {
   TrainingResponse,
 } from '../../types/api';
 import { applyThemeChrome, themeClassName } from '../../utils/theme';
-import { detectLocale, t, tFmt } from '../../utils/i18n';
+import { detectLocale, t, tFmt, tNamed } from '../../utils/i18n';
 import { coachToggleLabel, fetchInsight, insightFeedbackState, localizedInsight } from '../../utils/insights';
 import {
   buildShareMessage,
@@ -42,11 +42,10 @@ function buildTrainingTr() {
     // Volume (amount of work). Strip order matches pill order so eye
     // → number → chart is one motion.
     statTsbLabel: t('TSB'),
-    statTsbSubFresh: t('fresh, primed'),
-    statTsbSubBalanced: t('balanced'),
-    statTsbSubProductive: t('productive load'),
-    statTsbSubFatigue: t('fatigue accumulating'),
-    statTsbSubDefault: t('form (CTL−ATL)'),
+    statTsbSubPositive: t('long-term load above recent load'),
+    statTsbSubBalanced: t('modeled loads balanced'),
+    statTsbSubNegative: t('recent load above long-term load'),
+    statTsbSubDefault: t('modeled balance (CTL−ATL)'),
     statDistLabel: t('Distribution match'),
     statDistSubDefault: t('vs target zones'),
     statLoadLabel: t('Load compliance'),
@@ -56,21 +55,25 @@ function buildTrainingTr() {
     // Pill switcher labels. Compact for the phone-width row; the
     // chart heading below carries the full context (e.g. the FF
     // chart still shows "Fitness · Fatigue · Form" as legend).
-    pillForm: t('Form'),
+    pillForm: t('Load balance'),
     pillZones: t('Zones'),
     pillCompliance: t('Compliance'),
 
     // Insufficient-data hints. Web's PR #280 introduced countdown
     // copy ("Need N more days") so the user knows when the chart
     // will become useful. Mini program inherits the same threshold.
-    pmcMessage: t('Not enough data yet for accurate fitness tracking'),
+    pmcMessage: t('Not enough data yet for stable load tracking'),
     loadMessage: t('Not enough data yet for weekly load comparison'),
 
     // Compliance bar legend.
     plannedLabel: t('Planned'),
-    complianceOk: t('On target'),
-    complianceOff: t('Off target'),
-    complianceNoPlan: t('No plan'),
+    actualLabel: t('Actual'),
+    zoneMethodology: t(
+      'Distribution match uses Bray-Curtis similarity to compare observed and target time-in-zone shares. It appears only when every recent activity has at least 90% duration coverage from valid splits or timestamped samples; sample streams also require a median cadence of 5 seconds or less. These evidence gates are Praxys operational estimates.',
+    ),
+    complianceMethodology: t(
+      'Compliance is the mean weekly actual-to-planned load ratio across completed weeks where actual and planned load both use exact selected-base inputs and the plan target is positive. Estimated weeks stay in the chart but are excluded from the summary. This is an execution comparison, not a quality, safety, recovery, or readiness score.',
+    ),
 
     // Coach receipt fallback strings.
     weeklyReady: t('Weekly diagnosis ready.'),
@@ -83,7 +86,7 @@ function buildTrainingTr() {
 
 // ---- Praxys Coach receipt (training_review) ----
 //
-// Same shape used by Today (daily_brief) and Goal (race_forecast). On
+// Same shape used by deterministic Today guidance and Goal (race_forecast). On
 // the new Training page (web PR #280) the receipt is always rendered:
 // when an LLM `training_review` row exists it carries the AI content;
 // when not, the rule-based diagnosis prose populates the same shape so
@@ -176,38 +179,11 @@ function buildCoachFromInsight(
   };
 }
 
-interface ZoneDeviation {
-  name: string;
-  actual: number;
-  target: number;
-  /** Signed delta: positive = above target. */
-  diff: number;
-  absDiff: number;
-}
-
-function zoneDeviations(
-  distribution: { name: string; actual_pct: number; target_pct?: number | null }[],
-): ZoneDeviation[] {
-  return distribution
-    .filter((d) => d.target_pct != null && Math.abs(d.actual_pct - d.target_pct!) > 5)
-    .map((d) => {
-      const diff = d.actual_pct - d.target_pct!;
-      return {
-        name: d.name,
-        actual: Math.round(d.actual_pct),
-        target: Math.round(d.target_pct!),
-        diff,
-        absDiff: Math.abs(diff),
-      };
-    });
-}
 
 /**
  * Rule-based fallback Coach Receipt — used when no LLM
- * `training_review` row exists. Mirrors web's `fallback` payload in
- * `Training.tsx`: rule findings + zone deviations folded together,
- * rule suggestions + worst-deviation rec folded together, lead
- * finding becomes the headline.
+ * `training_review` row exists. The API's diagnosis and suggestions
+ * remain the single source of rule-based interpretation.
  *
  * The receipt always renders something: even with zero rule findings
  * and zero deviations, the headline is "Weekly diagnosis ready." so
@@ -220,60 +196,16 @@ function buildCoachFallback(
 ): CoachReceipt {
   const ruleFindings = diagnosis?.diagnosis ?? [];
   const ruleSuggestions = diagnosis?.suggestions ?? [];
-  const distribution = diagnosis?.distribution ?? [];
-  const deviations = zoneDeviations(distribution);
-
-  // Distribution-deviation findings — rendered as warnings so the
-  // strip-zone tone classes light up amber/red.
-  const distFindings: CoachFindingRow[] = deviations.map((d, i) => ({
-    id: `dist-${i}`,
-    marker: '[!]',
-    tone: 'warning',
-    text: tFmt(
-      '{0}: {1}% ({2}pp {3} {4}% target)',
-      d.name,
-      d.actual,
-      d.absDiff,
-      d.diff > 0 ? t('above') : t('below'),
-      d.target,
-    ),
+  const findings: CoachFindingRow[] = ruleFindings.map((finding, i) => ({
+    id: `rule-${i}`,
+    marker: markerFor(finding.type),
+    tone: finding.type,
+    text: finding.message,
   }));
-
-  const allFindings: CoachFindingRow[] = [
-    ...ruleFindings.map((f, i) => ({
-      id: `rule-${i}`,
-      marker: markerFor(f.type),
-      tone: f.type,
-      text: f.message,
-    })),
-    ...distFindings,
-  ];
-
-  // Worst-deviation derived recommendation. Same wording as web —
-  // single-source the suggestion so a future reviewer can grep.
-  const worst = deviations.slice().sort((a, b) => b.absDiff - a.absDiff)[0];
-  const distRec = worst
-    ? worst.diff > 0
-      ? tFmt(
-          'Most over-target: {0} at {1}% (target {2}%). Shift 1-2 sessions next week toward an under-target zone.',
-          worst.name,
-          worst.actual,
-          worst.target,
-        )
-      : tFmt(
-          'Most under-target: {0} at {1}% (target {2}%). Add 1-2 sessions in this zone next week.',
-          worst.name,
-          worst.actual,
-          worst.target,
-        )
-    : null;
-
-  const recommendations: CoachRecRow[] = [
-    ...ruleSuggestions.map((s, i) => ({ index: `${i + 1}`, text: s })),
-    ...(distRec
-      ? [{ index: `${ruleSuggestions.length + 1}`, text: distRec }]
-      : []),
-  ];
+  const recommendations: CoachRecRow[] = ruleSuggestions.map((suggestion, i) => ({
+    index: `${i + 1}`,
+    text: suggestion,
+  }));
 
   // Lead-finding-as-headline. Prefer warnings (most actionable),
   // then positives, then the first rule finding, then the default.
@@ -299,8 +231,8 @@ function buildCoachFallback(
   return {
     stamp,
     headline,
-    hasFindings: allFindings.length > 0,
-    findings: allFindings,
+    hasFindings: findings.length > 0,
+    findings,
     hasRecommendations: recommendations.length > 0,
     recommendations,
   };
@@ -312,11 +244,7 @@ interface ZoneRow {
   hasTarget: boolean;
   targetClamped: number;
   label: string;
-  /** "" | "fill--under" | "fill--over" | "fill--ok" — coloring class
-   *  applied to the bar based on how far actual sits from the target.
-   *  Empty when no target is set so we don't paint a green bar that's
-   *  actually unevaluated. */
-  fillClass: string;
+
 }
 
 interface SeriesPayload {
@@ -332,11 +260,7 @@ interface StatCell {
   label: string;
   value: string;
   sub: string;
-  /** "ts-primary" | "ts-warning" | "ts-destructive" | "" — applied to
-   *  the value text. Web uses tone buckets at explicit thresholds
-   *  (TSB ≥5 fresh, ≥-10 productive, else fatigue; dist ≥85 / ≥70;
-   *  load 80-120 / <80 / >120). */
-  accent: string;
+
   /** `%` suffix shown only for compliance/match cells. Composes with
    *  the value as `{value}{unit}` so ts-value can keep tabular-nums. */
   unit: string;
@@ -382,7 +306,7 @@ interface TrainingState {
   complianceWeeks: string[];
   compliancePlanned: number[];
   complianceActual: number[];
-  complianceActualColors: string[];
+  complianceEstimated: boolean[];
 
   // Coach Receipt — always populated (LLM if present, rule-based
   // fallback otherwise). Web Training never nil-renders the receipt
@@ -434,7 +358,7 @@ const initialData: TrainingState = {
   complianceWeeks: [],
   compliancePlanned: [],
   complianceActual: [],
-  complianceActualColors: [],
+  complianceEstimated: [],
 
   coach: {
     stamp: '',
@@ -457,30 +381,11 @@ function clampPct(v: number): number {
   return Math.max(0, Math.min(100, v));
 }
 
-// Compliance band colors (web parity): primary green = on target, warning
-// amber = under, destructive red = over. Bands match ComplianceChart.tsx.
-const COMPLIANCE_GREEN = '#00ff87';
-const COMPLIANCE_AMBER = '#f59e0b';
-const COMPLIANCE_RED = '#ef4444';
-const COMPLIANCE_GRAY = '#8b93a7';
-
-function complianceColor(planned: number | null, actual: number | null): string {
-  if (actual == null) return COMPLIANCE_GRAY;
-  if (planned == null || planned <= 0) return COMPLIANCE_GRAY;
-  const pct = (actual / planned) * 100;
-  if (pct < 80) return COMPLIANCE_AMBER;
-  if (pct > 120) return COMPLIANCE_RED;
-  return COMPLIANCE_GREEN;
-}
 
 /**
- * Compute the four stat-strip cells. Tone buckets mirror web's
- * `Training.tsx` exactly so identical data renders the same color
- * across surfaces:
- *   TSB  : ≥5 primary (fresh) | ≥-10 muted | < -10 destructive
- *   Dist : ≥85 primary (good match) | ≥70 amber | else destructive
- *   Load : 80-120 primary (on plan) | <80 amber | >120 destructive
- *   Vol  : no tone — volume is a context number, not a verdict
+ * Build the four stat-strip cells from the server-owned summary.
+ * Values stay neutral because TSB and execution ratios are descriptive,
+ * not physiological quality, safety, or readiness scores.
  */
 function buildStatCells(
   response: TrainingResponse,
@@ -488,31 +393,19 @@ function buildStatCells(
 ): StatCell[] {
   const cells: StatCell[] = [];
 
-  // TSB — current form (CTL − ATL). Last value of the fitness/fatigue
-  // tsb series.
-  const tsbSeries = response.fitness_fatigue?.tsb ?? [];
-  const tsbCurrent = tsbSeries.length
-    ? tsbSeries[tsbSeries.length - 1]
-    : null;
+  const tsbCurrent = response.summary.current_tsb;
   const tsbValue =
     tsbCurrent != null
       ? `${tsbCurrent >= 0 ? '+' : ''}${tsbCurrent.toFixed(1)}`
       : '—';
-  let tsbAccent = '';
   let tsbSub = tr.statTsbSubDefault;
   if (tsbCurrent != null) {
-    if (tsbCurrent >= 5) {
-      tsbAccent = 'ts-primary';
-      tsbSub = tr.statTsbSubFresh;
-    } else if (tsbCurrent >= 0) {
-      tsbAccent = '';
-      tsbSub = tr.statTsbSubBalanced;
-    } else if (tsbCurrent >= -10) {
-      tsbAccent = '';
-      tsbSub = tr.statTsbSubProductive;
+    if (tsbCurrent > 0) {
+      tsbSub = tr.statTsbSubPositive;
+    } else if (tsbCurrent < 0) {
+      tsbSub = tr.statTsbSubNegative;
     } else {
-      tsbAccent = 'ts-destructive';
-      tsbSub = tr.statTsbSubFatigue;
+      tsbSub = tr.statTsbSubBalanced;
     }
   }
   cells.push({
@@ -520,35 +413,10 @@ function buildStatCells(
     label: tr.statTsbLabel,
     value: tsbValue,
     sub: tsbSub,
-    accent: tsbAccent,
     unit: '',
   });
 
-  // Distribution match — Bray-Curtis-style similarity over zone
-  // composition. 100% = identical to target, 0% = no overlap. Only
-  // computed when at least one zone has a target.
-  const distribution = response.diagnosis?.distribution ?? [];
-  const distWithTarget = distribution.filter((z) => z.target_pct != null);
-  const distMatch =
-    distWithTarget.length > 0
-      ? Math.max(
-          0,
-          Math.round(
-            100 -
-              distWithTarget.reduce(
-                (acc, z) => acc + Math.abs(z.actual_pct - (z.target_pct ?? 0)),
-                0,
-              ) /
-                2,
-          ),
-        )
-      : null;
-  let distAccent = '';
-  if (distMatch != null) {
-    if (distMatch >= 85) distAccent = 'ts-primary';
-    else if (distMatch >= 70) distAccent = 'ts-warning';
-    else distAccent = 'ts-destructive';
-  }
+  const distMatch = response.summary.distribution_match_pct;
   const theoryName = response.diagnosis?.theory_name;
   cells.push({
     id: 'dist',
@@ -557,35 +425,15 @@ function buildStatCells(
     sub: theoryName
       ? tFmt('vs {0}', theoryName)
       : tr.statDistSubDefault,
-    accent: distAccent,
     unit: distMatch != null ? '%' : '',
   });
 
-  // Load compliance — mean of weekly (actual / planned)*100 over
-  // weeks where a plan target existed.
-  const wr = response.weekly_review;
-  const loadRatios = (wr?.planned_load ?? [])
-    .map((p, i) => {
-      const a = wr?.actual_load?.[i] ?? 0;
-      return p > 0 ? (a / p) * 100 : null;
-    })
-    .filter((r): r is number => r != null);
-  const loadCompliance =
-    loadRatios.length > 0
-      ? Math.round(loadRatios.reduce((a, b) => a + b, 0) / loadRatios.length)
-      : null;
-  let loadAccent = '';
-  if (loadCompliance != null) {
-    if (loadCompliance >= 80 && loadCompliance <= 120) loadAccent = 'ts-primary';
-    else if (loadCompliance < 80) loadAccent = 'ts-warning';
-    else loadAccent = 'ts-destructive';
-  }
+  const loadCompliance = response.summary.load_compliance_pct;
   cells.push({
     id: 'load',
     label: tr.statLoadLabel,
     value: loadCompliance != null ? `${loadCompliance}` : '—',
     sub: tr.statLoadSub,
-    accent: loadAccent,
     unit: loadCompliance != null ? '%' : '',
   });
 
@@ -597,7 +445,6 @@ function buildStatCells(
     label: tr.statVolumeLabel,
     value: weeklyKm != null ? weeklyKm.toFixed(1) : '—',
     sub: tFmt('km / week, {0}wk avg', lookback),
-    accent: '',
     unit: '',
   });
 
@@ -613,42 +460,39 @@ function buildState(
 ): Partial<TrainingState> {
   const { diagnosis, fitness_fatigue, weekly_review, data_meta } = response;
   const distribution = diagnosis?.distribution ?? [];
-  const hasZones = distribution.some((z) => z.target_pct != null);
+  const distributionAvailable = !!diagnosis && diagnosis.data_meta.distribution_complete;
+  const hasZones =
+    distributionAvailable && distribution.some((z) => z.target_pct != null);
   const dataDays = data_meta?.data_days ?? 0;
   const hasAnyData =
     !!diagnosis?.volume?.weekly_avg_km ||
-    distribution.length > 0 ||
+    (distributionAvailable && distribution.length > 0) ||
     (fitness_fatigue?.dates?.length ?? 0) > 0;
 
   // Sufficiency — countdown copy mirrors web's PR #280 wording.
   const ffSufficient = data_meta?.pmc_sufficient ?? true;
-  const daysToPmc = Math.max(0, 42 - dataDays);
-  const ffHintDetail = t(
-    'Banister PMC stabilises after about 42 days of activity. Need {daysToPmc} more days.',
-  ).replace('{daysToPmc}', String(daysToPmc));
+  const loadTimeConstantDays = data_meta?.load_time_constant_days ?? 42;
+  const daysToPmc = Math.max(0, loadTimeConstantDays - dataDays);
+  const ffHintDetail = tNamed(
+    'The active load model uses a {loadTimeConstantDays}-day long-term time constant. Need {daysToPmc} more days of history.',
+    { loadTimeConstantDays, daysToPmc },
+  );
   const complianceSufficient = dataDays >= 14;
   const daysToCompare = Math.max(0, 14 - dataDays);
   const complianceHintDetail = t(
     'Need 2 weeks of synced activity to compare planned vs actual. {daysToCompare} more days to go.',
   ).replace('{daysToCompare}', String(daysToCompare));
 
-  const zoneRows: ZoneRow[] = distribution.map((z) => {
+  const zoneRows: ZoneRow[] = (distributionAvailable ? distribution : []).map((z) => {
     const actual = z.actual_pct ?? 0;
     const target = z.target_pct;
-    let fillClass = '';
-    if (target != null) {
-      const delta = actual - target;
-      if (Math.abs(delta) <= 5) fillClass = 'train-zonebar-fill--ok';
-      else if (delta < 0) fillClass = 'train-zonebar-fill--under';
-      else fillClass = 'train-zonebar-fill--over';
-    }
+
     return {
       name: z.name,
       actualClamped: clampPct(actual),
       hasTarget: target != null,
       targetClamped: target != null ? clampPct(target) : 0,
       label: `${actual.toFixed(0)}%${target != null ? ` / ${target.toFixed(0)}%` : ''}`,
-      fillClass,
     };
   });
 
@@ -722,9 +566,9 @@ function buildState(
     ffDates: fitness_fatigue?.dates ?? [],
     ffSeries: fitness_fatigue
       ? [
-          { label: t('Fitness (CTL)'), color: '#00ff87', values: fitness_fatigue.ctl },
-          { label: t('Fatigue (ATL)'), color: '#ef4444', values: fitness_fatigue.atl },
-          { label: t('Form (TSB)'), color: '#3b82f6', values: fitness_fatigue.tsb },
+          { label: t('Long-term load (CTL)'), color: '#00ff87', values: fitness_fatigue.ctl },
+          { label: t('Recent load (ATL)'), color: '#ef4444', values: fitness_fatigue.atl },
+          { label: t('Load balance (TSB)'), color: '#3b82f6', values: fitness_fatigue.tsb },
         ]
       : [],
 
@@ -736,21 +580,22 @@ function buildState(
     complianceSufficient,
     complianceHintMessage: tr.loadMessage,
     complianceHintDetail,
-    hasComplianceEstimateNote: !!weekly_review?.planned_estimated,
+    hasComplianceEstimateNote: !!(
+      weekly_review?.actual_estimated || weekly_review?.planned_estimated
+    ),
     complianceEstimateNote: t(
-      'Planned bars are estimated — your plan has no RSS targets for this base.',
+      'Bars marked with ~ use estimated load because selected-base activity or plan inputs are incomplete. Estimated weeks remain visible but are excluded from the summary.',
     ),
     complianceWeeks: weekly_review?.weeks ?? [],
     compliancePlanned: weekly_review?.planned_load ?? [],
     complianceActual: weekly_review?.actual_load ?? [],
-    complianceActualColors: weekly_review
-      ? weekly_review.weeks.map((_, i) =>
-          complianceColor(
-            weekly_review.planned_load?.[i] ?? null,
-            weekly_review.actual_load?.[i] ?? null,
-          ),
-        )
-      : [],
+    complianceEstimated: (weekly_review?.weeks ?? []).map(
+      (_, index) => Boolean(
+        weekly_review?.week_actual_estimated?.[index]
+        || weekly_review?.week_planned_estimated?.[index],
+      ),
+    ),
+
 
     coach,
     coachTr,

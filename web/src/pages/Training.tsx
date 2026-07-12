@@ -11,9 +11,7 @@ import UpcomingPlanCard from '@/components/UpcomingPlanCard';
 import FitnessFatigueChart from '@/components/charts/FitnessFatigueChart';
 import ComplianceChart from '@/components/charts/ComplianceChart';
 import DataHint from '@/components/DataHint';
-import { msg } from '@lingui/core/macro';
 import { Trans, useLingui } from '@lingui/react/macro';
-import { tDisplay } from '@/lib/display-labels';
 
 const DIAGNOSIS_CHART_KEY = 'praxys.diagnosis_chart';
 
@@ -130,7 +128,7 @@ function TrainingSkeleton() {
 export default function Training() {
   const { data, loading, error, refetch } = useApi<TrainingResponse>('/api/training');
   const { display } = useSettings();
-  const { t, i18n } = useLingui();
+  const { t } = useLingui();
 
   const activeDisplay = data?.display ?? display;
 
@@ -162,125 +160,26 @@ export default function Training() {
   // narrative-led shape persist regardless of AI availability.
   const ruleFindings = data.diagnosis.diagnosis ?? [];
   const ruleSuggestions = data.diagnosis.suggestions ?? [];
+  const distributionAvailable = data.diagnosis.data_meta.distribution_complete;
 
-  // Zone-distribution deviations folded into Coach findings + a
-  // derived recommendation. Previously these lived as a standalone
-  // Alert under the zone table; now they're owned by the receipt —
-  // single source of interpretation across pages.
-  const deviations = (data.diagnosis.distribution ?? [])
-    .filter((d) => d.target_pct != null && Math.abs(d.actual_pct - d.target_pct!) > 5)
-    .map((d) => {
-      const diff = d.actual_pct - d.target_pct!;
-      return {
-        name: d.name,
-        actual: d.actual_pct,
-        target: d.target_pct!,
-        diff,
-        absDiff: Math.abs(diff),
-      };
-    });
-  const distributionFindings = deviations.map((d) => ({
-    type: 'warning' as const,
-    text: t`${tDisplay(d.name, i18n)}: ${d.actual}% (${d.absDiff}pp ${d.diff > 0 ? t`above` : t`below`} ${d.target}% target)`,
-  }));
-  const worstDeviation = deviations.slice().sort((a, b) => b.absDiff - a.absDiff)[0];
-  const distributionRec = worstDeviation
-    ? worstDeviation.diff > 0
-      ? i18n._(
-          msg`Most over-target: ${tDisplay(worstDeviation.name, i18n)} at ${worstDeviation.actual}% (target ${worstDeviation.target}%). Shift 1-2 sessions next week toward an under-target zone.`,
-        )
-      : i18n._(
-          msg`Most under-target: ${tDisplay(worstDeviation.name, i18n)} at ${worstDeviation.actual}% (target ${worstDeviation.target}%). Add 1-2 sessions in this zone next week.`,
-        )
-    : null;
-  const allFindings = [
-    ...ruleFindings.map((f) => ({ type: f.type, text: f.message })),
-    ...distributionFindings,
-  ];
-  const allRecommendations = [
-    ...ruleSuggestions,
-    ...(distributionRec ? [distributionRec] : []),
-  ];
+
   const lead =
     ruleFindings.find((f) => f.type === 'warning') ??
     ruleFindings.find((f) => f.type === 'positive') ??
     ruleFindings[0];
   const fallback: CoachFallback = {
-    headline: lead?.message ?? i18n._(msg`Weekly diagnosis ready.`),
-    findings: allFindings,
-    recommendations: allRecommendations,
+    headline: lead?.message ?? t`Weekly diagnosis ready.`,
+    findings: ruleFindings.map((f) => ({ type: f.type, text: f.message })),
+    recommendations: ruleSuggestions,
     stamp: `${data.diagnosis.lookback_weeks}wk`,
   };
 
-  // Distribution-compliance score — 100 minus half the sum of absolute
-  // deviations from target. Equivalent to a Bray-Curtis similarity
-  // over the zone composition: 100% = identical, 0% = no overlap.
-  // Skipped when no targets exist.
-  const dist = data.diagnosis.distribution ?? [];
-  const distWithTarget = dist.filter((z) => z.target_pct != null);
-  const distCompliance = distWithTarget.length > 0
-    ? Math.max(
-        0,
-        Math.round(
-          100 -
-            distWithTarget.reduce(
-              (acc, z) => acc + Math.abs(z.actual_pct - (z.target_pct ?? 0)),
-              0,
-            ) / 2,
-        ),
-      )
-    : null;
-
-  // Load compliance — mean of weekly (actual / planned) over weeks
-  // where a plan target existed.
-  const wr = data.weekly_review;
-  const loadRatios = (wr?.planned_load ?? [])
-    .map((p, i) => {
-      const a = wr?.actual_load?.[i] ?? 0;
-      return p > 0 ? (a / p) * 100 : null;
-    })
-    .filter((r): r is number => r != null);
-  const loadCompliance = loadRatios.length > 0
-    ? Math.round(loadRatios.reduce((a, b) => a + b, 0) / loadRatios.length)
-    : null;
-
-  // Current TSB — last value in the fitness/fatigue series.
-  const tsbSeries = data.fitness_fatigue?.tsb ?? [];
-  const tsbCurrent = tsbSeries.length > 0 ? tsbSeries[tsbSeries.length - 1] : null;
-
-  // Tone helpers — explicit threshold buckets per stat.
-  const distTone =
-    distCompliance == null
-      ? 'muted'
-      : distCompliance >= 85
-        ? 'primary'
-        : distCompliance >= 70
-          ? 'amber'
-          : 'destructive';
-  const loadTone =
-    loadCompliance == null
-      ? 'muted'
-      : loadCompliance >= 80 && loadCompliance <= 120
-        ? 'primary'
-        : loadCompliance < 80
-          ? 'amber'
-          : 'destructive';
-  const tsbTone =
-    tsbCurrent == null
-      ? 'muted'
-      : tsbCurrent >= 5
-        ? 'primary'
-        : tsbCurrent >= -10
-          ? 'muted'
-          : 'destructive';
-  const toneClass = (tone: string) =>
-    tone === 'primary'
-      ? 'text-primary'
-      : tone === 'amber'
-        ? 'text-accent-amber'
-        : tone === 'destructive'
-          ? 'text-destructive'
-          : 'text-foreground';
+  const {
+    current_tsb: tsbCurrent,
+    distribution_match_pct: distCompliance,
+    load_compliance_pct: loadCompliance,
+  } = data.summary;
+  const loadTimeConstantDays = data.data_meta?.load_time_constant_days ?? 42;
 
   return (
     <div>
@@ -294,9 +193,9 @@ export default function Training() {
           a 2-col below pairing the deep-dive chart (left) with the
           Coach receipt (right). The four stats answer four distinct
           training questions:
-            TSB             — current form (CTL−ATL)
-            Distribution    — how well your zone mix matches the target
-            Load compliance — how well you executed the planned load
+            TSB             — modeled load balance (CTL−ATL)
+            Distribution    — similarity between observed and target zone mix
+            Load compliance — completed-week actual/planned load ratio
             Volume          — amount of work (orphan, no chart pair)
           Stat order matches chart-tab order (TSB → Form chart, Dist →
           Zones, Load → Compliance) so the user reads stat → glances
@@ -319,28 +218,26 @@ export default function Training() {
             <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
               <Trans>TSB</Trans>
             </p>
-            <p className={`text-2xl font-semibold font-data tabular-nums leading-none ${toneClass(tsbTone)}`}>
+            <p className="text-2xl font-semibold font-data text-foreground tabular-nums leading-none">
               {tsbCurrent != null
                 ? `${tsbCurrent >= 0 ? '+' : ''}${tsbCurrent.toFixed(1)}`
                 : '—'}
             </p>
             <p className="text-[11px] text-muted-foreground font-data mt-1">
               {tsbCurrent == null
-                ? <Trans>form (CTL−ATL)</Trans>
-                : tsbCurrent >= 5
-                  ? <Trans>fresh, primed</Trans>
-                  : tsbCurrent >= 0
-                    ? <Trans>balanced</Trans>
-                    : tsbCurrent >= -10
-                      ? <Trans>productive load</Trans>
-                      : <Trans>fatigue accumulating</Trans>}
+                ? <Trans>modeled balance (CTL−ATL)</Trans>
+                : tsbCurrent > 0
+                  ? <Trans>long-term load above recent load</Trans>
+                  : tsbCurrent < 0
+                    ? <Trans>recent load above long-term load</Trans>
+                    : <Trans>modeled loads balanced</Trans>}
             </p>
           </div>
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
               <Trans>Distribution match</Trans>
             </p>
-            <p className={`text-2xl font-semibold font-data tabular-nums leading-none ${toneClass(distTone)}`}>
+            <p className="text-2xl font-semibold font-data text-foreground tabular-nums leading-none">
               {distCompliance != null ? distCompliance : '—'}
               {distCompliance != null && (
                 <span className="text-base text-muted-foreground ml-0.5 font-normal">%</span>
@@ -358,7 +255,7 @@ export default function Training() {
             <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
               <Trans>Load compliance</Trans>
             </p>
-            <p className={`text-2xl font-semibold font-data tabular-nums leading-none ${toneClass(loadTone)}`}>
+            <p className="text-2xl font-semibold font-data text-foreground tabular-nums leading-none">
               {loadCompliance != null ? loadCompliance : '—'}
               {loadCompliance != null && (
                 <span className="text-base text-muted-foreground ml-0.5 font-normal">%</span>
@@ -391,19 +288,15 @@ export default function Training() {
               options={[
                 {
                   id: 'form',
-                  label: <Trans>Fitness / Fatigue / Form</Trans>,
+                  label: <Trans>Long-term / Recent / Balance</Trans>,
                   render: () => {
-                    // PMC needs ~42 days of data before CTL stabilises;
-                    // until then the lines mostly trace recency bias and
-                    // mislead more than they help. Show the countdown so
-                    // the user knows when the chart will become useful.
                     const dataDays = data.data_meta?.data_days ?? 0;
-                    const daysToPmc = Math.max(0, 42 - dataDays);
+                    const daysToPmc = Math.max(0, loadTimeConstantDays - dataDays);
                     return (
                       <DataHint
                         sufficient={data.data_meta?.pmc_sufficient ?? true}
-                        message={t`Not enough data yet for accurate fitness tracking`}
-                        hint={t`Banister PMC stabilises after about 42 days of activity. Need ${daysToPmc} more days.`}
+                        message={t`Not enough data yet for stable load tracking`}
+                        hint={t`The active load model uses a ${loadTimeConstantDays}-day long-term time constant. Need ${daysToPmc} more days of history.`}
                       >
                         <FitnessFatigueChart
                           data={data.fitness_fatigue}
@@ -413,7 +306,7 @@ export default function Training() {
                     );
                   },
                 },
-                ...(data.diagnosis.zone_ranges?.length > 0
+                ...(distributionAvailable && data.diagnosis.zone_ranges?.length > 0
                   ? [{
                       id: 'zones',
                       label: <Trans>Zone distribution</Trans>,

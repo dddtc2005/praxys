@@ -3,7 +3,7 @@
 Each pillar has specific required parameters. Validation runs at load time
 to catch missing or wrong-type fields early instead of silent defaults.
 """
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 from typing import Any
 
 
@@ -18,8 +18,9 @@ class LoadTheoryParams(BaseModel):
 
 class RecoveryTheoryParams(BaseModel):
     """Required params for recovery-pillar theories (e.g., hrv_based)."""
-    rolling_days: int = 7
-    baseline_days: int = 30
+    rolling_days: int = Field(default=7, ge=2)
+    baseline_days: int = Field(default=30, ge=2)
+    cv_threshold: float = Field(default=10.0, gt=0)
 
 
 class PredictionTheoryParams(BaseModel):
@@ -35,17 +36,27 @@ class ZoneTheoryParams(BaseModel):
     zone_count: int
     boundaries: dict[str, list[float]]
     zone_names: list[str] | dict[str, list[str]]
+    target_distribution: list[float]
 
     @model_validator(mode="after")
-    def check_boundary_counts(self) -> "ZoneTheoryParams":
-        """Each base's boundary list must have zone_count - 1 values."""
-        expected = self.zone_count - 1
+    def check_zone_configuration(self) -> "ZoneTheoryParams":
+        """Validate boundary and target-distribution cardinality and ranges."""
+        expected_boundaries = self.zone_count - 1
         for base, bounds in self.boundaries.items():
-            if len(bounds) != expected:
+            if len(bounds) != expected_boundaries:
                 raise ValueError(
                     f"boundaries[{base}] has {len(bounds)} values, "
-                    f"expected {expected} (zone_count={self.zone_count})"
+                    f"expected {expected_boundaries} (zone_count={self.zone_count})"
                 )
+        if len(self.target_distribution) != self.zone_count:
+            raise ValueError(
+                "target_distribution must contain one value per zone "
+                f"(expected {self.zone_count})"
+            )
+        if any(value < 0 or value > 1 for value in self.target_distribution):
+            raise ValueError("target_distribution values must be between 0 and 1")
+        if abs(sum(self.target_distribution) - 1.0) > 1e-6:
+            raise ValueError("target_distribution values must sum to 1.0")
         return self
 
 
@@ -59,10 +70,19 @@ class SignalParams(BaseModel):
 
 class DiagnosisParams(BaseModel):
     """Optional diagnosis parameters used by load theories."""
-    work_split_min_sec: int = 120
-    work_split_max_sec: int = 1800
-    volume_strong_km: float = 60
-    volume_moderate_km: float = 40
+    work_split_min_sec: int = Field(default=120, gt=0)
+    work_split_max_sec: int = Field(default=1800, gt=0)
+    volume_strong_km: float = Field(default=60, gt=0)
+    volume_moderate_km: float = Field(default=40, gt=0)
+
+    @model_validator(mode="after")
+    def check_ranges(self) -> "DiagnosisParams":
+        """Ensure duration and volume bands are ordered."""
+        if self.work_split_max_sec < self.work_split_min_sec:
+            raise ValueError("work_split_max_sec must be >= work_split_min_sec")
+        if self.volume_strong_km < self.volume_moderate_km:
+            raise ValueError("volume_strong_km must be >= volume_moderate_km")
+        return self
 
 
 # Map pillar name -> params validator class

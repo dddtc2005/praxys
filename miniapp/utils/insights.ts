@@ -1,11 +1,9 @@
 /**
  * AI insight helpers for the miniapp.
  *
- * The web app surfaces ``AiInsight`` rows via ``AiInsightsCard``; the
- * miniapp does not render those cards yet (deliberate parity gap — see
- * ``docs/dev/architecture.md`` "LLM-backed insights"). When that
- * rendering is added, use ``localizedInsight()`` to pick the active-locale
- * block with English fallback, and ``fetchInsight()`` to load by type.
+ * Web and miniapp both render durable training-review and race-forecast
+ * insights. Use ``localizedInsight()`` for locale fallback and
+ * ``fetchInsight()`` to load one of those durable types.
  *
  * Issue #103: top-level fields stay English; ``translations[locale]``
  * holds bilingual variants populated by the post-sync LLM runner.
@@ -72,7 +70,7 @@ export function localizedInsight(
  * shape).
  */
 export async function fetchInsight(
-  insightType: 'daily_brief' | 'training_review' | 'race_forecast',
+  insightType: 'training_review' | 'race_forecast',
 ): Promise<AiInsight | null> {
   const resp = await request<AiInsightResponse>(
     `/api/insights/${insightType}`,

@@ -173,7 +173,7 @@ export interface RecoveryData {
   hrv_ms?: number;
   hrv_trend_pct?: number;
   sleep_score?: number;
-  tsb: number;
+  tsb: number | null;
 }
 
 export interface PlanData {
@@ -237,16 +237,26 @@ export type StrydPushResult =
 
 export interface StrydPushStatusEntry {
   workout_id: string;
-  pushed_at: string;
-  status: 'pushed';
+  pushed_at?: string;
+  status?: 'pushed';
 }
 
 export type StrydPushStatus = Record<string, StrydPushStatusEntry>;
 
+export interface TrainingSignalMessageCode {
+  code: string;
+  args: Record<string, string | number>;
+}
+
 export interface TrainingSignal {
-  recommendation: 'follow_plan' | 'easy' | 'modify' | 'reduce_intensity' | 'rest';
+  recommendation: 'follow_plan' | 'unscheduled' | 'easy' | 'modify' | 'reduce_intensity' | 'rest';
   reason: string;
+  /** Stable semantic key for client-side localization. */
+  reason_code: string;
+  reason_args: Record<string, string | number>;
   alternatives: string[];
+  /** Stable semantic alternatives aligned with alternatives. */
+  alternative_codes: TrainingSignalMessageCode[];
   recovery: RecoveryData;
   plan: PlanData;
 }
@@ -293,8 +303,26 @@ export interface RecoveryAnalysis {
   rhr_trend: 'stable' | 'elevated' | 'low' | null;
   /** ISO date of the most recent recovery reading, or null when no data exists. */
   latest_date: string | null;
-  /** True when latest_date is before today — UI should label the data instead of rendering it as "today's". */
+  /** True when latest_date is more than one day behind the server date. */
   is_stale: boolean;
+  /** ISO date of the latest available HRV observation. */
+  hrv_latest_date: string | null;
+  /** True when HRV is too old to drive a same-day recommendation. */
+  hrv_is_stale: boolean;
+  /** ISO date of the latest available sleep-score observation. */
+  sleep_latest_date: string | null;
+  /** True when sleep is display-only and excluded from same-day guidance. */
+  sleep_is_stale: boolean;
+  /** ISO date of the latest available readiness observation. */
+  readiness_latest_date: string | null;
+  /** True when readiness is display-only and excluded from AI context. */
+  readiness_is_stale: boolean;
+  /** ISO date of the latest available resting-heart-rate observation. */
+  rhr_latest_date: string | null;
+  /** True when RHR is display-only and excluded from same-day guidance. */
+  rhr_is_stale: boolean;
+  /** Why HRV could not produce a current classification, or null when classified. */
+  classification_reason: 'missing_hrv' | 'insufficient_history' | 'zero_variance' | 'stale_hrv' | null;
 }
 
 export interface LastActivity {
@@ -319,6 +347,7 @@ export interface UpcomingWorkout {
   start_time?: string | null;
   workout_type: string;
   duration_min: number | null;
+  description?: string | null;
 }
 
 export interface TodayResponse {
@@ -330,24 +359,24 @@ export interface TodayResponse {
    *  `recovery_analysis.is_stale` / `latest_date` to label the actual
    *  reading date when sync lags. */
   as_of_date: string;
-  /** ISO datetime of the most recent material data update — anchor for
-   *  the page-level staleness banner. Composed server-side as
-   *  `max(insight.generated_at, recovery latest date EOD, last activity
-   *  date EOD)`. A successful sync that pulls no new rows leaves this
-   *  value alone, so the banner correctly stays up. `null` when no data
-   *  exists yet (fresh user before any sync) — frontend suppresses the
-   *  banner in that case. */
+  /** ISO datetime of the newest recovery or activity measurement, with
+   *  date-only rows anchored at noon UTC. Sync attempts and AI generation
+   *  never advance it. `null` when no source data exists yet. */
   data_as_of: string | null;
+  /** Opaque Today cache/source version retained for response compatibility. */
+  coach_snapshot: string | null;
   signal: TrainingSignal;
   tsb_sparkline: TsbSparkline;
   warnings: string[];
-  recovery_theory?: RecoveryTheoryMeta;
-  recovery_analysis?: RecoveryAnalysis;
-  last_activity?: LastActivity;
-  week_load?: WeekLoad;
-  upcoming?: UpcomingWorkout[];
-  data_meta?: DataMeta;
-  science_notes?: ScienceNotes;
+  training_base: TrainingBase;
+  display: DisplayConfig;
+  recovery_theory: RecoveryTheoryMeta | null;
+  recovery_analysis: RecoveryAnalysis | null;
+  last_activity: LastActivity | null;
+  week_load: WeekLoad | null;
+  upcoming: UpcomingWorkout[];
+  data_meta: DataMeta;
+  science_notes: ScienceNotes;
 }
 
 export interface ZoneDistribution {
@@ -373,8 +402,12 @@ export interface DiagnosisData {
   interval_power: {
     max: number | null;
     avg_work: number | null;
-    supra_cp_sessions: number;
-    total_quality_sessions: number;
+    supra_cp_sessions: number | null;
+    total_quality_sessions: number | null;
+    data_available: boolean;
+    evidence_complete: boolean;
+    activities_with_intensity_data: number;
+    activities_expected: number;
   };
   volume: {
     weekly_avg_km: number;
@@ -383,6 +416,11 @@ export interface DiagnosisData {
   distribution: ZoneDistribution[];
   zone_ranges: ZoneRange[];
   theory_name: string;
+  data_meta: {
+    distribution_resolution: 'samples' | 'splits' | 'mixed' | 'activity_averages' | 'unavailable';
+    distribution_complete: boolean;
+    distribution_coverage_pct: number;
+  };
   consistency: {
     weeks_with_gaps: number;
     longest_gap_days: number;
@@ -413,7 +451,11 @@ export interface WeeklyReview {
   weeks: string[];
   actual_load: number[];
   planned_load: number[];
-  planned_estimated?: boolean;
+  actual_estimated: boolean;
+  planned_estimated: boolean;
+  week_actual_estimated: boolean[];
+  week_planned_estimated: boolean[];
+  week_complete: boolean[];
 }
 
 export interface WorkoutFlag {
@@ -427,6 +469,7 @@ export interface DataMeta {
   data_days: number;
   cp_points: number;
   has_recovery: boolean;
+  load_time_constant_days: number;
   pmc_sufficient: boolean;
   cp_trend_sufficient: boolean;
 }
@@ -445,11 +488,18 @@ export interface SleepPerfData {
   metric_unit: string;
 }
 
+export interface TrainingSummary {
+  current_tsb: number | null;
+  distribution_match_pct: number | null;
+  load_compliance_pct: number | null;
+}
+
 export interface TrainingResponse {
   diagnosis: DiagnosisData;
   fitness_fatigue: TimeSeriesData;
   cp_trend: CpTrendChart;
   weekly_review: WeeklyReview;
+  summary: TrainingSummary;
   workout_flags: WorkoutFlag[];
   sleep_perf: SleepPerfData;
   training_base?: TrainingBase;

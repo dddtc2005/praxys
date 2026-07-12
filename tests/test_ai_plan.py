@@ -148,9 +148,7 @@ class TestValidatePlan:
 
 
 class TestPlannedTodayContext:
-    """`_build_context_from_data` must surface today's plan row as
-    ``planned_today`` so the daily-brief LLM input doesn't fall back to
-    the next future workout when today is unscheduled (rest)."""
+    """The context must keep today's slot separate from future workouts."""
 
     @staticmethod
     def _empty_data(plan_rows):
@@ -183,10 +181,8 @@ class TestPlannedTodayContext:
         assert ctx["planned_today"]["workout_type"] == "easy"
         assert ctx["planned_today"]["date"] == today.isoformat()
 
-    def test_planned_today_none_when_today_is_rest(self, monkeypatch):
-        """Today has no plan row — planned_today MUST be None even when
-        a future entry is the first thing in current_plan. This is the
-        bug that surfaced 'continue 30 min easy' on a rest day."""
+    def test_planned_today_none_when_today_is_unscheduled(self, monkeypatch):
+        """A future entry must not be presented as today's workout."""
         from api.ai import _build_context_from_data
         from analysis.config import UserConfig
 
@@ -201,8 +197,7 @@ class TestPlannedTodayContext:
         ])
         ctx = _build_context_from_data(data)
         assert ctx["planned_today"] is None
-        # current_plan still carries the future workout — useful for the
-        # forward-looking surfaces, but daily_brief must not key off it.
+        # current_plan still carries the workout for forward-looking surfaces.
         assert len(ctx["current_plan"]) == 1
         assert ctx["current_plan"][0]["workout_type"] == "test"
 
@@ -217,6 +212,20 @@ class TestPlannedTodayContext:
         ctx = _build_context_from_data(data)
         assert ctx["planned_today"] is None
         assert ctx["current_plan"] == []
+
+    def test_current_fitness_tsb_uses_history_eligibility_gate(self, monkeypatch):
+        """Raw chart TSB must not leak to AI before the summary deems it stable."""
+        from api.ai import _build_context_from_data
+        from analysis.config import UserConfig
+
+        monkeypatch.setattr("api.ai.load_config", lambda: UserConfig())
+        data = self._empty_data([])
+        data["fitness_fatigue"] = {"ctl": [20.0], "atl": [10.0], "tsb": [10.0]}
+        data["summary"] = {"current_tsb": None}
+
+        ctx = _build_context_from_data(data)
+
+        assert ctx["current_fitness"]["tsb"] is None
 
     def test_today_signal_is_carried_into_context(self, monkeypatch):
         """Daily brief context should include the canonical Today verdict."""
@@ -240,6 +249,20 @@ class TestPlannedTodayContext:
             "reason": "Recovery first.",
             "alternatives": ["Walk only"],
         }
+
+    def test_readiness_comes_from_recovery_analysis(self, monkeypatch):
+        """Readiness is not part of the signal's display projection."""
+        from api.ai import _build_context_from_data
+        from analysis.config import UserConfig
+
+        monkeypatch.setattr("api.ai.load_config", lambda: UserConfig())
+        data = self._empty_data([])
+        data["signal"] = {"recovery": {"readiness": "wrong-source"}}
+        data["recovery_analysis"] = {"readiness_score": 82.0}
+
+        ctx = _build_context_from_data(data)
+
+        assert ctx["recovery_state"]["readiness"] == 82.0
 
 
 # ---------------------------------------------------------------------------

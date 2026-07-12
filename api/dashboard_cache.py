@@ -24,9 +24,9 @@ Invalidation semantics — reuse L2's revision counters:
   ``source_version`` is a pipe-separated string of the L2
   ``cache_revisions`` rows for the scopes the section reads, with
   scopes sorted alphabetically so two callers produce byte-identical
-  strings, plus a date salt for time-windowed sections (today/training/
-  goal). Example for ``today`` on 2026-04-26 with all-zero revisions:
-  ``"activities=0|config=0|fitness=0|plans=0|recovery=0|d=2026-04-26"``.
+  strings, plus date and response-version salts where applicable.
+  Example for ``today`` on 2026-04-26 with all-zero revisions:
+  ``"activities=0|config=0|fitness=0|plans=0|recovery=0|d=2026-04-26|v=metric-provenance-today-v2"``.
   Any sync-writer or settings-route bump advances the relevant scope,
   so the cached row's source_version no longer matches and the next
   read recomputes.
@@ -54,6 +54,7 @@ even reduce contention. Trade-off documented in the PR for #148.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from datetime import date
@@ -64,6 +65,10 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
+from api.daily_brief_freshness import (
+    TODAY_RESPONSE_VERSION,
+    TRAINING_RESPONSE_VERSION,
+)
 from db.cache_revision import get_revisions
 from db.models import DashboardCache
 
@@ -95,7 +100,7 @@ Section = Literal["today", "training", "goal"]
 #     two-key cache. Defer until measurements justify the complexity.
 SECTION_SCOPES: dict[Section, tuple[str, ...]] = {
     "today":    ("activities", "recovery", "plans", "fitness", "config"),
-    "training": ("activities", "splits", "recovery", "plans", "fitness", "config"),
+    "training": ("activities", "splits", "samples", "recovery", "plans", "fitness", "config"),
     "goal":     ("activities", "fitness", "config"),
 }
 
@@ -108,6 +113,13 @@ SECTION_SCOPES: dict[Section, tuple[str, ...]] = {
 # scope-alignment test.
 _DATE_SALTED_SECTIONS: frozenset[Section] = frozenset({"today", "training", "goal"})
 
+# Response semantics are an invalidation axis just like data revisions and
+# calendar date. Keep these values aligned with api.etag so L2 and L3 cannot
+# disagree after a deployment changes a cached representation.
+SECTION_RESPONSE_VERSIONS: dict[Section, str] = {
+    "today": TODAY_RESPONSE_VERSION,
+    "training": TRAINING_RESPONSE_VERSION,
+}
 
 # Errors we expect to recover from inside the cache layer. Anything else
 # (KeyError on a typo'd section, TypeError on a bad input shape) is a
@@ -197,11 +209,11 @@ def compute_source_version(
 ) -> str:
     """Build the ``source_version`` string for ``(user_id, section)``.
 
-    Format: ``"<scope1>=<rev1>|<scope2>=<rev2>|...|d=<YYYY-MM-DD>"`` for
-    date-salted sections, omitting the trailing ``d=`` part otherwise.
-    Scope order is sorted alphabetically so two callers building the
-    same source_version produce byte-identical strings (the cache hit
-    test is a string compare).
+    Format: ``"<scope1>=<rev1>|...|d=<YYYY-MM-DD>|v=<version>"`` with
+    date and response-version components included only where configured.
+    Scope order is sorted alphabetically so two callers building the same
+    source_version produce byte-identical strings (the cache hit test is a
+    string compare).
 
     Raises :class:`KeyError` when ``section`` is not a known cache
     section — surfaces a typo loudly rather than as a permanent miss.
@@ -216,8 +228,18 @@ def compute_source_version(
     parts = [f"{s}={revs.get(s, 0)}" for s in sorted(scopes)]
     if section in _DATE_SALTED_SECTIONS:
         parts.append(f"d={date.today().isoformat()}")
+    response_version = SECTION_RESPONSE_VERSIONS.get(section)
+    if response_version:
+        parts.append(f"v={response_version}")
     return "|".join(parts)
 
+
+def source_version_token(source_version: str) -> str:
+    """Return an opaque stable token for one cache revision snapshot."""
+    return hashlib.blake2b(
+        source_version.encode("utf-8"),
+        digest_size=16,
+    ).hexdigest()
 
 def _looks_like_json(body: bytes) -> bool:
     """Cheap structural sanity check on cached bytes.
@@ -412,6 +434,8 @@ def _write_cache_isolated(
 def cached_or_compute(
     db: Session, user_id: str, section: Section,
     compute: Callable[[], dict],
+    *,
+    source_version_field: str | None = None,
 ) -> bytes:
     """Return the JSON-encoded response body, served from cache or freshly built.
 
@@ -432,6 +456,17 @@ def cached_or_compute(
     falls through to ``compute()`` and returns the freshly-encoded
     body. The cache layer must never break a request.
     """
+    def _encode_snapshot_payload(source_version: str | None) -> bytes:
+        payload = compute()
+        if source_version_field is not None:
+            payload = dict(payload)
+            payload[source_version_field] = (
+                source_version_token(source_version)
+                if source_version is not None
+                else None
+            )
+        return _encode(payload)
+
     # MUST happen before compute(). Race-correctness invariant — see
     # the module docstring's "Race-correctness" paragraph. Moving this
     # after compute() would silently poison the cache forever whenever
@@ -445,7 +480,7 @@ def cached_or_compute(
             "exc_class=%s): %s",
             user_id, section, type(exc).__name__, exc,
         )
-        return _encode(compute())
+        return _encode_snapshot_payload(None)
 
     try:
         cached = read_cache(db, user_id, section)
@@ -460,18 +495,30 @@ def cached_or_compute(
     if cached is not None and cached[0] == snapshot_sv:
         body = cached[1]
         if _looks_like_json(body):
-            _COUNTERS.record_hit(section)
-            return body
-        _COUNTERS.record_corrupt_row(section)
-        logger.warning(
-            "dashboard_cache: corrupt payload detected for (user=%s, "
-            "section=%s, error_id=L3_CACHE_CORRUPT, len=%d) — deleting "
-            "and recomputing.",
-            user_id, section, len(body),
-        )
-        _delete_cache_row(user_id, section)
+            field_marker = (
+                f'"{source_version_field}":'.encode("utf-8")
+                if source_version_field is not None
+                else None
+            )
+            if field_marker is None or field_marker in body:
+                _COUNTERS.record_hit(section)
+                return body
+            logger.info(
+                "dashboard_cache: cached payload for (user=%s, section=%s) "
+                "predates required field %s; recomputing",
+                user_id, section, source_version_field,
+            )
+        else:
+            _COUNTERS.record_corrupt_row(section)
+            logger.warning(
+                "dashboard_cache: corrupt payload detected for (user=%s, "
+                "section=%s, error_id=L3_CACHE_CORRUPT, len=%d) — deleting "
+                "and recomputing.",
+                user_id, section, len(body),
+            )
+            _delete_cache_row(user_id, section)
 
-    body = _encode(compute())
+    body = _encode_snapshot_payload(snapshot_sv)
     _COUNTERS.record_miss(section)
     _write_cache_isolated(user_id, section, snapshot_sv, body)
     return body

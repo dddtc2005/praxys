@@ -157,13 +157,25 @@ Activities can come from Garmin, Stryd, or Coros. `data_loader.py` merges them:
 - Secondary sources enrich with additional columns (e.g., Stryd adds power to Garmin activities)
 - Matching uses date + timestamp proximity (handles timezone differences)
 
+Analytical recovery and training-plan inputs are intentionally not blended. The
+configured provider wins when it has rows; otherwise Praxys selects one
+deterministic fallback by newest row, row count, then source name. The plan
+management endpoint still loads all AI and Stryd rows because it must compare
+them to derive sync state.
+
 ### LLM-backed Insights
 
-The post-sync hook (`api/insights_runner.py`) runs three bilingual insight generators (`daily_brief`, `training_review`, `race_forecast`) after every sync, gated by:
+The post-sync hook (`api/insights_runner.py`) runs two durable bilingual generators
+(`training_review`, `race_forecast`) after syncs that wrote new rows, gated by:
 
-- **Content-addressable cache.** Each insight type has a SHA-256 fingerprint (`analysis/insight_hash.py`) of the inputs that drive it (recovery state, sessions, CP trend, goal, etc.). The user's selected science pillars are folded in, so swapping load model from Banister to Seiler invalidates the hash and regenerates on next sync. If the hash matches the previously stored `AiInsight.meta["dataset_hash"]`, generation is skipped.
+- **Content-addressable cache.** Each durable insight type has a SHA-256 fingerprint (`analysis/insight_hash.py`) of the inputs that drive it (sessions, CP trend, goal, etc.). The user's selected science pillars are folded in, so swapping load model from Banister to Seiler invalidates the hash and regenerates on next sync. A matching hash is trusted only when the row also carries server-owned generation provenance.
 - **Per-user daily cap.** `PRAXYS_INSIGHT_DAILY_CAP` (default 30) bounds LLM calls per user per UTC day. When the cap is exhausted the runner short-circuits and existing rows persist.
-- **Graceful fallback.** When `AZURE_AI_ENDPOINT` is unset (or the openai/azure-identity SDKs are missing), `api.llm.get_client()` returns `None`, generators return `None`, and the rule-based prose in `analysis/metrics.py` continues to render unchanged. Sync never fails because of insight generation — both hook sites swallow exceptions.
+- **Graceful fallback.** When `AZURE_AI_ENDPOINT` is unset (or the openai/azure-identity SDKs are missing), `api.llm.get_client()` returns `None`, generators return `None`, and rule-based product surfaces continue to render. Sync never fails because of insight generation; both hook sites catch and log exceptions.
+
+**Deterministic Today.** Same-day guidance comes only from `daily_training_signal()`.
+The runner never generates or refreshes `daily_brief`; insight reads hide legacy
+rows, and daily pushes or feedback return HTTP 410. This prevents narrative prose
+from contradicting the canonical verdict.
 
 **Bilingual generation (issue #103).** A single LLM call returns `{"en": {...}, "zh": {...}}`. The English block populates the existing top-level columns (`headline`, `summary`, `findings`, `recommendations`); the zh block lands in the new additive `translations` JSON column. Categorical enums (finding `type`) stay as English keys and are translated client-side via `web/src/lib/display-labels.ts`. The frontend reads `insight.translations[locale]` with English fallback. `LocaleContext.setLocale` invalidates React Query so cached locale-sensitive payloads (science labels, AI insights) refetch immediately on switch.
 
@@ -171,7 +183,9 @@ The post-sync hook (`api/insights_runner.py`) runs three bilingual insight gener
 
 **Auth.** `api/llm.py::get_client()` uses `DefaultAzureCredential` + `get_bearer_token_provider` — same scaffolding as `scripts/translate_missing.py`. No API key path. Reasoning deployment configured via `PRAXYS_INSIGHT_MODEL`; translation deployment via `TRANSLATE_MODEL`.
 
-**Mini program.** The miniapp's `utils/insights.ts` exposes `localizedInsight()` and `fetchInsight()` helpers, and the synced `types/api.ts` carries the `translations` field, but the miniapp does **not** yet render the AI insights card on today / training / goal pages. Tracked as a parity gap; the rule-based prose those pages already render continues to work and remains the deterministic fallback.
+**Mini program.** Training and Goal render the same durable insight receipts as
+web with deterministic fallbacks. Today renders only the canonical deterministic
+signal and never requests a `daily_brief` row.
 
 ### MCP Plugin
 

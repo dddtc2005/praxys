@@ -31,10 +31,8 @@ interface BarLabelProps {
  *
  * Design choices:
  * - Single primary color for the actual bar regardless of compliance
- *   state. The under/on/over signal lives in a small mono % label
- *   above each bar (semantic color: amber under, primary on,
- *   destructive over). Replaces the prior cell-by-cell green/amber/red
- *   bar fill which broke the brand's restraint rule.
+ *   state. A neutral mono percentage above each bar reports the ratio
+ *   without turning it into a quality or safety verdict.
  * - Both bars same width (24px) with `barGap={-24}`, so they overlap
  *   concentrically around a shared x-center. Taller bar shows above
  *   the shorter; no off-center artifact.
@@ -50,7 +48,10 @@ export default function ComplianceChart({ data, loadLabel }: Props) {
     const planned = data.planned_load[i] ?? 0;
     const actual = data.actual_load[i] ?? 0;
     const compliance = planned > 0 ? Math.round((actual / planned) * 100) : null;
-    return { week, planned, actual, compliance };
+    const estimated = Boolean(
+      data.week_actual_estimated[i] || data.week_planned_estimated[i],
+    );
+    return { week, planned, actual, compliance, estimated };
   });
 
   // RSS = Running Stress Score, the load metric Praxys uses when no
@@ -60,32 +61,25 @@ export default function ComplianceChart({ data, loadLabel }: Props) {
     ? <Trans>load (Running Stress Score)</Trans>
     : <Trans>load ({label})</Trans>;
 
-  // Compliance % rendered above each actual bar. Single-color bars +
-  // a small mono percentage with semantic color carry the
-  // under/on/over signal — replaces the prior cell-coloring.
+  // Compliance is descriptive actual/planned load, not a physiological score.
   const ComplianceLabel = (props: BarLabelProps) => {
     const { x, y, width, index } = props;
     if (index == null || x == null || y == null || width == null) return null;
     const entry = chartData[index];
     const pct = entry?.compliance;
     if (pct == null) return null;
-    const color =
-      pct < 80
-        ? 'var(--accent-amber-val)'
-        : pct > 120
-          ? 'var(--destructive)'
-          : 'var(--primary)';
+
     return (
       <text
         x={x + width / 2}
         y={y - 6}
-        fill={color}
+        fill={chartColors.tickLight}
         fontSize={10}
         fontFamily="var(--font-mono)"
         textAnchor="middle"
         fontWeight={600}
       >
-        {pct}%
+        {entry.estimated ? `~${pct}%` : `${pct}%`}
       </text>
     );
   };
@@ -113,11 +107,12 @@ export default function ComplianceChart({ data, loadLabel }: Props) {
         </div>
       </div>
 
-      {data.planned_estimated && (
+      {(data.actual_estimated || data.planned_estimated) && (
         <p className="text-[11px] text-muted-foreground mb-2">
           <Trans>
-            Planned bars are estimated — your plan has no {label} targets
-            for the current training base.
+            Bars marked with ~ use estimated load because selected-base activity
+            or plan inputs are incomplete. Estimated weeks remain visible but are
+            excluded from the summary.
           </Trans>
         </p>
       )}
@@ -168,7 +163,7 @@ export default function ComplianceChart({ data, loadLabel }: Props) {
       </ResponsiveContainer>
 
       <ScienceNote
-        text={t`Compliance compares the load you actually accumulated each week (Actual) against the load your plan called for (Planned). The percentage above each bar shows how close you came: green for 80–120% (on target), amber under 80%, red over 120%. The load metric (RSS or W-equivalent) is set by your training base.`}
+        text={t`Compliance is the mean weekly actual-to-planned load ratio across completed weeks where actual and planned load both use exact selected-base inputs and the plan target is positive. Estimated weeks stay in the chart but are excluded from the summary. This is an execution comparison, not a quality, safety, recovery, or readiness score.`}
       />
     </section>
   );

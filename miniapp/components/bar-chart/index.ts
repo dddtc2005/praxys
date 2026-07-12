@@ -31,6 +31,8 @@ Component({
     weeks: { type: Array as ArrayConstructor, value: [] as string[] },
     planned: { type: Array as ArrayConstructor, value: [] as number[] },
     actual: { type: Array as ArrayConstructor, value: [] as number[] },
+    /** True for weeks where actual or planned load uses estimated inputs. */
+    estimated: { type: Array as ArrayConstructor, value: [] as boolean[] },
     /** Pre-computed fill color per actual bar. Pass an empty array to
      *  fall back to a single uniform color. Length should match `actual`. */
     actualColors: { type: Array as ArrayConstructor, value: [] as string[] },
@@ -59,7 +61,7 @@ Component({
   },
 
   observers: {
-    'weeks, planned, actual, actualColors, actualDefault, theme': function () {
+    'weeks, planned, actual, estimated, actualColors, actualDefault, theme': function () {
       if (!this.data.ready) return;
       wx.nextTick(() => this.drawChart());
       if (this.data.tooltipVisible) this.setData({ tooltipVisible: false });
@@ -72,6 +74,7 @@ Component({
       const weeks = this.data.weeks as string[];
       const planned = this.data.planned as number[];
       const actual = this.data.actual as number[];
+      const estimated = this.data.estimated as boolean[];
       if (weeks.length === 0) return;
 
       const plotLeft = PADDING.left;
@@ -87,10 +90,11 @@ Component({
       const p = planned[idx] ?? 0;
       const a = actual[idx] ?? 0;
       const pct = p > 0 ? Math.round((a / p) * 100) : null;
+      const estimateMarker = estimated[idx] ? '~' : '';
       const text =
         pct != null
-          ? `${Math.round(a)} / ${Math.round(p)} · ${pct}%`
-          : `${Math.round(a)}${p > 0 ? ` / ${Math.round(p)}` : ''}`;
+          ? `${Math.round(a)} / ${Math.round(p)} · ${estimateMarker}${pct}%`
+          : `${estimateMarker}${Math.round(a)}${p > 0 ? ` / ${Math.round(p)}` : ''}`;
 
       this.setData({
         tooltipVisible: true,
@@ -177,6 +181,7 @@ Component({
             this.data.weeks as string[],
             this.data.planned as number[],
             this.data.actual as number[],
+            this.data.estimated as boolean[],
             this.data.actualColors as string[],
             this.data.actualDefault as string,
             chartColors(themePref === 'light' ? 'light' : 'dark'),
@@ -201,6 +206,7 @@ function renderBars(
   weeks: string[],
   planned: number[],
   actual: number[],
+  estimated: boolean[],
   actualColors: string[],
   actualDefault: string,
   colors: { axis: string; grid: string; tick: string; planned: string; plannedStroke: string },
@@ -313,9 +319,22 @@ function renderBars(
       }
     }
 
-    // Week label below the bar.
     const cx = groupLeft + barWidth / 2;
+    if (estimated[i]) {
+      const markerY = Math.max(
+        plotTop + 11,
+        plotBottom - Math.max(plannedH, actualH) - 4,
+      );
+      ctx.fillStyle = colors.tick;
+      ctx.font = '11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText('~', cx, markerY);
+    }
+
+    // Week label below the bar.
     ctx.fillStyle = colors.tick;
+    ctx.font = '10px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillText(shortenWeekLabel(weeks[i]), cx, plotBottom + 6);

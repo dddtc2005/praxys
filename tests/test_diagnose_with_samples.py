@@ -44,16 +44,16 @@ def test_no_samples_uses_splits():
     today = _today()
     acts = _activities([{
         "activity_id": "act-1", "date": _recent(1),
-        "distance_km": 10, "duration_sec": 3600,
+        "distance_km": 10, "duration_sec": 100,
         "avg_power": 200, "source": "stryd",
     }])
     sp = _splits([
         {"activity_id": "act-1", "split_num": 1,
-         "avg_power": 175, "duration_sec": 1800},  # endurance
+         "avg_power": 175, "duration_sec": 100},  # endurance
         {"activity_id": "act-1", "split_num": 2,
          "avg_power": 175, "duration_sec": 1800},
     ])
-    result = diagnose_training(acts, sp, _cp_trend(250), samples=None, threshold_value=250)
+    result = diagnose_training(acts, sp, _cp_trend(250), samples=None, threshold_value=250, current_date=today)
     assert result["distribution"]
     assert result["data_meta"]["distribution_resolution"] == "splits"
 
@@ -66,19 +66,19 @@ def test_samples_resolution_reported():
     """When samples with valid power exist, resolution is 'samples'."""
     acts = _activities([{
         "activity_id": "act-1", "date": _recent(1),
-        "distance_km": 10, "duration_sec": 3600,
+        "distance_km": 10, "duration_sec": 100,
         "avg_power": 200, "source": "stryd",
     }])
     sp = _splits([
         {"activity_id": "act-1", "split_num": 1,
-         "avg_power": 175, "duration_sec": 1800},
+         "avg_power": 175, "duration_sec": 100},
     ])
     samp = _samples([
         {"activity_id": "act-1", "t_sec": 1_000_000 + i,
          "power_watts": 175.0, "hr_bpm": 150.0, "pace_sec_km": None, "source": "stryd"}
         for i in range(100)
     ])
-    result = diagnose_training(acts, sp, _cp_trend(250), samples=samp, threshold_value=250)
+    result = diagnose_training(acts, sp, _cp_trend(250), samples=samp, threshold_value=250, current_date=_today())
     assert result["data_meta"]["distribution_resolution"] == "samples"
 
 
@@ -102,7 +102,7 @@ def test_samples_all_endurance():
          "hr_bpm": None, "pace_sec_km": None, "source": "stryd"}
         for i in range(100)
     ])
-    result = diagnose_training(acts, sp, _cp_trend(cp), samples=samp, threshold_value=cp)
+    result = diagnose_training(acts, sp, _cp_trend(cp), samples=samp, threshold_value=cp, current_date=_today())
     dist = {d["name"]: d["actual_pct"] for d in result["distribution"]}
     # Zone 1 (recovery) < 55% CP; zone 2 (endurance) 55-75%; 70% → zone 2
     assert dist.get("Endurance", 0) == 100
@@ -136,8 +136,8 @@ def test_mixed_samples_and_splits():
          "power_watts": 175.0, "hr_bpm": None, "pace_sec_km": None, "source": "stryd"}
         for i in range(1800)
     ])
-    result = diagnose_training(acts, sp, _cp_trend(cp), samples=samp, threshold_value=cp)
-    assert result["data_meta"]["distribution_resolution"] == "samples"
+    result = diagnose_training(acts, sp, _cp_trend(cp), samples=samp, threshold_value=cp, current_date=_today())
+    assert result["data_meta"]["distribution_resolution"] == "mixed"
     dist = {d["name"]: d["actual_pct"] for d in result["distribution"]}
     # 1800s endurance + 1800s threshold → ~50% each
     assert dist.get("Endurance", 0) > 0
@@ -145,7 +145,41 @@ def test_mixed_samples_and_splits():
 
 
 # ---------------------------------------------------------------------------
-# 5. Samples with all-null power column → graceful fallback to splits
+# 5. Sparse samples fall back to complete split duration
+# ---------------------------------------------------------------------------
+
+def test_sparse_samples_do_not_replace_complete_splits():
+    """Partial samples must not erase most of an activity's split coverage."""
+    cp = 250.0
+    acts = _activities([{
+        "activity_id": "act-1", "date": _recent(1),
+        "distance_km": 10, "duration_sec": 1800,
+        "avg_power": 175, "source": "stryd",
+    }])
+    sp = _splits([{
+        "activity_id": "act-1", "split_num": 1,
+        "avg_power": 175.0, "duration_sec": 1800,
+    }])
+    samp = _samples([
+        {"activity_id": "act-1", "t_sec": 1_000_000 + i,
+         "power_watts": 280.0, "hr_bpm": None, "pace_sec_km": None,
+         "source": "stryd"}
+        for i in range(100)
+    ])
+
+    result = diagnose_training(
+        acts, sp, _cp_trend(cp), samples=samp, threshold_value=cp,
+        current_date=_today(),
+    )
+
+    assert result["data_meta"]["distribution_resolution"] == "splits"
+    dist = {d["name"]: d["actual_pct"] for d in result["distribution"]}
+    assert dist["Endurance"] == 100
+    assert dist["VO2max"] == 0
+
+
+# ---------------------------------------------------------------------------
+# 6. Samples with all-null power column → graceful fallback to splits
 # ---------------------------------------------------------------------------
 
 def test_samples_all_null_power_falls_back_to_splits():
@@ -165,12 +199,12 @@ def test_samples_all_null_power_falls_back_to_splits():
          "power_watts": None, "hr_bpm": None, "pace_sec_km": None, "source": "garmin"}
         for i in range(100)
     ])
-    result = diagnose_training(acts, sp, _cp_trend(cp), samples=samp, threshold_value=cp)
+    result = diagnose_training(acts, sp, _cp_trend(cp), samples=samp, threshold_value=cp, current_date=_today())
     assert result["data_meta"]["distribution_resolution"] == "splits"
 
 
 # ---------------------------------------------------------------------------
-# 6. Empty samples DataFrame → fallback to splits, no crash
+# 7. Empty samples DataFrame → fallback to splits, no crash
 # ---------------------------------------------------------------------------
 
 def test_empty_samples_df_no_crash():
@@ -186,13 +220,13 @@ def test_empty_samples_df_no_crash():
          "avg_power": 175.0, "duration_sec": 1800},
     ])
     result = diagnose_training(acts, sp, _cp_trend(cp),
-                               samples=pd.DataFrame(), threshold_value=cp)
+                               samples=pd.DataFrame(), threshold_value=cp, current_date=_today())
     assert result["data_meta"]["distribution_resolution"] == "splits"
     assert result["distribution"]
 
 
 # ---------------------------------------------------------------------------
-# 7. HR base uses hr_bpm column from samples
+# 8. HR base uses hr_bpm column from samples
 # ---------------------------------------------------------------------------
 
 def test_samples_hr_base():
@@ -200,12 +234,12 @@ def test_samples_hr_base():
     lthr = 172.0
     acts = _activities([{
         "activity_id": "act-1", "date": _recent(1),
-        "distance_km": 5, "duration_sec": 1800,
+        "distance_km": 5, "duration_sec": 100,
         "avg_hr": 145, "source": "garmin",
     }])
     sp = _splits([
         {"activity_id": "act-1", "split_num": 1,
-         "avg_hr": 145.0, "duration_sec": 1800},
+         "avg_hr": 145.0, "duration_sec": 100},
     ])
     samp = _samples([
         {"activity_id": "act-1", "t_sec": 1_000_000 + i,
@@ -213,6 +247,108 @@ def test_samples_hr_base():
         for i in range(100)
     ])
     result = diagnose_training(acts, sp, _cp_trend(lthr), base="hr",
-                               samples=samp, threshold_value=lthr)
+                               samples=samp, threshold_value=lthr, current_date=_today())
     assert result["data_meta"]["distribution_resolution"] == "samples"
     assert result["distribution"]
+
+
+def test_sample_distribution_uses_timestamp_duration_not_row_count():
+    """Regular two-second samples contribute two seconds each."""
+    cp = 250.0
+    acts = _activities([
+        {
+            "activity_id": "two-sec", "date": _recent(1),
+            "distance_km": 1, "duration_sec": 8, "source": "garmin",
+        },
+        {
+            "activity_id": "one-sec", "date": _recent(1),
+            "distance_km": 1, "duration_sec": 4, "source": "garmin",
+        },
+    ])
+    samples = _samples([
+        *[
+            {
+                "activity_id": "two-sec", "t_sec": t_sec,
+                "power_watts": 175.0, "hr_bpm": None,
+                "pace_sec_km": None, "source": "garmin",
+            }
+            for t_sec in [0, 2, 4, 6]
+        ],
+        *[
+            {
+                "activity_id": "one-sec", "t_sec": t_sec,
+                "power_watts": 240.0, "hr_bpm": None,
+                "pace_sec_km": None, "source": "garmin",
+            }
+            for t_sec in [0, 1, 2, 3]
+        ],
+    ])
+
+    result = diagnose_training(
+        acts, pd.DataFrame(), _cp_trend(cp), samples=samples,
+        threshold_value=cp, current_date=_today(),
+    )
+
+    distribution = {
+        zone["name"]: zone["actual_pct"] for zone in result["distribution"]
+    }
+    assert distribution["Endurance"] == 67
+    assert distribution["Threshold"] == 33
+    assert result["data_meta"]["distribution_complete"] is True
+    assert result["data_meta"]["distribution_coverage_pct"] == 100
+
+
+def test_large_sample_gap_does_not_replace_complete_splits():
+    """A timestamp gap must not represent unobserved workout duration."""
+    cp = 250.0
+    acts = _activities([{
+        "activity_id": "act-1", "date": _recent(1),
+        "distance_km": 10, "duration_sec": 1000, "source": "garmin",
+    }])
+    splits = _splits([{
+        "activity_id": "act-1", "split_num": 1,
+        "avg_power": 175.0, "duration_sec": 1000,
+    }])
+    samples = _samples([
+        {
+            "activity_id": "act-1", "t_sec": t_sec,
+            "power_watts": 280.0, "hr_bpm": None,
+            "pace_sec_km": None, "source": "garmin",
+        }
+        for t_sec in [0, 1, 2, 1000]
+    ])
+
+    result = diagnose_training(
+        acts, splits, _cp_trend(cp), samples=samples,
+        threshold_value=cp, current_date=_today(),
+    )
+
+    distribution = {
+        zone["name"]: zone["actual_pct"] for zone in result["distribution"]
+    }
+    assert result["data_meta"]["distribution_resolution"] == "splits"
+    assert distribution["Endurance"] == 100
+    assert distribution["VO2max"] == 0
+
+
+def test_isolated_sample_does_not_claim_workout_coverage():
+    """One isolated sample is unavailable rather than a full activity."""
+    cp = 250.0
+    acts = _activities([{
+        "activity_id": "act-1", "date": _recent(1),
+        "distance_km": 10, "duration_sec": 1800, "source": "garmin",
+    }])
+    samples = _samples([{
+        "activity_id": "act-1", "t_sec": 100,
+        "power_watts": 280.0, "hr_bpm": None,
+        "pace_sec_km": None, "source": "garmin",
+    }])
+
+    result = diagnose_training(
+        acts, pd.DataFrame(), _cp_trend(cp), samples=samples,
+        threshold_value=cp, current_date=_today(),
+    )
+
+    assert result["data_meta"]["distribution_resolution"] == "unavailable"
+    assert result["data_meta"]["distribution_complete"] is False
+    assert result["data_meta"]["distribution_coverage_pct"] == 0

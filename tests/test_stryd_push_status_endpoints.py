@@ -181,12 +181,12 @@ def test_plan_get_etag_flips_after_stryd_push(api_client, monkeypatch):
     plan_df = pd.DataFrame([{
         "date": "2026-05-07", "workout_type": "easy_run",
         "planned_duration_min": 45, "workout_description": "easy",
-        "target_power_min": 200, "target_power_max": 230,
+        "target_power_min": 200, "target_power_max": 230, "source": "ai",
     }])
     monkeypatch.setattr(
         "api.routes.plan.get_dashboard_data",
         lambda user_id, db: {
-            "plan": plan_df, "latest_cp": 260.0, "activities": pd.DataFrame(),
+            "plan": plan_df, "all_plans": plan_df, "latest_cp": 260.0, "activities": pd.DataFrame(),
             "signal": {}, "training_base": "power",
         },
     )
@@ -233,14 +233,14 @@ def test_push_endpoint_persists_under_calling_user(api_client, monkeypatch):
             "workout_type": "easy_run",
             "planned_duration_min": 45,
             "workout_description": "Aerobic easy effort",
-            "target_power_min": 200, "target_power_max": 230,
+            "target_power_min": 200, "target_power_max": 230, "source": "ai",
         },
     ])
     # plan.py imported get_dashboard_data by name, so patch the local binding.
     monkeypatch.setattr(
         "api.routes.plan.get_dashboard_data",
         lambda user_id, db: {
-            "plan": plan_df, "latest_cp": 260.0, "activities": pd.DataFrame(),
+            "plan": plan_df, "all_plans": plan_df, "latest_cp": 260.0, "activities": pd.DataFrame(),
             "signal": {}, "training_base": "power",
         },
     )
@@ -259,6 +259,63 @@ def test_push_endpoint_persists_under_calling_user(api_client, monkeypatch):
     assert carol_status["2026-05-07"]["workout_id"] == "new-workout-for-2026-05-07"
     # Alice's file (previously empty) is untouched — no leak.
     assert _load_push_status("alice") == {}
+
+
+def test_push_selects_ai_row_from_all_plan_sources(api_client, monkeypatch):
+    """A preferred Stryd analytical row must never be pushed back to Stryd."""
+    monkeypatch.setenv("STRYD_EMAIL", "stub@example.com")
+    monkeypatch.setenv("STRYD_PASSWORD", "stub")
+    monkeypatch.setattr(
+        "sync.stryd_sync._login_api", lambda email, password: ("sid", "token"),
+    )
+    captured: dict = {}
+
+    def _capture_blocks(workout, cp):
+        captured.update(workout)
+        return []
+
+    monkeypatch.setattr("sync.stryd_sync.build_workout_blocks", _capture_blocks)
+    monkeypatch.setattr(
+        "sync.stryd_sync.create_workout_api",
+        lambda **kwargs: {"id": "new-ai-workout"},
+    )
+
+    workout_date = "2026-05-08"
+    all_plans = pd.DataFrame([
+        {
+            "date": workout_date,
+            "source": "stryd",
+            "workout_type": "tempo_stryd",
+            "planned_duration_min": 40,
+            "workout_description": "Imported Stryd workout",
+        },
+        {
+            "date": workout_date,
+            "source": "ai",
+            "workout_type": "threshold",
+            "planned_duration_min": 45,
+            "workout_description": "AI-authored threshold workout",
+        },
+    ])
+    monkeypatch.setattr(
+        "api.routes.plan.get_dashboard_data",
+        lambda user_id, db: {
+            "plan": all_plans.iloc[[0]].copy(),
+            "all_plans": all_plans,
+            "latest_cp": 260.0,
+            "activities": pd.DataFrame(),
+        },
+    )
+
+    api_client["current"]["value"] = "source-safe-user"
+    response = api_client["client"].post(
+        "/api/plan/push-stryd",
+        json={"workout_dates": [workout_date]},
+    )
+
+    assert response.status_code == 200, response.text
+    assert captured["source"] == "ai"
+    assert captured["workout_type"] == "threshold"
 
 
 def test_delete_endpoint_touches_only_calling_users_status(api_client, monkeypatch):

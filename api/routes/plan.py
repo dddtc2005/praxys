@@ -14,7 +14,9 @@ from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
+from analysis.metrics import is_rest_workout
 from api.auth import get_data_user_id, require_write_access
+from api.daily_brief_freshness import PLAN_RESPONSE_VERSION
 from api.deps import get_dashboard_data
 from api.etag import CACHE_CONTROL, ENDPOINT_SCOPES, ETagGuard, compute_etag
 from api.packs import RequestContext
@@ -181,7 +183,7 @@ def get_plan(
 
     etag = compute_etag(
         db, user_id, ENDPOINT_SCOPES["plan"],
-        salt=f"start={start_d.isoformat()}&end={end_d.isoformat()}",
+        salt=f"v={PLAN_RESPONSE_VERSION}&start={start_d.isoformat()}&end={end_d.isoformat()}",
     )
     guard = ETagGuard(etag, request.headers.get("if-none-match"))
     if guard.is_match:
@@ -189,7 +191,7 @@ def get_plan(
     guard.apply(response)
 
     ctx = RequestContext(user_id=user_id, db=db)
-    plan_df = ctx.plan
+    plan_df = ctx.all_plans
     push_status = _load_push_status(user_id)
     sync_target = _resolve_sync_target(ctx)
 
@@ -274,10 +276,13 @@ def _row_to_workout(row, *, source: str) -> dict:
     date_str = (
         row_date.isoformat() if hasattr(row_date, "isoformat") else str(row_date)
     )
+    raw_workout_type = row.get("workout_type")
     workout: dict = {
         "date": date_str,
         "source": source,
-        "workout_type": row.get("workout_type", ""),
+        "workout_type": (
+            "" if pd.isna(raw_workout_type) else str(raw_workout_type)
+        ),
     }
     st = row.get("start_time")
     if pd.notna(st) and st != "":
@@ -385,11 +390,21 @@ def push_plan_to_stryd(
         logger.error("Stryd login failed: %s", e)
         raise HTTPException(status_code=502, detail="Stryd login failed. Check your credentials in sync/.env")
 
-    # Load AI plan data
+    # Analytical views use one preferred plan source, but pushing must always
+    # select the AI-authored rows from the complete source set.
     data = get_dashboard_data(user_id=current_user_id, db=db)
-    plan_df: pd.DataFrame = data.get("plan", pd.DataFrame())
-    if plan_df.empty:
+    all_plans: pd.DataFrame = data.get("all_plans", pd.DataFrame())
+    if all_plans.empty:
         raise HTTPException(status_code=404, detail="No training plan found")
+    if "source" not in all_plans.columns:
+        raise HTTPException(
+            status_code=409,
+            detail="Training plan source is unavailable; sync or regenerate the AI plan before pushing.",
+        )
+    source = all_plans["source"].fillna("").astype(str).str.strip().str.casefold()
+    plan_df = all_plans[source == "ai"].copy()
+    if plan_df.empty:
+        raise HTTPException(status_code=404, detail="No AI-authored training plan found")
 
     # Get current CP for block building
     cp_watts = None
@@ -427,7 +442,7 @@ def push_plan_to_stryd(
         workout_type = str(row.get("workout_type", ""))
 
         # Skip rest days
-        if workout_type.lower() in ("rest", "off"):
+        if is_rest_workout(workout_type):
             results.append({"date": workout_date, "status": "error", "error": "Rest day — nothing to push"})
             continue
 

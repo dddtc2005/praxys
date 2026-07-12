@@ -4,17 +4,17 @@ author: system
 # `key` mirrors the English identifier; only `label` is translated.
 tsb_zone_labels:
 - key: Detraining
-  label: 训练不足
+  label: 较高正向平衡
   color: '#64748b'
 - key: Performance
-  label: 竞赛状态
+  label: 正向平衡
   color: '#00ff87'
 - key: Optimal
-  label: 最佳平衡
+  label: 接近平衡
   color: '#3b82f6'
 - key: Productive
-  label: 高效训练
+  label: 近期负荷较高
   color: '#22c55e'
 - key: Overreaching
-  label: 过度训练
+  label: 近期负荷明显较高
   color: '#ef4444'

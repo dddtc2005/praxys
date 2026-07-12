@@ -15,6 +15,10 @@ interface UseApiOptions {
   refetchInterval?: number;
   /** When false, the query is not run (e.g. admin-only endpoints for non-admins). */
   enabled?: boolean;
+  /** Override the app-wide mount policy for freshness-critical queries. */
+  refetchOnMount?: boolean | 'always';
+  /** Override the app-wide focus policy for freshness-critical queries. */
+  refetchOnWindowFocus?: boolean | 'always';
 }
 
 function getAuthHeaders(): HeadersInit {
@@ -69,8 +73,16 @@ export function useApi<T>(url: string, options?: UseApiOptions): UseApiResult<T>
   const { data, isLoading, error, refetch } = useQuery<T, Error>({
     queryKey: [url],
     queryFn: () => apiFetcher<T>(url),
-    refetchInterval: options?.refetchInterval,
-    enabled: options?.enabled,
+    ...(options?.refetchInterval !== undefined
+      ? { refetchInterval: options.refetchInterval }
+      : {}),
+    ...(options?.enabled !== undefined ? { enabled: options.enabled } : {}),
+    ...(options?.refetchOnMount !== undefined
+      ? { refetchOnMount: options.refetchOnMount }
+      : {}),
+    ...(options?.refetchOnWindowFocus !== undefined
+      ? { refetchOnWindowFocus: options.refetchOnWindowFocus }
+      : {}),
   });
 
   return {

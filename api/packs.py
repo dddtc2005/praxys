@@ -21,9 +21,11 @@ from functools import cached_property
 import pandas as pd
 
 from analysis.config import load_config_from_db
-from analysis.data_loader import load_data_from_db
+from analysis.data_loader import load_data_from_db, select_preferred_source
 from analysis.metrics import (
+    compute_distribution_match_pct,
     compute_ewma_load,
+    has_sufficient_load_history,
     compute_tsb,
     daily_training_signal,
     get_distance_config,
@@ -41,6 +43,7 @@ from api.deps import (
     _build_warnings,
     _build_workout_flags,
     _compute_daily_load,
+    _compute_load_compliance_summary,
     _compute_diagnosis,
     _compute_recovery_analysis,
     _compute_threshold_data,
@@ -50,6 +53,7 @@ from api.deps import (
     _plan_row_duration_sec,
     _plan_workout_load,
     _resolve_thresholds,
+    _recovery_for_guidance,
     _select_prediction_method,
 )
 from api.views import upcoming_workouts
@@ -177,11 +181,23 @@ class RequestContext:
 
     @cached_property
     def recovery(self) -> pd.DataFrame:
-        return self._data["recovery"]
+        return select_preferred_source(
+            self._data["recovery"],
+            self.config.preferences.get("recovery"),
+        )
+
+    @cached_property
+    def all_plans(self) -> pd.DataFrame:
+        """All plan sources for management and sync-state comparisons."""
+        return self._data["plan"]
 
     @cached_property
     def plan(self) -> pd.DataFrame:
-        return self._data["plan"]
+        """One preferred plan source for analysis and same-day guidance."""
+        return select_preferred_source(
+            self.all_plans,
+            self.config.preferences.get("plan"),
+        )
 
     @cached_property
     def thresholds(self) -> ThresholdEstimate:
@@ -299,90 +315,35 @@ class RequestContext:
 
     @cached_property
     def recovery_analysis(self) -> dict:
-        analysis, _, _, _ = _compute_recovery_analysis(self.recovery)
+        recovery_theory = self.science.get("recovery")
+        analysis, _, _, _ = _compute_recovery_analysis(
+            self.recovery,
+            recovery_params=recovery_theory.params if recovery_theory else None,
+            current_date=self.today,
+        )
         return analysis
 
     @cached_property
     def data_as_of(self) -> str | None:
-        """ISO-8601 timestamp of the most recent material data update.
+        """ISO-8601 timestamp of the newest recovery or activity row.
 
-        The Today page surface is "stale" when the user's local calendar
-        date is past this timestamp's calendar date. The anchor is the
-        actual data — not the time a sync attempt ran — so a successful
-        sync that pulls no new rows correctly leaves the page labelled
-        as showing yesterday's snapshot.
+        This is deliberately source-data freshness, not sync-attempt or insight
+        generation time. Neither a no-op sync nor a durable insight write may
+        make yesterday's HRV, sleep, or activity look freshly synced.
 
-        Composition (newest wins):
-        - ``AiInsight.generated_at`` for the user's ``daily_brief`` row.
-          Updates whenever the post-sync runner regenerates the brief
-          (i.e. when the dataset hash changes), so it tracks "the last
-          time the page narrative materially shifted." The runner upserts
-          one row per (user, insight_type), so a single ``.first()`` is
-          unambiguous; ``order_by`` + ``limit(1)`` are belt-and-braces
-          against a future schema that adds versioning.
-        - Latest recovery row's date, anchored at ``T12:00:00Z`` (noon UTC).
-        - Latest activity's date, anchored at ``T12:00:00Z`` (noon UTC).
-
-        Why noon UTC for date-only rows: a row dated ``2026-05-02`` covers
-        a calendar day in some real-world timezone, but the row's storage
-        layer doesn't tell us which one. End-of-day UTC anchors push the
-        row's local date forward by up to 14 hours, so a Beijing user
-        (UTC+8) sees yesterday's row as today's. Start-of-day UTC pushes
-        backward symmetrically and breaks Pacific (UTC-8) users. Noon UTC
-        is the symmetry point — within ±12 hours, a row dated D appears
-        as local-date D for every timezone that exists. Edge cases at
-        ±13/14h offsets (Samoa, Kiribati) shift by one day, which is
-        acceptable; nobody is running a global app from there.
-
-        Cache invalidation: ``/api/today`` is L3-cached with date-salted
-        ``source_version`` keyed on ``activities, recovery, plans,
-        fitness, config`` revisions. The post-sync insight runner only
-        regenerates ``AiInsight`` when those upstream sources changed
-        (the dataset hash projection draws from them), so by the time the
-        runner advances ``generated_at``, the cache row's source_version
-        is already stale and the next read recomputes ``data_as_of``
-        cleanly. Don't bump cache scopes from inside the runner — that
-        would duplicate the invalidation path.
-
-        Returns ``None`` when no data exists yet (fresh user before any
-        sync). Frontend treats null as "nothing to anchor on" and
-        suppresses the staleness banner.
+        Date-only rows are anchored at noon UTC. Noon is the symmetry point for
+        real-world timezones: unlike midnight or end-of-day UTC, it avoids
+        shifting the displayed calendar date for almost every user.
         """
-        # Imported lazily because db.models pulls in the ORM mapper graph
-        # and packs.py is imported at FastAPI startup; avoiding the
-        # top-level import keeps the import order flexible.
-        from db.models import AiInsight
-
-        # All timestamps normalized to UTC. Trailing 'Z' on the emitted
-        # ISO string is load-bearing: without it, JavaScript's
-        # ``new Date()`` interprets the value as the device's local time,
-        # which would land the comparison in the wrong calendar date for
-        # users east or west of UTC at the day boundary. ``insight.generated_at``
-        # is stored via ``datetime.utcnow()`` (naive UTC); we attach
-        # ``timezone.utc`` so the iso output carries the offset.
         candidates: list[datetime] = []
-
-        insight_row = (
-            self.db.query(AiInsight.generated_at)
-            .filter(
-                AiInsight.user_id == self.user_id,
-                AiInsight.insight_type == "daily_brief",
-            )
-            .order_by(AiInsight.generated_at.desc())
-            .limit(1)
-            .first()
-        )
-        if insight_row and insight_row[0] is not None:
-            ts = insight_row[0]
-            if ts.tzinfo is None:
-                ts = ts.replace(tzinfo=timezone.utc)
-            candidates.append(ts)
-
-        # Noon-UTC anchor for date-only rows — see docstring for rationale.
         date_anchor = time(12, 0, 0)
 
         recovery = self.recovery
-        if hasattr(recovery, "empty") and not recovery.empty and "date" in recovery.columns:
+        if (
+            hasattr(recovery, "empty")
+            and not recovery.empty
+            and "date" in recovery.columns
+        ):
             latest = pd.to_datetime(recovery["date"], errors="coerce").max()
             if pd.notna(latest):
                 candidates.append(
@@ -403,9 +364,6 @@ class RequestContext:
 
         if not candidates:
             return None
-        # Format with explicit `Z` suffix instead of `+00:00` — both are
-        # valid ISO-8601 but `Z` is the conventional shorthand and matches
-        # what the rest of the API uses for UTC timestamps.
         out = max(candidates).astimezone(timezone.utc).replace(tzinfo=None)
         return out.isoformat() + "Z"
 
@@ -423,12 +381,16 @@ class RequestContext:
         has_recovery = (
             not recovery.empty if hasattr(recovery, "empty") else bool(recovery)
         )
+        ctl_time_constant, _ = self._load_constants
         return {
             "activity_count": activity_count,
             "data_days": data_days,
             "cp_points": cp_point_count,
             "has_recovery": has_recovery,
-            "pmc_sufficient": data_days >= 42,
+            "load_time_constant_days": ctl_time_constant,
+            "pmc_sufficient": has_sufficient_load_history(
+                data_days, ctl_time_constant,
+            ),
             "cp_trend_sufficient": cp_point_count >= 3,
         }
 
@@ -575,19 +537,31 @@ def get_signal_pack(ctx: RequestContext) -> dict:
     fs = ctx.fitness_series
     proj = ctx.projection
     current_tsb = float(fs["tsb"].iloc[-1]) if not fs["tsb"].empty else 0.0
+    guidance_tsb = current_tsb if ctx.data_meta["pmc_sufficient"] else None
     recovery_analysis = ctx.recovery_analysis
+    guidance_recovery = _recovery_for_guidance(recovery_analysis)
 
     planned_today, planned_detail = _get_todays_plan(ctx.plan, ctx.today)
     load_theory = ctx.science.get("load")
+    recovery_theory = ctx.science.get("recovery")
+    recovery_params = recovery_theory.params if recovery_theory else {}
     signal = daily_training_signal(
-        recovery_analysis, current_tsb, planned_today,
+        guidance_recovery, guidance_tsb, planned_today,
         planned_detail=planned_detail,
         signal_thresholds=load_theory.signal if load_theory else None,
+        recovery_thresholds=recovery_params,
         hrv_only=True,
     )
     warnings = _build_warnings(
-        recovery_analysis, current_tsb, ctx.config,
-        data_dir=None, latest_cp_watts=ctx.latest_cp_watts,
+        guidance_recovery,
+        guidance_tsb,
+        ctx.config,
+        data_dir=None,
+        latest_cp_watts=ctx.latest_cp_watts,
+        cv_threshold=float(recovery_params.get("cv_threshold", 10)),
+        tsb_caution_threshold=float(
+            (load_theory.signal if load_theory else {}).get("tsb_high_fatigue", -20)
+        ),
     )
 
     # Sparkline uses the last 14 days of TSB. Take the tail directly
@@ -626,7 +600,7 @@ def get_today_widgets(ctx: RequestContext) -> dict:
             ctx.fitness_series["daily_load"], ctx.plan,
             ctx.config.training_base, ctx.thresholds, ctx.today,
         ),
-        "upcoming": upcoming_workouts(ctx.plan),
+        "upcoming": upcoming_workouts(ctx.plan, current_date=ctx.today),
     }
 
 
@@ -636,11 +610,18 @@ def get_diagnosis_pack(ctx: RequestContext) -> dict:
     Used by ``/api/training``. Pays for splits and threshold-trend data.
     """
     cp_trend = ctx.threshold_data["trend"]
+    diagnosis = _compute_diagnosis(
+        ctx.merged_activities, ctx.splits, cp_trend,
+        ctx.config, ctx.thresholds, ctx.science,
+        samples=ctx.samples, current_date=ctx.today,
+    )
     return {
-        "diagnosis": _compute_diagnosis(
-            ctx.merged_activities, ctx.splits, cp_trend,
-            ctx.config, ctx.thresholds, ctx.science,
-            samples=ctx.samples,
+        "diagnosis": diagnosis,
+        "distribution_match_pct": compute_distribution_match_pct(
+            diagnosis.get("distribution", []),
+            evidence_complete=diagnosis.get("data_meta", {}).get(
+                "distribution_complete", False,
+            ),
         ),
         "workout_flags": _build_workout_flags(
             ctx.merged_activities, ctx.recovery, ctx.config.training_base,
@@ -689,12 +670,19 @@ def get_fitness_pack(ctx: RequestContext) -> dict:
     }
     weekly_review = _build_compliance(
         ctx.merged_activities, ctx.plan, ctx.config.training_base,
-        fs["daily_load"], ctx.thresholds,
+        fs["daily_load"], ctx.thresholds, current_date=ctx.today,
     )
+
     return {
         "fitness_fatigue": fitness_fatigue,
         "cp_trend": ctx.cp_trend_chart,
         "weekly_review": weekly_review,
+        "current_tsb": (
+            fitness_fatigue["tsb"][-1]
+            if fitness_fatigue["tsb"] and ctx.data_meta["pmc_sufficient"]
+            else None
+        ),
+        "load_compliance_pct": _compute_load_compliance_summary(weekly_review),
     }
 
 

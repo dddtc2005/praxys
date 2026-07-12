@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 logger = logging.getLogger(__name__)
 
 from analysis.config import load_config
-from analysis.data_loader import load_data
+from analysis.data_loader import load_data, select_preferred_source
 from analysis.providers.models import ThresholdEstimate
 from analysis.training_base import get_display_config
 from analysis.science import load_active_science
@@ -17,6 +17,9 @@ from analysis.metrics import (
     compute_ewma_load,
     compute_tsb,
     compute_activity_load,
+    compute_distribution_match_pct,
+    compute_load_compliance_pct,
+    has_sufficient_load_history,
     predict_marathon_time,
     predict_time_from_pace,
     daily_training_signal,
@@ -32,6 +35,8 @@ from analysis.metrics import (
     compute_rtss,
     analyze_recovery,
     project_tsb,
+    is_hard_workout,
+    is_rest_workout,
 )
 
 # ---------------------------------------------------------------------------
@@ -252,6 +257,8 @@ def _plan_workout_load(
     targets for the active base (we still don't want the CTL/ATL projection
     to flatline just because the plan lacks intensity hints).
     """
+    if is_rest_workout(row.get("workout_type")):
+        return 0.0
     if dur_sec <= 0:
         return 0.0
 
@@ -259,7 +266,8 @@ def _plan_workout_load(
         if lo is not None and hi is not None and lo > 0 and hi > 0:
             return (lo + hi) / 2
         if hi is not None and hi > 0:
-            return hi * 0.85  # conservative fallback when only max is set
+            # ESTIMATE -- conservative midpoint proxy when only a ceiling exists.
+            return hi * 0.85
         if lo is not None and lo > 0:
             return lo
         return None
@@ -291,7 +299,7 @@ def _plan_workout_load(
         if avg_pace:
             return compute_rtss(dur_sec, avg_pace, thresholds.threshold_pace_sec_km)
 
-    # ESTIMATE: plan row has no targets we can use for this base — assume
+    # ESTIMATE -- plan row has no targets we can use for this base, so assume
     # a moderate ~60 units/hour. Note that RSS / TRIMP / rTSS are NOT
     # formally equated at 60 units/hour; 60 lands in a roughly tempo-ish
     # band for each scale (RSS and rTSS at IF ≈ 0.77; TRIMP at ~0.70 HR
@@ -332,6 +340,82 @@ def _has_base_targets(row, training_base: str) -> bool:
             or _parse_pace_str(row.get("target_pace_max")) is not None
         )
     return False
+
+
+def _positive_number(value) -> float | None:
+    """Return a finite positive numeric value, otherwise ``None``."""
+    try:
+        number = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
+    except (TypeError, ValueError):
+        return None
+    if pd.isna(number) or number <= 0:
+        return None
+    return float(number)
+
+
+def _plan_load_is_estimated(
+    row,
+    training_base: str,
+    thresholds: ThresholdEstimate | None,
+) -> bool:
+    """Return whether a planned load lacks exact selected-base inputs."""
+    if is_rest_workout(row.get("workout_type")):
+        return False
+    if thresholds is None or _plan_row_duration_sec(row) <= 0:
+        return True
+    if training_base == "power":
+        return not (
+            _positive_number(row.get("target_power_min"))
+            and _positive_number(row.get("target_power_max"))
+            and _positive_number(thresholds.cp_watts)
+        )
+    if training_base == "hr":
+        return not (
+            _positive_number(row.get("target_hr_min"))
+            and _positive_number(row.get("target_hr_max"))
+            and _positive_number(thresholds.rest_hr_bpm)
+            and _positive_number(thresholds.max_hr_bpm)
+        )
+    if training_base == "pace":
+        return not (
+            _parse_pace_str(row.get("target_pace_min"))
+            and _parse_pace_str(row.get("target_pace_max"))
+            and _positive_number(thresholds.threshold_pace_sec_km)
+        )
+    return True
+
+
+def _activity_load_is_estimated(
+    row,
+    training_base: str,
+    thresholds: ThresholdEstimate | None,
+) -> bool:
+    """Return whether actual load used fallback or incomplete base inputs."""
+    if thresholds is None:
+        return True
+    if training_base == "power":
+        if _positive_number(row.get("rss")):
+            return False
+        return not (
+            _positive_number(row.get("duration_sec"))
+            and _positive_number(row.get("avg_power"))
+            and _positive_number(thresholds.cp_watts)
+        )
+    if training_base == "hr":
+        return not (
+            _positive_number(row.get("duration_sec"))
+            and _positive_number(row.get("avg_hr"))
+            and _positive_number(thresholds.lthr_bpm)
+            and _positive_number(thresholds.rest_hr_bpm)
+            and _positive_number(thresholds.max_hr_bpm)
+        )
+    if training_base == "pace":
+        return not (
+            _positive_number(row.get("duration_sec"))
+            and _positive_number(row.get("distance_km"))
+            and _positive_number(thresholds.threshold_pace_sec_km)
+        )
+    return True
 
 
 def _estimate_plan_daily_loads(
@@ -403,22 +487,27 @@ def _build_compliance(
     training_base: str = "power",
     daily_load: pd.Series | None = None,
     thresholds: ThresholdEstimate | None = None,
+    current_date: date | None = None,
 ) -> dict:
-    """Build weekly compliance data for chart using the configured training base.
+    """Build weekly load comparison with per-week evidence provenance.
 
     ``actual_load`` / ``planned_load`` carry the load in the unit appropriate
-    to the training base (RSS for power, TRIMP for HR, rTSS for pace). The
-    frontend pairs the numbers with ``display.load_label``.
+    to the training base (RSS for power, TRIMP for HR, rTSS for pace). Estimated
+    flags identify weeks where either side lacks exact selected-base inputs.
     """
     if merged.empty:
         return {
             "weeks": [],
             "planned_load": [],
             "actual_load": [],
+            "actual_estimated": False,
             "planned_estimated": False,
+            "week_actual_estimated": [],
+            "week_planned_estimated": [],
+            "week_complete": [],
         }
 
-    # Use the computed daily load series if available
+    weekly_day_count = pd.Series(dtype=int)
     if daily_load is not None and not daily_load.empty:
         load_df = daily_load.reset_index()
         load_df.columns = ["date", "load"]
@@ -426,6 +515,9 @@ def _build_compliance(
         load_df["_week"] = load_df["_date"].dt.isocalendar().week
         load_df["_year"] = load_df["_date"].dt.isocalendar().year
         weekly_actual = load_df.groupby(["_year", "_week"])["load"].sum()
+        weekly_day_count = load_df.groupby(
+            ["_year", "_week"],
+        )["_date"].nunique()
     elif "rss" in merged.columns:
         merged_copy = merged.copy()
         merged_copy["_date"] = pd.to_datetime(merged_copy["date"])
@@ -435,18 +527,39 @@ def _build_compliance(
     else:
         weekly_actual = pd.Series(dtype=float)
 
-    weeks = (
-        [f"W{int(w)}" for (_, w) in weekly_actual.index]
-        if not weekly_actual.empty
-        else []
+    actual_evidence = merged.copy()
+    actual_evidence["_date"] = pd.to_datetime(
+        actual_evidence.get("date"), errors="coerce",
     )
+    actual_evidence = actual_evidence.dropna(subset=["_date"])
+    if not actual_evidence.empty:
+        actual_evidence["_week"] = actual_evidence["_date"].dt.isocalendar().week
+        actual_evidence["_year"] = actual_evidence["_date"].dt.isocalendar().year
+        actual_evidence["_estimated"] = [
+            _activity_load_is_estimated(row, training_base, thresholds)
+            for _, row in actual_evidence.iterrows()
+        ]
+        weekly_actual_estimated = actual_evidence.groupby(
+            ["_year", "_week"],
+        )["_estimated"].any()
+    else:
+        weekly_actual_estimated = pd.Series(dtype=bool)
 
-    # Compute planned weekly load from training plan — in the unit of the
-    # active training base (RSS / TRIMP / rTSS). Uses the same per-workout
-    # estimator as the projection (``_plan_workout_load``) so the two agree.
-    planned_weekly: list[float] = []
-    planned_estimated = False
+    weeks = [f"W{int(w)}" for _, w in weekly_actual.index]
+    as_of_date = current_date or date.today()
+    week_complete = [
+        date.fromisocalendar(int(year), int(week), 7) < as_of_date
+        and int(weekly_day_count.get((year, week), 0)) == 7
+        for year, week in weekly_actual.index
+    ]
+    aligned_actual_estimated = [
+        bool(weekly_actual_estimated.get(index, False))
+        for index in weekly_actual.index
+    ]
+
     plan_copy = pd.DataFrame()
+    weekly_planned = pd.Series(dtype=float)
+    weekly_planned_estimated = pd.Series(dtype=bool)
     if not plan.empty and "date" in plan.columns:
         plan_copy = plan.copy()
         plan_copy["_date"] = pd.to_datetime(plan_copy["date"], errors="coerce")
@@ -454,46 +567,65 @@ def _build_compliance(
         if not plan_copy.empty:
             plan_copy["_week"] = plan_copy["_date"].dt.isocalendar().week
             plan_copy["_year"] = plan_copy["_date"].dt.isocalendar().year
+            plan_copy["_load"] = [
+                _plan_workout_load(
+                    row,
+                    _plan_row_duration_sec(row),
+                    training_base,
+                    thresholds,
+                )
+                for _, row in plan_copy.iterrows()
+            ]
+            plan_copy["_estimated"] = [
+                _plan_load_is_estimated(row, training_base, thresholds)
+                for _, row in plan_copy.iterrows()
+            ]
+            weekly_planned = plan_copy.groupby(
+                ["_year", "_week"],
+            )["_load"].sum()
+            weekly_planned_estimated = plan_copy.groupby(
+                ["_year", "_week"],
+            )["_estimated"].any()
 
-            plan_loads = []
-            for _, row in plan_copy.iterrows():
-                dur_sec = _plan_row_duration_sec(row)
-                if dur_sec <= 0:
-                    plan_loads.append(0.0)
-                    continue
-                # Detect fallback so the frontend can caveat "estimated" plans.
-                before_fallback = _has_base_targets(row, training_base)
-                load = _plan_workout_load(row, dur_sec, training_base, thresholds)
-                if not before_fallback:
-                    planned_estimated = True
-                plan_loads.append(load)
-            plan_copy["_load"] = plan_loads
-            weekly_planned = plan_copy.groupby(["_year", "_week"])["_load"].sum()
-
-            # Build planned list for all weeks that have either actuals or plan
-            all_indices = set(weekly_actual.index) | set(weekly_planned.index)
-            for idx in sorted(all_indices):
-                if idx in weekly_planned.index:
-                    planned_weekly.append(round(float(weekly_planned[idx]), 1))
-                else:
-                    planned_weekly.append(0)
-
-    # Align planned to actual weeks
-    aligned_planned: list[float] = []
-    if not weekly_actual.empty and not plan_copy.empty and "_load" in plan_copy.columns:
-        weekly_planned_series = plan_copy.groupby(["_year", "_week"])["_load"].sum()
-        for idx in weekly_actual.index:
-            if idx in weekly_planned_series.index:
-                aligned_planned.append(round(float(weekly_planned_series[idx]), 1))
-            else:
-                aligned_planned.append(0)
+    aligned_planned = [
+        round(float(weekly_planned.get(index, 0.0)), 1)
+        for index in weekly_actual.index
+    ]
+    aligned_planned_estimated = [
+        bool(weekly_planned_estimated.get(index, False))
+        for index in weekly_actual.index
+    ]
 
     return {
         "weeks": weeks[-8:],
         "actual_load": [round(float(v), 1) for v in weekly_actual.values][-8:],
-        "planned_load": aligned_planned[-8:] if aligned_planned else [],
-        "planned_estimated": planned_estimated,
+        "planned_load": aligned_planned[-8:],
+        "actual_estimated": any(aligned_actual_estimated[-8:]),
+        "planned_estimated": any(aligned_planned_estimated[-8:]),
+        "week_actual_estimated": aligned_actual_estimated[-8:],
+        "week_planned_estimated": aligned_planned_estimated[-8:],
+        "week_complete": week_complete[-8:],
     }
+
+
+def _compute_load_compliance_summary(weekly_review: dict) -> int | None:
+    """Compute compliance from completed weeks with exact evidence on both sides."""
+    actual = weekly_review.get("actual_load", [])
+    planned = weekly_review.get("planned_load", [])
+    complete = weekly_review.get("week_complete", [])
+    actual_estimated = weekly_review.get("week_actual_estimated", [])
+    planned_estimated = weekly_review.get("week_planned_estimated", [])
+    eligible = [
+        bool(index < len(complete) and complete[index])
+        and not bool(index < len(actual_estimated) and actual_estimated[index])
+        and not bool(index < len(planned_estimated) and planned_estimated[index])
+        for index in range(min(len(actual), len(planned)))
+    ]
+    return compute_load_compliance_pct(
+        actual,
+        planned,
+        eligible_weeks=eligible,
+    )
 
 
 def _build_workout_flags(
@@ -868,14 +1000,50 @@ def _get_latest_readiness(
 def _get_todays_plan(
     plan: pd.DataFrame, today: date
 ) -> tuple[str, dict | None]:
-    """Return (planned_workout_type, planned_detail_dict) for today."""
+    """Return today's most consequential planned workout deterministically."""
     if plan.empty:
         return "", None
     today_plan = plan[plan["date"] == today]
     if today_plan.empty:
         return "", None
-    plan_row = today_plan.iloc[0]
-    planned_today = plan_row.get("workout_type", "")
+
+    def numeric(row: pd.Series, field: str) -> float:
+        value = pd.to_numeric(row.get(field), errors="coerce")
+        return float(value) if pd.notna(value) else 0.0
+
+    def text_value(row: pd.Series, field: str) -> str:
+        value = row.get(field)
+        return "" if value is None or pd.isna(value) else str(value)
+
+    def consequence(row: pd.Series) -> tuple:
+        workout_type = text_value(row, "workout_type")
+        normalized = "_".join(
+            workout_type.strip().lower().replace("-", " ").split()
+        )
+        if is_hard_workout(workout_type):
+            category = 3
+        elif is_rest_workout(workout_type):
+            category = 0
+        elif normalized in {"recovery", "recovery_run"}:
+            category = 1
+        else:
+            category = 2
+        return (
+            category,
+            numeric(row, "planned_duration_min"),
+            numeric(row, "planned_distance_km"),
+            numeric(row, "target_power_max"),
+            normalized,
+            text_value(row, "source"),
+            text_value(row, "external_id"),
+            text_value(row, "workout_description"),
+        )
+
+    plan_row = max(
+        (row for _, row in today_plan.iterrows()),
+        key=consequence,
+    )
+    planned_today = text_value(plan_row, "workout_type")
     raw_dict = plan_row.to_dict()
     planned_detail = {k: (v if pd.notna(v) else None) for k, v in raw_dict.items()}
     return planned_today, planned_detail
@@ -1106,99 +1274,182 @@ def _compute_threshold_data(
     return latest, trend, cp_values, power_pace_pairs
 
 
-def _compute_recovery_analysis(recovery: pd.DataFrame) -> tuple[dict, float | None, float | None, float | None]:
-    """Extract recovery time series and run analyze_recovery().
+def _compute_recovery_analysis(
+    recovery: pd.DataFrame,
+    recovery_params: dict | None = None,
+    current_date: date | None = None,
+) -> tuple[dict, float | None, float | None, float | None]:
+    """Analyze the latest current HRV reading against prior observations.
 
-    Returns (recovery_analysis, today_hrv, today_sleep, today_rhr).
+    The current HRV and RHR observations are excluded from their historical
+    baseline pools, which are limited to the configured prior calendar window.
+    Recovery classification also requires HRV recorded today
+    or yesterday; older HRV remains displayable context but cannot drive a
+    same-day recommendation.
 
-    The returned analysis dict is augmented with two staleness fields used
-    by the frontend (#130):
-      - ``latest_date`` (ISO date or None): when the "today" reading was
-        actually recorded. The latest available row may be from yesterday
-        if Oura/Garmin haven't synced yet.
-      - ``is_stale`` (bool): True iff ``latest_date`` is before today. The
-        UI uses this to label the data instead of silently rendering a
-        prior day's reading as "today".
+    Returns `(analysis, latest_hrv, latest_sleep, latest_rhr)`. `latest_date`
+    is the newest valid recovery metric date, while `hrv_latest_date` and
+    `hrv_is_stale` expose HRV-specific provenance explicitly. `current_date`
+    anchors all staleness decisions to the request date.
     """
     recovery_sorted = recovery.sort_values("date") if not recovery.empty else recovery
-    hrv_series: list[float] = []
-    rhr_series: list[float] = []
-    today_hrv = None
-    today_sleep = None
-    today_readiness = None
-    today_rhr = None
-    latest_date: date | None = None
+    params = recovery_params or {}
+    rolling_days = int(params.get("rolling_days", 7))
+    baseline_days = int(params.get("baseline_days", 30))
+    cv_threshold = float(params.get("cv_threshold", 10))
+    as_of_date = current_date or date.today()
+    hrv_history: list[float] = []
+    rhr_history: list[float] = []
+    latest_hrv = None
+    latest_sleep = None
+    latest_readiness = None
+    latest_rhr = None
+    hrv_latest_date: date | None = None
+    rhr_latest_date: date | None = None
+    sleep_latest_date: date | None = None
+    readiness_latest_date: date | None = None
 
+    def _coerce_date(value: object) -> date | None:
+        if pd.isna(value):
+            return None
+        if hasattr(value, "date") and callable(getattr(value, "date", None)):
+            return value.date()
+        if isinstance(value, date):
+            return value
+        try:
+            return pd.to_datetime(value).date()
+        except (TypeError, ValueError):
+            return None
+
+    def _metric_values(
+        column: str,
+        *,
+        positive_only: bool = True,
+        history_days: int | None = None,
+    ) -> tuple[list[float], float | None, date | None]:
+        if column not in recovery_sorted.columns:
+            return [], None, None
+        numeric = pd.to_numeric(recovery_sorted[column], errors="coerce")
+        positions = [
+            position
+            for position, value in enumerate(numeric.tolist())
+            if pd.notna(value) and (not positive_only or float(value) > 0)
+        ]
+        if not positions:
+            return [], None, None
+        current_position = positions[-1]
+        current = float(numeric.iloc[current_position])
+        metric_date = _coerce_date(recovery_sorted.iloc[current_position].get("date"))
+        history: list[float] = []
+        for position in positions[:-1]:
+            history_date = _coerce_date(recovery_sorted.iloc[position].get("date"))
+            if history_days is not None:
+                if metric_date is None or history_date is None:
+                    continue
+                cutoff = metric_date - timedelta(days=history_days)
+                if history_date < cutoff or history_date >= metric_date:
+                    continue
+            history.append(float(numeric.iloc[position]))
+        return history, current, metric_date
+
+    recovery_metric_dates: list[date] = []
     if not recovery_sorted.empty:
-        if "hrv_avg" in recovery_sorted.columns:
-            hrv_vals = pd.to_numeric(recovery_sorted["hrv_avg"], errors="coerce")
-            hrv_series = [float(v) for v in hrv_vals.dropna() if v > 0]
-        if "resting_hr" in recovery_sorted.columns:
-            rhr_vals = pd.to_numeric(recovery_sorted["resting_hr"], errors="coerce")
-            rhr_series = [float(v) for v in rhr_vals.dropna() if v > 0]
+        hrv_history, latest_hrv, hrv_latest_date = _metric_values(
+            "hrv_avg", history_days=baseline_days,
+        )
+        rhr_history, latest_rhr, rhr_latest_date = _metric_values(
+            "resting_hr", history_days=baseline_days,
+        )
+        _, latest_sleep, sleep_latest_date = _metric_values(
+            "sleep_score", positive_only=False,
+        )
+        _, latest_readiness, readiness_latest_date = _metric_values(
+            "readiness_score", positive_only=False,
+        )
+        recovery_metric_dates = [
+            metric_date
+            for metric_date in (
+                hrv_latest_date,
+                rhr_latest_date,
+                sleep_latest_date,
+                readiness_latest_date,
+            )
+            if metric_date is not None
+        ]
 
-        latest_row = recovery_sorted.iloc[-1]
-        latest_date_val = latest_row.get("date")
-        if pd.notna(latest_date_val):
-            # Order matters: pd.Timestamp inherits from datetime.date, so the
-            # isinstance branch alone would assign a Timestamp and break the
-            # later comparison against datetime.date(). Try .date() first to
-            # normalize Timestamp/datetime to a plain date.
-            if hasattr(latest_date_val, "date") and callable(getattr(latest_date_val, "date", None)):
-                latest_date = latest_date_val.date()
-            elif isinstance(latest_date_val, date):
-                latest_date = latest_date_val
+    grace_date = as_of_date - timedelta(days=1)
 
-        # The latest row may lack HRV/RHR (e.g., sleep-only row from COROS).
-        # Fall back to the most recent row that has each metric.
-        hrv_val = pd.to_numeric(
-            pd.Series([latest_row.get("hrv_avg")]), errors="coerce"
-        ).iloc[0]
-        if pd.isna(hrv_val) or hrv_val <= 0:
-            hrv_col = pd.to_numeric(recovery_sorted["hrv_avg"], errors="coerce") if "hrv_avg" in recovery_sorted.columns else pd.Series(dtype=float)
-            valid_hrv = hrv_col[hrv_col > 0]
-            hrv_val = valid_hrv.iloc[-1] if not valid_hrv.empty else float("nan")
-        today_hrv = float(hrv_val) if pd.notna(hrv_val) and hrv_val > 0 else None
+    def _is_stale(value: float | None, metric_date: date | None) -> bool:
+        return value is not None and (
+            metric_date is None
+            or metric_date < grace_date
+            or metric_date > as_of_date
+        )
 
-        sleep_val = pd.to_numeric(
-            pd.Series([latest_row.get("sleep_score")]), errors="coerce"
-        ).iloc[0]
-        today_sleep = float(sleep_val) if pd.notna(sleep_val) else None
+    hrv_is_stale = _is_stale(latest_hrv, hrv_latest_date)
+    sleep_is_stale = _is_stale(latest_sleep, sleep_latest_date)
+    readiness_is_stale = _is_stale(latest_readiness, readiness_latest_date)
+    rhr_is_stale = _is_stale(latest_rhr, rhr_latest_date)
 
-        readiness_val = pd.to_numeric(
-            pd.Series([latest_row.get("readiness_score")]), errors="coerce"
-        ).iloc[0]
-        today_readiness = float(readiness_val) if pd.notna(readiness_val) else None
-
-        rhr_val = pd.to_numeric(
-            pd.Series([latest_row.get("resting_hr")]), errors="coerce"
-        ).iloc[0]
-        if pd.isna(rhr_val) or rhr_val <= 0:
-            rhr_col = pd.to_numeric(recovery_sorted["resting_hr"], errors="coerce") if "resting_hr" in recovery_sorted.columns else pd.Series(dtype=float)
-            valid_rhr = rhr_col[rhr_col > 0]
-            rhr_val = valid_rhr.iloc[-1] if not valid_rhr.empty else float("nan")
-        today_rhr = float(rhr_val) if pd.notna(rhr_val) and rhr_val > 0 else None
-
-    analysis = analyze_recovery(
-        hrv_series,
-        today_hrv_ms=today_hrv,
-        today_sleep=today_sleep,
-        today_rhr=today_rhr,
-        today_readiness=today_readiness,
-        rhr_series=rhr_series if rhr_series else None,
+    display_analysis = analyze_recovery(
+        hrv_history,
+        today_hrv_ms=latest_hrv,
+        today_sleep=latest_sleep,
+        today_rhr=latest_rhr,
+        today_readiness=latest_readiness,
+        rhr_series=rhr_history if rhr_history else None,
+        rolling_days=rolling_days,
+        baseline_days=baseline_days,
+        cv_threshold=cv_threshold,
     )
+    if hrv_is_stale:
+        current_analysis = analyze_recovery(
+            hrv_history,
+            today_hrv_ms=None,
+            today_sleep=None if sleep_is_stale else latest_sleep,
+            today_rhr=None if rhr_is_stale else latest_rhr,
+            today_readiness=None if readiness_is_stale else latest_readiness,
+            rhr_series=rhr_history if rhr_history else None,
+            rolling_days=rolling_days,
+            baseline_days=baseline_days,
+            cv_threshold=cv_threshold,
+        )
+        display_analysis["status"] = current_analysis["status"]
+        display_analysis["classification_reason"] = "stale_hrv"
 
-    # Recovery data (sleep, HRV) is recorded under the night it was measured,
-    # which is typically yesterday's date. Allow a 1-day grace period so that
-    # last night's reading is not flagged as stale.
-    is_stale = latest_date is not None and latest_date < (date.today() - timedelta(days=1))
+    latest_date = max(recovery_metric_dates) if recovery_metric_dates else None
+    is_stale = latest_date is not None and latest_date < grace_date
     augmented = {
-        **analysis,
+        **display_analysis,
         "latest_date": latest_date.isoformat() if latest_date else None,
         "is_stale": is_stale,
+        "hrv_latest_date": hrv_latest_date.isoformat() if hrv_latest_date else None,
+        "hrv_is_stale": hrv_is_stale,
+        "sleep_latest_date": sleep_latest_date.isoformat() if sleep_latest_date else None,
+        "sleep_is_stale": sleep_is_stale,
+        "readiness_latest_date": (
+            readiness_latest_date.isoformat() if readiness_latest_date else None
+        ),
+        "readiness_is_stale": readiness_is_stale,
+        "rhr_latest_date": rhr_latest_date.isoformat() if rhr_latest_date else None,
+        "rhr_is_stale": rhr_is_stale,
     }
-    return augmented, today_hrv, today_sleep, today_rhr
+    return augmented, latest_hrv, latest_sleep, latest_rhr
 
+
+def _recovery_for_guidance(recovery_analysis: dict) -> dict:
+    """Remove stale observations from same-day recommendation inputs."""
+    current = dict(recovery_analysis)
+    if current.get("hrv_is_stale"):
+        current["hrv"] = None
+    if current.get("sleep_is_stale"):
+        current["sleep_score"] = None
+    if current.get("readiness_is_stale"):
+        current["readiness_score"] = None
+    if current.get("rhr_is_stale"):
+        current["resting_hr"] = None
+        current["rhr_trend"] = None
+    return current
 
 def _build_threshold_trend_chart(
     merged: pd.DataFrame, config, data_dir: str = None,
@@ -1244,8 +1495,10 @@ def _build_threshold_trend_chart(
 
 
 def _build_warnings(
-    recovery_analysis: dict, current_tsb: float,
+    recovery_analysis: dict, current_tsb: float | None,
     config, data_dir: str = None, latest_cp_watts: float | None = None,
+    cv_threshold: float = 10.0,
+    tsb_caution_threshold: float = -20.0,
 ) -> list[str]:
     """Collect health/training warnings.
 
@@ -1258,11 +1511,16 @@ def _build_warnings(
     warnings: list[str] = []
     hrv_info = recovery_analysis.get("hrv") or {}
     if hrv_info.get("trend") == "declining":
-        warnings.append("HRV rolling mean declining — monitor recovery")
-    if hrv_info.get("rolling_cv", 0) > 10:
-        warnings.append(f"HRV variability high (CV {hrv_info['rolling_cv']:.0f}%) — autonomic disturbance")
-    if current_tsb < -25:
-        warnings.append(f"High fatigue (TSB = {current_tsb:.0f})")
+        warnings.append("HRV rolling mean declining: monitor recovery")
+    if hrv_info.get("rolling_cv", 0) > cv_threshold:
+        warnings.append(
+            f"HRV variability high (CV {hrv_info['rolling_cv']:.0f}%): "
+            "above the coaching caution threshold"
+        )
+    if current_tsb is not None and current_tsb < tsb_caution_threshold:
+        warnings.append(
+            f"Modeled load balance below the coaching caution band (TSB = {current_tsb:.0f})"
+        )
     if config.preferences.get("plan") == "ai" and data_dir:
         from api.ai import check_plan_staleness
         warnings.extend(check_plan_staleness(data_dir, latest_cp_watts))
@@ -1273,6 +1531,7 @@ def _compute_diagnosis(
     merged: pd.DataFrame, splits: pd.DataFrame,
     cp_trend_data: dict, config, thresholds, science: dict,
     samples: pd.DataFrame | None = None,
+    current_date: date | None = None,
 ) -> dict:
     """Run zone-aware training diagnosis."""
     if config.training_base == "power":
@@ -1283,6 +1542,7 @@ def _compute_diagnosis(
         active_threshold = thresholds.threshold_pace_sec_km
 
     zones_theory = science.get("zones")
+    load_theory = science.get("load")
     zone_boundaries = config.zones.get(config.training_base)
     zone_names_list: list[str] | None = None
     target_dist: list[float] | None = None
@@ -1305,6 +1565,8 @@ def _compute_diagnosis(
         target_distribution=target_dist,
         theory_name=zone_theory_name,
         samples=samples,
+        current_date=current_date,
+        diagnosis_params=load_theory.diagnosis if load_theory else None,
     )
 
 
@@ -1333,6 +1595,13 @@ def get_dashboard_data(user_id: str = None, db=None) -> dict:
         data_dir = os.path.join(base_dir, "data")
         data = load_data(config, data_dir)
 
+    data["recovery"] = select_preferred_source(
+        data["recovery"], config.preferences.get("recovery"),
+    )
+    all_plans = data["plan"].copy()
+    data["plan"] = select_preferred_source(
+        data["plan"], config.preferences.get("plan"),
+    )
     merged = data["activities"]
 
     # Deduplicate activities by primary source preference.
@@ -1469,17 +1738,28 @@ def get_dashboard_data(user_id: str = None, db=None) -> dict:
 
     # Recovery
     recovery = data["recovery"]
-    recovery_analysis, _, _, _ = _compute_recovery_analysis(recovery)
+    recovery_theory = science.get("recovery")
+    recovery_params = recovery_theory.params if recovery_theory else {}
+    recovery_analysis, _, _, _ = _compute_recovery_analysis(
+        recovery,
+        recovery_params=recovery_params,
+        current_date=today,
+    )
     current_tsb = float(tsb.iloc[-1]) if not tsb.empty else 0.0
+    data_days = (today - earliest).days if not merged.empty else 0
+    pmc_sufficient = has_sufficient_load_history(data_days, ctl_tc)
+    guidance_tsb = current_tsb if pmc_sufficient else None
 
     # Daily training signal
     planned_today, planned_detail = _get_todays_plan(plan, today)
     # Recovery is standardized to a single HRV-based theory.
     hrv_only_mode = True
+    guidance_recovery = _recovery_for_guidance(recovery_analysis)
     signal = daily_training_signal(
-        recovery_analysis, current_tsb, planned_today,
+        guidance_recovery, guidance_tsb, planned_today,
         planned_detail=planned_detail,
         signal_thresholds=load_theory.signal if load_theory else None,
+        recovery_thresholds=recovery_params,
         hrv_only=hrv_only_mode,
     )
 
@@ -1513,10 +1793,27 @@ def get_dashboard_data(user_id: str = None, db=None) -> dict:
     )
 
     # Supplementary data
-    weekly_review = _build_compliance(merged, plan, config.training_base, daily_load, thresholds)
+    weekly_review = _build_compliance(
+        merged,
+        plan,
+        config.training_base,
+        daily_load,
+        thresholds,
+        current_date=today,
+    )
     workout_flags = _build_workout_flags(merged, recovery, config.training_base)
     sleep_perf = _build_sleep_perf(merged, recovery, config.training_base)
-    warnings = _build_warnings(recovery_analysis, current_tsb, config, data_dir=data_dir, latest_cp_watts=latest_cp_watts)
+    warnings = _build_warnings(
+        guidance_recovery,
+        guidance_tsb,
+        config,
+        data_dir=data_dir,
+        latest_cp_watts=latest_cp_watts,
+        cv_threshold=float(recovery_params.get("cv_threshold", 10)),
+        tsb_caution_threshold=float(
+            (load_theory.signal if load_theory else {}).get("tsb_high_fatigue", -20)
+        ),
+    )
 
     # Diagnosis — use per-second samples when available for 1s zone resolution
     splits = data["splits"]
@@ -1532,14 +1829,27 @@ def get_dashboard_data(user_id: str = None, db=None) -> dict:
             )
             if _recent_aids:
                 samples = load_activity_samples(user_id, db, _recent_aids)
-    diagnosis = _compute_diagnosis(merged, splits, cp_trend_data, config, thresholds, science, samples=samples)
+    diagnosis = _compute_diagnosis(
+        merged, splits, cp_trend_data, config, thresholds, science,
+        samples=samples, current_date=today,
+    )
+    training_summary = {
+        "current_tsb": round(current_tsb, 1) if pmc_sufficient else None,
+        "distribution_match_pct": compute_distribution_match_pct(
+            diagnosis.get("distribution", []),
+            evidence_complete=diagnosis.get("data_meta", {}).get(
+                "distribution_complete", False,
+            ),
+        ),
+        "load_compliance_pct": _compute_load_compliance_summary(weekly_review),
+    }
 
     # Activities for history
     activities_list = _build_activities_list(merged, splits)
 
     # Data sufficiency metadata — helps frontend decide what to show
     activity_count = len(merged) if not merged.empty else 0
-    data_days = (today - earliest).days if not merged.empty else 0
+
     cp_point_count = len(cp_trend_chart.get("dates", [])) if cp_trend_chart else 0
     has_recovery = not recovery.empty if hasattr(recovery, 'empty') else bool(recovery)
 
@@ -1548,7 +1858,8 @@ def get_dashboard_data(user_id: str = None, db=None) -> dict:
         "data_days": data_days,
         "cp_points": cp_point_count,
         "has_recovery": has_recovery,
-        "pmc_sufficient": data_days >= 42,
+        "load_time_constant_days": ctl_tc,
+        "pmc_sufficient": pmc_sufficient,
         "cp_trend_sufficient": cp_point_count >= 3,
     }
 
@@ -1558,6 +1869,7 @@ def get_dashboard_data(user_id: str = None, db=None) -> dict:
         "fitness_fatigue": fitness_fatigue,
         "tsb_sparkline": tsb_sparkline,
         "weekly_review": weekly_review,
+        "summary": training_summary,
         "cp_trend": cp_trend_chart,
         "cp_trend_data": cp_trend_data,
         "workout_flags": workout_flags,
@@ -1569,6 +1881,7 @@ def get_dashboard_data(user_id: str = None, db=None) -> dict:
         "training_base": config.training_base,
         "display": get_display_config(config.training_base),
         "plan": plan,
+        "all_plans": all_plans,
         "recovery_analysis": recovery_analysis,
         "science": science,
         "science_notes": {

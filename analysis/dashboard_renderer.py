@@ -33,6 +33,7 @@ def render_dashboard(
 def _signal_color(recommendation: str) -> str:
     colors = {
         "follow_plan": "#22c55e",
+        "unscheduled": "#f59e0b",
         "easy": "#f59e0b",
         "modify": "#f59e0b",
         "reduce_intensity": "#f59e0b",
@@ -44,6 +45,7 @@ def _signal_color(recommendation: str) -> str:
 def _signal_label(recommendation: str) -> str:
     labels = {
         "follow_plan": "GO — Follow Plan",
+        "unscheduled": "NO PLAN — No Workout Scheduled",
         "easy": "CAUTION — Go Easy",
         "modify": "MODIFY — Adjust Today's Workout",
         "reduce_intensity": "CAUTION — Reduce Intensity",
@@ -395,7 +397,7 @@ function mkDiv(text, style) {{
       el.appendChild(mkDiv(p.description, {{color: '#94a3b8', marginTop: '4px', fontSize: '0.8rem'}}));
     }}
   }} else {{
-    el.appendChild(mkDiv('No planned workout today (rest day)', {{color: '#64748b'}}));
+    el.appendChild(mkDiv('No workout scheduled today', {{color: '#64748b'}}));
   }}
 
   // Alternatives

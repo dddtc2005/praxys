@@ -3,23 +3,26 @@ pillar: load
 name: "Banister Ultra"
 author: system
 description: >
-  Adapted for ultra-distance athletes (50K+). Longer time constants (50/10 days)
-  reflect extended recovery arcs from high-volume mountain training. Wider productive
-  zone accommodates deeper fatigue loads normal in ultra blocks.
+  Product adaptation for ultra-distance athletes (50K+). It uses longer long-term
+  and short-term load windows (50/10 days) plus a wider recent-load-dominant band.
+  These are Praxys estimates for high-volume mountain training, not validated
+  physiological thresholds.
 simple_description: >
-  Designed for ultra runners doing long mountain sessions. Uses longer time windows
-  (7 weeks for fitness, 10 days for fatigue) because your body needs more time to
-  absorb the stress of multi-hour runs. The fatigue zone is wider because deeper
-  tiredness is expected during ultra training blocks.
+  Designed for ultra runners doing long mountain sessions. It compares a 7-week
+  model of training load with a 10-day model of recent load. The wider negative TSB
+  band accommodates sustained high-volume blocks, but it does not measure fatigue,
+  recovery, readiness, or injury risk directly.
 advanced_description: |
   ## Banister Ultra Adaptation
 
   Modified time constants for ultra-distance athletes:
-  - **CTL** τ = 50 days (vs 42 in standard PMC)
-  - **ATL** τ = 10 days (vs 7 in standard PMC)
+  - **CTL** tau = 50 days (vs 42 in standard PMC)
+  - **ATL** tau = 10 days (vs 7 in standard PMC)
 
-  **Wider productive zone:** −35 to −10 (vs −25 to −10 in standard), reflecting
-  the deeper fatigue loads that are normal and expected during ultra training blocks.
+  **Wider recent-load-dominant band:** -35 to -10 (vs -25 to -10 in standard).
+  This models periods where short-term load remains above longer-term load during
+  ultra training blocks. The boundary and daily TSB cutoff are product estimates,
+  not diagnostic, recovery, readiness, or injury-risk thresholds.
 
   **Diagnosis adjustments:**
   - Work split filter extended to **3600 seconds** (vs 1800s) to capture long
@@ -27,19 +30,23 @@ advanced_description: |
   - Volume thresholds raised: **80 km/week** = strong, **60 km/week** = moderate
     (vs 60/40 in standard)
 
+  The 3600-second and 80/60 km cutoffs are Praxys operational heuristics informed
+  by ultra-training practice, not published validated cut points.
+
   **References:**
   - Banister (1975) "A systems model of training for athletic performance"
   - Koop (2016) *Training Essentials for Ultrarunning*
-
 citations:
   - key: banister1975
     title: "A systems model of training for athletic performance"
     year: 1975
     journal: "Australian Journal of Sports Medicine"
+    url: "https://collection.sl.nsw.gov.au/record/74VvZDVa0D0X"
   - key: koop2016
     title: "Training Essentials for Ultrarunning"
     year: 2016
     type: book
+    url: "https://books.google.com/books?id=RgFODAAAQBAJ"
 
 tsb_zones:
   - {min: 25}

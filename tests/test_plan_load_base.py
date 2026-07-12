@@ -12,8 +12,12 @@ import pandas as pd
 
 from analysis.providers.models import ThresholdEstimate
 from api.deps import (
+    _activity_load_is_estimated,
+    _build_compliance,
+    _compute_load_compliance_summary,
     _estimate_plan_daily_loads,
     _parse_pace_str,
+    _plan_load_is_estimated,
     _plan_workout_load,
     _has_base_targets,
 )
@@ -116,3 +120,165 @@ def test_has_base_targets_detects_missing_data():
     assert _has_base_targets(_mk_plan_row(), "hr") is False
     assert _has_base_targets(_mk_plan_row(target_pace_max="5:00"), "pace") is True
     assert _has_base_targets(_mk_plan_row(), "pace") is False
+
+
+def test_compliance_marks_only_full_historical_week_complete():
+    """A historical week needs all seven daily-load rows to enter the summary."""
+    as_of = date(2026, 4, 23)
+    completed_week_start = date(2026, 4, 13)
+    current_week_start = date(2026, 4, 20)
+    daily_dates = [
+        *(completed_week_start + timedelta(days=i) for i in range(7)),
+        *(current_week_start + timedelta(days=i) for i in range(3)),
+    ]
+    daily_load = pd.Series(
+        [0.0, 80.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 90.0, 0.0],
+        index=pd.to_datetime(daily_dates),
+    )
+    completed_day = completed_week_start + timedelta(days=1)
+    current_week_day = current_week_start + timedelta(days=1)
+    merged = pd.DataFrame({
+        "date": [completed_day, current_week_day],
+        "rss": [80.0, 90.0],
+    })
+    plan = pd.DataFrame([
+        {
+            "date": completed_day,
+            "planned_duration_min": 60.0,
+            "target_power_min": 200.0,
+            "target_power_max": 220.0,
+        },
+        {
+            "date": current_week_day,
+            "planned_duration_min": 60.0,
+            "target_power_min": 200.0,
+            "target_power_max": 220.0,
+        },
+    ])
+    thresholds = ThresholdEstimate(cp_watts=250.0)
+
+    review = _build_compliance(
+        merged,
+        plan,
+        "power",
+        daily_load,
+        thresholds,
+        current_date=as_of,
+    )
+
+    assert review["week_complete"] == [True, False]
+    assert review["week_actual_estimated"] == [False, False]
+    assert review["week_planned_estimated"] == [False, False]
+
+
+def test_compliance_keeps_partial_historical_week_incomplete():
+    """A past Sunday alone cannot make a partial leading week eligible."""
+    as_of = date(2026, 4, 23)
+    historical_day = date(2026, 4, 15)
+    daily_load = pd.Series([80.0], index=pd.to_datetime([historical_day]))
+    merged = pd.DataFrame({"date": [historical_day], "rss": [80.0]})
+
+    review = _build_compliance(
+        merged,
+        pd.DataFrame(),
+        "power",
+        daily_load,
+        ThresholdEstimate(cp_watts=250.0),
+        current_date=as_of,
+    )
+
+    assert review["week_complete"] == [False]
+
+
+def test_durationless_rest_plan_is_exact_zero_in_mixed_week():
+    """A normal rest row must not taint an otherwise exact planned week."""
+    week_start = date(2026, 4, 13)
+    workout_day = week_start + timedelta(days=1)
+    daily_dates = [week_start + timedelta(days=i) for i in range(7)]
+    daily_load = pd.Series(
+        [0.0, 80.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        index=pd.to_datetime(daily_dates),
+    )
+    merged = pd.DataFrame({"date": [workout_day], "rss": [80.0]})
+    plan = pd.DataFrame([
+        {
+            "date": workout_day,
+            "workout_type": "easy",
+            "planned_duration_min": 60.0,
+            "target_power_min": 200.0,
+            "target_power_max": 220.0,
+        },
+        {
+            "date": week_start + timedelta(days=2),
+            "workout_type": "rest",
+            "planned_duration_min": 0.0,
+        },
+    ])
+    thresholds = ThresholdEstimate(cp_watts=250.0)
+
+    review = _build_compliance(
+        merged,
+        plan,
+        "power",
+        daily_load,
+        thresholds,
+        current_date=date(2026, 4, 23),
+    )
+
+    assert _plan_workout_load(plan.iloc[1], 0.0, "power", thresholds) == 0.0
+    assert _plan_load_is_estimated(plan.iloc[1], "power", thresholds) is False
+    assert review["planned_load"][0] > 0
+    assert review["week_planned_estimated"] == [False]
+
+
+def test_plan_provenance_requires_two_sided_targets_and_thresholds():
+    exact = ThresholdEstimate(cp_watts=250.0)
+    assert _plan_load_is_estimated(
+        _mk_plan_row(target_power_min=200, target_power_max=220),
+        "power",
+        exact,
+    ) is False
+    assert _plan_load_is_estimated(
+        _mk_plan_row(target_power_min=200),
+        "power",
+        exact,
+    ) is True
+    assert _plan_load_is_estimated(
+        _mk_plan_row(target_power_min=200, target_power_max=220),
+        "power",
+        ThresholdEstimate(),
+    ) is True
+
+    hr_missing_rest = ThresholdEstimate(max_hr_bpm=185.0)
+    assert _plan_load_is_estimated(
+        _mk_plan_row(target_hr_min=140, target_hr_max=160),
+        "hr",
+        hr_missing_rest,
+    ) is True
+
+
+def test_actual_provenance_rejects_cross_base_fallback():
+    thresholds = ThresholdEstimate(cp_watts=250.0, max_hr_bpm=185.0)
+    exact_power = pd.Series({
+        "duration_sec": 3600.0,
+        "avg_power": 210.0,
+        "avg_hr": 150.0,
+        "rss": None,
+    })
+    fallback_hr = exact_power.copy()
+    fallback_hr["avg_power"] = None
+
+    assert _activity_load_is_estimated(exact_power, "power", thresholds) is False
+    assert _activity_load_is_estimated(fallback_hr, "power", thresholds) is True
+
+
+def test_compliance_summary_excludes_estimated_weeks_only():
+    review = {
+        "actual_load": [80.0, 120.0, 300.0],
+        "planned_load": [100.0, 100.0, 100.0],
+        "week_complete": [True, True, True],
+        "week_actual_estimated": [False, False, True],
+        "week_planned_estimated": [False, False, False],
+    }
+
+    assert _compute_load_compliance_summary(review) == 100

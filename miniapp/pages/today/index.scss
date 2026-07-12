@@ -307,6 +307,13 @@
   word-break: break-word;
 }
 
+.signal-alternatives {
+  align-self: stretch;
+  padding-top: 12rpx;
+  border-top: 1rpx solid var(--border-subtle);
+  text-align: left;
+}
+
 // --- Supporting cells (Today, simplified per PR #238) ---
 //
 // Cardless 2-col grid sitting directly on warm-paper bg. Hairline
@@ -416,6 +423,65 @@
   color: var(--text);
   flex: 1;
   min-width: 0;
+}
+
+// --- Deterministic Today methodology ---
+.today-methodology {
+  margin-bottom: 24rpx;
+}
+
+.today-methodology-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 8rpx 0;
+}
+
+.today-methodology-arrow {
+  width: 24rpx;
+  font-size: 22rpx;
+  color: var(--accent-cobalt);
+}
+
+.today-methodology-label {
+  font-size: 22rpx;
+  font-weight: 600;
+  letter-spacing: 1rpx;
+  text-transform: uppercase;
+  color: var(--accent-cobalt);
+}
+
+.today-methodology-body {
+  margin-top: 8rpx;
+}
+
+.today-methodology-text {
+  display: block;
+  max-width: 68ch;
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.today-methodology-source-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20rpx;
+  padding: 12rpx 0 4rpx;
+}
+
+.today-methodology-source {
+  flex: 1;
+  font-size: 24rpx;
+  color: var(--text-muted);
+}
+
+.today-methodology-source-action {
+  flex: none;
+  font-size: 22rpx;
+  color: var(--accent-cobalt);
+  text-decoration: underline;
 }
 
 // --- Warnings ---

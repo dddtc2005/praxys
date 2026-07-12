@@ -13,6 +13,7 @@ from datetime import date, datetime, timedelta
 import pandas as pd
 
 from analysis.config import load_config, load_config_from_db
+from analysis.metrics import is_hard_workout, is_rest_workout
 
 
 # ---------------------------------------------------------------------------
@@ -83,11 +84,11 @@ def _build_context_from_data(data: dict, *, user_id: str | None = None, db=None)
     ff = data.get("fitness_fatigue", {})
     ctl_vals = ff.get("ctl", [])
     atl_vals = ff.get("atl", [])
-    tsb_vals = ff.get("tsb", [])
+    summary = data.get("summary") or {}
     current_fitness = {
         "ctl": ctl_vals[-1] if ctl_vals else None,
         "atl": atl_vals[-1] if atl_vals else None,
-        "tsb": tsb_vals[-1] if tsb_vals else None,
+        "tsb": summary.get("current_tsb"),
         "cp_trend": data.get("cp_trend_data", {}),
         "predicted_time_sec": data.get("race_countdown", {}).get("predicted_time_sec"),
         "race_countdown": data.get("race_countdown", {}),
@@ -132,11 +133,21 @@ def _build_context_from_data(data: dict, *, user_id: str | None = None, db=None)
     # -- Recovery state --
     signal = data.get("signal", {})
     recovery = signal.get("recovery", {})
+    recovery_analysis = data.get("recovery_analysis", {})
     recovery_state = {
-        "readiness": recovery.get("readiness"),
+        "readiness": (
+            None if recovery_analysis.get("readiness_is_stale")
+            else recovery_analysis.get("readiness_score")
+        ),
         "hrv_ms": recovery.get("hrv_ms"),
         "hrv_trend_pct": recovery.get("hrv_trend_pct"),
         "sleep_score": recovery.get("sleep_score"),
+        "metric_dates": {
+            "hrv": recovery_analysis.get("hrv_latest_date"),
+            "sleep": recovery_analysis.get("sleep_latest_date"),
+            "readiness": recovery_analysis.get("readiness_latest_date"),
+            "rhr": recovery_analysis.get("rhr_latest_date"),
+        },
     }
     today_signal = {
         "recommendation": signal.get("recommendation"),
@@ -148,10 +159,9 @@ def _build_context_from_data(data: dict, *, user_id: str | None = None, db=None)
     # `current_plan`: today + future entries, used by surfaces that need a
     #   forward-looking view (training plan skill, future planners).
     # `planned_today`: only the row matching today's date, or None when
-    #   today has no scheduled workout (rest day). Daily-brief consumers
-    #   must use this — taking `current_plan[0]` as "today's workout"
-    #   silently surfaces the next future workout when today is rest,
-    #   which made the LLM advise on the wrong session.
+    #   today has no scheduled workout. Today consumers must use this;
+    #   taking `current_plan[0]` as today's workout silently surfaces the
+    #   next future session on an unscheduled day.
     plan_df = data.get("plan")
     current_plan: list[dict] = []
     planned_today: dict | None = None
@@ -271,8 +281,6 @@ def validate_plan(
                         )
 
     # --- Distribution sanity ---
-    quality_types = {"threshold", "interval", "tempo", "speed", "race", "time_trial"}
-    rest_types = {"rest", "off", "recovery"}
 
     # Group by ISO week
     weeks: dict[str, list[dict]] = {}
@@ -284,16 +292,16 @@ def validate_plan(
     for wk, workouts in weeks.items():
         quality_count = sum(
             1 for w in workouts
-            if str(w.get("workout_type", "")).lower() in quality_types
+            if is_hard_workout(w.get("workout_type"))
         )
         rest_count = sum(
             1 for w in workouts
-            if str(w.get("workout_type", "")).lower() in rest_types
+            if is_rest_workout(w.get("workout_type"))
         )
         if quality_count > 3:
             errors.append(f"Week {wk}: {quality_count} quality sessions (max 3 recommended).")
         if rest_count < 1 and len(workouts) >= 6:
-            errors.append(f"Week {wk}: no rest/recovery days in a {len(workouts)}-day week.")
+            errors.append(f"Week {wk}: no passive rest day in a {len(workouts)}-day week.")
 
     return (len(errors) == 0, errors)
 

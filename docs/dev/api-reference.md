@@ -284,28 +284,51 @@ prefilled register link (when SMTP is configured). Re-inviting revokes the prior
 
 ### GET /api/today
 
-Daily training brief.
+Deterministic same-day training signal. `signal` is the sole authority for the
+recommendation, reason, and alternatives; Today does not load or generate an
+LLM `daily_brief`.
 
-Recovery is HRV-based only. When HRV data is missing/insufficient, the API
-returns `recovery_analysis.status = "insufficient_data"` and does not provide
-recovery suggestions.
+Recovery classification is HRV-based. The current HRV observation is excluded
+from its own historical baseline; the default method requires seven preceding
+valid observations. `rolling_days` and `baseline_days` are retained configuration
+names, but they count valid observations rather than calendar days. Identical
+historical observations have zero variance and therefore return
+`classification_reason = "zero_variance"` instead of a normal classification.
+An HRV reading from today or yesterday is current. Older HRV
+is retained for provenance but sets `hrv_is_stale = true`, returns
+`recovery_analysis.status = "insufficient_data"`, and cannot adjust the same-day
+signal. Sleep, readiness, and resting heart rate remain available as separate
+informational context when the source provides them. Recovery and plan frames use
+one configured provider at a time rather than blending overlapping sources.
 
 **Response:**
 ```json
 {
+  "as_of_date": "2026-04-08",
+  "data_as_of": "2026-04-07T12:00:00Z",
+  "coach_snapshot": "8f2c90a4d43818aaaf943b0f1a27c997",
   "signal": {
-    "recommendation": "follow_plan|modify|reduce_intensity|easy|rest",
-    "reason": "string",
-    "alternatives": [],
-    "recovery": { "tsb": 0.6, "hrv_ms": 59.0, "sleep_score": 82.0 },
+    "recommendation": "follow_plan|unscheduled|modify|reduce_intensity|easy|rest",
+    "reason": "English fallback string",
+    "reason_code": "stable_semantic_code",
+    "reason_args": { "tsb": -18.2 },
+    "alternatives": ["English fallback string"],
+    "alternative_codes": [{ "code": "stable_semantic_code", "args": {} }],
+    "recovery": { "tsb": 0.6, "hrv_ms": 59.0, "sleep_score": 82.0, "readiness": 76.0 },
     "plan": { "workout_type": "easy", "duration_min": "60", "..." : "..." }
   },
   "recovery_analysis": {
     "status": "fresh|normal|fatigued|insufficient_data",
     "hrv": { "today_ms": 59.0, "baseline_mean_ln": 3.87, "trend": "improving" },
     "sleep_score": 82.0,
+    "readiness_score": 76.0,
     "resting_hr": 49.5,
-    "rhr_trend": "low|normal|elevated"
+    "rhr_trend": "low|stable|elevated",
+    "latest_date": "2026-04-07",
+    "is_stale": false,
+    "hrv_latest_date": "2026-04-07",
+    "hrv_is_stale": false,
+    "classification_reason": "missing_hrv|insufficient_history|zero_variance|stale_hrv|null"
   },
   "last_activity": {
     "date": "2026-04-07",
@@ -319,7 +342,7 @@ recovery suggestions.
   "tsb_sparkline": { "dates": ["..."], "values": ["..."], "projected_dates": ["..."], "projected_values": ["..."] },
   "recovery_theory": { "id": "hrv_based", "name": "HRV-Based Recovery", "simple_description": "...", "params": {} },
   "upcoming": [
-    { "date": "2026-04-11", "workout_type": "threshold", "duration_min": 65 }
+    { "date": "2026-04-11", "workout_type": "threshold", "duration_min": 65, "description": "..." }
   ],
   "week_load": { "week_label": "W15", "actual": 245.3, "planned": 280.0 },
   "warnings": ["HRV rolling mean declining"],
@@ -327,6 +350,20 @@ recovery suggestions.
   "display": { "threshold_abbrev": "CP", "threshold_unit": "W", "load_label": "RSS" }
 }
 ```
+
+`reason` and `alternatives` are deterministic English fallbacks. Clients should
+localize the stable `reason_code` / `alternative_codes` and interpolate their
+argument maps without changing the recommendation. `week_load` is `null` when no
+current-week activity or plan load exists; `recovery_analysis`, `last_activity`,
+and `recovery_theory` are also nullable. `signal.recovery.tsb` is `null` until the
+account has one active CTL time constant of history. A null TSB is excluded from
+same-day decisions and clients render it as unavailable rather than as a balanced
+value of zero. The one-time-constant history gate and displayed TSB labels are
+Praxys product estimates, not validated physiological cutoffs.
+
+`coach_snapshot` is an opaque cache/source version retained for response
+compatibility. It is not an insight identifier and clients should not use it to
+request same-day prose.
 
 ## Training
 
@@ -342,13 +379,21 @@ Training analysis and diagnosis.
     "volume": { "weekly_avg_km": 51.6, "trend": "stable" },
     "consistency": { "total_sessions": 18, "weeks_with_gaps": 1, "longest_gap_days": 4 },
     "interval_power": {
-      "max": 292, "avg_work": 237, "supra_cp_sessions": 6, "total_quality_sessions": 12
+      "max": 292,
+      "avg_work": 237,
+      "supra_cp_sessions": 6,
+      "total_quality_sessions": 12,
+      "data_available": true,
+      "evidence_complete": true,
+      "activities_with_intensity_data": 18,
+      "activities_expected": 18
     },
     "distribution": [
       { "name": "Easy", "actual_pct": 72, "target_pct": 80 },
       { "name": "Threshold", "actual_pct": 15, "target_pct": 8 }
     ],
     "zone_ranges": [{ "name": "Easy", "lower": 0, "upper": 136, "unit": "W" }],
+    "data_meta": { "distribution_resolution": "samples|splits|mixed|activity_averages|unavailable" },
     "diagnosis": [{ "type": "positive|warning|neutral", "message": "string" }],
     "suggestions": ["string"]
   },
@@ -366,7 +411,16 @@ Training analysis and diagnosis.
     "weeks": ["W10", "..."],
     "actual_load": ["..."],
     "planned_load": ["..."],
-    "planned_estimated": false
+    "actual_estimated": false,
+    "planned_estimated": false,
+    "week_actual_estimated": [false, false],
+    "week_planned_estimated": [false, true],
+    "week_complete": [true, false]
+  },
+  "summary": {
+    "current_tsb": -6.9,
+    "distribution_match_pct": 83,
+    "load_compliance_pct": 96
   },
   "workout_flags": [{ "date": "...", "flag": "good|bad", "reason": "..." }],
   "sleep_perf": {
@@ -375,9 +429,46 @@ Training analysis and diagnosis.
     "metric_unit": "W"
   },
   "training_base": "power",
-  "display": { "..." : "..." }
+  "display": { "..." : "..." },
+  "data_meta": {
+    "activity_count": 18,
+    "data_days": 35,
+    "cp_points": 4,
+    "has_recovery": true,
+    "load_time_constant_days": 42,
+    "pmc_sufficient": false,
+    "cp_trend_sufficient": true
+  }
 }
 ```
+
+`summary` contains server-computed display metrics so web, miniapp, and legacy
+dashboard consumers do not duplicate training formulas. `current_tsb` is `null`
+until the account has one active CTL time constant of history.
+`distribution_match_pct` is `null` unless every recent activity has at least 90%
+duration coverage from split or timestamped sample intensity and every zone has
+a target. Timestamped samples also require a median cadence of five seconds or
+less. `load_compliance_pct` uses only completed weeks where both actual and
+planned load have exact selected-base inputs and the plan target is positive.
+It is `null` until at least two such weeks exist. A week is complete only after
+Sunday has passed and daily load contains all seven Monday-through-Sunday dates.
+The result is a descriptive mean actual-to-planned load ratio, not a quality,
+safety, recovery, or readiness score. `week_actual_estimated` and
+`week_planned_estimated` provide the per-week provenance; estimated bars remain
+visible but are excluded from the summary. Durationless `rest` and `off` plan
+rows are exact zero load; other durationless rows remain estimated.
+`load_time_constant_days` comes from the active load theory and controls
+`pmc_sufficient`. Both the one-time-constant sufficiency gate and the two-week
+minimum are Praxys product estimates rather than validated physiological cutoffs.
+
+When valid split-level intensity evidence is absent, `max`, `avg_work`,
+`supra_cp_sessions`, and `total_quality_sessions` are `null`, and
+`evidence_complete` is `false`. HR- and pace-based accounts may receive a coarse
+`activity_averages` distribution for display, but it never qualifies for
+`distribution_match_pct`. When no usable intensity exists, the distribution keeps
+its stable array shape with zero placeholders and `distribution_resolution` is
+`unavailable`; clients must not interpret those zeros as completed recovery-zone
+time or zero quality work.
 
 ## Goal
 
@@ -503,7 +594,7 @@ as `stryd_only_dates` for Stryd entries with no AI counterpart.
 
 ### POST /api/plan/push-stryd
 
-Push AI plan workouts to Stryd calendar.
+Push only Praxys-authored plan rows (`source = "ai"`) to the Stryd calendar. Imported Stryd rows are never eligible, even when they are the analytically preferred plan source.
 
 **Request body:**
 ```json
@@ -782,11 +873,26 @@ Trigger sync for all configured sources.
 
 ## Insights and product events
 
+### GET /api/insights and GET /api/insights/{insight_type}
+
+Returns durable model-generated insights for `training_review` and
+`race_forecast`. The list endpoint always omits legacy `daily_brief` rows, and
+`GET /api/insights/daily_brief` always returns `{"insight": null}`. Today clients
+must render `/api/today.signal` instead.
+
+### POST /api/insights
+
+Pushes a durable insight from a CLI or MCP workflow. `training_review` and
+`race_forecast` are accepted. A `daily_brief` push returns HTTP 410 with
+`DAILY_BRIEF_DETERMINISTIC` so client prose can never replace the canonical
+same-day signal.
+
 ### POST /api/insights/{insight_type}/feedback
 
 Submit one vote for the exact generated Coach insight the authenticated user saw.
-Uses the current user's id (not demo-source data) and accepts
-`daily_brief`, `training_review`, or `race_forecast`.
+Uses the current user's id (not demo-source data) and supports `training_review`
+or `race_forecast`. Feedback for `daily_brief` returns HTTP 410 with
+`DAILY_BRIEF_DETERMINISTIC`.
 
 **Request body:**
 ```json
@@ -806,7 +912,6 @@ persisted; telemetry receives a scrubbed 120-character excerpt.
 `GET /api/insights/{insight_type}` also returns server-derived
 `feedback_allowed`; it is `false` for read-only demo views, where clients must
 hide feedback controls.
-
 **Response:**
 ```json
 {
@@ -821,7 +926,8 @@ hide feedback controls.
 ```
 
 Errors: `404 INSIGHT_NOT_FOUND`, `409 INSIGHT_FEEDBACK_UNVERSIONED`,
-`409 INSIGHT_FEEDBACK_STALE`, `429 INSIGHT_FEEDBACK_RATE_LIMITED`.
+`409 INSIGHT_FEEDBACK_STALE`, `410 DAILY_BRIEF_DETERMINISTIC`,
+`429 INSIGHT_FEEDBACK_RATE_LIMITED`.
 
 ### POST /api/product-events/today-feedback-claim
 

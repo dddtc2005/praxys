@@ -174,3 +174,20 @@ def test_write_samples_empty_input(db_with_user):
 
     db, user_id = db_with_user
     assert sync_writer.write_samples(user_id, [], db) == 0
+
+def test_write_samples_bumps_revision_only_for_new_rows(db_with_user):
+    """Idempotent re-syncs must not churn the Training cache revision."""
+    from db import sync_writer
+    from db.cache_revision import get_revisions
+
+    db, user_id = db_with_user
+    samples = [_make_sample("act-revision", t) for t in range(7000, 7003)]
+
+    assert get_revisions(db, user_id, ["samples"])["samples"] == 0
+    assert sync_writer.write_samples(user_id, samples, db) == 3
+    db.commit()
+    assert get_revisions(db, user_id, ["samples"])["samples"] == 1
+
+    assert sync_writer.write_samples(user_id, samples, db) == 0
+    db.commit()
+    assert get_revisions(db, user_id, ["samples"])["samples"] == 1

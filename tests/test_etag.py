@@ -129,6 +129,15 @@ def etag_client(monkeypatch):
 # Pure-function tests (no FastAPI)
 # ---------------------------------------------------------------------------
 
+def test_response_versions_cover_changed_endpoints():
+    """Deployment salts invalidate pre-change Training and Plan bodies."""
+    from api.etag import ENDPOINT_RESPONSE_VERSIONS
+
+    assert ENDPOINT_RESPONSE_VERSIONS["today"] == "metric-provenance-today-v2"
+    assert ENDPOINT_RESPONSE_VERSIONS["training"] == "evidence-summary-v2"
+    assert ENDPOINT_RESPONSE_VERSIONS["plan"] == "connection-aware-plan-v2"
+
+
 
 def test_compute_etag_is_deterministic_and_short(etag_client):
     """Same revisions → same ETag bytes; output is short, weakly quoted."""
@@ -258,6 +267,33 @@ def test_today_cold_then_304_warm(etag_client):
     assert warm.headers.get("etag") == etag
 
 
+def test_today_schema_version_rejects_predeploy_etag(etag_client):
+    """A browser must not reuse a Today body that lacks coach_snapshot."""
+    from api.etag import compute_etag, ENDPOINT_SCOPES
+    from db import session as db_session
+
+    client, user_id = etag_client
+    db = db_session.SessionLocal()
+    try:
+        predeploy_etag = compute_etag(
+            db,
+            user_id,
+            ENDPOINT_SCOPES["today"],
+            salt=f"d={date.today().isoformat()}",
+        )
+    finally:
+        db.close()
+
+    response = client.get(
+        "/api/today",
+        headers={"If-None-Match": predeploy_etag},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["etag"] != predeploy_etag
+    assert isinstance(response.json()["coach_snapshot"], str)
+
+
 def test_today_etag_changes_after_relevant_write(etag_client):
     """A new activity (sync_writer.write_activities) busts /today's ETag,
     a science-only edit doesn't bust /history."""
@@ -304,6 +340,35 @@ def test_today_etag_changes_after_relevant_write(etag_client):
     )
     assert science_warm.status_code == 304
 
+
+def test_sample_write_busts_training_only(etag_client):
+    """New samples invalidate Training without churning unrelated endpoints."""
+    from api.etag import ENDPOINT_SCOPES, compute_etag
+    from db import session as db_session
+    from db.sync_writer import write_samples
+
+    _, user_id = etag_client
+    db = db_session.SessionLocal()
+    try:
+        training_before = compute_etag(db, user_id, ENDPOINT_SCOPES["training"])
+        history_before = compute_etag(db, user_id, ENDPOINT_SCOPES["history"])
+        written = write_samples(user_id, [{
+            "activity_id": "act-0",
+            "source": "stryd",
+            "t_sec": 1,
+            "power_watts": 250.0,
+        }], db)
+        db.commit()
+
+        assert written == 1
+        assert compute_etag(
+            db, user_id, ENDPOINT_SCOPES["training"],
+        ) != training_before
+        assert compute_etag(
+            db, user_id, ENDPOINT_SCOPES["history"],
+        ) == history_before
+    finally:
+        db.close()
 
 def test_history_pagination_isolated_etags(etag_client):
     """Different ?offset values produce different ETags at the same DB state.
