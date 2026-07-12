@@ -55,13 +55,6 @@
           </view>
           <view class="coach-body">
             <text class="coach-headline">{{coach.headline}}</text>
-            <insight-feedback
-              wx:if="{{coachDatasetHash}}"
-              insight-type="race_forecast"
-              dataset-hash="{{coachDatasetHash}}"
-              initial-vote="{{coachFeedbackVote}}"
-              bindstale="onCoachFeedbackStale"
-            />
 
             <!-- Progressive-disclosure toggle. Default-collapsed; the
                  user opts in to the structured detail. Hidden when
@@ -107,6 +100,13 @@
               </view>
             </block>
           </view>
+          <insight-feedback
+            wx:if="{{coachDatasetHash}}"
+            insight-type="race_forecast"
+            dataset-hash="{{coachDatasetHash}}"
+            initial-vote="{{coachFeedbackVote}}"
+            bindstale="onCoachFeedbackStale"
+          />
         </view>
 
         <!-- Stats strip — mode-specific cells with key metrics. -->

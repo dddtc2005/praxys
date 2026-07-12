@@ -11,6 +11,7 @@ function translations() {
     commentPlaceholder: t('What was useful or missing?'),
     send: t('Send'),
     sending: t('Sending...'),
+    cancel: t('Cancel'),
     sent: t('Sent'),
     error: t("Couldn't send feedback. Try again."),
     stale: t('This insight changed. Refresh the page before sending feedback.'),
@@ -63,6 +64,16 @@ Component({
   methods: {
     chooseVote(vote: InsightFeedbackVote) {
       if (this.data.sent || this.data.submitting || this.data.stale) return;
+      if (this.data.selectedVote === vote && this.data.formOpen) {
+        this.setData({
+          selectedVote: '',
+          formOpen: false,
+          comment: '',
+          commentLength: 0,
+          error: '',
+        });
+        return;
+      }
       this.setData({ selectedVote: vote, formOpen: true, error: '' });
     },
 
@@ -77,6 +88,17 @@ Component({
     onCommentInput(event: WechatMiniprogram.Input) {
       const value = String(event.detail.value ?? '').slice(0, 200);
       this.setData({ comment: value, commentLength: value.length });
+    },
+
+    onCancel() {
+      if (this.data.submitting) return;
+      this.setData({
+        selectedVote: '',
+        formOpen: false,
+        comment: '',
+        commentLength: 0,
+        error: '',
+      });
     },
 
     async onSubmit() {

@@ -4,27 +4,37 @@
     <text class="decision-check__thanks" role="status">{{tr.thanks}}</text>
   </block>
   <block wx:else>
-    <view class="decision-check__copy">
-      <text class="decision-check__eyebrow font-data">{{tr.eyebrow}}</text>
-      <text class="decision-check__heading">{{tr.heading}}</text>
+    <view
+      class="decision-check__summary"
+      hover-class="decision-check__summary--pressed"
+      role="button"
+      aria-expanded="{{expanded}}"
+      bindtap="onToggle"
+    >
+      <view class="decision-check__copy">
+        <text class="decision-check__eyebrow font-data">{{tr.eyebrow}}</text>
+        <text class="decision-check__heading">{{tr.heading}}</text>
+      </view>
+      <text class="decision-check__chevron">{{expanded ? '▾' : '▸'}}</text>
+    </view>
+    <view wx:if="{{expanded}}" class="decision-check__panel">
       <text class="decision-check__detail">{{tr.detail}}</text>
-    </view>
-    <view class="decision-check__options">
+      <view class="decision-check__options">
+        <button
+          wx:for="{{options}}"
+          wx:key="value"
+          class="decision-check__option"
+          data-response="{{item.value}}"
+          disabled="{{submitting}}"
+          bindtap="onResponse"
+        >{{item.label}}</button>
+        <text wx:if="{{submitError}}" class="decision-check__error" role="alert">{{submitError}}</text>
+      </view>
       <button
-        wx:for="{{options}}"
-        wx:key="value"
-        class="decision-check__option"
-        data-response="{{item.value}}"
+        class="decision-check__dismiss"
         disabled="{{submitting}}"
-        bindtap="onResponse"
-      >{{item.label}}</button>
-      <text wx:if="{{submitError}}" class="decision-check__error" role="alert">{{submitError}}</text>
+        bindtap="onDismiss"
+      >{{tr.dismiss}}</button>
     </view>
-    <button
-      class="decision-check__dismiss"
-      aria-label="{{tr.dismiss}}"
-      disabled="{{submitting}}"
-      bindtap="onDismiss"
-    >×</button>
   </block>
 </view>

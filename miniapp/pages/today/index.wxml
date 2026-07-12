@@ -116,13 +116,6 @@
         </view>
         <view class="coach-body">
           <text class="coach-headline">{{coach.headline}}</text>
-          <insight-feedback
-            wx:if="{{coachDatasetHash}}"
-            insight-type="daily_brief"
-            dataset-hash="{{coachDatasetHash}}"
-            initial-vote="{{coachFeedbackVote}}"
-            bindstale="onCoachFeedbackStale"
-          />
 
           <!-- Progressive-disclosure toggle. Default-collapsed; the
                user opts in to the structured detail. Hidden when
@@ -168,12 +161,17 @@
             </view>
           </block>
         </view>
+        <insight-feedback
+          wx:if="{{coachDatasetHash}}"
+          insight-type="daily_brief"
+          dataset-hash="{{coachDatasetHash}}"
+          initial-vote="{{coachFeedbackVote}}"
+          bindstale="onCoachFeedbackStale"
+        />
         <view wx:if="{{coach.attribution}}" class="coach-foot">
           <text class="coach-foot-text">{{coach.attribution}}</text>
         </view>
       </view>
-      <decision-check eligible="{{decisionCheckEligible}}" />
-
 
       <!--
         Supporting cells: a flat 2-col grid mirroring web's PR #238
@@ -214,6 +212,7 @@
           class="today-warning-item ts-warning"
         >• {{item}}</text>
       </view>
+      <decision-check eligible="{{decisionCheckEligible}}" />
 
     </block>
     </view>

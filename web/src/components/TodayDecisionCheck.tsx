@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { msg } from '@lingui/core/macro';
 import { Trans, useLingui } from '@lingui/react/macro';
 import type { MessageDescriptor } from '@lingui/core';
@@ -51,6 +51,7 @@ function markShown(): void {
 export default function TodayDecisionCheck() {
   const { i18n } = useLingui();
   const [visible, setVisible] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -140,40 +141,59 @@ export default function TodayDecisionCheck() {
   }
 
   return (
-    <section className="today-decision-check" aria-labelledby="today-decision-heading" aria-busy={submitting}>
-      <div className="today-decision-copy">
-        <span className="today-decision-eyebrow font-data"><Trans>Quick check</Trans></span>
-        <h2 id="today-decision-heading"><Trans>Did today's brief affect your training decision?</Trans></h2>
-        <p><Trans>One tap helps us make this brief more useful.</Trans></p>
-      </div>
-      <div className="today-decision-options">
-        {OPTIONS.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            className="today-decision-option"
-            disabled={submitting}
-            onClick={() => void submit(option.value)}
-          >
-            {i18n._(option.label)}
-          </button>
-        ))}
-        {submitError && (
-          <p className="today-decision-error" role="alert">{submitError}</p>
-        )}
-      </div>
+    <section
+      className={`today-decision-check ${expanded ? 'is-expanded' : ''}`.trim()}
+      aria-labelledby="today-decision-heading"
+      aria-busy={submitting}
+    >
       <button
         type="button"
-        className="today-decision-dismiss"
-        aria-label={i18n._(msg`Dismiss`)}
+        className="today-decision-trigger"
+        aria-expanded={expanded}
+        aria-controls="today-decision-options"
         disabled={submitting}
-        onClick={() => {
-          setVisible(false);
-          void confirmTodayDecisionCheck();
-        }}
+        onClick={() => setExpanded((value) => !value)}
       >
-        <X size={16} aria-hidden="true" />
+        <span className="today-decision-copy">
+          <span className="today-decision-eyebrow font-data"><Trans>Quick check</Trans></span>
+          <span id="today-decision-heading" className="today-decision-heading">
+            <Trans>Did today's brief affect your training decision?</Trans>
+          </span>
+        </span>
+        <ChevronDown className="today-decision-chevron" size={16} aria-hidden="true" />
       </button>
+      {expanded && (
+        <div id="today-decision-options" className="today-decision-panel">
+          <p className="today-decision-detail"><Trans>One tap helps us make this brief more useful.</Trans></p>
+          <div className="today-decision-options">
+            {OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className="today-decision-option"
+                disabled={submitting}
+                onClick={() => void submit(option.value)}
+              >
+                {i18n._(option.label)}
+              </button>
+            ))}
+            {submitError && (
+              <p className="today-decision-error" role="alert">{submitError}</p>
+            )}
+          </div>
+          <button
+            type="button"
+            className="today-decision-dismiss"
+            disabled={submitting}
+            onClick={() => {
+              setVisible(false);
+              void confirmTodayDecisionCheck();
+            }}
+          >
+            <Trans>Dismiss</Trans>
+          </button>
+        </div>
+      )}
     </section>
   );
 }

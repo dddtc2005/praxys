@@ -448,9 +448,6 @@ export default function Today() {
         )}
         onFeedbackStale={refetch}
       />
-      {hasDecisionContext && !dataStale && !recoveryStale && (
-        <TodayDecisionCheck key={data.as_of_date} />
-      )}
       <div className={`today-supporting ${readinessScore != null ? 'today-supporting--6' : ''}`.trim()}>
         <div className="today-cell"><span className="today-cell-label">HRV (ln RMSSD)</span><span className="today-cell-value font-data">{hrv ? hrv.today_ln.toFixed(2) : '—'}</span><span className="today-cell-sub font-data">{hrv?.today_ms != null ? `${hrv.today_ms} ms · ` : ''}{baselineLabel}</span></div>
         <div className="today-cell"><span className="today-cell-label"><Trans>7d Trend</Trans></span><span className="today-cell-value font-data">{trendArrow}</span><span className="today-cell-sub font-data">{hrv ? `${trendLabel} · CV ${trendCv}` : i18n._(msg`no data`)}</span></div>
@@ -462,6 +459,9 @@ export default function Today() {
         <div className="today-cell"><span className="today-cell-label">TSB</span><span className={`today-cell-value font-data ${tsb > 0 ? 'today-cell-value-positive' : ''}`.trim()}>{tsbDisplay}</span><span className="today-cell-sub font-data">{tsbDescriptor}</span></div>
       </div>
       <div className="today-plan"><span className="today-plan-eyebrow"><Trans>Planned · Today</Trans></span><span className="today-plan-text">{planText}</span></div>
+      {hasDecisionContext && !dataStale && !recoveryStale && (
+        <TodayDecisionCheck key={data.as_of_date} />
+      )}
     </div>
   );
 }

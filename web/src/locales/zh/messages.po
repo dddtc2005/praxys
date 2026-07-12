@@ -13,7 +13,7 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
-#: src/components/AiInsightsCard.tsx:307
+#: src/components/AiInsightsCard.tsx:250
 msgid " · "
 msgstr " · "
 
@@ -22,7 +22,7 @@ msgstr " · "
 msgid "· last {0} weeks"
 msgstr "· 最近 {0} 周"
 
-#: src/pages/Setup.tsx:659
+#: src/pages/Setup.tsx:676
 msgid "(Garmin rate limits apply)"
 msgstr "（受 Garmin 速率限制影响）"
 
@@ -31,12 +31,12 @@ msgid "(optional)"
 msgstr "（可选）"
 
 #. placeholder {0}: content.findings.length
-#: src/components/AiInsightsCard.tsx:305
+#: src/components/AiInsightsCard.tsx:248
 msgid "{0, plural, one {# finding} other {# findings}}"
 msgstr "{0, plural, other {# 条发现}}"
 
 #. placeholder {0}: content.recommendations.length
-#: src/components/AiInsightsCard.tsx:309
+#: src/components/AiInsightsCard.tsx:252
 msgid "{0, plural, one {# recommendation} other {# recommendations}}"
 msgstr "{0, plural, other {# 条建议}}"
 
@@ -47,7 +47,7 @@ msgstr "{0, plural, other {# 次训练}}"
 
 #. placeholder {0}: setup.completed
 #. placeholder {1}: setup.total
-#: src/pages/Setup.tsx:544
+#: src/pages/Setup.tsx:561
 msgid "{0} of {1} steps complete"
 msgstr "第 {0} 步，共 {1} 步"
 
@@ -79,7 +79,7 @@ msgstr "{total, plural, other {# 项活动}}"
 
 #. placeholder {0}: failures.length
 #. placeholder {1}: failures.length
-#: src/pages/Setup.tsx:719
+#: src/pages/Setup.tsx:736
 msgid "{total, plural, one {Sync failed for {0} of # source.} other {Sync failed for {1} of # sources.}}"
 msgstr "{total, plural, other {同步失败：{1} 个来源中的 # 个。}}"
 
@@ -127,11 +127,11 @@ msgstr "<0>今日信号</0> · 继续、调整，或休息。"
 msgid "<0>You're on the list.</0> We'll reach out from <1>{SUPPORT_EMAIL}</1> when a slot opens."
 msgstr "<0>你已在名单上。</0> 当有名额开放时，我们会通过 <1>{SUPPORT_EMAIL}</1> 联系你。"
 
-#: src/pages/Setup.tsx:658
+#: src/pages/Setup.tsx:675
 msgid "~{estimatedActivities} activities, ~{estimatedMinutes} min"
 msgstr "约 {estimatedActivities} 项活动，约 {estimatedMinutes} 分钟"
 
-#: src/pages/Setup.tsx:179
+#: src/pages/Setup.tsx:185
 msgid "1 month"
 msgstr "1 个月"
 
@@ -139,7 +139,7 @@ msgstr "1 个月"
 msgid "1 wk"
 msgstr "1 周"
 
-#: src/pages/Setup.tsx:182
+#: src/pages/Setup.tsx:188
 msgid "1 year"
 msgstr "1 年"
 
@@ -172,7 +172,7 @@ msgstr "1年"
 msgid "2 wk"
 msgstr "2 周"
 
-#: src/pages/Setup.tsx:180
+#: src/pages/Setup.tsx:186
 msgid "3 months"
 msgstr "3 个月"
 
@@ -205,7 +205,7 @@ msgstr "50公里"
 msgid "5K"
 msgstr "5公里"
 
-#: src/pages/Setup.tsx:181
+#: src/pages/Setup.tsx:187
 msgid "6 months"
 msgstr "6 个月"
 
@@ -214,7 +214,7 @@ msgid "6M"
 msgstr "6月"
 
 #: src/components/RecoveryPanel.tsx:141
-#: src/pages/Today.tsx:456
+#: src/pages/Today.tsx:453
 msgid "7d Trend"
 msgstr "7天趋势"
 
@@ -253,20 +253,20 @@ msgstr ""
 #: src/pages/History.tsx:38
 #: src/pages/Settings.tsx:55
 #: src/pages/Settings.tsx:62
-#: src/pages/Setup.tsx:215
+#: src/pages/Setup.tsx:221
 msgid "Activities"
 msgstr "活动"
 
-#: src/pages/Setup.tsx:189
+#: src/pages/Setup.tsx:195
 msgid "Activities only: runs, rides, pace, heart rate, route data"
 msgstr "仅活动数据：跑步、骑行、配速、心率、路线数据"
 
 #: src/pages/Settings.tsx:1119
-#: src/pages/Setup.tsx:1031
+#: src/pages/Setup.tsx:1048
 msgid "Activities-only connection"
 msgstr "仅限活动连接"
 
-#: src/pages/Setup.tsx:961
+#: src/pages/Setup.tsx:978
 msgid "Activity types to sync"
 msgstr "要同步的活动类型"
 
@@ -304,7 +304,7 @@ msgstr "有氧"
 
 #: src/components/charts/CpTrendChart.tsx:56
 #: src/pages/Admin.tsx:1262
-#: src/pages/Setup.tsx:977
+#: src/pages/Setup.tsx:994
 msgid "All"
 msgstr "全部"
 
@@ -350,7 +350,7 @@ msgstr "ATL（疲劳）"
 msgid "Authentication mode"
 msgstr "认证模式"
 
-#: src/pages/Setup.tsx:198
+#: src/pages/Setup.tsx:204
 msgid "Authorize Praxys with Strava in your browser. Praxys only syncs activities from Strava."
 msgstr "请在浏览器中为 Praxys 授权 Strava。Praxys 仅从 Strava 同步活动数据。"
 
@@ -459,6 +459,7 @@ msgstr "正在追求 <0>{0}</0> {distLabel}。当前 {abbrev} <1>{currentStr}{un
 msgid "by"
 msgstr "作者"
 
+#: src/components/AiInsightsCard.tsx:361
 #: src/components/FeedbackDialog.tsx:314
 #: src/components/GoalEditor.tsx:174
 #: src/pages/Admin.tsx:985
@@ -467,9 +468,9 @@ msgstr "作者"
 #: src/pages/Settings.tsx:1108
 #: src/pages/Settings.tsx:1145
 #: src/pages/Settings.tsx:1543
-#: src/pages/Setup.tsx:891
-#: src/pages/Setup.tsx:1019
-#: src/pages/Setup.tsx:1039
+#: src/pages/Setup.tsx:908
+#: src/pages/Setup.tsx:1036
+#: src/pages/Setup.tsx:1056
 msgid "Cancel"
 msgstr "取消"
 
@@ -498,7 +499,7 @@ msgstr "修改目标"
 msgid "Changed what I'll do"
 msgstr "改变了我今天的训练安排"
 
-#: src/pages/Setup.tsx:733
+#: src/pages/Setup.tsx:750
 msgid "Check your credentials in the connection step, then try again."
 msgstr "请在连接步骤中检查您的凭据，然后重试。"
 
@@ -511,16 +512,16 @@ msgstr "中国"
 msgid "Choose a race target or track continuous improvement."
 msgstr "选择一个比赛目标，或追踪持续提升。"
 
-#: src/pages/Setup.tsx:623
+#: src/pages/Setup.tsx:640
 msgid "Choose how much historical data to pull"
 msgstr "选择要拉取的历史数据量"
 
-#: src/pages/Setup.tsx:1065
+#: src/pages/Setup.tsx:1082
 msgid "Choose primary source"
 msgstr "选择主要数据源"
 
 #: src/components/SetupChecklist.tsx:63
-#: src/pages/Setup.tsx:757
+#: src/pages/Setup.tsx:774
 msgid "Choose training base"
 msgstr "选择训练基准"
 
@@ -575,7 +576,7 @@ msgid "Committed / cap"
 msgstr "已承诺 / 上限"
 
 #: src/components/SetupChecklist.tsx:98
-#: src/pages/Setup.tsx:543
+#: src/pages/Setup.tsx:560
 msgid "Complete these steps to unlock your training insights"
 msgstr "完成这些步骤以解锁您的训练解读"
 
@@ -602,25 +603,25 @@ msgstr "确认按原计划训练"
 #: src/components/SetupChecklist.tsx:51
 #: src/pages/Settings.tsx:910
 #: src/pages/Settings.tsx:1111
-#: src/pages/Setup.tsx:608
-#: src/pages/Setup.tsx:1022
+#: src/pages/Setup.tsx:625
+#: src/pages/Setup.tsx:1039
 msgid "Connect"
 msgstr "连接"
 
 #. placeholder {0}: connectPlatform ? (PLATFORM_META[connectPlatform]?.label || connectPlatform) : ''
 #. placeholder {0}: connectPlatform ? PLATFORM_META[connectPlatform]?.label : ''
 #: src/pages/Settings.tsx:988
-#: src/pages/Setup.tsx:843
+#: src/pages/Setup.tsx:860
 msgid "Connect {0}"
 msgstr "连接 {0}"
 
 #: src/components/SetupChecklist.tsx:47
 #: src/pages/Settings.tsx:1264
-#: src/pages/Setup.tsx:566
+#: src/pages/Setup.tsx:583
 msgid "Connect a platform"
 msgstr "连接平台"
 
-#: src/pages/Setup.tsx:622
+#: src/pages/Setup.tsx:639
 msgid "Connect a platform first"
 msgstr "请先连接一个平台"
 
@@ -633,17 +634,17 @@ msgid "Connected Platforms"
 msgstr "已连接平台"
 
 #: src/pages/Settings.tsx:1111
-#: src/pages/Setup.tsx:1022
+#: src/pages/Setup.tsx:1039
 msgid "Connecting..."
 msgstr "连接中..."
 
 #: src/pages/Settings.tsx:1121
-#: src/pages/Setup.tsx:1033
+#: src/pages/Setup.tsx:1050
 msgid "Continue in your browser to authorize Strava. Praxys imports activities from Strava, while recovery, fitness, and plans come from your other connected platforms."
 msgstr "继续在浏览器中授权 Strava。Praxys 会从 Strava 导入活动，而恢复、体能和计划则来自您连接的其他平台。"
 
 #: src/pages/Settings.tsx:1152
-#: src/pages/Setup.tsx:1042
+#: src/pages/Setup.tsx:1059
 msgid "Continue to Strava"
 msgstr "继续前往 Strava"
 
@@ -655,7 +656,7 @@ msgstr "持续提升"
 msgid "Continuous Improvement"
 msgstr "持续提升"
 
-#: src/pages/Setup.tsx:805
+#: src/pages/Setup.tsx:822
 msgid "Continuous improvement configured"
 msgstr "已配置持续提升"
 
@@ -684,8 +685,8 @@ msgstr "无法保存您的邮箱，请直接发邮件联系我们。"
 msgid "Couldn't save. Check your connection and try again."
 msgstr "保存失败。请检查网络连接后重试。"
 
-#: src/components/AiInsightsCard.tsx:194
-#: src/components/TodayDecisionCheck.tsx:128
+#: src/components/AiInsightsCard.tsx:206
+#: src/components/TodayDecisionCheck.tsx:129
 msgid "Couldn't send feedback. Try again."
 msgstr "反馈发送失败，请重试。"
 
@@ -743,7 +744,7 @@ msgstr ""
 msgid "Critical Power"
 msgstr "阈值功率"
 
-#: src/pages/Setup.tsx:1004
+#: src/pages/Setup.tsx:1021
 msgid "Cross-training activities affect your overall training load and recovery"
 msgstr "交叉训练活动会影响您的整体训练负荷与恢复"
 
@@ -765,11 +766,11 @@ msgstr "当前 {metricName}"
 msgid "Currently set to {0}-based training"
 msgstr "当前设置为基于 {0} 的训练"
 
-#: src/pages/Setup.tsx:159
+#: src/pages/Setup.tsx:165
 msgid "Cycling"
 msgstr "骑行"
 
-#: src/pages/Today.tsx:460
+#: src/pages/Today.tsx:457
 msgid "daily score"
 msgstr "每日评分"
 
@@ -785,7 +786,7 @@ msgstr "深色主题（点击切换为系统）"
 msgid "Data Preferences"
 msgstr "数据偏好"
 
-#: src/pages/Setup.tsx:750
+#: src/pages/Setup.tsx:767
 msgid "Data synced successfully"
 msgstr "数据同步成功"
 
@@ -910,7 +911,7 @@ msgstr "诊断"
 #~ msgid "Did Today change your training decision?"
 #~ msgstr "今日建议是否影响了你的训练决定？"
 
-#: src/components/TodayDecisionCheck.tsx:146
+#: src/components/TodayDecisionCheck.tsx:160
 msgid "Did today's brief affect your training decision?"
 msgstr "今日简报是否影响了你的训练决定？"
 
@@ -948,7 +949,7 @@ msgstr "讨论"
 
 #: src/components/StatusBanner.tsx:71
 #: src/components/SystemBanner.tsx:97
-#: src/components/TodayDecisionCheck.tsx:168
+#: src/components/TodayDecisionCheck.tsx:193
 msgid "Dismiss"
 msgstr "关闭"
 
@@ -1037,7 +1038,7 @@ msgid "Easy Run"
 msgstr "轻松跑"
 
 #: src/pages/Settings.tsx:1337
-#: src/pages/Setup.tsx:808
+#: src/pages/Setup.tsx:825
 msgid "Edit"
 msgstr "编辑"
 
@@ -1059,7 +1060,7 @@ msgstr "升高"
 #: src/pages/Login.tsx:361
 #: src/pages/Login.tsx:449
 #: src/pages/Login.tsx:558
-#: src/pages/Setup.tsx:206
+#: src/pages/Setup.tsx:212
 msgid "Email"
 msgstr "邮箱"
 
@@ -1186,7 +1187,7 @@ msgstr "疲劳"
 msgid "Feature request"
 msgstr "功能建议"
 
-#: src/components/AiInsightsCard.tsx:317
+#: src/components/AiInsightsCard.tsx:260
 msgid "Findings"
 msgstr "发现"
 
@@ -1194,7 +1195,7 @@ msgstr "发现"
 #: src/components/charts/FitnessFatigueChart.tsx:194
 #: src/pages/Settings.tsx:57
 #: src/pages/Settings.tsx:1315
-#: src/pages/Setup.tsx:217
+#: src/pages/Setup.tsx:223
 msgid "Fitness"
 msgstr "体能"
 
@@ -1289,7 +1290,7 @@ msgstr "一般反馈"
 msgid "Generate"
 msgstr "生成"
 
-#: src/pages/Setup.tsx:200
+#: src/pages/Setup.tsx:206
 msgid "Generate a token at cloud.ouraring.com/personal-access-tokens."
 msgstr "请在 cloud.ouraring.com/personal-access-tokens 生成一个令牌。"
 
@@ -1315,7 +1316,7 @@ msgstr "开练"
 msgid "Go Easy"
 msgstr "轻松进行"
 
-#: src/pages/Setup.tsx:832
+#: src/pages/Setup.tsx:849
 msgid "Go to dashboard"
 msgstr "前往仪表盘"
 
@@ -1353,11 +1354,11 @@ msgstr "有邀请码？"
 
 #: src/lib/display-labels.ts:55
 #: src/pages/Settings.tsx:81
-#: src/pages/Setup.tsx:172
+#: src/pages/Setup.tsx:178
 msgid "Heart Rate"
 msgstr "心率"
 
-#: src/components/AiInsightsCard.tsx:233
+#: src/components/AiInsightsCard.tsx:318
 msgid "Helpful"
 msgstr "有帮助"
 
@@ -1365,7 +1366,7 @@ msgstr "有帮助"
 msgid "Hide backfill"
 msgstr "隐藏历史同步"
 
-#: src/components/AiInsightsCard.tsx:301
+#: src/components/AiInsightsCard.tsx:244
 msgid "Hide details"
 msgstr "隐藏详情"
 
@@ -1381,7 +1382,7 @@ msgstr "疲劳累积较高。优先恢复。"
 msgid "High variability"
 msgstr "变异性偏高"
 
-#: src/pages/Setup.tsx:161
+#: src/pages/Setup.tsx:167
 msgid "Hiking"
 msgstr "徒步"
 
@@ -1414,7 +1415,7 @@ msgid "How this is calculated"
 msgstr "计算方法"
 
 #: src/pages/Settings.tsx:1169
-#: src/pages/Setup.tsx:758
+#: src/pages/Setup.tsx:775
 msgid "How your zones and training load are calculated"
 msgstr "如何计算您的区间与训练负荷"
 
@@ -1422,7 +1423,7 @@ msgstr "如何计算您的区间与训练负荷"
 msgid "HR"
 msgstr "心率"
 
-#: src/pages/Setup.tsx:188
+#: src/pages/Setup.tsx:194
 msgid "HR, pace, distance, VO2max, training status"
 msgstr "心率、配速、距离、VO2max、训练状态"
 
@@ -1580,7 +1581,7 @@ msgstr "浅色"
 msgid "Light theme (click for dark)"
 msgstr "浅色主题（点击切换为深色）"
 
-#: src/pages/Setup.tsx:567
+#: src/pages/Setup.tsx:584
 msgid "Link at least one data source to start"
 msgstr "至少关联一个数据源以开始"
 
@@ -1736,7 +1737,7 @@ msgid "Most under-target: {0} at {1}% (target {2}%). Add 1-2 sessions in this zo
 msgstr "最欠达标区间：{0} 为 {1}%（目标 {2}%）。下周在此区间增加 1-2 次训练。"
 
 #. placeholder {0}: primaryPrompt?.category
-#: src/pages/Setup.tsx:1067
+#: src/pages/Setup.tsx:1084
 msgid "Multiple platforms provide <0>{0}</0> data. Which should be the primary source?"
 msgstr "多个平台提供 <0>{0}</0> 数据。应将哪个作为主要来源？"
 
@@ -1825,9 +1826,9 @@ msgid "No code yet?"
 msgstr "还没有邀请码？"
 
 #: src/pages/Today.tsx:283
-#: src/pages/Today.tsx:456
-#: src/pages/Today.tsx:457
-#: src/pages/Today.tsx:458
+#: src/pages/Today.tsx:453
+#: src/pages/Today.tsx:454
+#: src/pages/Today.tsx:455
 msgid "no data"
 msgstr "无数据"
 
@@ -1920,7 +1921,7 @@ msgstr "数据不足，暂无法准确跟踪体能"
 msgid "Not enough data yet for weekly load comparison"
 msgstr "数据不足，暂无法对比每周负荷"
 
-#: src/components/AiInsightsCard.tsx:243
+#: src/components/AiInsightsCard.tsx:328
 msgid "Not helpful"
 msgstr "没有帮助"
 
@@ -1948,7 +1949,7 @@ msgstr "现已开放 · 创建您的账户"
 msgid "of"
 msgstr "共"
 
-#: src/components/TodayDecisionCheck.tsx:147
+#: src/components/TodayDecisionCheck.tsx:167
 msgid "One tap helps us make this brief more useful."
 msgstr "一键反馈，帮助我们让今日简报更实用。"
 
@@ -1988,11 +1989,11 @@ msgstr "可选"
 msgid "Optional — PNG, JPG, or WebP, up to 3 images. Screenshots are kept private; we read them to describe the issue and remove anything sensitive before filing."
 msgstr "可选：PNG、JPG 或 WebP，最多 3 张图片。截图会保密；我们会读取截图以描述问题，并在提交前移除其中的敏感内容。"
 
-#: src/pages/Setup.tsx:814
+#: src/pages/Setup.tsx:831
 msgid "Optional — you can always set this later from the Goal page"
 msgstr "可选——您随时可以从目标页面设置"
 
-#: src/components/AiInsightsCard.tsx:265
+#: src/components/AiInsightsCard.tsx:342
 msgid "Optional comment"
 msgstr "可选备注"
 
@@ -2012,7 +2013,7 @@ msgstr ""
 msgid "Outstanding codes"
 msgstr "未处理的代码"
 
-#: src/pages/Today.tsx:458
+#: src/pages/Today.tsx:455
 msgid "overnight score"
 msgstr "夜间评分"
 
@@ -2024,7 +2025,7 @@ msgstr "用 Praxys 版本覆盖 Stryd"
 #: src/components/SplitBreakdown.tsx:50
 #: src/lib/display-labels.ts:56
 #: src/pages/Settings.tsx:90
-#: src/pages/Setup.tsx:174
+#: src/pages/Setup.tsx:180
 msgid "Pace"
 msgstr "配速"
 
@@ -2043,7 +2044,7 @@ msgstr ""
 #: src/pages/Admin.tsx:934
 #: src/pages/Login.tsx:378
 #: src/pages/Login.tsx:575
-#: src/pages/Setup.tsx:207
+#: src/pages/Setup.tsx:213
 msgid "Password"
 msgstr "密码"
 
@@ -2059,12 +2060,12 @@ msgstr "峰值间歇 {intensityLabel}"
 msgid "Permanently remove your Praxys account, synced data, plans, settings, and encrypted credentials."
 msgstr "永久删除您的 Praxys 账号、同步数据、计划、设置和加密凭据。"
 
-#: src/pages/Setup.tsx:208
+#: src/pages/Setup.tsx:214
 msgid "Personal Access Token"
 msgstr "个人访问令牌"
 
 #: src/pages/Settings.tsx:58
-#: src/pages/Setup.tsx:218
+#: src/pages/Setup.tsx:224
 msgid "Plan"
 msgstr "计划"
 
@@ -2081,7 +2082,7 @@ msgstr "计划时间窗口"
 msgid "Planned"
 msgstr "计划"
 
-#: src/pages/Today.tsx:464
+#: src/pages/Today.tsx:461
 msgid "Planned · Today"
 msgstr "今日计划"
 
@@ -2108,11 +2109,11 @@ msgstr "状态良好"
 #: src/components/SplitBreakdown.tsx:48
 #: src/lib/display-labels.ts:54
 #: src/pages/Settings.tsx:72
-#: src/pages/Setup.tsx:170
+#: src/pages/Setup.tsx:176
 msgid "Power"
 msgstr "功率"
 
-#: src/pages/Setup.tsx:190
+#: src/pages/Setup.tsx:196
 msgid "Power metrics, Critical Power, training plans"
 msgstr "功率指标、阈值功率、训练计划"
 
@@ -2120,11 +2121,11 @@ msgstr "功率指标、阈值功率、训练计划"
 #~ msgid "Power-based training dashboard"
 #~ msgstr "功率训练仪表盘"
 
-#: src/components/AiInsightsCard.tsx:213
+#: src/components/AiInsightsCard.tsx:225
 msgid "Praxys Coach"
 msgstr "Praxys 教练"
 
-#: src/components/AiInsightsCard.tsx:211
+#: src/components/AiInsightsCard.tsx:223
 msgid "Praxys Coach insight"
 msgstr "Praxys 教练分析"
 
@@ -2258,8 +2259,8 @@ msgstr "推送到 Stryd"
 msgid "Pushing…"
 msgstr "推送中…"
 
-#: src/components/TodayDecisionCheck.tsx:136
-#: src/components/TodayDecisionCheck.tsx:145
+#: src/components/TodayDecisionCheck.tsx:137
+#: src/components/TodayDecisionCheck.tsx:158
 msgid "Quick check"
 msgstr "快速反馈"
 
@@ -2283,7 +2284,7 @@ msgstr "请填写比赛日期"
 msgid "Race Goal"
 msgstr "比赛目标"
 
-#: src/pages/Setup.tsx:805
+#: src/pages/Setup.tsx:822
 msgid "Race goal configured"
 msgstr "已配置比赛目标"
 
@@ -2307,7 +2308,7 @@ msgstr "重新推送到 Stryd"
 msgid "Read-only accounts that mirror your dashboard data"
 msgstr "镜像您仪表盘数据的只读账号"
 
-#: src/pages/Today.tsx:460
+#: src/pages/Today.tsx:457
 msgid "Readiness"
 msgstr "准备度"
 
@@ -2323,7 +2324,7 @@ msgstr "可行的替代目标"
 msgid "Recommendation available"
 msgstr "有可用推荐"
 
-#: src/components/AiInsightsCard.tsx:331
+#: src/components/AiInsightsCard.tsx:274
 msgid "Recommendations"
 msgstr "建议"
 
@@ -2333,8 +2334,8 @@ msgstr "推荐"
 
 #: src/pages/Science.tsx:389
 #: src/pages/Science.tsx:564
-#: src/pages/Setup.tsx:648
-#: src/pages/Setup.tsx:784
+#: src/pages/Setup.tsx:665
+#: src/pages/Setup.tsx:801
 msgid "Recommended"
 msgstr "推荐"
 
@@ -2345,7 +2346,7 @@ msgstr "推荐"
 #: src/pages/Science.tsx:26
 #: src/pages/Settings.tsx:56
 #: src/pages/Settings.tsx:63
-#: src/pages/Setup.tsx:216
+#: src/pages/Setup.tsx:222
 msgid "Recovery"
 msgstr "恢复"
 
@@ -2371,7 +2372,7 @@ msgid "Recovery status uses ln(RMSSD) compared to your personal baseline. 'Fatig
 msgstr "恢复状态使用 ln(RMSSD) 与您的个人基准进行比较。‘疲劳’ = 低于基准均值减去 1 个标准差（Kiviniemi 等，2007 阈值）。‘充分恢复’ = 高于基准均值加上 0.5 个标准差（Plews 等，2012 最小有意义变化）。7 天趋势和 CV 会按 Plews 监测 — 趋势下降或 CV 高于 10% 表明自主神经失调。当有 HRV 数据时，睡眠、静息心率 和 TSB 仅作为信息性上下文显示。"
 
 #: src/pages/Settings.tsx:1152
-#: src/pages/Setup.tsx:1042
+#: src/pages/Setup.tsx:1059
 msgid "Redirecting..."
 msgstr "正在重定向..."
 
@@ -2392,8 +2393,8 @@ msgstr ""
 #: src/pages/Settings.tsx:951
 #: src/pages/Settings.tsx:1050
 #: src/pages/Settings.tsx:1075
-#: src/pages/Setup.tsx:919
-#: src/pages/Setup.tsx:940
+#: src/pages/Setup.tsx:936
+#: src/pages/Setup.tsx:957
 msgid "Region"
 msgstr "地区"
 
@@ -2500,7 +2501,7 @@ msgstr "撤销"
 msgid "Revoked"
 msgstr "已撤销"
 
-#: src/pages/Today.tsx:457
+#: src/pages/Today.tsx:454
 msgid "RHR"
 msgstr "静息心率"
 
@@ -2516,11 +2517,11 @@ msgstr "角色"
 msgid "Run"
 msgstr "跑步"
 
-#: src/components/AiInsightsCard.tsx:343
+#: src/components/AiInsightsCard.tsx:286
 msgid "Run <0>/praxys:{skillName}</0> in Claude Code for deeper analysis"
 msgstr "在 Claude Code 中运行 <0>/praxys:{skillName}</0> 获取深入分析"
 
-#: src/pages/Setup.tsx:158
+#: src/pages/Setup.tsx:164
 msgid "Running"
 msgstr "跑步"
 
@@ -2565,7 +2566,7 @@ msgid "Seat cap"
 msgstr "名额上限"
 
 #: src/pages/Settings.tsx:1102
-#: src/pages/Setup.tsx:1013
+#: src/pages/Setup.tsx:1030
 msgid "Securely signing in to Garmin. This can take 15-30 seconds because Garmin rate-limits automated logins. Please keep this window open."
 msgstr "正在安全登录 Garmin。由于 Garmin 对自动登录设有频率限制，这可能需要 15-30 秒。请保持此窗口打开。"
 
@@ -2577,7 +2578,7 @@ msgstr "选择与您的 COROS 账户匹配的地区。"
 msgid "Self-registration"
 msgstr "自助注册"
 
-#: src/components/AiInsightsCard.tsx:284
+#: src/components/AiInsightsCard.tsx:369
 msgid "Send"
 msgstr "发送"
 
@@ -2592,7 +2593,7 @@ msgstr "发送反馈"
 msgid "Sending an invitation reserves a seat. Self-registration auto-closes at the cap; review readiness before raising it."
 msgstr "发送邀请会预留一个名额。自助注册会在达到上限时自动关闭；在提高上限前请先评估准备情况。"
 
-#: src/components/AiInsightsCard.tsx:284
+#: src/components/AiInsightsCard.tsx:369
 msgid "Sending..."
 msgstr "发送中..."
 
@@ -2602,7 +2603,7 @@ msgstr "发送中..."
 msgid "Sending…"
 msgstr "发送中…"
 
-#: src/components/AiInsightsCard.tsx:222
+#: src/components/AiInsightsCard.tsx:305
 msgid "Sent"
 msgstr "已发送"
 
@@ -2621,17 +2622,17 @@ msgid "Service Status"
 msgstr ""
 
 #: src/components/SetupChecklist.tsx:71
-#: src/pages/Setup.tsx:796
+#: src/pages/Setup.tsx:813
 msgid "Set a goal"
 msgstr "设定目标"
 
 #: src/components/SetupChecklist.tsx:75
 #: src/pages/Settings.tsx:1337
-#: src/pages/Setup.tsx:817
+#: src/pages/Setup.tsx:834
 msgid "Set goal"
 msgstr "设定目标"
 
-#: src/pages/Setup.tsx:540
+#: src/pages/Setup.tsx:557
 msgid "Set up Praxys"
 msgstr "设置 Praxys"
 
@@ -2699,12 +2700,12 @@ msgstr "正在登录…"
 #~ msgid "Simple"
 #~ msgstr "简要"
 
-#: src/pages/Setup.tsx:832
+#: src/pages/Setup.tsx:849
 msgid "Skip for now"
 msgstr "暂时跳过"
 
 #: src/components/RecoveryPanel.tsx:174
-#: src/pages/Today.tsx:458
+#: src/pages/Today.tsx:455
 msgid "Sleep"
 msgstr "睡眠"
 
@@ -2718,7 +2719,7 @@ msgstr "睡眠评分"
 msgid "Sleep Score vs {metricLabel}"
 msgstr "睡眠得分 vs {metricLabel}"
 
-#: src/pages/Setup.tsx:191
+#: src/pages/Setup.tsx:197
 msgid "Sleep score, HRV, readiness"
 msgstr "睡眠得分、HRV、准备度"
 
@@ -2744,7 +2745,7 @@ msgstr "稳定"
 msgid "Stable"
 msgstr "稳定"
 
-#: src/pages/Setup.tsx:668
+#: src/pages/Setup.tsx:685
 msgid "Start sync"
 msgstr "开始同步"
 
@@ -2774,7 +2775,7 @@ msgstr "Strava 客户端 ID"
 msgid "Strava Client Secret"
 msgstr "Strava 客户端密钥"
 
-#: src/pages/Setup.tsx:163
+#: src/pages/Setup.tsx:169
 msgid "Strength"
 msgstr "力量训练"
 
@@ -2794,7 +2795,7 @@ msgstr "3小时内完赛马拉松 · 100公里 · 保持健康…"
 msgid "Suggestions"
 msgstr "建议"
 
-#: src/pages/Setup.tsx:160
+#: src/pages/Setup.tsx:166
 msgid "Swimming"
 msgstr "游泳"
 
@@ -2841,7 +2842,7 @@ msgstr "全部同步"
 #~ msgid "Sync at least 6 weeks of activity data to see meaningful fitness, fatigue, and form curves."
 #~ msgstr "同步至少 6 周的活动数据后，才能看到有意义的体能、疲劳和竞技状态曲线。"
 
-#: src/pages/Setup.tsx:742
+#: src/pages/Setup.tsx:759
 msgid "Sync complete! Your data is ready."
 msgstr "同步完成！数据已就绪。"
 
@@ -2857,7 +2858,7 @@ msgstr "从 GitHub 同步"
 msgid "Sync from:"
 msgstr "同步起始日期："
 
-#: src/pages/Setup.tsx:633
+#: src/pages/Setup.tsx:650
 msgid "Sync history"
 msgstr "同步历史"
 
@@ -2871,7 +2872,7 @@ msgid "Sync to Stryd"
 msgstr "同步至 Stryd"
 
 #: src/components/SetupChecklist.tsx:55
-#: src/pages/Setup.tsx:619
+#: src/pages/Setup.tsx:636
 msgid "Sync your data"
 msgstr "同步数据"
 
@@ -2888,7 +2889,7 @@ msgstr "已同步至 Stryd。点击重新推送。"
 msgid "Syncing"
 msgstr "同步中"
 
-#: src/pages/Setup.tsx:665
+#: src/pages/Setup.tsx:682
 msgid "Syncing..."
 msgstr "同步中..."
 
@@ -2925,7 +2926,7 @@ msgstr "目标 {metricName}"
 
 #: src/components/SetupChecklist.tsx:72
 #: src/pages/Settings.tsx:1333
-#: src/pages/Setup.tsx:797
+#: src/pages/Setup.tsx:814
 msgid "Target a race or track continuous improvement"
 msgstr "瞄准一场比赛或追踪持续提升"
 
@@ -2939,7 +2940,7 @@ msgstr "目标时间"
 msgid "Tempo"
 msgstr "节奏跑"
 
-#: src/components/TodayDecisionCheck.tsx:137
+#: src/components/TodayDecisionCheck.tsx:138
 msgid "Thanks - that helps us improve Today."
 msgstr "谢谢，这会帮助我们改进今日建议。"
 
@@ -2959,7 +2960,7 @@ msgstr "主题"
 msgid "This cannot be undone. If this is the last admin account, deletion will be blocked."
 msgstr "此操作无法撤销。如果这是最后一个管理员账号，删除会被阻止。"
 
-#: src/components/AiInsightsCard.tsx:175
+#: src/components/AiInsightsCard.tsx:187
 msgid "This insight changed. Refresh the page before sending feedback."
 msgstr "该建议已更新。请刷新页面后再提交反馈。"
 
@@ -3164,11 +3165,11 @@ msgstr "通过微信小程序，随时随地使用 Praxys"
 #~ msgid "Use this"
 #~ msgstr "使用此项"
 
-#: src/pages/Setup.tsx:197
+#: src/pages/Setup.tsx:203
 msgid "Use your Garmin Connect credentials."
 msgstr "使用您的 Garmin Connect 账号凭据。"
 
-#: src/pages/Setup.tsx:199
+#: src/pages/Setup.tsx:205
 msgid "Use your Stryd account credentials (stryd.com)."
 msgstr "使用您的 Stryd 账号凭据（stryd.com）。"
 
@@ -3193,7 +3194,7 @@ msgid "Users"
 msgstr "用户"
 
 #: src/pages/Settings.tsx:1007
-#: src/pages/Setup.tsx:876
+#: src/pages/Setup.tsx:893
 msgid "Verification code"
 msgstr "验证码"
 
@@ -3206,7 +3207,7 @@ msgid "Verification failed"
 msgstr "验证失败"
 
 #: src/pages/Settings.tsx:1025
-#: src/pages/Setup.tsx:894
+#: src/pages/Setup.tsx:911
 msgid "Verify"
 msgstr "验证"
 
@@ -3215,7 +3216,7 @@ msgid "Verifying your email…"
 msgstr "正在验证您的邮箱…"
 
 #: src/pages/Settings.tsx:1025
-#: src/pages/Setup.tsx:894
+#: src/pages/Setup.tsx:911
 msgid "Verifying..."
 msgstr "验证中…"
 
@@ -3265,7 +3266,7 @@ msgstr "vs 目标区间"
 msgid "Waitlist"
 msgstr "等候名单"
 
-#: src/pages/Setup.tsx:162
+#: src/pages/Setup.tsx:168
 msgid "Walking"
 msgstr "步行"
 
@@ -3273,8 +3274,8 @@ msgstr "步行"
 msgid "Warmup"
 msgstr "热身"
 
-#: src/components/AiInsightsCard.tsx:228
-#: src/components/AiInsightsCard.tsx:263
+#: src/components/AiInsightsCard.tsx:309
+#: src/components/AiInsightsCard.tsx:313
 msgid "Was this insight useful?"
 msgstr "这条分析有帮助吗？"
 
@@ -3334,7 +3335,7 @@ msgstr "遇到了什么问题，或希望我们做些什么？"
 msgid "What time are you working toward? Leave blank to track trend only"
 msgstr "您的目标时间是多少？留空则仅追踪趋势"
 
-#: src/components/AiInsightsCard.tsx:272
+#: src/components/AiInsightsCard.tsx:349
 msgid "What was useful or missing?"
 msgstr "哪些内容有帮助，或还缺少什么？"
 
@@ -3346,7 +3347,7 @@ msgstr "您的训练目标是什么？（可选）"
 msgid "Where Praxys pushes your plan. Per-workout sync state shows in Training."
 msgstr "Praxys 将计划推送到的目标平台。每个训练的同步状态显示在训练页。"
 
-#: src/pages/Setup.tsx:853
+#: src/pages/Setup.tsx:870
 msgid "Will sync:"
 msgstr "将同步："
 
@@ -3381,7 +3382,7 @@ msgid "Your account is active. You can now sign in."
 msgstr "您的账户已激活。现在可以登录了。"
 
 #: src/pages/Settings.tsx:1004
-#: src/pages/Setup.tsx:873
+#: src/pages/Setup.tsx:890
 msgid "Your Garmin account has multi-factor authentication enabled. Enter the verification code Garmin sent you to finish connecting."
 msgstr "您的 Garmin 账户已启用多重身份验证。请输入 Garmin 发送给您的验证码以完成连接。"
 
@@ -3437,16 +3438,16 @@ msgstr "区间标签"
 msgid "Zones & load from Critical Power"
 msgstr "基于阈值功率的区间与负荷"
 
-#: src/pages/Setup.tsx:170
+#: src/pages/Setup.tsx:176
 msgid "Zones & load from Critical Power (best with Stryd)"
 msgstr "基于阈值功率的区间与负荷（搭配 Stryd 效果最佳）"
 
 #: src/pages/Settings.tsx:82
-#: src/pages/Setup.tsx:172
+#: src/pages/Setup.tsx:178
 msgid "Zones & load from Lactate Threshold HR"
 msgstr "基于乳酸阈值心率的区间与负荷"
 
 #: src/pages/Settings.tsx:91
-#: src/pages/Setup.tsx:174
+#: src/pages/Setup.tsx:180
 msgid "Zones & load from Threshold Pace"
 msgstr "基于阈值配速的区间与负荷"

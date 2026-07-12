@@ -43,6 +43,7 @@ Component({
 
   data: {
     visible: false,
+    expanded: false,
     submitted: false,
     submitting: false,
     submitError: '',
@@ -54,7 +55,7 @@ Component({
   observers: {
     eligible(eligible: boolean) {
       if (!eligible) {
-        this.setData({ visible: false });
+        this.setData({ visible: false, expanded: false });
         return;
       }
       this.tryShow();
@@ -92,7 +93,7 @@ Component({
         return;
       }
 
-      this.setData({ claiming: false, visible: true }, () => {
+      this.setData({ claiming: false, visible: true, expanded: false }, () => {
         this.persistCadence();
         this.confirmShown();
       });
@@ -110,8 +111,12 @@ Component({
       void confirmTodayDecisionCheck();
     },
 
+    onToggle() {
+      this.setData({ expanded: !this.data.expanded });
+    },
+
     onDismiss() {
-      this.setData({ visible: false });
+      this.setData({ visible: false, expanded: false });
       this.confirmShown();
     },
 
@@ -122,7 +127,7 @@ Component({
       const result = await recordProductEvent('today_feedback_submitted', response);
       if (result?.accepted) {
         this.persistCadence();
-        this.setData({ submitted: true, submitting: false });
+        this.setData({ submitted: true, submitting: false, expanded: false });
         return;
       }
       this.setData({ submitting: false, submitError: this.data.tr.error });

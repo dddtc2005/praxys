@@ -4,6 +4,26 @@ import { API_BASE, getAuthHeaders } from '@/hooks/useApi';
 import type { SyncStatusResponse } from '@/types/api';
 
 const SETUP_DONE_KEY = 'praxys-setup-done';
+const SETUP_SKIPPED_PREFIX = 'praxys-setup-skipped';
+
+function setupSkippedKey(email: string | null): string | null {
+  const normalized = email?.trim().toLowerCase();
+  return normalized ? `${SETUP_SKIPPED_PREFIX}:${normalized}` : null;
+}
+
+/** True when this account skipped onboarding in the current browser session. */
+export function hasSkippedSetupForSession(email: string | null): boolean {
+  const key = setupSkippedKey(email);
+  if (!key) return false;
+  try { return sessionStorage.getItem(key) === 'true'; } catch { return false; }
+}
+
+/** Let this account use the app without completing onboarding until the tab closes. */
+export function skipSetupForSession(email: string | null): void {
+  const key = setupSkippedKey(email);
+  if (!key) return;
+  try { sessionStorage.setItem(key, 'true'); } catch { /* sessionStorage unavailable */ }
+}
 
 function getCachedSetupDone(): boolean {
   try { return localStorage.getItem(SETUP_DONE_KEY) === 'true'; } catch { return false; }

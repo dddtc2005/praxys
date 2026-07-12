@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { TooltipProvider } from './components/ui/tooltip';
 import { AuthProvider, useAuth } from './hooks/useAuth';
@@ -27,7 +27,7 @@ const History = lazy(() => import('./pages/History'));
 const Science = lazy(() => import('./pages/Science'));
 const SettingsPage = lazy(() => import('./pages/Settings'));
 const Admin = lazy(() => import('./pages/Admin'));
-import { useSetupStatus } from './hooks/useSetupStatus';
+import { hasSkippedSetupForSession, useSetupStatus } from './hooks/useSetupStatus';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -89,10 +89,16 @@ export default function App() {
 
 /** Show Setup page if onboarding incomplete, otherwise Today. */
 function TodayOrSetup() {
+  const { email } = useAuth();
   const setup = useSetupStatus();
+  const [skippedForAccount, setSkippedForAccount] = useState<string | null>(null);
+  const accountScope = email?.trim().toLowerCase() ?? '';
+  const setupSkipped = skippedForAccount === accountScope || hasSkippedSetupForSession(email);
 
   if (setup.loading) return null;
-  if (!setup.allDone) return <Setup />;
+  if (!setup.allDone && !setupSkipped) {
+    return <Setup onSkip={() => setSkippedForAccount(accountScope)} />;
+  }
   return <Today />;
 }
 

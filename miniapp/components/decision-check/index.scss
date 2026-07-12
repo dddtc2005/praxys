@@ -1,39 +1,63 @@
 .decision-check {
-  position: relative;
   margin: 28rpx 24rpx;
-  padding: 28rpx 56rpx 28rpx 0;
-  border-top: 1rpx dashed var(--border-subtle);
-  border-bottom: 1rpx dashed var(--border-subtle);
+  border: 1rpx solid var(--border);
+  border-radius: 12rpx;
+  background: var(--surface-subtle);
+  overflow: hidden;
+}
+.decision-check__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+  min-height: 88rpx;
+  padding: 18rpx 22rpx;
+}
+.decision-check__summary--pressed {
+  opacity: 0.72;
 }
 .decision-check__copy {
   display: flex;
-  flex-direction: column;
-  gap: 8rpx;
+  align-items: baseline;
+  gap: 16rpx;
+  min-width: 0;
 }
 .decision-check__eyebrow {
-  color: var(--primary);
-  font-size: 19rpx;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 18rpx;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 .decision-check__heading {
   color: var(--text);
-  font-size: 28rpx;
-  font-weight: 650;
+  font-size: 24rpx;
+  font-weight: 550;
   line-height: 1.35;
+}
+.decision-check__chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 24rpx;
+}
+.decision-check__panel {
+  padding: 20rpx 22rpx;
+  border-top: 1rpx solid var(--border);
+  background: var(--surface);
 }
 .decision-check__detail,
 .decision-check__thanks {
+  display: block;
   color: var(--text-muted);
-  font-size: 23rpx;
+  font-size: 21rpx;
   line-height: 1.45;
 }
 .decision-check__options {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12rpx;
-  margin-top: 20rpx;
+  margin-top: 16rpx;
 }
 .decision-check__option {
   min-height: 76rpx;
@@ -62,25 +86,20 @@
   border: none;
 }
 .decision-check__dismiss {
-  position: absolute;
-  top: 12rpx;
-  right: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 56rpx;
-  height: 56rpx;
-  min-height: 56rpx;
-  margin: 0;
+  display: block;
+  width: auto;
+  min-height: 52rpx;
+  margin: 12rpx 0 0 auto;
   padding: 0;
   border: 0;
   background: transparent;
   color: var(--text-muted);
-  font-size: 36rpx;
+  font-size: 21rpx;
+  line-height: 52rpx;
 }
 .decision-check--thanks {
   display: flex;
   align-items: baseline;
   gap: 16rpx;
-  padding-right: 0;
+  padding: 20rpx 22rpx;
 }

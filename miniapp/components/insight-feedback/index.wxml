@@ -13,14 +13,14 @@
           aria-pressed="{{selectedVote === 'up'}}"
           disabled="{{submitting || stale}}"
           bindtap="onHelpful"
-        >👍</button>
+        >{{tr.helpful}}</button>
         <button
           class="insight-feedback__vote {{selectedVote === 'down' ? 'is-selected' : ''}}"
           aria-label="{{tr.notHelpful}}"
           aria-pressed="{{selectedVote === 'down'}}"
           disabled="{{submitting || stale}}"
           bindtap="onNotHelpful"
-        >👎</button>
+        >{{tr.notHelpful}}</button>
       </view>
     </view>
     <view wx:if="{{formOpen}}" class="insight-feedback__form">
@@ -35,6 +35,11 @@
       ></textarea>
       <view class="insight-feedback__footer">
         <text class="insight-feedback__count font-data">{{commentLength}}/200</text>
+        <button
+          class="insight-feedback__cancel"
+          disabled="{{submitting}}"
+          bindtap="onCancel"
+        >{{tr.cancel}}</button>
         <button
           class="insight-feedback__send"
           disabled="{{submitting || stale || !selectedVote}}"

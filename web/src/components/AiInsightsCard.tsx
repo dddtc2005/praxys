@@ -134,8 +134,20 @@ export default function AiInsightsCard({
 
   const canCollectFeedback = Boolean(content?.isAi && datasetHash);
 
+  const cancelFeedback = () => {
+    if (feedbackSending) return;
+    setFeedbackVote(null);
+    setFeedbackOpen(false);
+    setFeedbackComment('');
+    setFeedbackError('');
+  };
+
   const selectFeedback = (vote: InsightFeedbackVote) => {
     if (feedbackSent || feedbackSending || feedbackStale) return;
+    if (feedbackVote === vote && feedbackOpen) {
+      cancelFeedback();
+      return;
+    }
     setFeedbackVote(vote);
     setFeedbackOpen(true);
     setFeedbackError('');
@@ -211,83 +223,14 @@ export default function AiInsightsCard({
     <aside className="coach-receipt" aria-label={i18n._(msg`Praxys Coach insight`)}>
       <div className="coach-banner">
         <span className="coach-mark"><Trans>Praxys Coach</Trans></span>
-        {(content.stamp || canCollectFeedback) && (
-          <div className="coach-banner-meta">
-            {content.stamp && (
-              <span className="coach-stamp font-data">{content.stamp}</span>
-            )}
-            {canCollectFeedback && (
-              feedbackSent ? (
-                <span className="coach-feedback-sent font-data" role="status">
-                  <Check size={13} aria-hidden="true" /> <Trans>Sent</Trans>
-                </span>
-              ) : (
-                <div
-                  className="coach-feedback-actions"
-                  role="group"
-                  aria-label={i18n._(msg`Was this insight useful?`)}
-                >
-                  <button
-                    type="button"
-                    className={`coach-feedback-icon ${feedbackVote === 'up' ? 'is-selected' : ''}`.trim()}
-                    aria-label={i18n._(msg`Helpful`)}
-                    aria-pressed={feedbackVote === 'up'}
-                    disabled={feedbackSending || feedbackStale}
-                    onClick={() => selectFeedback('up')}
-                  >
-                    <ThumbsUp size={14} aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    className={`coach-feedback-icon ${feedbackVote === 'down' ? 'is-selected' : ''}`.trim()}
-                    aria-label={i18n._(msg`Not helpful`)}
-                    aria-pressed={feedbackVote === 'down'}
-                    disabled={feedbackSending || feedbackStale}
-                    onClick={() => selectFeedback('down')}
-                  >
-                    <ThumbsDown size={14} aria-hidden="true" />
-                  </button>
-                </div>
-              )
-            )}
-          </div>
+        {content.stamp && (
+          <span className="coach-stamp font-data">{content.stamp}</span>
         )}
       </div>
       <div className="coach-body">
         <p className="coach-headline">{content.headline}</p>
         {content.summary && (
           <p className="coach-summary">{linkifyScienceTerms(content.summary)}</p>
-        )}
-        {canCollectFeedback && feedbackOpen && !feedbackSent && (
-          <div className="coach-feedback-form">
-            <p className="coach-feedback-question"><Trans>Was this insight useful?</Trans></p>
-            <label className="sr-only" htmlFor={`coach-feedback-${insightType}`}>
-              <Trans>Optional comment</Trans>
-            </label>
-            <textarea
-              id={`coach-feedback-${insightType}`}
-              value={feedbackComment}
-              maxLength={200}
-              rows={2}
-              placeholder={i18n._(msg`What was useful or missing?`)}
-              disabled={feedbackSending || feedbackStale}
-              onChange={(event) => setFeedbackComment(event.target.value)}
-            />
-            <div className="coach-feedback-form-footer">
-              <span className="coach-feedback-count font-data">{feedbackComment.length}/200</span>
-              <button
-                type="button"
-                className="coach-feedback-send"
-                disabled={feedbackSending || feedbackStale || !feedbackVote}
-                onClick={() => void sendFeedback()}
-              >
-                {feedbackSending ? <Trans>Sending...</Trans> : <Trans>Send</Trans>}
-              </button>
-            </div>
-            {feedbackError && (
-              <p className="coach-feedback-error" role="alert">{feedbackError}</p>
-            )}
-          </div>
         )}
         {hasDetails && (
           <button
@@ -354,6 +297,85 @@ export default function AiInsightsCard({
           </Trans>
         </p>
       </div>
+      {canCollectFeedback && (
+        <div className={`coach-feedback-panel ${feedbackOpen ? 'is-open' : ''}`.trim()}>
+          <div className="coach-feedback-toolbar">
+            {feedbackSent ? (
+              <span className="coach-feedback-sent font-data" role="status">
+                <Check size={13} aria-hidden="true" /> <Trans>Sent</Trans>
+              </span>
+            ) : (
+              <>
+                <span className="coach-feedback-question"><Trans>Was this insight useful?</Trans></span>
+                <div
+                  className="coach-feedback-actions"
+                  role="group"
+                  aria-label={i18n._(msg`Was this insight useful?`)}
+                >
+                  <button
+                    type="button"
+                    className={`coach-feedback-icon ${feedbackVote === 'up' ? 'is-selected' : ''}`.trim()}
+                    aria-label={i18n._(msg`Helpful`)}
+                    aria-pressed={feedbackVote === 'up'}
+                    disabled={feedbackSending || feedbackStale}
+                    onClick={() => selectFeedback('up')}
+                  >
+                    <ThumbsUp size={14} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    className={`coach-feedback-icon ${feedbackVote === 'down' ? 'is-selected' : ''}`.trim()}
+                    aria-label={i18n._(msg`Not helpful`)}
+                    aria-pressed={feedbackVote === 'down'}
+                    disabled={feedbackSending || feedbackStale}
+                    onClick={() => selectFeedback('down')}
+                  >
+                    <ThumbsDown size={14} aria-hidden="true" />
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+          {feedbackOpen && !feedbackSent && (
+            <div className="coach-feedback-form">
+              <label className="sr-only" htmlFor={`coach-feedback-${insightType}`}>
+                <Trans>Optional comment</Trans>
+              </label>
+              <textarea
+                id={`coach-feedback-${insightType}`}
+                value={feedbackComment}
+                maxLength={200}
+                rows={2}
+                placeholder={i18n._(msg`What was useful or missing?`)}
+                disabled={feedbackSending || feedbackStale}
+                onChange={(event) => setFeedbackComment(event.target.value)}
+              />
+              <div className="coach-feedback-form-footer">
+                <span className="coach-feedback-count font-data">{feedbackComment.length}/200</span>
+                <button
+                  type="button"
+                  className="coach-feedback-cancel"
+                  disabled={feedbackSending}
+                  onClick={cancelFeedback}
+                >
+                  <Trans>Cancel</Trans>
+                </button>
+                <button
+                  type="button"
+                  className="coach-feedback-send"
+                  disabled={feedbackSending || feedbackStale || !feedbackVote}
+                  onClick={() => void sendFeedback()}
+                >
+                  {feedbackSending ? <Trans>Sending...</Trans> : <Trans>Send</Trans>}
+                </button>
+              </div>
+              {feedbackError && (
+                <p className="coach-feedback-error" role="alert">{feedbackError}</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
       {attribution && <div className="coach-foot">{attribution}</div>}
     </aside>
   );

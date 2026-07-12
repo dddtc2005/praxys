@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSettings } from '@/contexts/SettingsContext';
-import { useSetupStatus } from '@/hooks/useSetupStatus';
+import { skipSetupForSession, useSetupStatus } from '@/hooks/useSetupStatus';
 import { API_BASE, getAuthHeaders, extractErrorMessage } from '@/hooks/useApi';
+import { useAuth } from '@/hooks/useAuth';
 import type { TrainingBase, SyncStatusResponse } from '@/types/api';
 import {
   buildStravaReturnTo,
@@ -146,9 +147,14 @@ const BACKFILL_DAYS = [
 
 // --- Component ---
 
-export default function Setup() {
+interface SetupProps {
+  onSkip?: () => void;
+}
+
+export default function Setup({ onSkip }: SetupProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { email } = useAuth();
   const { config, updateSettings, refetch: refetchSettings } = useSettings();
   const setup = useSetupStatus();
   const { t } = useLingui();
@@ -253,6 +259,17 @@ export default function Setup() {
 
   // Goal state
   const [goalEditorOpen, setGoalEditorOpen] = useState(false);
+
+  const handleContinue = () => {
+    if (!setup.allDone) {
+      skipSetupForSession(email);
+      if (onSkip) {
+        onSkip();
+        return;
+      }
+    }
+    navigate('/today');
+  };
 
   // Redirect when all done
   useEffect(() => {
@@ -827,7 +844,7 @@ export default function Setup() {
             variant="ghost"
             size="sm"
             className="text-muted-foreground"
-            onClick={() => navigate('/today')}
+            onClick={handleContinue}
           >
             {setup.allDone ? <Trans>Go to dashboard</Trans> : <Trans>Skip for now</Trans>}
             <ChevronRight className="ml-1 h-4 w-4" />

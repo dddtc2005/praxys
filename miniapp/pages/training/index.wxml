@@ -172,13 +172,6 @@
           </view>
           <view class="coach-body">
             <text class="coach-headline">{{coach.headline}}</text>
-            <insight-feedback
-              wx:if="{{coachDatasetHash}}"
-              insight-type="training_review"
-              dataset-hash="{{coachDatasetHash}}"
-              initial-vote="{{coachFeedbackVote}}"
-              bindstale="onCoachFeedbackStale"
-            />
 
             <!-- Progressive-disclosure toggle. Default-collapsed; the
                  user opts in to the structured detail. Hidden when
@@ -224,6 +217,13 @@
               </view>
             </block>
           </view>
+          <insight-feedback
+            wx:if="{{coachDatasetHash}}"
+            insight-type="training_review"
+            dataset-hash="{{coachDatasetHash}}"
+            initial-vote="{{coachFeedbackVote}}"
+            bindstale="onCoachFeedbackStale"
+          />
         </view>
       </block>
     </block>

@@ -993,13 +993,19 @@
 }
 
 
-/* Coach insight feedback — compact controls in the reasoning banner, with
- * the optional comment expanding inside the receipt body. */
-.coach-banner-meta {
-  display: inline-flex;
+/* Coach insight feedback — a neutral receipt footer. It follows the
+ * reasoning instead of competing with the cobalt Coach banner. */
+.coach-feedback-panel {
+  padding: 9px 12px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in oklch, var(--muted) 60%, var(--card));
+}
+.coach-feedback-toolbar {
+  min-height: 28px;
+  display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 12px;
 }
 .coach-feedback-actions {
   display: inline-flex;
@@ -1013,16 +1019,25 @@
   width: 28px;
   height: 28px;
   padding: 0;
-  border: 1px solid color-mix(in oklch, var(--card) 45%, transparent);
-  background: transparent;
-  color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--card);
+  color: var(--muted-foreground);
   cursor: pointer;
-  transition: background-color 120ms ease-out, color 120ms ease-out;
+  transition:
+    border-color 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 160ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .coach-feedback-icon:hover,
 .coach-feedback-icon.is-selected {
-  background: var(--card);
+  border-color: color-mix(in oklch, var(--accent-cobalt-val) 55%, var(--border));
+  background: color-mix(in oklch, var(--accent-cobalt-val) 7%, var(--card));
   color: var(--accent-cobalt-val);
+}
+.coach-feedback-icon:focus-visible {
+  outline: 2px solid var(--accent-cobalt-val);
+  outline-offset: 2px;
 }
 .coach-feedback-icon:disabled {
   cursor: default;
@@ -1036,18 +1051,17 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-}
-.coach-receipt > .coach-body > .coach-feedback-form {
-  margin: 2px 0 12px;
-  padding: 10px 0 12px;
-  border-top: 1px dashed var(--border);
-  border-bottom: 1px dashed var(--border);
+  color: var(--muted-foreground);
 }
 .coach-feedback-question {
-  margin: 0 0 8px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--foreground);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+.coach-feedback-form {
+  margin-top: 9px;
+  padding-top: 9px;
+  border-top: 1px solid var(--border);
 }
 .coach-feedback-form textarea {
   width: 100%;
@@ -1055,7 +1069,7 @@
   min-height: 58px;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: var(--background);
+  background: var(--card);
   color: var(--foreground);
   padding: 8px 10px;
   font-family: var(--font-sans);
@@ -1074,13 +1088,31 @@
   margin-top: 7px;
 }
 .coach-feedback-count {
+  margin-right: auto;
   font-size: 10px;
   color: var(--muted-foreground);
 }
+.coach-feedback-cancel {
+  border: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+  padding: 6px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.coach-feedback-cancel:hover {
+  color: var(--foreground);
+}
+.coach-feedback-cancel:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
 .coach-feedback-send {
-  border: 1px solid var(--accent-cobalt-val);
-  background: var(--accent-cobalt-val);
-  color: var(--card);
+  border: 1px solid var(--primary);
+  border-radius: 4px;
+  background: var(--primary);
+  color: var(--primary-foreground);
   padding: 6px 12px;
   font-size: 11px;
   font-weight: 700;
@@ -1096,50 +1128,85 @@
   font-size: 11px;
 }
 
-/* Today Decision Check — a low-frequency measurement strip, not another card. */
+/* Today Decision Check — compact, progressively disclosed, and deliberately
+ * placed after the day's training content. */
 .today-spread > .today-decision-check {
   grid-column: 1 / -1;
 }
 .today-decision-check {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.2fr);
-  gap: 24px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: color-mix(in oklch, var(--muted) 52%, var(--card));
+  overflow: hidden;
+}
+.today-decision-trigger {
+  width: 100%;
+  min-height: 42px;
+  display: flex;
   align-items: center;
-  padding: 18px 42px 18px 0;
-  border-top: 1px dashed var(--border);
-  border-bottom: 1px dashed var(--border);
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.today-decision-trigger:hover {
+  background: color-mix(in oklch, var(--foreground) 3%, transparent);
+}
+.today-decision-trigger:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
 }
 .today-decision-copy {
-  display: grid;
-  gap: 4px;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
 }
 .today-decision-eyebrow {
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--primary);
+  color: var(--muted-foreground);
+  white-space: nowrap;
 }
-.today-decision-copy h2 {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 650;
+.today-decision-heading {
+  font-size: 12.5px;
+  font-weight: 550;
   color: var(--foreground);
 }
-.today-decision-copy p,
+.today-decision-chevron {
+  flex: 0 0 auto;
+  color: var(--muted-foreground);
+  transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.today-decision-check.is-expanded .today-decision-chevron {
+  transform: rotate(180deg);
+}
+.today-decision-panel {
+  padding: 12px;
+  border-top: 1px solid var(--border);
+  background: var(--card);
+}
+.today-decision-detail,
 .today-decision-check--thanks p {
   margin: 0;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--muted-foreground);
 }
 .today-decision-options {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+  margin-top: 10px;
 }
 .today-decision-option {
-  min-height: 38px;
+  min-height: 36px;
   border: 1px solid var(--border);
   border-radius: 4px;
   background: transparent;
@@ -1155,7 +1222,8 @@
   background: color-mix(in oklch, var(--primary) 6%, transparent);
 }
 .today-decision-option:disabled,
-.today-decision-dismiss:disabled {
+.today-decision-dismiss:disabled,
+.today-decision-trigger:disabled {
   cursor: default;
   opacity: 0.55;
 }
@@ -1166,39 +1234,40 @@
   font-size: 11px;
 }
 .today-decision-dismiss {
-  position: absolute;
-  top: 12px;
-  right: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
+  display: block;
+  width: fit-content;
+  margin: 8px 0 0 auto;
+  padding: 2px 0;
   border: 0;
   background: transparent;
   color: var(--muted-foreground);
+  font-size: 11px;
   cursor: pointer;
 }
+.today-decision-dismiss:hover {
+  color: var(--foreground);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .today-decision-check--thanks {
-  grid-template-columns: auto 1fr;
-  justify-content: start;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 12px;
 }
 
 @media (max-width: 768px) {
-  .coach-receipt > .coach-banner {
-    align-items: center;
-  }
-  .coach-banner-meta {
-    gap: 6px;
-  }
   .coach-feedback-icon {
     width: 34px;
     height: 34px;
   }
-  .today-decision-check {
-    grid-template-columns: 1fr;
-    gap: 14px;
-    padding-right: 38px;
+  .today-decision-trigger {
+    min-height: 48px;
+    padding: 11px 12px;
+  }
+  .today-decision-copy {
+    flex-direction: column;
+    gap: 3px;
   }
   .today-decision-options {
     grid-template-columns: 1fr;
@@ -1207,7 +1276,8 @@
     min-height: 44px;
   }
   .today-decision-check--thanks {
-    grid-template-columns: 1fr;
+    align-items: flex-start;
+    flex-direction: column;
     gap: 4px;
   }
 }
