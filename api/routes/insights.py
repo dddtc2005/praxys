@@ -103,7 +103,9 @@ def _current_daily_brief_hash(user_id: str, db: Session) -> str | None:
 
     Imports stay local because this route otherwise loads the heavier
     dashboard/context builder stack eagerly at module import time, even for
-    insight reads that never need freshness validation.
+    insight reads that never need freshness validation. ``None`` means the
+    hash could not be recomputed, so the read path suppresses the runner-
+    generated AI brief and falls back to deterministic Today guidance.
     """
     try:
         # Local imports keep this route decoupled from the heavier dashboard /
@@ -114,7 +116,7 @@ def _current_daily_brief_hash(user_id: str, db: Session) -> str | None:
         from api.ai import build_training_context
 
         cfg = load_config_from_db(user_id, db)
-        pillars = dict(getattr(cfg, "science", {}) or {})
+        pillars = dict(getattr(cfg, "science", {}))
         context = build_training_context(user_id=user_id, db=db)
         current_hash = compute_dataset_hash(
             context,

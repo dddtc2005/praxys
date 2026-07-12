@@ -113,22 +113,12 @@ def _generate(
         return None
     ok, reason = _validate_bilingual_shape(raw)
     if not ok:
-        # Cost was incurred — log enough context to diagnose what went wrong
-        # six months from now without re-running the prompt.
-        preview = json.dumps(raw, ensure_ascii=False)[:300] if raw else None
-        logger.warning(
-            "Insight %s rejected: reason=%s model=%s raw_preview=%r",
-            insight_type, reason, llm.INSIGHT_MODEL, preview,
-        )
+        _log_rejection(insight_type, reason, raw)
         return None
     if insight_type == "daily_brief":
         ok, reason = _validate_daily_brief_alignment(raw, context)
         if not ok:
-            preview = json.dumps(raw, ensure_ascii=False)[:300]
-            logger.warning(
-                "Insight %s rejected: reason=%s model=%s raw_preview=%r",
-                insight_type, reason, llm.INSIGHT_MODEL, preview,
-            )
+            _log_rejection(insight_type, reason, raw)
             return None
 
     en = raw["en"]
@@ -411,7 +401,7 @@ _RESTRICTIVE_TODAY_RECOMMENDATIONS = {
     "modify",
     "reduce_intensity",
 }
-_REST_CONFLICT_TOKENS = tuple(token.casefold() for token in (
+_REST_CONFLICT_TOKENS = (
     "run",
     "jog",
     "workout",
@@ -425,8 +415,8 @@ _REST_CONFLICT_TOKENS = tuple(token.casefold() for token in (
     "训练",
     "课",
     "跑",
-))
-_HARD_WORKOUT_TOKENS = tuple(token.casefold() for token in (
+)
+_HARD_WORKOUT_TOKENS = (
     "interval",
     "tempo",
     "threshold",
@@ -440,8 +430,8 @@ _HARD_WORKOUT_TOKENS = tuple(token.casefold() for token in (
     "间歇",
     "节奏",
     "阈值",
-))
-_SAFE_RESTRICTIVE_TOKENS = tuple(token.casefold() for token in (
+)
+_SAFE_RESTRICTIVE_TOKENS = (
     "rest",
     "recovery",
     "recover",
@@ -479,7 +469,7 @@ _SAFE_RESTRICTIVE_TOKENS = tuple(token.casefold() for token in (
     "缩短",
     "改为",
     "替换",
-))
+)
 
 
 def _validate_daily_brief_alignment(raw: dict[str, Any], context: dict) -> tuple[bool, str]:
@@ -501,14 +491,11 @@ def _validate_daily_brief_alignment(raw: dict[str, Any], context: dict) -> tuple
         if not text:
             continue
         normalized = text.casefold()
+        has_safe = _contains_any(normalized, _SAFE_RESTRICTIVE_TOKENS)
         if recommendation == "rest":
-            if _contains_any(normalized, _REST_CONFLICT_TOKENS) and not _contains_any(
-                normalized, _SAFE_RESTRICTIVE_TOKENS,
-            ):
+            if _contains_any(normalized, _REST_CONFLICT_TOKENS) and not has_safe:
                 return False, "today_signal_rest_conflict"
-        elif _contains_any(normalized, _HARD_WORKOUT_TOKENS) and not _contains_any(
-            normalized, _SAFE_RESTRICTIVE_TOKENS,
-        ):
+        elif _contains_any(normalized, _HARD_WORKOUT_TOKENS) and not has_safe:
             return False, "today_signal_restrictive_conflict"
     return True, "ok"
 
@@ -533,3 +520,12 @@ def _daily_brief_text_fragments(raw: dict[str, Any]) -> list[str]:
 def _contains_any(text: str, tokens: tuple[str, ...]) -> bool:
     """Return True when ``text`` contains any token in ``tokens``."""
     return any(token in text for token in tokens)
+
+
+def _log_rejection(insight_type: str, reason: str, raw: Any) -> None:
+    """Log a rejected insight payload with a stable reason code."""
+    preview = json.dumps(raw, ensure_ascii=False)[:300] if raw else None
+    logger.warning(
+        "Insight %s rejected: reason=%s model=%s raw_preview=%r",
+        insight_type, reason, llm.INSIGHT_MODEL, preview,
+    )
