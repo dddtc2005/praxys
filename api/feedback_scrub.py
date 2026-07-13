@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 import re
 
-from api.version import is_valid_build_version
+from api.version import find_valid_build_versions, is_valid_build_version
 
 # RFC 5322 is famously unparseable in full; this pragmatic pattern matches the
 # overwhelming majority of real addresses without catastrophic backtracking.
@@ -121,9 +121,26 @@ def _redact_formatted_number(match: re.Match[str]) -> str:
     return "[redacted-number]" if digit_count >= 9 else value
 
 
+def _protect_build_versions(text: str) -> tuple[str, dict[str, str]]:
+    """Protect strict public build IDs from generic long-number redaction."""
+    protected = text
+    placeholders: dict[str, str] = {}
+    placeholder_index = 0
+    for version in find_valid_build_versions(text):
+        while True:
+            placeholder = f"__praxys_build_{placeholder_index}__"
+            placeholder_index += 1
+            if placeholder not in protected:
+                break
+        protected = protected.replace(version, placeholder)
+        placeholders[placeholder] = version
+    return protected, placeholders
+
+
 def _scrub_unstructured_text(text: str) -> str:
     """Scrub a plain-text fragment without attempting JSON parsing."""
-    out = _PEM_PRIVATE_KEY_RE.sub("[redacted-private-key]", text)
+    out, protected_build_versions = _protect_build_versions(text)
+    out = _PEM_PRIVATE_KEY_RE.sub("[redacted-private-key]", out)
     out = _JSON_CREDENTIAL_RE.sub(r'\g<prefix>"[redacted]"', out)
     out = _AUTHORIZATION_HEADER_RE.sub(r"\1 [redacted]", out)
     out = _COOKIE_HEADER_RE.sub(r"\1: [redacted]", out)
@@ -138,6 +155,8 @@ def _scrub_unstructured_text(text: str) -> str:
     out = _IPV4_RE.sub("[redacted-ip]", out)
     out = _FORMATTED_NUMBER_RE.sub(_redact_formatted_number, out)
     out = _LONG_DIGITS_RE.sub("[redacted-number]", out)
+    for placeholder, version in protected_build_versions.items():
+        out = out.replace(placeholder, version)
     return out
 
 

@@ -255,6 +255,27 @@ def test_scrub_context_preserves_valid_ci_build_versions():
     assert secret not in unsafe["api_version"]
 
 
+def test_scrub_text_preserves_valid_ci_build_version():
+    from api.feedback_scrub import scrub_text
+
+    build_version = "2026.07.13.12345678-deadbee"
+    secret = "sk-abcdefghijklmnopqrstuvwxyz123456"
+    cleaned = scrub_text(f"app_version={build_version}\napi_key={secret}")
+
+    assert build_version in cleaned
+    assert secret not in cleaned
+
+
+def test_scrub_text_redacts_invalid_build_like_long_value():
+    from api.feedback_scrub import scrub_text
+
+    invalid_value = "2026.07.13.12345678-deadbeeX"
+    cleaned = scrub_text(f"app_version={invalid_value}")
+
+    assert invalid_value not in cleaned
+    assert "[redacted-number]" in cleaned
+
+
 # ---------------------------------------------------------------------------
 # DB-backed fixture
 # ---------------------------------------------------------------------------
