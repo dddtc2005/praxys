@@ -23,16 +23,30 @@ import re
 from pathlib import Path
 
 _BUILD_FILE = Path(__file__).resolve().parent / "_build_version.txt"
-_BUILD_VERSION_RE = re.compile(
-    r"^(?:develop|[0-9]{4}\.(?:0[1-9]|1[0-2])\."
-    r"(?:[0-9]{1,4}|(?:0[1-9]|[12][0-9]|3[01])\."
-    r"[0-9]{1,8}-[0-9a-f]{7}))$"
+_BUILD_VERSION_PATTERN = (
+    r"(?:develop|[0-9]{4}\.(?:0[1-9]|1[0-2])\."
+    r"(?:(?:0[1-9]|[12][0-9]|3[01])\."
+    r"[0-9]{1,8}-[0-9a-f]{7}|[0-9]{1,4}))"
+)
+_BUILD_VERSION_RE = re.compile(rf"^{_BUILD_VERSION_PATTERN}$")
+_BUILD_VERSION_IN_TEXT_RE = re.compile(
+    rf"(?<![A-Za-z0-9_.-]){_BUILD_VERSION_PATTERN}"
+    rf"(?![A-Za-z0-9_-]|\.[A-Za-z0-9_-])"
 )
 
 
 def is_valid_build_version(value: object) -> bool:
     """Return whether *value* is a supported release or CI build identifier."""
     return isinstance(value, str) and bool(_BUILD_VERSION_RE.fullmatch(value.strip()))
+
+
+def find_valid_build_versions(text: str) -> tuple[str, ...]:
+    """Return unique supported build identifiers embedded in ``text``."""
+    return tuple(
+        dict.fromkeys(
+            match.group(0) for match in _BUILD_VERSION_IN_TEXT_RE.finditer(text)
+        )
+    )
 
 
 def get_api_version() -> str:
