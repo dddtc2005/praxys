@@ -41,6 +41,11 @@ it only when **all** of these hold (`_qualifies_for_agent` in
    verdict: whitespace-delimited words or Unicode alphanumeric characters for
    scripts such as Chinese.
 
+The feedback bot can add several labels in one batch, and GitHub emits one
+`issues.labeled` event for each label. Duplicate suppression is scoped to the
+eligible assignment job, so a later unrelated label cannot cancel an
+`agent-ready` assignment before it starts.
+
 **Backlog escape hatch:** a `backlog` or `later` label makes an issue ineligible
 even if it is a bug (the workflow skips it). **Merge is always human** — autonomy
 is *drafting* the fix; branch protection keeps a human in the loop.

@@ -30,14 +30,6 @@ on:
 permissions:
   issues: write
 
-concurrency:
-  # One effective run per issue: an issue is often created with several labels
-  # at once, firing multiple events in the same group — cancel the superseded
-  # duplicates so we don't post duplicate failure comments. Assignment is
-  # idempotent, so cancelling a redundant in-flight run is safe.
-  group: assign-copilot-${{ github.event.issue.number }}
-  cancel-in-progress: true
-
 jobs:
   assign-to-copilot:
     # Fire only when `agent-ready` is the reason (labeled) or is already present
@@ -50,6 +42,12 @@ jobs:
       ) &&
       !contains(github.event.issue.labels.*.name, 'backlog') &&
       !contains(github.event.issue.labels.*.name, 'later')
+    # A feedback label batch emits one workflow run per label. Scope duplicate
+    # suppression to this eligible job so a later unrelated label cannot cancel
+    # the agent-ready assignment before it starts.
+    concurrency:
+      group: assign-copilot-${{ github.event.issue.number }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     steps:
       - name: Check the assignment token is configured
