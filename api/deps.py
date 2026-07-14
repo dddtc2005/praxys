@@ -1012,8 +1012,10 @@ def _get_todays_plan(
 
         The plan frame may hold Python ``date`` objects, pandas timestamps,
         or ISO-ish strings depending on load path. ``to_datetime`` normalizes
-        the usual cases; if nothing parses, treat the frame as unusable for
-        same-day guidance rather than guessing from opaque values.
+        the usual cases, including mixed valid representations in the same
+        frame. Unparseable rows become ``NaT`` and simply do not match today;
+        only when every row is unparseable do we treat the frame as unusable
+        for same-day guidance rather than guessing from opaque values.
         """
         if frame is None or frame.empty or "date" not in frame.columns:
             return pd.DataFrame()

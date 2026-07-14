@@ -62,7 +62,7 @@ def test_todays_plan_uses_duration_as_deterministic_hard_workout_tie_breaker():
     assert detail["planned_duration_min"] == 120
 
 
-def test_todays_plan_falls_back_to_other_source_when_preferred_source_has_no_today_row():
+def test_todays_plan_fallback_when_preferred_empty():
     """Same-day guidance should not hide a synced workout from another source."""
     today = date(2026, 7, 12)
     preferred_only = pd.DataFrame([

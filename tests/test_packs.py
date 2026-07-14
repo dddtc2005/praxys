@@ -230,7 +230,7 @@ def test_today_payload_unscheduled_day_uses_neutral_verdict(db_with_seeded_user)
     assert payload["signal"]["plan"] == {}
 
 
-def test_today_payload_falls_back_to_synced_today_workout_when_preferred_plan_has_no_today_row(
+def test_today_payload_fallback_to_synced_workout(
     db_with_seeded_user,
 ):
     """Today should still surface a same-day synced workout from another source."""
