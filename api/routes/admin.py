@@ -4,12 +4,13 @@ All endpoints require is_superuser=True on the authenticated user.
 """
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
 from api import app_config, email_content, email_sender, invitations
 from api.account_deletion import begin_active_admin_guard
+from api.admin_ops import OpsSummaryResponse, OpsWindow, build_ops_summary
 from api.auth import get_current_user_id
 from api.views import utc_isoformat, require_admin as _require_admin
 from db.session import get_db
@@ -19,6 +20,26 @@ router = APIRouter(prefix="/admin")
 # Emailed invitation codes expire so a leaked/forwarded link cannot be redeemed
 # indefinitely. Admin-generated codes (the /invitations button) stay non-expiring.
 INVITE_EXPIRY_DAYS = 14
+
+
+# ---------------------------------------------------------------------------
+# Operations overview
+# ---------------------------------------------------------------------------
+
+
+@router.get("/ops/summary", response_model=OpsSummaryResponse)
+def get_ops_summary(
+    response: Response,
+    window: OpsWindow = "24h",
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> OpsSummaryResponse:
+    """Return the privacy-safe, aggregate-only admin operations snapshot."""
+    _require_admin(user_id, db)
+    # Live incidents and health probes must never be served from an intermediary
+    # cache. Future Azure-backed subsections will own their short server-side TTL.
+    response.headers["Cache-Control"] = "private, no-store"
+    return build_ops_summary(db, window)
 
 
 # ---------------------------------------------------------------------------

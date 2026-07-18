@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { API_BASE, getAuthHeaders } from '@/hooks/useApi';
+import { apiFetch } from '@/hooks/useApi';
 import { Trans } from '@lingui/react/macro';
 
 interface Props {
@@ -27,9 +27,7 @@ export default function AdminFeedbackImages({ feedbackId, count }: Props) {
       let anyFail = false;
       for (let i = 0; i < count; i++) {
         try {
-          const res = await fetch(`${API_BASE}/api/admin/feedback/${feedbackId}/image/${i}`, {
-            headers: getAuthHeaders(),
-          });
+          const res = await apiFetch(`/api/admin/feedback/${feedbackId}/image/${i}`);
           if (!res.ok) {
             anyFail = true;
             continue;

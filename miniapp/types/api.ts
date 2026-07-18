@@ -728,8 +728,8 @@ export interface SystemAnnouncement {
   // base at the top level; the frontend prefers translations[locale] and falls
   // back to the top-level fields (mirrors the AiInsight #103 contract).
   translations?: Partial<Record<'zh' | 'en', AnnouncementTranslation>>;
-  created_at: string;
-  updated_at: string;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 // --- Service status page (public) ---
@@ -865,12 +865,145 @@ export interface AdminFeedbackSyncResult {
   updated: number;
 }
 
+// --- Admin operations console ---
+
+export type AdminOpsWindow = '24h' | '7d' | '28d';
+export type AdminOpsFreshness = 'fresh' | 'stale' | 'unavailable';
+export type AdminOpsSource = 'praxys_database' | 'live_probe' | 'azure_monitor';
+export type AdminOpsReason = 'section_refresh_failed' | 'azure_telemetry_not_connected';
+export type AdminOpsSectionWindow = 'live' | 'rolling_1d_7d_30d' | AdminOpsWindow;
+
+export interface AdminOpsSectionMeta {
+  source: AdminOpsSource;
+  window: AdminOpsSectionWindow;
+  freshness: AdminOpsFreshness;
+  as_of: string | null;
+  reason: AdminOpsReason | null;
+}
+
+export interface AdminOpsIncidentCounts {
+  total: number;
+  minor: number;
+  major: number;
+  critical: number;
+}
+
+export interface AdminOpsFeedbackCounts {
+  needs_review: number;
+  failed: number;
+  new: number;
+  actionable: number;
+  critical: number;
+  high: number;
+  total: number;
+}
+
+export interface AdminOpsActiveIncident {
+  id: number;
+  title: string;
+  status: IncidentStatus;
+  impact: IncidentImpact;
+  started_at: string | null;
+  updated_at: string | null;
+}
+
+export interface AdminOpsAttentionData {
+  incident_counts: AdminOpsIncidentCounts;
+  active_incidents: AdminOpsActiveIncident[];
+  feedback: AdminOpsFeedbackCounts;
+}
+
+export interface AdminOpsAttentionSection extends AdminOpsSectionMeta {
+  data: AdminOpsAttentionData | null;
+}
+
+export interface AdminOpsServiceHealthData {
+  overall: OverallStatus;
+  components: StatusComponent[];
+}
+
+export interface AdminOpsServiceHealthSection extends AdminOpsSectionMeta {
+  data: AdminOpsServiceHealthData | null;
+}
+
+export interface AdminOpsProductValueData {
+  registered_users: number;
+  dau: number;
+  wau: number;
+  mau: number;
+  directional: boolean;
+}
+
+export interface AdminOpsProductValueSection extends AdminOpsSectionMeta {
+  data: AdminOpsProductValueData | null;
+}
+
+export interface AdminOpsUnavailableSection extends AdminOpsSectionMeta {
+  data: null;
+}
+
+export interface AdminOpsLinks {
+  users: string;
+  feedback: string;
+  incidents: string;
+  communications: string;
+  public_status: string;
+  monitoring_docs: string;
+  telemetry_trust_issue: string;
+}
+
+/** GET /api/admin/ops/summary. Aggregate-only and admin-only. */
+export interface AdminOpsSummary {
+  generated_at: string;
+  window: AdminOpsWindow;
+  attention: AdminOpsAttentionSection;
+  service_health: AdminOpsServiceHealthSection;
+  product_value: AdminOpsProductValueSection;
+  azure_alerts: AdminOpsUnavailableSection;
+  platform_health: AdminOpsUnavailableSection;
+  links: AdminOpsLinks;
+}
 /** GET /api/public/config — unauthenticated; drives the login page's signup path. */
 export interface PublicConfig {
   /** Effective self-registration state (admin flag AND under the seat cap). */
   registration_open: boolean;
 }
 
+/** Admin-only user row from GET /api/admin/users. */
+export interface AdminUserInfo {
+  id: string;
+  email: string;
+  is_active: boolean;
+  is_superuser: boolean;
+  is_demo: boolean;
+  demo_of: string | null;
+  demo_of_email: string | null;
+  created_at: string | null;
+}
+
+export interface AdminUsersResponse {
+  users: AdminUserInfo[];
+}
+
+/** Admin-only invitation row from GET /api/admin/invitations. */
+export interface AdminInvitationInfo {
+  id: number;
+  code: string;
+  note: string | null;
+  is_active: boolean;
+  created_at: string | null;
+  used_by: string | null;
+  used_at: string | null;
+}
+
+export interface AdminInvitationsResponse {
+  invitations: AdminInvitationInfo[];
+}
+
+export interface AdminInvitationCreateResponse {
+  code: string;
+  note: string;
+}
 /** Registration gate + seat cap (admin only). */
 export interface RegistrationStatus {
   registration_open: boolean;
@@ -906,7 +1039,7 @@ export interface AdminConfig {
 export interface WaitlistSignupItem {
   id: number;
   email: string;
-  note: string;
+  note: string | null;
   locale: string | null;
   created_at: string | null;
   invited_at: string | null;
@@ -914,6 +1047,10 @@ export interface WaitlistSignupItem {
   invitation_code: string | null;
   /** True once an account exists for this email (invited or open path). */
   registered: boolean;
+}
+
+export interface AdminWaitlistResponse {
+  signups: WaitlistSignupItem[];
 }
 
 /** POST /api/admin/waitlist/{id}/invite result. */

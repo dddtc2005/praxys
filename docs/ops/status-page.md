@@ -35,13 +35,13 @@ the page *chrome* (labels) is localized (en/zh).
 ## Prerequisites
 
 - An **admin** account (`is_superuser=True`). Incident management lives on the
-  **Admin** page → **Service Incidents** card.
+  `/admin/incidents` route.
 - No Azure/infra access needed: incidents are DB rows, read fresh per request.
   No new secret, resource, or alert is involved.
 
 ## Steps
 
-1. **Open an incident.** Admin page → **Service Incidents** → *New incident*:
+1. **Open an incident.** `/admin/incidents` → **New incident**:
    set a **title**, pick an **impact** (`minor` | `major` | `critical`), add an
    optional opening message, then **Open incident**. It appears immediately on
    `/status` and drives the banner.
@@ -85,9 +85,9 @@ DELETE /api/admin/incidents/{id}          # admin: delete
 - Backend: `api/routes/status.py`, models `ServiceIncident` /
   `ServiceIncidentUpdate` in `db/models.py`, probe `db/sync_scheduler.scheduler_running`.
 - Frontend: public page `web/src/pages/Status.tsx` (`/status` route in
-  `web/src/App.tsx`), admin UI in `web/src/pages/Admin.tsx`.
+  `web/src/App.tsx`), admin UI in `web/src/pages/admin/AdminIncidents.tsx`.
 - Related runbooks: [incident-response.md](./incident-response.md) (first-response
   triage when the app is actually down), [admin-tasks.md](./admin-tasks.md).
 
 ---
-_Last reviewed: 2026-07-07 · Owner: @dddtc2005_
+_Last reviewed: 2026-07-17 · Owner: @dddtc2005_

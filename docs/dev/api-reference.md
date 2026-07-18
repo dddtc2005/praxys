@@ -110,6 +110,40 @@ Errors: `400 VERIFY_USER_ALREADY_VERIFIED`, `400 VERIFY_USER_BAD_TOKEN` (FastAPI
 
 All admin endpoints require `is_superuser=True` on the authenticated user. Returns `403` otherwise.
 
+### GET /api/admin/ops/summary
+
+Privacy-safe operations overview. Query parameter `window` is one of `24h`, `7d`,
+or `28d` (default `24h`). Every section includes `source`, `window`, `freshness`,
+`as_of`, and an optional stable `reason` code (`section_refresh_failed` or
+`azure_telemetry_not_connected`).
+
+Phase 1 returns database-backed attention/activity aggregates and live component
+health. Azure alert and platform-health sections return `freshness: "unavailable"`
+until #417 is complete. The response contains no emails, user IDs, feedback text,
+screenshots, invitation codes, or Coach comments. One failed section does not fail
+the whole response. Responses are `private, no-store`.
+
+```json
+{
+  "generated_at": "2026-07-17T12:00:00+00:00",
+  "window": "24h",
+  "attention": {
+    "source": "praxys_database", "window": "live", "freshness": "fresh",
+    "as_of": "2026-07-17T12:00:00+00:00", "reason": null,
+    "data": {
+      "incident_counts": {"total": 1, "minor": 0, "major": 1, "critical": 0},
+      "active_incidents": [{"id": 4, "title": "Elevated latency", "status": "investigating", "impact": "major", "started_at": "...", "updated_at": "..."}],
+      "feedback": {"needs_review": 2, "failed": 1, "new": 3, "actionable": 3, "critical": 1, "high": 1, "total": 8}
+    }
+  },
+  "service_health": {"source": "live_probe", "window": "live", "freshness": "fresh", "as_of": "...", "reason": null, "data": {"overall": "operational", "components": []}},
+  "product_value": {"source": "praxys_database", "window": "rolling_1d_7d_30d", "freshness": "fresh", "as_of": "...", "reason": null, "data": {"registered_users": 12, "dau": 4, "wau": 9, "mau": 11, "directional": true}},
+  "azure_alerts": {"source": "azure_monitor", "window": "24h", "freshness": "unavailable", "as_of": null, "reason": "azure_telemetry_not_connected", "data": null},
+  "platform_health": {"source": "azure_monitor", "window": "24h", "freshness": "unavailable", "as_of": null, "reason": "azure_telemetry_not_connected", "data": null},
+  "links": {"users": "/admin/users", "feedback": "/admin/feedback", "incidents": "/admin/incidents", "communications": "/admin/communications", "public_status": "/status", "monitoring_docs": "...", "telemetry_trust_issue": "..."}
+}
+```
+
 ### GET /api/admin/users
 
 List all registered users.
@@ -264,6 +298,12 @@ List waitlist signups (newest first), each with any issued invitation code.
   ]
 }
 ```
+
+### GET /api/admin/announcements
+
+Return all system announcements, including inactive rows, for the communications
+management route. Regular authenticated users continue to receive active rows only
+from `GET /api/announcements`.
 
 ### POST /api/admin/waitlist/{id}/invite
 

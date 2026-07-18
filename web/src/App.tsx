@@ -7,6 +7,7 @@ import { ScienceProvider } from './contexts/ScienceContext';
 import { LocaleProvider } from './contexts/LocaleContext';
 import LocaleSync from './contexts/LocaleSync';
 import Layout from './components/Layout';
+import { Skeleton } from './components/ui/skeleton';
 // Eagerly imported: Landing is the anonymous first-impression, Login is
 // the auth entry point, Today is where every logged-in user lands. All
 // three must be in the initial bundle for fastest cold-load.
@@ -18,6 +19,7 @@ import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
 import Verify from './pages/Verify';
 import Status from './pages/Status';
+import { hasSkippedSetupForSession, useSetupStatus } from './hooks/useSetupStatus';
 // Lazy-loaded: secondary routes the user navigates to after landing on
 // Today. Chunks load on first visit to each route; cached immutably
 // thereafter (cache headers set by frontend_server/main.py).
@@ -26,8 +28,23 @@ const Goal = lazy(() => import('./pages/Goal'));
 const History = lazy(() => import('./pages/History'));
 const Science = lazy(() => import('./pages/Science'));
 const SettingsPage = lazy(() => import('./pages/Settings'));
-const Admin = lazy(() => import('./pages/Admin'));
-import { hasSkippedSetupForSession, useSetupStatus } from './hooks/useSetupStatus';
+const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'));
+const AdminOps = lazy(() => import('./pages/admin/AdminOps'));
+const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
+const AdminFeedback = lazy(() => import('./pages/admin/AdminFeedback'));
+const AdminIncidents = lazy(() => import('./pages/admin/AdminIncidents'));
+const AdminCommunications = lazy(() => import('./pages/admin/AdminCommunications'));
+
+function AdminChunkSkeleton() {
+  return (
+    <div className="space-y-4">
+      <Skeleton className="h-6 w-36" />
+      <Skeleton className="h-20 rounded-xl" />
+      <Skeleton className="h-56 rounded-xl" />
+      <Skeleton className="h-56 rounded-xl" />
+    </div>
+  );
+}
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -77,7 +94,14 @@ export default function App() {
                 <Route path="history" element={<Suspense fallback={null}><History /></Suspense>} />
                 <Route path="science" element={<Suspense fallback={null}><Science /></Suspense>} />
                 <Route path="settings" element={<Suspense fallback={null}><SettingsPage /></Suspense>} />
-                <Route path="admin" element={<Suspense fallback={null}><Admin /></Suspense>} />
+                <Route path="admin" element={<Suspense fallback={<AdminChunkSkeleton />}><AdminLayout /></Suspense>}>
+                  <Route index element={<Navigate to="ops" replace />} />
+                  <Route path="ops" element={<Suspense fallback={<AdminChunkSkeleton />}><AdminOps /></Suspense>} />
+                  <Route path="users" element={<Suspense fallback={<AdminChunkSkeleton />}><AdminUsers /></Suspense>} />
+                  <Route path="feedback" element={<Suspense fallback={<AdminChunkSkeleton />}><AdminFeedback /></Suspense>} />
+                  <Route path="incidents" element={<Suspense fallback={<AdminChunkSkeleton />}><AdminIncidents /></Suspense>} />
+                  <Route path="communications" element={<Suspense fallback={<AdminChunkSkeleton />}><AdminCommunications /></Suspense>} />
+                </Route>
               </Route>
             </Routes>
           </BrowserRouter>

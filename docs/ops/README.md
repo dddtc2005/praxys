@@ -19,7 +19,7 @@ diagnose X". It complements — and links out to — the setup-oriented
 | [deploy.md](./deploy.md) | You're deploying the backend, frontend, or mini program — or need to roll back. |
 | [org-migration.md](./org-migration.md) | Migrating the repos from `dddtc2005` into the `praxys-run` org (OIDC pre-stage, App reinstall, tokens). |
 | [monitoring-and-alerts.md](./monitoring-and-alerts.md) | You want to query a telemetry signal or wire an email/Teams alert. |
-| [admin-tasks.md](./admin-tasks.md) | You're doing an in-app admin task: invitations, roles, demo accounts, announcements, feedback triage. |
+| [admin-tasks.md](./admin-tasks.md) | You're using `/admin/ops` or a focused admin route for health, incidents, users, feedback, or communications. |
 | [setup-github-app.md](./setup-github-app.md) | Setting up feedback → GitHub issue filing (GitHub App auth — no token to rotate). |
 | [change-loop.md](./change-loop.md) | Operating the change loop (Loop A): the `agent-ready` label that hands a qualifying bug to the Copilot coding agent. |
 | [incident-response.md](./incident-response.md) | The app is down / erroring and you need first-response triage. |

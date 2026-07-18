@@ -121,12 +121,18 @@ def _probe_sync() -> str:
     return "operational" if scheduler_running() else "degraded_performance"
 
 
-def _components(db: Session) -> list[dict]:
-    return [
+def component_health_snapshot(db: Session) -> dict:
+    """Return live component health without reading incident records."""
+    components = [
         {"key": "api", "name": "API", "status": "operational"},
         {"key": "database", "name": "Database", "status": _probe_database(db)},
         {"key": "sync", "name": "Background Sync", "status": _probe_sync()},
     ]
+    severities = [_COMPONENT_SEVERITY.get(c["status"], 0) for c in components]
+    return {
+        "overall": _SEVERITY_TO_OVERALL.get(max(severities, default=0), "operational"),
+        "components": components,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -175,7 +181,8 @@ def get_status(db: Session = Depends(get_db)) -> dict:
     """
     from db.models import ServiceIncident
 
-    components = _components(db)
+    component_snapshot = component_health_snapshot(db)
+    components = component_snapshot["components"]
 
     active: list = []
     try:

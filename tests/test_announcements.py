@@ -78,6 +78,39 @@ def test_deactivate_hides_from_users(db_with_admin):
     assert len(visible) == 0
 
 
+def test_admin_list_includes_inactive_and_requires_admin(db_with_admin):
+    from api.routes.announcements import (
+        AnnouncementCreate,
+        AnnouncementUpdate,
+        create_announcement,
+        list_admin_announcements,
+        update_announcement,
+    )
+    from fastapi import HTTPException
+
+    db, admin_id, user_id = db_with_admin
+    announcement = create_announcement(
+        AnnouncementCreate(title="Maintenance", body="Scheduled."),
+        user_id=admin_id,
+        db=db,
+    )
+    update_announcement(
+        announcement["id"],
+        AnnouncementUpdate(is_active=False),
+        user_id=admin_id,
+        db=db,
+    )
+
+    rows = list_admin_announcements(user_id=admin_id, db=db)
+    assert len(rows) == 1
+    assert rows[0]["is_active"] is False
+
+    with pytest.raises(HTTPException) as exc:
+        list_admin_announcements(user_id=user_id, db=db)
+    assert exc.value.status_code == 403
+
+
+
 def test_delete_announcement(db_with_admin):
     from api.routes.announcements import create_announcement, delete_announcement, get_announcements
     from api.routes.announcements import AnnouncementCreate

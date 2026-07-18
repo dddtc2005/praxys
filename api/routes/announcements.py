@@ -107,6 +107,20 @@ def get_announcements(
 # Admin CRUD
 # ---------------------------------------------------------------------------
 
+
+@router.get("/admin/announcements")
+def list_admin_announcements(
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    """Return all announcements, including inactive rows. Admin only."""
+    require_admin(user_id, db)
+    from db.models import SystemAnnouncement
+
+    rows = db.query(SystemAnnouncement).order_by(SystemAnnouncement.created_at.desc()).all()
+    return [_serialize(row) for row in rows]
+
+
 class AnnouncementCreate(BaseModel):
     """Payload for creating a system announcement."""
     title: str

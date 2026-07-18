@@ -6,6 +6,7 @@ const API_BASE = import.meta.env.VITE_API_URL || '';
 interface UseApiResult<T> {
   data: T | null;
   loading: boolean;
+  stale: boolean;
   error: string | null;
   refetch: () => Promise<void>;
 }
@@ -29,18 +30,32 @@ function getAuthHeaders(): HeadersInit {
   return {};
 }
 
-async function apiFetcher<T>(url: string): Promise<T> {
+async function apiFetch(url: string, init: RequestInit = {}): Promise<Response> {
   const fullUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
-  const res = await fetch(fullUrl, {
-    headers: getAuthHeaders(),
+  const headers = new Headers(init.headers);
+  new Headers(getAuthHeaders()).forEach((value, key) => {
+    if (!headers.has(key)) headers.set(key, value);
   });
+  const res = await fetch(fullUrl, { ...init, headers });
   if (res.status === 401) {
     removeCompatItem(KEYS.authToken.new, KEYS.authToken.legacy);
     window.location.href = '/login';
-    // Return a never-resolving promise to prevent React Query from
-    // retrying or surfacing an error flash during the redirect.
-    return new Promise<T>(() => {});
+    // Return a never-resolving promise to prevent callers from updating stale UI
+    // while the hard redirect clears the in-memory query cache.
+    return new Promise<Response>(() => {});
   }
+  const requestPath = new URL(fullUrl, window.location.origin).pathname;
+  if (res.status === 403 && requestPath.startsWith('/api/admin/')) {
+    removeCompatItem(KEYS.authAdmin.new, KEYS.authAdmin.legacy);
+    window.location.href = '/today';
+    // A full reload refreshes /api/auth/me and drops all cached admin data.
+    return new Promise<Response>(() => {});
+  }
+  return res;
+}
+
+async function apiFetcher<T>(url: string): Promise<T> {
+  const res = await apiFetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
@@ -67,10 +82,10 @@ async function extractErrorMessage(res: Response, fallback: string): Promise<str
   return fallback;
 }
 
-export { API_BASE, getAuthHeaders, apiFetcher, extractErrorMessage };
+export { API_BASE, getAuthHeaders, apiFetch, apiFetcher, extractErrorMessage };
 
 export function useApi<T>(url: string, options?: UseApiOptions): UseApiResult<T> {
-  const { data, isLoading, error, refetch } = useQuery<T, Error>({
+  const { data, isLoading, isStale, error, refetch } = useQuery<T, Error>({
     queryKey: [url],
     queryFn: () => apiFetcher<T>(url),
     ...(options?.refetchInterval !== undefined
@@ -88,6 +103,7 @@ export function useApi<T>(url: string, options?: UseApiOptions): UseApiResult<T>
   return {
     data: data ?? null,
     loading: isLoading,
+    stale: isStale,
     error: error?.message ?? null,
     refetch: async () => { await refetch(); },
   };

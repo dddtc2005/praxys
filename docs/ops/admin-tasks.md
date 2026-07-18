@@ -1,8 +1,8 @@
 # Admin tasks
 
-> **Summary:** In-app operational tasks for a Praxys admin (superuser).
-> **Use when:** Managing users, invitations, demo accounts, announcements, or
-> triaging feedback.
+> **Summary:** The admin operations console and focused management workflows.
+> **Use when:** Checking health and attention queues, or managing users, incidents,
+> feedback, invitations, demo accounts, and announcements.
 
 ## Who is an admin
 
@@ -11,12 +11,42 @@ admin automatically. The address in `PRAXYS_ADMIN_EMAIL` is always granted admin
 on register. Everyone else needs an invitation code — unless **self-registration** is open (see Registration below). All `/api/admin/*` endpoints
 enforce `require_admin` (403 otherwise) — see `api/views.py`.
 
-Most tasks have a UI on the **Admin** page (`/admin`); the API equivalents are
-listed for scripting.
+The web-only admin console is split into focused routes. `/admin` redirects to the
+operations overview:
+
+- `/admin/ops` — attention queue, live service health, and aggregate usage context
+- `/admin/users` — registration, seats, users, invitations, waitlist, demo accounts
+- `/admin/feedback` — feedback triage and GitHub reconciliation
+- `/admin/incidents` — public-status incident management
+- `/admin/communications` — system announcements
+
+The API equivalents are listed below for scripting.
+
+## Operations overview
+
+Open `/admin/ops` for the first-response view. The
+`GET /api/admin/ops/summary?window=24h|7d|28d` endpoint returns aggregate-only
+sections with an explicit `source`, `window`, `freshness`, and `as_of` value:
+
+- **Needs attention:** active incident counts and actionable feedback counts,
+  including critical/high priority totals.
+- **Service health:** live API, database, and background-sync component probes.
+- **Product value:** registered users plus DAU/WAU/MAU based on authenticated
+  request activity. These are labeled **directional**.
+- **Azure alerts and platform health:** explicitly `unavailable` in Phase 1 while
+  the telemetry trust boundary in [#417](https://github.com/praxys-run/praxys/issues/417)
+  remains open. Use [monitoring-and-alerts.md](./monitoring-and-alerts.md) for the
+  source-of-truth KQL and alert inventory.
+
+The response never contains emails, raw user IDs, invitation codes, feedback
+text/screenshots, or Coach comments. DB-backed sections fail independently, so an
+unavailable summary block does not disable the focused management routes. The
+endpoint is admin-only and returns `Cache-Control: private, no-store`; future
+Azure-backed subsections will own their short server-side cache.
 
 ## Invitations
 
-- UI: Admin → generate / copy / revoke codes.
+- UI: `/admin/users` → **Invitation codes** → generate / copy / revoke codes.
 - API: `POST /api/admin/invitations` (`{note}`) → `{code}`; `GET /api/admin/invitations`;
   `DELETE /api/admin/invitations/{id}`.
 
@@ -24,7 +54,7 @@ listed for scripting.
 
 Praxys is invitation-only by default. To let people sign up without a code:
 
-- UI: **Admin → Registration** → toggle **Self-registration** on and set the
+- UI: `/admin/users` → **Registration** → toggle **Self-registration** on and set the
   **seat cap**. The public login page then shows a "Create account" path; new
   code-less sign-ups must **verify their email** (requires SMTP — see below)
   before they can log in.
@@ -48,7 +78,7 @@ copy/email by hand.
 ## Waitlist → invite
 
 Prospective users who joined the waitlist (login page, or the WeChat mini program)
-appear in **Admin → Waitlist**.
+appear in `/admin/users` → **Waitlist**.
 
 - **Invite** a row → generates a 14-day invitation code, marks the row, and emails
   the code + a prefilled register link (if SMTP is configured; otherwise copy the
@@ -70,8 +100,8 @@ appear in **Admin → Waitlist**.
 
 ## System announcements
 
-- UI: Admin → Announcements (site-wide banners; `info`/`warning`/`success`).
-- API: `POST/PATCH/DELETE /api/admin/announcements`; users read `GET /api/announcements`.
+- UI: `/admin/communications` → **System announcements** (site-wide banners; `info`/`warning`/`success`).
+- API: `GET/POST/PATCH/DELETE /api/admin/announcements`; users read active rows from `GET /api/announcements`.
 - Bilingual (#355): fill the **Default (English)** fields (the fallback) and,
   optionally, the **中文** fields. Content is stored as an English base plus a
   per-locale `translations` override (`{"zh": {title, body, link_text}}`); a user
@@ -81,7 +111,7 @@ appear in **Admin → Waitlist**.
 
 ## Feedback triage
 
-In-app bug reports / feature requests land in **Admin → User Feedback**
+In-app bug reports / feature requests land in `/admin/feedback`
 (badge shows the count needing attention). The list defaults to **Active**
 tickets — use the status filter to view **All** or a single status
 (`resolved`, `rejected`, …). During AI triage each ticket is also assigned a
@@ -113,4 +143,4 @@ To get emailed when something needs review, wire the alert in
 - [monitoring-and-alerts.md](./monitoring-and-alerts.md) · `api/routes/admin.py` · `api/routes/announcements.py`
 
 ---
-_Last reviewed: 2026-07-07 · Owner: @dddtc2005_
+_Last reviewed: 2026-07-17 · Owner: @dddtc2005_

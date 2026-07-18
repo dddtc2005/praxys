@@ -133,11 +133,15 @@ export default function AppSidebar() {
   // Configuration: the user adjusts the system here (rare, deliberate).
   const configItems: NavItem[] = [
     { to: '/settings', icon: Settings, label: t`Settings` },
-    ...(isAdmin ? [{ to: '/admin', icon: ShieldCheck, label: t`Admin`, badge: pendingFeedback || undefined }] : []),
+    ...(isAdmin ? [{ to: '/admin/ops', icon: ShieldCheck, label: t`Admin`, badge: pendingFeedback || undefined }] : []),
   ];
 
   const isActive = (to: string) =>
-    to === '/today' ? location.pathname === '/today' : location.pathname.startsWith(to);
+    to === '/today'
+      ? location.pathname === '/today'
+      : to === '/admin/ops'
+        ? location.pathname.startsWith('/admin')
+        : location.pathname.startsWith(to);
 
   // Setup is shown as a dashed-border callout row above the active cluster
   // when onboarding is incomplete, instead of replacing the Today slot.
