@@ -47,8 +47,6 @@ intentional processes, ask before killing them.
 ### 2. Reset the DB and seed sample data
 
 ```bash
-# trainsight.db is blocked from Edit/Write by the PreToolUse hook.
-# The hook does not gate Bash, so `rm` in the shell works fine.
 rm -f trainsight.db trainsight.db-journal trainsight.db-wal trainsight.db-shm
 python scripts/seed_sample_data.py
 ```
@@ -110,5 +108,3 @@ When the user is done, stop the two background servers. Do not delete
   `85ea764`. Check `/api/sync/status` is responding.
 - **Vite 500 on a specific page**: run `npm run build` in `web/` to
   surface type errors (`tsc -b` runs first in the build script).
-- **Hook blocks a .env edit**: expected. `.env` is protected by
-  `.claude/hooks/block_secrets.py`. Edit it in a plain terminal.

@@ -22,7 +22,8 @@ secret/variable (or the workflow literal) and re-deploy.
 
 | Secret | Purpose | Consumed by |
 |---|---|---|
-| `AZURE_CLIENT_ID` / `AZURE_TENANT_ID` / `AZURE_SUBSCRIPTION_ID` | OIDC login to Azure (no client secret) | all deploy workflows (`azure/login`) |
+| `AZURE_CLIENT_ID` / `AZURE_TENANT_ID` | OIDC login to Azure for deploys (no client secret). Agentic Workflow sources pin the same non-secret identity IDs directly because gh-aw's OIDC engine requires compile-time values. | deploy workflows |
+| `AZURE_SUBSCRIPTION_ID` | Azure subscription targeted by deployment workflows | deploy workflows |
 | `PRAXYS_JWT_SECRET` | JWT signing key | pushed to App Service setting by `deploy-backend.yml` |
 | `PRAXYS_DATABASE_URL` | Postgres DSN (#360). May carry the DB password unless Entra auth is used. **Optional** until cutover; empty = SQLite. | App Service setting (backend) |
 | `WECHAT_MINIAPP_APPID` / `WECHAT_MINIAPP_SECRET` | WeChat Mini Program auth | App Service setting (backend) |
@@ -37,7 +38,7 @@ secret/variable (or the workflow literal) and re-deploy.
 |---|---|---|
 | `VITE_API_URL` (`https://api.praxys.run`) | API base baked into the SPA | `deploy-frontend-appservice.yml` build |
 | `VITE_APPINSIGHTS_CONNECTION_STRING` | Browser RUM | SPA build |
-| `AZURE_AI_ENDPOINT` | Azure OpenAI endpoint for insights/triage | App Service setting + `i18n.yml` |
+| `AZURE_AI_ENDPOINT` | Azure OpenAI endpoint for insights, triage, i18n, and Agentic Workflows. Keep the trailing `/`; the agent workflows append `openai/v1`. | App Service setting + `i18n.yml` + Agentic Workflow `.md` sources |
 | `KEY_VAULT_URL` / `KEY_VAULT_KEY_NAME` | Key Vault + RSA key name | App Service setting |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | App Insights routing | App Service setting |
 | `PRAXYS_FEEDBACK_BLOB_ACCOUNT_URL` (`https://stperftrainsight.blob.core.windows.net`) | Private Blob store for feedback screenshots (keyless via MI) | App Service setting (backend) |

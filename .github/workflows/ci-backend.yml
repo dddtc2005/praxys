@@ -1,16 +1,15 @@
 name: Backend CI
 
-# Pre-merge test gate (issue #361). Runs the backend pytest suite on every PR
-# targeting main so regressions are caught *before* merge — not only at deploy
-# time (deploy-backend.yml runs pytest post-merge, on push to main). This is the
-# safety net for autonomously drafted PRs (the Loop A Copilot coding-agent flow):
-# nothing merges without a green suite.
+# Pre-merge validation gate (issues #361 and #377). Runs backend pytest and the
+# web production build on every PR targeting main so regressions are caught
+# *before* merge — not only by the post-merge deploy workflows. The final
+# `backend-tests` aggregator preserves the existing required-check context while
+# making both suites load-bearing for autonomously drafted PRs.
 #
 # Intentionally has NO `paths:` filter. This job is a *required* status check on
 # main, and a required check that a path filter skips is reported as permanently
-# "pending", which blocks the PR forever. Running the (fast, pip-cached) suite on
-# every PR keeps the gate always-reporting — and means an AI-generated PR that
-# touches *anything* still gets the backend safety net.
+# "pending", which blocks the PR forever. Running both suites on every PR keeps
+# the gate always-reporting and protects cross-surface changes.
 
 on:
   pull_request:
@@ -25,8 +24,8 @@ permissions:
   contents: read
 
 jobs:
-  backend-tests:
-    name: backend-tests
+  python-tests:
+    name: python-tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -42,3 +41,39 @@ jobs:
 
       - name: Run backend tests
         run: python -m pytest tests/ -v
+
+  web-build:
+    name: web-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+
+      - name: Build web bundle
+        working-directory: web
+        run: npm run build
+
+  # Keep this job name stable: branch protection requires `backend-tests`.
+  backend-tests:
+    name: backend-tests
+    if: always()
+    needs: [python-tests, web-build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require backend tests and web build
+        env:
+          PYTHON_RESULT: ${{ needs.python-tests.result }}
+          WEB_RESULT: ${{ needs.web-build.result }}
+        run: |
+          set -euo pipefail
+          test "$PYTHON_RESULT" = "success"
+          test "$WEB_RESULT" = "success"

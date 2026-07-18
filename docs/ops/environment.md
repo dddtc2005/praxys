@@ -39,9 +39,14 @@
   *Key Vault Crypto User* (key wrap/unwrap) and *Monitoring Metrics Publisher*.
   See `api/main.py` (managed-identity wiring) and `.env.example`.
 - **GitHub Actions → Azure:** OIDC federated credentials on `trainsight-cicd`
-  (subjects `repo:praxys-run/praxys:ref:refs/heads/main` and `…:i18n-azure-openai`).
-  No client secret. Moving repos to the `praxys-run` org changes these subjects —
-  see [org-migration.md](./org-migration.md). See
+  (tenant `bd18218b-ffc1-4eef-b717-fb07368336c0`, application
+  `d3deb736-e95d-400e-b5a5-c2f76b23ae25`; subjects
+  `repo:praxys-run/praxys:ref:refs/heads/main` and `…:i18n-azure-openai`).
+  No client secret. The identity also has *Cognitive Services OpenAI User* on the
+  Foundry resource. Agentic Workflows reuse the `main` subject for keyless
+  `gpt-5.4` inference: PR validation completes first, then `workflow_run` starts
+  the agent from the default branch. Moving repos to the `praxys-run` org
+  changes these subjects — see [org-migration.md](./org-migration.md). See
   [config-and-secrets.md](./config-and-secrets.md).
 
 ## Data

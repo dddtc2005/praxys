@@ -20,7 +20,7 @@ a maintainer manually adds `agent-ready`  ────────────�
                           .github/workflows/assign-copilot.yml  ──assigns──▶  Copilot coding agent
                                                                                       │ opens
                                                                                       ▼
-                                                          draft PR ──▶ human review + merge (protected)
+                    draft PR ──▶ agentic observe/review layer ──▶ human review + merge (protected)
 ```
 
 `agent-ready` is the **sole trigger**; a bare issue-open never fires. Triage adds
@@ -140,13 +140,57 @@ your user session) — the token is only needed for the *workflow* to assign.
 So the agent can draft but never ship, protect `main`:
 
 - **Require a pull request before merging** with **at least 1 approving review**.
-- **Require status checks to pass** — the backend-tests check from **#361**
-  (`Run backend pytest on pull requests`). Add it once that workflow has run on a
-  PR so the check name is selectable.
+- **Require status checks to pass** — the `backend-tests` check from
+  `.github/workflows/ci-backend.yml`. It is a stable aggregator that requires both
+  backend pytest and the web production build. Add it once that workflow has run
+  on a PR so the check name is selectable.
 
 ```bash
 gh api repos/praxys-run/praxys/branches/main/protection --jq '{reviews:.required_pull_request_reviews, checks:.required_status_checks}'
 ```
+
+### 5. Operate the GitHub Agentic Workflows layer
+
+The coding agent still owns implementation. Three repository-level
+[GitHub Agentic Workflows](https://github.com/github/gh-aw) add bounded judgment
+around it:
+
+| Source workflow | Trigger | Safe output |
+|---|---|---|
+| `change-loop-outcomes.md` | Weekly or manual | Replaces the previous 30-day outcome report issue, or no-op |
+| `ci-failure-doctor.md` | Failed/timed-out PR validation workflow, or manual | One deduplicated PR diagnosis comment, or no-op |
+| `praxys-invariant-review.md` | Successful `Backend CI` run for a same-repo, open, non-draft PR; or manual dispatch | One Praxys-specific invariant comment, or no-op |
+
+The editable `.md` files and generated `.lock.yml` files both live in
+`.github/workflows/`. The agents run read-only and exchange GitHub's short-lived
+OIDC token for an Azure access token; inference goes to the existing `gpt-5.4`
+deployment through `AZURE_AI_ENDPOINT`. The `trainsight-cicd` identity already
+has `Cognitive Services OpenAI User` on that resource, and these workflows run
+from the default-branch trust subject. This avoids both organization Copilot
+billing and a long-lived model API key.
+
+Repository writes happen only through the declared, capped `safe-outputs`, and
+each workflow also carries per-run and daily AI-credit caps. No-op,
+missing-tool, incomplete-run, and workflow-failure reports remain in Actions
+summaries rather than opening auxiliary repository issues. The workflows reuse
+the same public Azure tenant/application IDs as deployment automation plus the
+`AZURE_AI_ENDPOINT` repository variable; no new secret or PAT is required. Keep
+`AZURE_AI_ENDPOINT` terminated by `/` because the workflow appends `openai/v1`.
+
+Install the authoring CLI, then compile and validate after editing a source file:
+
+```bash
+gh extension install github/gh-aw
+gh aw compile --purge --no-check-update
+gh aw validate --no-check-update
+```
+
+Use the full-repository compile rather than naming individual workflows so stale
+generated workflows are removed.
+
+Do not run `gh aw init` over this repository without reviewing its changes: the
+repo already has a purpose-built `copilot-setup-steps.yml`, and generic
+initialization must not overwrite its Python/Node test environment.
 
 ## Tuning the agent (quality knobs)
 
@@ -239,6 +283,30 @@ and the cost is low).
 - A **feature**, a **not-actionable** bug, a `backlog`/`later` bug, or a
   `needs_review`/sensitive report is never auto-assigned.
 - Shadow mode on → no label is applied, but the decision is logged.
+- A web build failure makes the required `backend-tests` aggregator fail even
+  when pytest passes.
+- `gh aw validate` succeeds.
+- From `main`, a manual invariant review reaches Azure OpenAI through OIDC:
+
+  ```bash
+  gh workflow run praxys-invariant-review.lock.yml \
+    --ref main \
+    -f pr_number=<PR_NUMBER>
+  ```
+
+- A trial run operates in a temporary private repository and does not mutate the
+  live repo:
+
+Resolve the source to an absolute path before `gh aw trial`; trial mode changes
+its working directory after cloning the isolated host repository.
+
+```powershell
+$workflow = (Resolve-Path .github\workflows\praxys-invariant-review.md).Path
+gh aw trial $workflow `
+  --clone-repo praxys-run/praxys `
+  --append "TRIAL CONTEXT (trusted operator input): review pull request 429 in praxys-run/praxys. Keep all safe outputs in trial capture mode." `
+  --delete-host-repo-after
+```
 
 ```bash
 gh run list --workflow=assign-copilot.yml -R praxys-run/praxys --limit 5
@@ -250,17 +318,24 @@ gh run list --workflow=assign-copilot.yml -R praxys-run/praxys --limit 5
   Disable`) or delete `.github/workflows/assign-copilot.yml`. Triage still *adds*
   the label, but nothing acts on it. Or set `PRAXYS_AGENT_READY_SHADOW=true` to
   stop tagging without disabling anything.
+- **Pause only the observer layer:** disable the relevant generated
+  `.lock.yml` workflow in Actions. To remove it permanently, delete both its
+  source `.md` and generated `.lock.yml`; the assignment/coding flow continues.
 - **Un-assign Copilot:** `gh issue edit <n> --remove-assignee copilot-swe-agent`
   and remove the `agent-ready` label.
 
 ## Related
 
 - Trigger source: `api/feedback_triage.py` (`_qualifies_for_agent`, `_agent_ready_shadow`).
-- Workflows: `.github/workflows/assign-copilot.yml`, `.github/workflows/copilot-setup-steps.yml`.
+- Workflows: `.github/workflows/assign-copilot.yml`,
+  `.github/workflows/copilot-setup-steps.yml`,
+  `.github/workflows/change-loop-outcomes.md`,
+  `.github/workflows/ci-failure-doctor.md`,
+  `.github/workflows/praxys-invariant-review.md`.
 - Agent guidance: `.github/copilot-instructions.md`.
 - Secrets / flags: [config-and-secrets.md](./config-and-secrets.md) (`COPILOT_ASSIGN_TOKEN`, `PRAXYS_AGENT_READY_SHADOW`).
 - Issue-filing setup: [setup-github-app.md](./setup-github-app.md).
 - Design: praxys-run/praxys#362 (the change loop); #361 (backend pytest gate); #377 (self-improvement).
 
 ---
-_Last reviewed: 2026-07-05 · Owner: @dddtc2005_
+_Last reviewed: 2026-07-18 · Owner: @dddtc2005_

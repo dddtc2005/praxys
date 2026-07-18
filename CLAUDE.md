@@ -247,7 +247,7 @@ For **production operations** (deploy, config & secrets, monitoring & alerts, ad
 
 ## Claude Code Automations
 
-Automations live in `.claude/` and are committed so every contributor using Claude Code sees the same behavior. See `.claude/settings.json` for hooks (block edits to secrets; run pytest on Python changes; run ESLint on web TS changes), `.claude/agents/` for subagents (`science-reviewer`, `metric-addition-reviewer`, `api-contract-reviewer` — all read-only), and `.claude/skills/` for dev-workflow skills.
+Automations live in `.claude/` and are committed so every contributor using Claude Code sees the same behavior. See `.claude/settings.json` for post-edit hooks (run pytest on Python changes; run ESLint on web TS changes), `.claude/agents/` for subagents (`science-reviewer`, `metric-addition-reviewer`, `api-contract-reviewer` — all read-only), and `.claude/skills/` for dev-workflow skills.
 
 ## AI Skills
 

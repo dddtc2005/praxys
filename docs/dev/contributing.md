@@ -167,8 +167,7 @@ When making changes, update the relevant docs:
 
 The repo ships committed Claude Code automations in `.claude/`. Full inventory is in `CLAUDE.md` under "Claude Code Automations". Quick reference:
 
-- **Hooks** run automatically on every `Edit`/`Write`:
-  - `.claude/hooks/block_secrets.py` (PreToolUse) — refuses to touch `.env` / `.env.*`, `trainsight.db` + SQLite companions, or anything under `data/{garmin,stryd,oura}/`. Fails closed on malformed payloads or unknown tool names. If you genuinely need to edit one of these, do it in a plain terminal.
+- **Post-edit hooks** run automatically after every `Edit`/`Write`:
   - `.claude/hooks/pytest_on_py.py` (PostToolUse, `.py` files) — runs pytest via the project venv with fail-fast and surfaces failures to Claude via stderr + exit 2.
   - `.claude/hooks/web_lint.py` (PostToolUse, `.ts(x)` under project `web/`) — per-file ESLint; lint errors go to stderr + exit 2 so Claude sees them and can self-correct.
 - **Reviewer agents** (read-only; auto-triggered by Claude when their description matches the current change, or invoked explicitly via the `Agent` tool / `subagent_type`):
