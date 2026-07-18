@@ -51,6 +51,8 @@ def test_backend_workflow_enforces_server_only_ingestion() -> None:
     assert "forged_browser_probe" in script
     assert "rollback_cutover" in script
     assert "rollback-to-frontend" in script
+    assert "recreate_scheduled_alert" in script
+    assert "del(.createdWithApiVersion)" in script
     assert "praxys-db-health-unhealthy" in script
     assert "wt-praxys-api-health" in script
 

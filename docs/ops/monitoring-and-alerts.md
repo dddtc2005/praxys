@@ -578,8 +578,11 @@ state** — a probe that runs while its alert is disabled pays to watch nothing
 routing, scheduled-query scopes, API web-test hidden link, and metric-alert
 component if any step fails. For an operator-requested reverse migration,
 `rollback-to-frontend` moves the same complete set back to `appi-trainsight`.
-Alerts are otherwise non-destructive — disable or delete the rule to stop
-notifications.
+Scheduled-query scopes are immutable in Azure, so both directions preserve the
+full writable rule JSON and delete/recreate each rule under the same name. Each
+replacement is read back and compared before the cutover continues; an
+incomplete rollback exits with a distinct critical failure. Alerts are otherwise
+non-destructive — disable or delete the rule to stop notifications.
 To cut cost, remember the log floor: dropping a log alert below 15 min is the only
 frequency change that saves money; slowing one past 15 min saves nothing. To cut
 noise, tune the window/threshold rather than deleting. Update the inventory table

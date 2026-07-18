@@ -3,6 +3,7 @@ set -Eeuo pipefail
 
 readonly BACKEND_APP_SERVICE="trainsight-app"
 readonly API_WEBTEST_NAME="wt-praxys-api-health"
+readonly SCHEDULED_QUERY_API_VERSION="2026-03-01"
 readonly BACKEND_ALERT_NAMES=(
   "praxys-db-health-unhealthy"
   "praxys-feedback-needs-review"
@@ -24,7 +25,9 @@ require_env() {
 }
 
 ids_equal() {
-  [[ "${1,,}" == "${2,,}" ]]
+  local left="${1//$'\r'/}"
+  local right="${2//$'\r'/}"
+  [[ "${left,,}" == "${right,,}" ]]
 }
 
 component_id() {
@@ -123,6 +126,154 @@ verify_anonymous_ingestion_rejected() {
     401|403) return 0 ;;
     *) fail "backend accepted anonymous instrumentation-key ingestion (HTTP ${status})" ;;
   esac
+}
+
+scheduled_alert_url() {
+  printf 'https://management.azure.com%s?api-version=%s' \
+    "$1" "${SCHEDULED_QUERY_API_VERSION}"
+}
+
+scheduled_alert_body() {
+  local source_json="$1"
+  local target_scope="$2"
+
+  jq -S -c \
+    --arg scope "${target_scope}" \
+    '
+      def writable_identity:
+        if . == null then null
+        else {
+          type,
+          userAssignedIdentities: (
+            if .userAssignedIdentities == null then null
+            else (.userAssignedIdentities | with_entries(.value = {}))
+            end
+          )
+        } | with_entries(select(.value != null))
+        end;
+      {
+        location,
+        tags,
+        kind,
+        identity: (.identity | writable_identity),
+        properties: (
+          .properties
+          | del(.createdWithApiVersion)
+          | .scopes = [$scope]
+        )
+      } | with_entries(select(.value != null))
+    ' <<< "${source_json}"
+}
+
+normalize_scheduled_alert() {
+  jq -S -c '
+    def writable_identity:
+      if . == null then null
+      else {
+        type,
+        userAssignedIdentities: (
+          if .userAssignedIdentities == null then null
+          else (.userAssignedIdentities | with_entries(.value = {}))
+          end
+        )
+      } | with_entries(select(.value != null))
+      end;
+    {
+      location,
+      tags,
+      kind,
+      identity: (.identity | writable_identity),
+      properties: (.properties | del(.createdWithApiVersion))
+    } | with_entries(select(.value != null))
+  '
+}
+
+is_resource_not_found() {
+  grep -Eqi 'ResourceNotFound|Not Found|status.?404|HTTP 404' <<< "$1"
+}
+
+delete_scheduled_alert() {
+  local alert_id="$1"
+  local output
+
+  if ! output="$(az rest \
+    --method delete \
+    --url "$(scheduled_alert_url "${alert_id}")" \
+    --output none 2>&1)"; then
+    if is_resource_not_found "${output}"; then
+      return 0
+    fi
+    echo "${output}" >&2
+    return 1
+  fi
+
+  local attempt
+  for attempt in {1..10}; do
+    if output="$(az rest \
+      --method get \
+      --url "$(scheduled_alert_url "${alert_id}")" \
+      -o json 2>&1)"; then
+      sleep 2
+      continue
+    fi
+    if is_resource_not_found "${output}"; then
+      return 0
+    fi
+    echo "${output}" >&2
+    return 1
+  done
+
+  fail "timed out waiting for scheduled alert deletion: ${alert_id}"
+}
+
+recreate_scheduled_alert() {
+  local alert_id="$1"
+  local source_json="$2"
+  local target_scope="$3"
+  local body output actual_json expected_normalized actual_normalized
+
+  body="$(scheduled_alert_body "${source_json}" "${target_scope}")"
+  delete_scheduled_alert "${alert_id}"
+
+  local attempt
+  for attempt in {1..5}; do
+    if output="$(az rest \
+      --method put \
+      --url "$(scheduled_alert_url "${alert_id}")" \
+      --headers "Content-Type=application/json" \
+      --body "${body}" \
+      --output none 2>&1)"; then
+      break
+    fi
+    if [[ "${attempt}" == "5" ]]; then
+      echo "${output}" >&2
+      return 1
+    fi
+    sleep "$((attempt * 2))"
+  done
+
+  for attempt in {1..10}; do
+    if actual_json="$(az rest \
+      --method get \
+      --url "$(scheduled_alert_url "${alert_id}")" \
+      -o json 2>/dev/null)"; then
+      break
+    fi
+    if [[ "${attempt}" == "10" ]]; then
+      fail "timed out waiting for scheduled alert recreation: ${alert_id}"
+    fi
+    sleep 2
+  done
+
+  expected_normalized="$(normalize_scheduled_alert <<< "${body}")"
+  actual_normalized="$(normalize_scheduled_alert <<< "${actual_json}")"
+  if [[ "${actual_normalized}" != "${expected_normalized}" ]]; then
+    echo "Expected scheduled alert:" >&2
+    jq . <<< "${expected_normalized}" >&2
+    echo "Actual scheduled alert:" >&2
+    jq . <<< "${actual_normalized}" >&2
+    fail "scheduled alert recreation changed behavior: ${alert_id}"
+  fi
 }
 
 backend_preflight() {
@@ -250,21 +401,21 @@ telemetry_cutover() {
     echo "::add-mask::${old_connection_string}"
 
   local -a alert_ids=()
+  local -a old_alert_jsons=()
   local -a old_alert_scopes=()
-  local alert_name alert_id alert_scope scope_count
+  local alert_name alert_id alert_json alert_scope scope_count
   for alert_name in "${BACKEND_ALERT_NAMES[@]}"; do
-    alert_id="$(az monitor scheduled-query show \
+    alert_id="$(az resource show \
       --resource-group "${AZURE_RESOURCE_GROUP}" \
       --name "${alert_name}" \
+      --resource-type Microsoft.Insights/scheduledQueryRules \
       --query id -o tsv)"
-    scope_count="$(az monitor scheduled-query show \
-      --resource-group "${AZURE_RESOURCE_GROUP}" \
-      --name "${alert_name}" \
-      --query "length(scopes)" -o tsv)"
-    alert_scope="$(az monitor scheduled-query show \
-      --resource-group "${AZURE_RESOURCE_GROUP}" \
-      --name "${alert_name}" \
-      --query "scopes[0]" -o tsv)"
+    alert_json="$(az rest \
+      --method get \
+      --url "$(scheduled_alert_url "${alert_id}")" \
+      -o json | jq -c '.')"
+    scope_count="$(jq -r '.properties.scopes | length' <<< "${alert_json}")"
+    alert_scope="$(jq -r '.properties.scopes[0]' <<< "${alert_json}")"
     [[ "${scope_count}" == "1" ]] ||
       fail "${alert_name} must have exactly one Application Insights scope"
     if ! ids_equal "${alert_scope}" "${FRONTEND_AI_ID}" &&
@@ -272,6 +423,7 @@ telemetry_cutover() {
       fail "${alert_name} has an unexpected scope: ${alert_scope}"
     fi
     alert_ids+=("${alert_id}")
+    old_alert_jsons+=("${alert_json}")
     old_alert_scopes+=("${alert_scope}")
   done
 
@@ -337,47 +489,110 @@ telemetry_cutover() {
 
   rollback_cutover() {
     local exit_code=$?
+    local rollback_failed=false
     trap - ERR
     set +e
     echo "Telemetry cutover failed; restoring the prior routing and alert scopes" >&2
 
     if [[ -n "${old_connection_string}" ]]; then
-      az webapp config appsettings set \
+      if ! az webapp config appsettings set \
         --name "${BACKEND_APP_SERVICE}" \
         --resource-group "${AZURE_RESOURCE_GROUP}" \
         --settings \
           APPLICATIONINSIGHTS_CONNECTION_STRING="${old_connection_string}" \
-        --output none
+        --output none; then
+        rollback_failed=true
+      fi
     else
-      az webapp config appsettings delete \
+      if ! az webapp config appsettings delete \
         --name "${BACKEND_APP_SERVICE}" \
         --resource-group "${AZURE_RESOURCE_GROUP}" \
         --setting-names APPLICATIONINSIGHTS_CONNECTION_STRING \
-        --output none
+        --output none; then
+        rollback_failed=true
+      fi
     fi
 
     local index
     for index in "${!alert_ids[@]}"; do
-      az resource update \
-        --ids "${alert_ids[$index]}" \
-        --set "properties.scopes[0]=${old_alert_scopes[$index]}" \
-        --output none
+      if ! recreate_scheduled_alert \
+        "${alert_ids[$index]}" \
+        "${old_alert_jsons[$index]}" \
+        "${old_alert_scopes[$index]}"; then
+        rollback_failed=true
+      fi
     done
 
-    az rest \
+    if ! az rest \
       --method patch \
       --url "https://management.azure.com${api_webtest_id}?api-version=2022-06-15" \
+      --headers "Content-Type=application/json" \
       --body "$(jq -cn \
         --argjson tags "${old_api_webtest_tags}" \
         '{tags: $tags}')" \
-      --output none
-    az resource update \
+      --output none; then
+      rollback_failed=true
+    fi
+    if ! az resource update \
       --ids "${api_alert_id}" \
       --set \
         "properties.scopes[0]=${old_api_alert_scopes[0]}" \
         "properties.scopes[1]=${old_api_alert_scopes[1]}" \
         "properties.criteria.componentId=${old_api_alert_component}" \
-      --output none
+      --output none; then
+      rollback_failed=true
+    fi
+
+    local restored_connection_string
+    if ! restored_connection_string="$(az webapp config appsettings list \
+      --name "${BACKEND_APP_SERVICE}" \
+      --resource-group "${AZURE_RESOURCE_GROUP}" \
+      --query "[?name=='APPLICATIONINSIGHTS_CONNECTION_STRING'].value | [0]" \
+      -o tsv)"; then
+      rollback_failed=true
+    elif [[ "${restored_connection_string}" != "${old_connection_string}" ]]; then
+      echo "Rollback verification failed for backend telemetry routing" >&2
+      rollback_failed=true
+    fi
+
+    local restored_webtest_tags expected_webtest_tags
+    expected_webtest_tags="$(jq -S -c . <<< "${old_api_webtest_tags}")"
+    if ! restored_webtest_tags="$(az resource show \
+      --ids "${api_webtest_id}" \
+      --query tags -o json | jq -S -c '.')"; then
+      rollback_failed=true
+    elif [[ "${restored_webtest_tags}" != "${expected_webtest_tags}" ]]; then
+      echo "Rollback verification failed for ${API_WEBTEST_NAME} hidden-link" >&2
+      rollback_failed=true
+    fi
+
+    local restored_api_alert_json restored_api_component
+    local -a restored_api_scopes=()
+    if ! restored_api_alert_json="$(az monitor metrics alert show \
+      --resource-group "${AZURE_RESOURCE_GROUP}" \
+      --name "${API_WEBTEST_NAME}" \
+      -o json)"; then
+      rollback_failed=true
+    else
+      restored_api_component="$(
+        jq -r '.criteria.componentId' <<< "${restored_api_alert_json}"
+      )"
+      mapfile -t restored_api_scopes < <(
+        jq -r '.scopes[]' <<< "${restored_api_alert_json}"
+      )
+      if [[ "${#restored_api_scopes[@]}" != "2" ]] ||
+         ! ids_equal "${restored_api_scopes[0]}" "${old_api_alert_scopes[0]}" ||
+         ! ids_equal "${restored_api_scopes[1]}" "${old_api_alert_scopes[1]}" ||
+         ! ids_equal "${restored_api_component}" "${old_api_alert_component}"; then
+        echo "Rollback verification failed for ${API_WEBTEST_NAME} metric alert" >&2
+        rollback_failed=true
+      fi
+    fi
+
+    if [[ "${rollback_failed}" == "true" ]]; then
+      echo "CRITICAL: telemetry rollback was incomplete; inspect App Service and alert scopes immediately" >&2
+      exit 70
+    fi
     exit "${exit_code}"
   }
   trap rollback_cutover ERR
@@ -391,10 +606,10 @@ telemetry_cutover() {
 
   local index
   for index in "${!alert_ids[@]}"; do
-    az resource update \
-      --ids "${alert_ids[$index]}" \
-      --set "properties.scopes[0]=${target_ai_id}" \
-      --output none
+    recreate_scheduled_alert \
+      "${alert_ids[$index]}" \
+      "${old_alert_jsons[$index]}" \
+      "${target_ai_id}"
   done
 
   local new_api_webtest_tags
@@ -407,6 +622,7 @@ telemetry_cutover() {
   az rest \
     --method patch \
     --url "https://management.azure.com${api_webtest_id}?api-version=2022-06-15" \
+    --headers "Content-Type=application/json" \
     --body "$(jq -cn \
       --argjson tags "${new_api_webtest_tags}" \
       '{tags: $tags}')" \
@@ -429,10 +645,15 @@ telemetry_cutover() {
     fail "backend App Service telemetry routing does not match ${target_name}"
 
   for alert_name in "${BACKEND_ALERT_NAMES[@]}"; do
-    alert_scope="$(az monitor scheduled-query show \
+    alert_id="$(az resource show \
       --resource-group "${AZURE_RESOURCE_GROUP}" \
       --name "${alert_name}" \
-      --query "scopes[0]" -o tsv)"
+      --resource-type Microsoft.Insights/scheduledQueryRules \
+      --query id -o tsv)"
+    alert_scope="$(az rest \
+      --method get \
+      --url "$(scheduled_alert_url "${alert_id}")" \
+      --query "properties.scopes[0]" -o tsv)"
     ids_equal "${alert_scope}" "${target_ai_id}" ||
       fail "${alert_name} is not scoped to ${target_name}"
   done

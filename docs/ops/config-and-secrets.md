@@ -134,7 +134,11 @@ create `APPLICATIONINSIGHTS_CONNECTION_STRING` or
    when an anonymous forged `praxys.product_event` is sent with the backend
    instrumentation key.
 2. The backend cutover updates the App Service routing plus all backend alert
-   scopes as one rollback-guarded operation.
+   scopes as one rollback-guarded operation. Azure makes scheduled-query scopes
+   immutable, so the helper preserves each full rule definition and recreates
+   it under the same name with the new component scope. Deletion ignores only a
+   confirmed 404; creation retries and then compares the complete normalized
+   rule (criteria, actions, severity, cadence, identity, and tags).
 3. `frontend-resolve` refuses to build unless only the frontend component allows
    local auth, then injects that frontend connection string into Vite.
 
