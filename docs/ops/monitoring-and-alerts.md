@@ -7,21 +7,35 @@
 
 ## Telemetry model
 
-The backend ships traces, request/dependency timings, and Python logs to
-**Application Insights** automatically when `APPLICATIONINSIGHTS_CONNECTION_STRING`
-is set (it is in prod; on App Service the app authenticates via its managed
-identity — see `api/main.py`). Raw user ids are never emitted: custom signals use
-a SHA-256 pseudonym. Product events carry only allowlisted enums and build/surface
-metadata. The one free-text field, an optional Coach-feedback comment, is
-PII/secret-scrubbed, whitespace-collapsed, and truncated to 120 characters before
-it reaches telemetry; the raw comment is never persisted or logged.
+Production has two workspace-linked Application Insights components with
+different trust levels:
+
+| Component | Data | Trust / auth |
+|---|---|---|
+| `appi-trainsight` | Browser page views, exceptions, dependencies, Web Vitals; homepage availability test | Untrusted RUM. Local/instrumentation-key auth is enabled because the connection string ships in the SPA. |
+| `appi-praxys-backend` | API requests/traces/logs, every `praxys.*` signal, backend alerts, API availability test | Trusted server emission. Local auth is disabled; `trainsight-app` must present its managed identity. |
+
+Both write to `log-trainsight`, so a workspace query can see both. The trust
+boundary is the component resource ID: keep alert scopes component-specific and
+filter `_ResourceId` when querying the workspace directly.
+
+The backend ships telemetry automatically when
+`APPLICATIONINSIGHTS_CONNECTION_STRING` is set (it is resolved from
+`appi-praxys-backend` by the deploy workflow; on App Service the SDK
+authenticates via managed identity — see `api/main.py`). Raw user ids are never
+emitted: custom signals use a SHA-256 pseudonym. Product events carry only
+allowlisted enums and build/surface metadata. The one free-text field, an
+optional Coach-feedback comment, is PII/secret-scrubbed, whitespace-collapsed,
+and truncated to 120 characters before it reaches telemetry; the raw comment is
+never persisted or logged.
 
 Custom signals are emitted by `api/telemetry.py`. Each lands as either:
 - a **customEvent** with that name through the required
   `azure-monitor-events-extension` runtime dependency, **or**
 - a **customMetric** counter when the extension is unavailable at runtime.
 
-Queries below `union` both shapes so they remain valid during fallback.
+Queries below `union` both shapes so they remain valid during fallback. All
+custom signals in the table below belong to `appi-praxys-backend`.
 
 ## Signals
 
@@ -49,6 +63,13 @@ Queries below `union` both shapes so they remain valid during fallback.
 
 ## Querying (Logs blade → KQL)
 
+Run backend requests, traces, logs, and `praxys.*` queries from
+`appi-praxys-backend`. Run browser `pageViews`, client exceptions/dependencies,
+and `WebVitals.*` from `appi-trainsight`. There are currently **no live Azure
+Workbook resources**; these checked-in queries are the product-measurement
+source of truth. Any future saved workbook must pin each query to the component
+named above or explicitly use a cross-resource `app(...)` query.
+
 Daily LLM token spend by surface:
 ```kql
 customMetrics
@@ -67,7 +88,8 @@ customMetrics | where name == "praxys.coach_run"
 | extend hit_rate = todouble(hits) / total
 ```
 
-Active users (DAU / WAU) of registered accounts. The SPA tags telemetry with
+In **`appi-trainsight`**, active users (DAU / WAU) of registered accounts. The
+SPA tags telemetry with
 `user_AuthenticatedId` = a SHA-256(user_id)[:16] pseudonym (set on login by
 `web/src/lib/appinsights.ts`, matching `api/telemetry.py::hash_user_id`), so this
 counts distinct *registered* users — not anonymous browsers — and correlates with
@@ -92,11 +114,30 @@ pageViews
 `praxys.product_event` is emitted by both clients through the authenticated
 `POST /api/product-events` endpoint. The server supplies the timestamp and user
 pseudonym; clients may send only the documented event/response enums — never
-health values, recommendation prose, email, OpenID, or raw ids. Because browser
-RUM currently shares the App Insights resource, these analytics are directional
-product signals rather than tamper-resistant audit or billing data; production
-should use a separate backend-only telemetry resource before treating them as
-adversarially trustworthy.
+health values, recommendation prose, email, OpenID, or raw ids. The resulting
+event is emitted only to `appi-praxys-backend`, where local authentication is
+disabled. A browser can call the documented product endpoint, but it cannot use
+an exposed instrumentation key to forge event names, timestamps, user hashes,
+Coach provenance, or arbitrary dimensions in the trusted component.
+
+The cutover occurred on 2026-07-18. Historical product/Coach events in
+`appi-trainsight` remain **legacy shared-ingestion data** and must not be
+silently mixed with trusted data. A continuity workbook may query both
+Application IDs, but keep the trust epoch visible:
+
+```kql
+let trusted = app("066f94a3-a340-498d-9ee1-6f093a7b8911").customEvents
+  | where name in ("praxys.product_event", "praxys.coach_feedback")
+  | extend trust_epoch = "backend_enforced";
+let legacy = app("d10e388f-3a26-4c3d-b57d-d83fc4637a9b").customEvents
+  | where name in ("praxys.product_event", "praxys.coach_feedback")
+  | extend trust_epoch = "legacy_shared";
+union trusted, legacy
+| summarize events=count() by trust_epoch, name, bin(timestamp, 1d)
+```
+
+Run the product and Coach queries below in **`appi-praxys-backend`** for
+post-cutover trusted measurement.
 
 Clients first reserve a two-minute render window through
 `POST /api/product-events/today-feedback-claim`. After the prompt is onscreen,
@@ -292,16 +333,16 @@ Every rule below lives in `rg-trainsight` (region **eastasia**) and routes to th
 `praxys-feedback-ag` action group (→ `support@praxys.run`). Costs are the eastasia
 retail rate per the [cost model](#alert-cost-model) below.
 
-| Rule | Type | Watches | Eval | Sev | ~USD/mo |
-|---|---|---|---|---|---|
-| `praxys-db-health-unhealthy` | log | `praxys.db_health` failure (corrupt/unreachable DB) | 5 min | 1 | **1.50** |
-| `praxys-pg-connections-high` | metric | `praxys-pg` `active_connections` avg > 40 | 5 min | 2 | ~0.10 |
-| `wt-praxys-homepage` | metric (web test) | `https://www.praxys.run/` reachable | 1 min | 1 | ~0.10 |
-| `wt-praxys-api-health` | metric (web test) | `.../api/health` reachable | 1 min | 1 | ~0.10 |
-| `praxys-feedback-needs-review` | log | `praxys.feedback` `status == needs_review` | 15 min | 3 | 0.50 |
-| `praxys-today-latency-regression` | log | `GET /api/today` avg latency > 3000 ms | 1 h | 3 | 0.50 |
-| `praxys-sync-systemic-failures` | log | `praxys.sync` — ≥5 distinct users hit a systemic `failure_class` for one platform / 15 min | 15 min | 2 | 0.50 |
-| `praxys-connect-systemic-failures` | log | `praxys.connection` — ≥5 distinct users fail connect with a systemic class / 15 min | 15 min | 2 | 0.50 |
+| Rule | Type | Scope | Watches | Eval | Sev | ~USD/mo |
+|---|---|---|---|---|---|---|
+| `praxys-db-health-unhealthy` | log | `appi-praxys-backend` | `praxys.db_health` failure (corrupt/unreachable DB) | 5 min | 1 | **1.50** |
+| `praxys-pg-connections-high` | metric | `praxys-pg` | `active_connections` avg > 40 | 5 min | 2 | ~0.10 |
+| `wt-praxys-homepage` | metric (web test) | `appi-trainsight` + homepage test | `https://www.praxys.run/` reachable | 1 min | 1 | ~0.10 |
+| `wt-praxys-api-health` | metric (web test) | `appi-praxys-backend` + API test | `.../api/health` reachable | 1 min | 1 | ~0.10 |
+| `praxys-feedback-needs-review` | log | `appi-praxys-backend` | `praxys.feedback` `status == needs_review` | 15 min | 3 | 0.50 |
+| `praxys-today-latency-regression` | log | `appi-praxys-backend` | `GET /api/today` avg latency > 3000 ms | 1 h | 3 | 0.50 |
+| `praxys-sync-systemic-failures` | log | `appi-praxys-backend` | `praxys.sync` — ≥5 distinct users hit a systemic `failure_class` for one platform / 15 min | 15 min | 2 | 0.50 |
+| `praxys-connect-systemic-failures` | log | `appi-praxys-backend` | `praxys.connection` — ≥5 distinct users fail connect with a systemic class / 15 min | 15 min | 2 | 0.50 |
 
 **Total ≈ 3.5–3.8 USD/mo** (the three metric alerts may fall inside the small free
 allotment, making the effective figure closer to the 3.50 log-alert subtotal).
@@ -314,7 +355,8 @@ platform in 15 min — the distinct-user gate is what separates a fleet-wide bre
 (platform outage, Cloudflare block, a regression like #369) from one user's wrong
 password. Both use the *systemic vs individual* KQL above (with the
 `union (customMetrics),(customEvents)` dual-path), `Count > 0`, and the
-`praxys-feedback-ag` action group.
+`praxys-feedback-ag` action group. `scripts/appinsights_boundary.sh` keeps both
+rules scoped to `appi-praxys-backend` on every backend deployment.
 
 > **Dormant until deploy.** The `praxys.sync` / `praxys.connection` signals ship in
 > the PR that added these rules; until it deploys there is no data, so the rules
@@ -328,9 +370,9 @@ password. Both use the *systemic vs individual* KQL above (with the
 Verify the live state at any time:
 ```bash
 az monitor scheduled-query list -g rg-trainsight \
-  --query "[].{name:name,enabled:enabled,sev:severity,freq:evaluationFrequency,hasAG:length(actions.actionGroups)}" -o table
+  --query "[].{name:name,scope:scopes[0],enabled:enabled,sev:severity,freq:evaluationFrequency,hasAG:length(actions.actionGroups)}" -o table
 az monitor metrics alert list -g rg-trainsight \
-  --query "[].{name:name,enabled:enabled,sev:severity,freq:evaluationFrequency,hasAG:length(actions)}" -o table
+  --query "[].{name:name,scopes:scopes,enabled:enabled,sev:severity,freq:evaluationFrequency,hasAG:length(actions)}" -o json
 ```
 
 ## Alert cost model
@@ -405,7 +447,8 @@ When you add or change a feature, treat monitoring as part of "done":
 ## Create an alert (general recipe)
 
 1. **Application Insights → Monitoring → Alerts → Create → Alert rule.**
-2. **Scope:** the Praxys Application Insights resource (or `praxys-pg` for DB metrics).
+2. **Scope:** `appi-praxys-backend` for server signals,
+   `appi-trainsight` for browser RUM, or `praxys-pg` for DB metrics.
 3. **Condition → Custom log search:** paste a KQL query that returns rows only
    when you want to fire. Measurement = **Number of results**, **> 0**. Choose the
    evaluation frequency with the cost model in mind (15 min is the log floor; go to
@@ -460,7 +503,8 @@ union isfuzzy=true
 
 Recreate it with (collapse the KQL above onto one line as `<KQL>`):
 ```bash
-AI=$(az monitor app-insights component show -g rg-trainsight --query "[0].id" -o tsv)
+AI=$(az resource show -g rg-trainsight -n appi-praxys-backend \
+  --resource-type Microsoft.Insights/components --query id -o tsv)
 AG=$(az monitor action-group show -g rg-trainsight -n praxys-feedback-ag --query id -o tsv)
 az monitor scheduled-query create -g rg-trainsight -n praxys-db-health-unhealthy --scopes "$AI" --condition "count 'q' > 0" --condition-query "q=<KQL>" --evaluation-frequency 5m --window-size 5m --severity 1 --action-groups "$AG"
 ```
@@ -502,7 +546,8 @@ requests
 ```
 
 ```bash
-AI=$(az monitor app-insights component show -g rg-trainsight --query "[0].id" -o tsv)
+AI=$(az resource show -g rg-trainsight -n appi-praxys-backend \
+  --resource-type Microsoft.Insights/components --query id -o tsv)
 AG=$(az monitor action-group show -g rg-trainsight -n praxys-feedback-ag --query id -o tsv)
 az monitor scheduled-query create -g rg-trainsight -n praxys-today-latency-regression --scopes "$AI" --condition "count 'q' > 0" --condition-query "q=<KQL>" --evaluation-frequency 1h --window-size 24h --severity 3 --action-groups "$AG"
 ```
@@ -516,10 +561,10 @@ has an auto-created **metric alert** (Sev 1, `praxys-feedback-ag`) that fires wh
 **≥1 location** reports failure. This is black-box coverage that complements the
 inside-the-process db-health / readiness probes.
 
-| Web test | Target |
-|---|---|
-| `wt-praxys-homepage` | `https://www.praxys.run/` |
-| `wt-praxys-api-health` | `https://trainsight-app.azurewebsites.net/api/health` |
+| Web test | Component | Target |
+|---|---|---|
+| `wt-praxys-homepage` | `appi-trainsight` | `https://www.praxys.run/` |
+| `wt-praxys-api-health` | `appi-praxys-backend` | `https://trainsight-app.azurewebsites.net/api/health` |
 
 Standard web-test execution is **0.00** in eastasia (free grant); the two alerts
 are cheap metric alerts. **Keep each web test and its alert in the same enabled
@@ -529,7 +574,12 @@ state** — a probe that runs while its alert is disabled pays to watch nothing
 
 ## Rollback / Recovery
 
-Alerts are non-destructive — disable or delete the rule to stop notifications.
+`scripts/appinsights_boundary.sh backend-cutover` restores the prior App Service
+routing, scheduled-query scopes, API web-test hidden link, and metric-alert
+component if any step fails. For an operator-requested reverse migration,
+`rollback-to-frontend` moves the same complete set back to `appi-trainsight`.
+Alerts are otherwise non-destructive — disable or delete the rule to stop
+notifications.
 To cut cost, remember the log floor: dropping a log alert below 15 min is the only
 frequency change that saves money; slowing one past 15 min saves nothing. To cut
 noise, tune the window/threshold rather than deleting. Update the inventory table
@@ -541,4 +591,4 @@ after any change.
 - In-app: Admin → User Feedback (badge + Approve/Retry/Reject).
 
 ---
-_Last reviewed: 2026-07-05 · Owner: @dddtc2005 · Alert inventory + cost model current as of this review._
+_Last reviewed: 2026-07-18 · Owner: @dddtc2005 · Alert inventory + cost model current as of this review._

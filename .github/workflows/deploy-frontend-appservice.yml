@@ -14,6 +14,8 @@ on:
     paths:
       - 'web/**'
       - 'frontend_server/**'
+      - 'scripts/appinsights_boundary.sh'
+      - '.github/azure-observability.env'
       - '.github/workflows/deploy-frontend-appservice.yml'
     tags:
       - 'web-*'
@@ -45,6 +47,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+
+      - name: Load observability resource names
+        shell: bash
+        run: cat .github/azure-observability.env >> "$GITHUB_ENV"
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Resolve frontend telemetry resource
+        shell: bash
+        run: bash scripts/appinsights_boundary.sh frontend-resolve
 
       - uses: actions/setup-node@v6
         with:
@@ -78,7 +95,6 @@ jobs:
           npm run build
         env:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
-          VITE_APPINSIGHTS_CONNECTION_STRING: ${{ vars.VITE_APPINSIGHTS_CONNECTION_STRING }}
           VITE_APP_VERSION: ${{ steps.version.outputs.version }}
 
       - name: Stage deploy package
@@ -92,13 +108,6 @@ jobs:
           cp -r web/dist deploy-pkg/web/dist
           cp frontend_server/requirements-frontend.txt deploy-pkg/requirements.txt
           ls -R deploy-pkg | head -50
-
-      - name: Azure Login (OIDC)
-        uses: azure/login@v3
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Deploy to praxys-frontend
         uses: azure/webapps-deploy@v3

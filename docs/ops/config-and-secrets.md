@@ -11,9 +11,10 @@ The backend's App Service **application settings are owned by the deploy
 workflow**, not the portal. `.github/workflows/deploy-backend.yml` → *Sync App
 Service settings* runs `az webapp config appsettings set` on **every deploy**
 with a fixed list sourced from GitHub Actions secrets/variables (plus a few
-literals). **Editing those keys in the Azure Portal is transient — the next
-deploy overwrites them.** To change one permanently, update the GitHub
-secret/variable (or the workflow literal) and re-deploy.
+literals). The Application Insights routing string is the deliberate exception
+to the GitHub-value source: the workflow resolves it directly from the
+backend-only Azure component. **Editing these keys in the Azure Portal is
+transient — the next deploy overwrites them.**
 
 ## Where each thing lives
 
@@ -37,10 +38,8 @@ secret/variable (or the workflow literal) and re-deploy.
 | Variable | Purpose | Consumed by |
 |---|---|---|
 | `VITE_API_URL` (`https://api.praxys.run`) | API base baked into the SPA | `deploy-frontend-appservice.yml` build |
-| `VITE_APPINSIGHTS_CONNECTION_STRING` | Browser RUM | SPA build |
 | `AZURE_AI_ENDPOINT` | Azure OpenAI endpoint for insights, triage, i18n, and Agentic Workflows. Keep the trailing `/`; the agent workflows append `openai/v1`. | App Service setting + `i18n.yml` + Agentic Workflow `.md` sources |
 | `KEY_VAULT_URL` / `KEY_VAULT_KEY_NAME` | Key Vault + RSA key name | App Service setting |
-| `APPLICATIONINSIGHTS_CONNECTION_STRING` | App Insights routing | App Service setting |
 | `PRAXYS_FEEDBACK_BLOB_ACCOUNT_URL` (`https://stperftrainsight.blob.core.windows.net`) | Private Blob store for feedback screenshots (keyless via MI) | App Service setting (backend) |
 | `PRAXYS_FEEDBACK_BLOB_CONTAINER` (`feedback-screenshots`) | Blob container for screenshots | App Service setting (backend) |
 | `PRAXYS_SMTP_HOST` / `PRAXYS_SMTP_PORT` / `PRAXYS_SMTP_USER` / `PRAXYS_SMTP_FROM` / `PRAXYS_SMTP_STARTTLS` | SMTP transport for verification + invitation emails (non-secret; the password is the secret above). **Optional.** | App Service setting (backend) |
@@ -48,11 +47,17 @@ secret/variable (or the workflow literal) and re-deploy.
 | `PRAXYS_DB_AUTH` (`entra` or unset) | Postgres auth mode: `entra` = AAD token via managed identity, no password. **Optional.** | App Service setting (backend) |
 | `PRAXYS_PG_SERVER` | Postgres Flexible Server name. **Reserved / currently unused** - the on-demand backup jobs it gated were removed (Burstable tier can't do on-demand backups; PITR covers backup). Kept for a future off-site backup job. | (reserved) |
 
+Application Insights resource names are tracked in
+`.github/azure-observability.env`, not repository variables. The deploy
+workflows use Azure OIDC to read each component's connection string at runtime;
+the frontend workflow receives only the frontend/RUM value.
+
 ### Azure App Service → Application settings (backend `trainsight-app`)
 Source of truth = `deploy-backend.yml`. Literals set inline: `DATA_DIR=/home/data`,
 `WEBSITES_PORT=8000`, `SCM_DO_BUILD_DURING_DEPLOYMENT=true`,
-`WEBSITE_HTTPLOGGING_RETENTION_DAYS=3`. Everything else comes from the
-secrets/variables above.
+`WEBSITE_HTTPLOGGING_RETENTION_DAYS=3`. `APPLICATIONINSIGHTS_CONNECTION_STRING`
+comes from `appi-praxys-backend` through `scripts/appinsights_boundary.sh`;
+everything else comes from the secrets/variables above.
 
 ### Azure Key Vault (`kv-trainsight`)
 - RSA key `trainsight-master-key` — the master key that wraps the per-user
@@ -65,12 +70,129 @@ Local only; never committed. See [`.env.example`](../../.env.example) for the fu
 annotated list. Minimum: `PRAXYS_LOCAL_ENCRYPTION_KEY` (Fernet); `PRAXYS_ENV=development`
 to boot without a JWT secret.
 
+### Application Insights trust boundary (#417)
+
+Both components store data in `log-trainsight`, but they have separate ingestion
+identities and resource IDs:
+
+| Component | Purpose | Ingestion auth | Exposed to browser |
+|---|---|---|---|
+| `appi-trainsight` | SPA page views, dependencies, exceptions, Web Vitals; homepage availability test | Local/instrumentation-key auth enabled | **Yes** — expected |
+| `appi-praxys-backend` | API requests/traces/logs, `praxys.*` product and Coach signals, backend alerts, API availability test | Entra-only (`DisableLocalAuth=true`) through `trainsight-app` MI | **No** |
+
+The existing `appi-trainsight` instrumentation key was already shipped in
+browser bundles, so it is permanently treated as untrusted RUM ingestion. The
+new backend component was created with a fresh key and immediately locked to
+Entra authentication. Sharing a Log Analytics workspace does not collapse the
+boundary: alerts and queries remain scoped to the component resource ID (or
+filter `_ResourceId` at workspace scope).
+
+#### One-time provisioning
+
+```bash
+RG=rg-trainsight
+WORKSPACE_ID=$(az monitor log-analytics workspace show \
+  -g "$RG" -n log-trainsight --query id -o tsv)
+
+# Existing frontend component: keep local auth enabled for the browser SDK.
+FRONTEND_ID=$(az resource show -g "$RG" -n appi-trainsight \
+  --resource-type Microsoft.Insights/components --query id -o tsv)
+az resource update --ids "$FRONTEND_ID" \
+  --set properties.DisableLocalAuth=false \
+        tags.trustBoundary=frontend \
+        tags.managedBy=deploy-frontend-appservice
+
+# Backend-only component. Safe to re-run if it already exists by skipping create.
+az monitor app-insights component create \
+  -g "$RG" -a appi-praxys-backend -l eastasia \
+  --workspace "$WORKSPACE_ID" --kind web --application-type web
+BACKEND_ID=$(az resource show -g "$RG" -n appi-praxys-backend \
+  --resource-type Microsoft.Insights/components --query id -o tsv)
+az resource update --ids "$BACKEND_ID" \
+  --set properties.DisableLocalAuth=true \
+        tags.trustBoundary=backend \
+        tags.managedBy=deploy-backend
+
+# The deploy identity is RG Contributor and cannot grant RBAC; an operator with
+# role-assignment permission performs this once.
+MI=$(az webapp identity show -g "$RG" -n trainsight-app \
+  --query principalId -o tsv)
+az role assignment create \
+  --assignee-object-id "$MI" \
+  --assignee-principal-type ServicePrincipal \
+  --role "Monitoring Metrics Publisher" \
+  --scope "$BACKEND_ID"
+```
+
+Record only the five non-secret identifiers in
+`.github/azure-observability.env`. Do **not**
+create `APPLICATIONINSIGHTS_CONNECTION_STRING` or
+`VITE_APPINSIGHTS_CONNECTION_STRING` GitHub variables. On every deployment:
+
+1. `backend-preflight` confirms distinct resources, shared workspace linkage,
+   backend local-auth disabled, exact-resource MI RBAC, and a 401/403 response
+   when an anonymous forged `praxys.product_event` is sent with the backend
+   instrumentation key.
+2. The backend cutover updates the App Service routing plus all backend alert
+   scopes as one rollback-guarded operation.
+3. `frontend-resolve` refuses to build unless only the frontend component allows
+   local auth, then injects that frontend connection string into Vite.
+
+#### Verify production
+
+```bash
+set -a
+source .github/azure-observability.env
+set +a
+export GITHUB_ENV=$(mktemp)
+bash scripts/appinsights_boundary.sh backend-preflight
+
+BACKEND_ID=$(az resource show -g "$AZURE_RESOURCE_GROUP" \
+  -n "$BACKEND_APPINSIGHTS_NAME" \
+  --resource-type Microsoft.Insights/components --query id -o tsv)
+az resource show --ids "$BACKEND_ID" \
+  --query "{workspace:properties.WorkspaceResourceId,localAuthDisabled:properties.DisableLocalAuth}" \
+  -o table
+az webapp config appsettings list -g "$AZURE_RESOURCE_GROUP" \
+  -n trainsight-app \
+  --query "[?name=='APPLICATIONINSIGHTS_CONNECTION_STRING'].name" -o tsv
+```
+
+The preflight's forged-event probe is the trust test: HTTP 401/403 proves that a
+browser possessing an instrumentation key cannot place
+`praxys.product_event` or `praxys.coach_feedback` into the backend component.
+The authenticated product API can still accept its documented enum payload,
+but the server owns the telemetry timestamp, pseudonym, provenance, and final
+dimensions.
+
+#### Rollback
+
+`backend-cutover` captures the prior App Service value, scheduled-query scopes,
+web-test link, and metric-alert component. Any failed mutation restores all of
+them automatically. To reverse a successful cutover, pause/revert the backend
+deploy workflow first (otherwise the next deploy re-applies the boundary), then
+run the rollback mode:
+
+```bash
+set -a
+source .github/azure-observability.env
+set +a
+bash scripts/appinsights_boundary.sh rollback-to-frontend
+```
+
+The reverse cutover atomically restores backend routing, all five scheduled
+queries, the API web-test hidden link, and its metric-alert component to
+`appi-trainsight`. It restores the previous shared-resource behavior and
+therefore removes the trust boundary; use it only as temporary telemetry
+recovery while fixing the backend component or RBAC.
+
 ## Adding a NEW backend setting (checklist)
 
 1. Read it in code via `os.environ` / `getenv_compat` (treat unset as a safe default).
 2. Add it to `.env.example` (annotated) for local dev.
 3. Add it to `deploy-backend.yml`: the `env:` block (from `secrets.*` or `vars.*`)
-   **and** the `az webapp config appsettings set` arg list.
+   **and** the `az webapp config appsettings set` arg list. Azure-derived routing
+   values such as Application Insights belong in a deployment helper instead.
 4. If it must be present, add it to the *required-settings* loop; if optional,
    **leave it out** of that loop so an unset value can't fail the deploy.
 5. Create the GitHub secret (sensitive) or variable (non-sensitive).
@@ -235,7 +357,7 @@ outgrown.
 | `PRAXYS_JWT_SECRET` | New `secrets.PRAXYS_JWT_SECRET`, re-deploy backend | **All active sessions invalidated** — every user must log in again. |
 | `WECHAT_MINIAPP_SECRET` | Rotate in mp.weixin.qq.com, update GitHub secret, re-deploy | Mini program auth briefly fails until deploy lands. |
 | `WECHAT_MINIAPP_UPLOAD_KEY` | Regenerate in mp.weixin.qq.com, update GitHub secret | Only affects mini program CI publishing. |
-| `APPLICATIONINSIGHTS_CONNECTION_STRING` | Update variable, re-deploy | Telemetry routes to the new resource. |
+| Frontend/backend Application Insights routing | Provision the replacement component, update `.github/azure-observability.env`, grant backend MI RBAC if needed, and re-deploy | The workflows fetch fresh routing strings directly from Azure; no GitHub value rotates. |
 | Feedback GitHub App key (`PRAXYS_GITHUB_APP_PRIVATE_KEY`) | Generate a new private key on the app, update the secret, re-deploy (rarely needed). Setup: [setup-github-app.md](./setup-github-app.md). | Issue auto-filing dormant until updated; rest of app unaffected. |
 | SMTP auth code (`PRAXYS_SMTP_PASSWORD`) | Regenerate the 客户端授权码 in the Exmail/WeCom mailbox settings, update the GitHub secret, re-deploy. | Verification + invitation emails fail to send until updated (codes can still be copied by hand). |
 | Key Vault RSA key `trainsight-master-key` | ⚠️ **High-impact** — the per-user DEKs were wrapped with the current key; rotating without a re-wrap/re-encrypt migration makes stored platform credentials undecryptable. **TODO(@dddtc2005):** document the re-wrap drill before rotating. | Users would have to reconnect platforms. |
@@ -243,7 +365,8 @@ outgrown.
 ## Related
 
 - [deploy.md](./deploy.md) · [environment.md](./environment.md) · `docs/deployment.md`
-- `.github/workflows/deploy-backend.yml` (source of truth for App Service settings)
+- `.github/workflows/deploy-backend.yml` and `scripts/appinsights_boundary.sh`
+  (source of truth for App Service settings and telemetry routing)
 
 ---
-_Last reviewed: 2026-07-05 · Owner: @dddtc2005_
+_Last reviewed: 2026-07-18 · Owner: @dddtc2005_

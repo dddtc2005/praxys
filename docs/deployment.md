@@ -279,7 +279,11 @@ Repository → Settings → Secrets and variables → Actions → Variables tab.
 | Variable | Value |
 |--------|-------|
 | `VITE_API_URL` | `https://api.praxys.run` |
-| `VITE_APPINSIGHTS_CONNECTION_STRING` | App Insights connection string for browser RUM |
+
+Application Insights routing is not stored in GitHub variables. Both deploy
+workflows load the tracked resource names from `.github/azure-observability.env`
+and fetch the appropriate connection string through Azure OIDC. See
+[`docs/ops/config-and-secrets.md`](ops/config-and-secrets.md#application-insights-trust-boundary-417).
 
 **Setting up OIDC:**
 

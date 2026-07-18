@@ -67,7 +67,7 @@ that ceiling new app logins are refused and every data endpoint 500s.
 ```bash
 az postgres flexible-server show -g rg-trainsight -n praxys-pg --query state -o tsv   # usually "Ready" — it is a client-side connection problem
 az monitor metrics list --resource "$PG" --metric active_connections --interval PT1M --aggregation Maximum --query "value[0].timeseries[0].data[-10:]" -o json   # pegged near 50?
-az monitor app-insights query --app appi-trainsight --analytics-query "exceptions | where timestamp > ago(1h) | where outerMessage has 'remaining connection slots' | count"
+az monitor app-insights query --app appi-praxys-backend --analytics-query "exceptions | where timestamp > ago(1h) | where outerMessage has 'remaining connection slots' | count"
 ```
 
 **Mitigate — in order:**

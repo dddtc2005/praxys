@@ -21,7 +21,9 @@
 | PostgreSQL (**primary DB**, live 2026-07-04) | `praxys-pg` Flexible Server (Burstable B1ms, PG16, DB `praxys`, Entra auth, PITR 14d) | [postgres-migration.md](./postgres-migration.md); `PRAXYS_PG_SERVER` var |
 | Key Vault | `kv-trainsight` (`https://kv-trainsight.vault.azure.net`) | live `KEY_VAULT_URL` |
 | — RSA key | `trainsight-master-key` | live `KEY_VAULT_KEY_NAME` |
-| Application Insights | connection string in app settings; MI-authenticated | `.env.example`, `api/main.py` |
+| Frontend Application Insights | `appi-trainsight` (Application ID `d10e388f-3a26-4c3d-b57d-d83fc4637a9b`; browser/RUM, local auth enabled) | `.github/azure-observability.env` |
+| Backend Application Insights | `appi-praxys-backend` (Application ID `066f94a3-a340-498d-9ee1-6f093a7b8911`; managed-identity ingestion, local auth disabled) | `.github/azure-observability.env`, `scripts/appinsights_boundary.sh` |
+| Log Analytics workspace | `log-trainsight` (shared storage; queries must retain component scope / `_ResourceId`) | `.github/azure-observability.env` |
 | Perf-baseline storage | `stperftrainsight` (RG `rg-trainsight`, East Asia) | `docs/perf-baselines/ci-setup.md` |
 | CI/deploy app registration | `trainsight-cicd` — appId `d3deb736-e95d-400e-b5a5-c2f76b23ae25` (OIDC federated creds `github-deploy`, `i18n`) | live `az ad app` |
 
@@ -34,10 +36,13 @@
 
 ## Identity & auth model
 
-- **App → Key Vault / App Insights:** the backend App Service uses its
+- **App → Key Vault / backend App Insights:** the backend App Service uses its
   **system-assigned managed identity** (no secret in app settings). The MI holds
-  *Key Vault Crypto User* (key wrap/unwrap) and *Monitoring Metrics Publisher*.
-  See `api/main.py` (managed-identity wiring) and `.env.example`.
+  *Key Vault Crypto User* (key wrap/unwrap) and *Monitoring Metrics Publisher*
+  on `appi-praxys-backend`. That component disables local authentication; the
+  public browser connection string points only to `appi-trainsight`.
+  See `api/main.py`, `.github/azure-observability.env`, and
+  `scripts/appinsights_boundary.sh`.
 - **GitHub Actions → Azure:** OIDC federated credentials on `trainsight-cicd`
   (tenant `bd18218b-ffc1-4eef-b717-fb07368336c0`, application
   `d3deb736-e95d-400e-b5a5-c2f76b23ae25`; subjects
@@ -72,4 +77,4 @@
 - `docs/deployment.md` (one-time Azure setup) · `docs/perf-baselines/azure-provisioning.md`
 
 ---
-_Last reviewed: 2026-07-05 · Owner: @dddtc2005_
+_Last reviewed: 2026-07-18 · Owner: @dddtc2005_

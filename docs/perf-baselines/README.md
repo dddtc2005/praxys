@@ -12,7 +12,7 @@ Mainland-China users cross the Great Firewall to hit our Azure East Asia deploym
 |---|---|---|---|
 | **Lab synthetic** | Catch code regressions in controlled conditions | Lighthouse CI in GitHub Actions | On every `web/**` PR (added in a later phase) |
 | **Multi-region synthetic** | Ground truth for each phase's delta | **sitespeed.io** — local Docker for CN probes, ACI on demand for `eastasia` / `westus` / `northeurope` (see runners below); **WebPageTest** as a fallback if sitespeed breaks | Before & after each phase merges |
-| **Production RUM** | Real user experience over time | Azure Application Insights (wired in `api/main.py` + `web/src/lib/appinsights.ts`) | Continuous, once `APPLICATIONINSIGHTS_CONNECTION_STRING` is set |
+| **Production RUM** | Real user experience over time | Frontend Azure Application Insights `appi-trainsight` (`web/src/lib/appinsights.ts`); backend telemetry is isolated in `appi-praxys-backend` | Continuous after the deploy workflows resolve both components |
 
 Azure Availability Tests (cheap URL pings from multiple Azure regions) provide an always-on uptime + TTFB baseline — see [`azure-provisioning.md`](./azure-provisioning.md) to set them up.
 
