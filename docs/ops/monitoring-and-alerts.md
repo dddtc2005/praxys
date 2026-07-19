@@ -70,6 +70,47 @@ Workbook resources**; these checked-in queries are the product-measurement
 source of truth. Any future saved workbook must pin each query to the component
 named above or explicitly use a cross-resource `app(...)` query.
 
+### In-app admin operations read model
+
+`GET /api/admin/ops/summary` reads only aggregate telemetry from
+`appi-praxys-backend`. The backend managed identity has `Monitoring Reader` at
+that exact component scope; it has no workspace-, resource-group-, or
+subscription-wide read grant. The resource ID is deployment-derived as
+`PRAXYS_BACKEND_APPINSIGHTS_RESOURCE_ID` and is removed by the
+`rollback-to-frontend` path.
+
+`api/admin_azure_monitor.py` owns a static allowlist of three KQL queries:
+
+- `requests` + `availabilityResults` for request volume/failures, p95 latency,
+  availability, and `praxys.db_health`;
+- `customEvents` + `customMetrics` for aggregate Today/Decision Check/Coach
+  value signals; and
+- `customEvents` + `customMetrics` for sync reliability, systemic failure
+  clusters (at least five distinct users across systemic failure classes for
+  one platform in 15 minutes), and connection outcomes.
+
+These are Application Insights **resource-context** table aliases, and every
+query also filters `_ResourceId` to the configured backend component. Distinct
+user calculations happen inside KQL; the API never returns pseudonyms, event
+rows, comments, traces, or log bodies. Alert counts come from Azure Alerts
+Management API requests scoped to that exact component resource ID, with
+context and egress content disabled. Selected-window history is merged with
+currently fired alert instances across Azure's full 30-day retention window, so
+a long-running alert cannot produce a false-clear state. Direct PostgreSQL
+connection counts come from aggregate `pg_stat_activity`, not Azure Metrics.
+
+The console refreshes in the browser every minute, but Azure reads are cached
+server-side for three minutes per section and selected window. Product value
+always uses a trailing 28-day query so repeated weekly use is meaningful;
+alerts, service, and platform health follow the selected window. Failed refreshes
+may serve the last good service/platform/alert value for up to 15 minutes and
+product aggregates for up to 60 minutes; failures without a usable snapshot are
+negative-cached for 20 seconds. The three KQL calls run concurrently with an
+8-second server timeout and a 12-second overall deadline, so one slow Azure
+section cannot block the database-backed admin workflows. These on-demand reads
+create no alert-rule charge; Log Analytics cost remains the data scanned within
+the selected `24h`, `7d`, or `28d` range.
+
 Daily LLM token spend by surface:
 ```kql
 customMetrics
@@ -292,23 +333,34 @@ customMetrics
 | order by failures desc
 ```
 
-**Systemic vs individual** — the discriminator. Distinct *affected users* per
-platform for systemic failure classes; a spike here means a platform-side or
-our-side break, not one user's wrong password:
+**Systemic vs individual** — the discriminator. The provisioned sync rule
+counts distinct *affected users* across all systemic failure classes for each
+platform in its 15-minute evaluation window; a spike here means a platform-side
+or our-side break, not one user's wrong password:
 ```kql
-customMetrics
-| where name == "praxys.sync"
-| where timestamp > ago(1h)
-| extend platform = tostring(customDimensions.platform),
-         outcome = tostring(customDimensions.outcome),
-         failure_class = tostring(customDimensions.failure_class),
-         user = tostring(customDimensions.user_id_hash)
+union isfuzzy=true
+  (customMetrics
+   | where name == "praxys.sync"
+   | extend platform=tostring(customDimensions.platform),
+            outcome=tostring(customDimensions.outcome),
+            failure_class=tostring(customDimensions.failure_class),
+            user=tostring(customDimensions.user_id_hash)),
+  (customEvents
+   | where name == "praxys.sync"
+   | extend platform=tostring(customDimensions.platform),
+            outcome=tostring(customDimensions.outcome),
+            failure_class=tostring(customDimensions.failure_class),
+            user=tostring(customDimensions.user_id_hash))
 | where outcome == "failure"
 | where failure_class in ("rate_limited","captcha_required","access_blocked",
         "token_rejected","mfa_unattended","platform_error","network_error","unknown")
-| summarize affected_users = dcount(user), failures = count() by platform, failure_class
-| order by affected_users desc
+| summarize affected_users=dcount(user) by platform
+| where affected_users >= 5
 ```
+
+The admin console applies that same gate to each 15-minute bucket in the
+selected history window, then joins the qualifying platform buckets back to the
+aggregate signal and groups by `platform, failure_class` for diagnosis.
 
 Garmin MFA vs non-MFA connect funnel (last 7d):
 ```kql
@@ -321,11 +373,12 @@ customMetrics
 | summarize attempts = count() by flow, stage, outcome
 ```
 
-> These land in `customMetrics` by default (the OTel-counter fallback). Installing
-> `azure-monitor-events-extension` on the App Service routes them to `customEvents`
-> instead — recommended here, since the systemic-vs-individual signal keys on
-> `dcount(user_id_hash)`: exact and cheap in `customEvents`, but one series per user
-> in `customMetrics`. Swap `customMetrics` → `customEvents` in the queries if enabled.
+> These land in `customMetrics` by default (the OTel-counter fallback).
+> Installing `azure-monitor-events-extension` on the App Service routes them to
+> `customEvents` instead — recommended here, since the
+> systemic-vs-individual signal keys on `dcount(user_id_hash)`: exact and cheap
+> in `customEvents`, but one series per user in `customMetrics`. Production
+> queries union both tables so migration does not create a blind spot.
 
 ## Alert inventory (source of truth)
 
@@ -341,8 +394,8 @@ retail rate per the [cost model](#alert-cost-model) below.
 | `wt-praxys-api-health` | metric (web test) | `appi-praxys-backend` + API test | `.../api/health` reachable | 1 min | 1 | ~0.10 |
 | `praxys-feedback-needs-review` | log | `appi-praxys-backend` | `praxys.feedback` `status == needs_review` | 15 min | 3 | 0.50 |
 | `praxys-today-latency-regression` | log | `appi-praxys-backend` | `GET /api/today` avg latency > 3000 ms | 1 h | 3 | 0.50 |
-| `praxys-sync-systemic-failures` | log | `appi-praxys-backend` | `praxys.sync` — ≥5 distinct users hit a systemic `failure_class` for one platform / 15 min | 15 min | 2 | 0.50 |
-| `praxys-connect-systemic-failures` | log | `appi-praxys-backend` | `praxys.connection` — ≥5 distinct users fail connect with a systemic class / 15 min | 15 min | 2 | 0.50 |
+| `praxys-sync-systemic-failures` | log | `appi-praxys-backend` | `praxys.sync` — ≥5 distinct users hit systemic failure classes for one platform / 15 min | 15 min | 2 | 0.50 |
+| `praxys-connect-systemic-failures` | log | `appi-praxys-backend` | `praxys.connection` — ≥5 distinct users fail connect with systemic classes for one platform / 15 min | 15 min | 2 | 0.50 |
 
 **Total ≈ 3.5–3.8 USD/mo** (the three metric alerts may fall inside the small free
 allotment, making the effective figure closer to the 3.50 log-alert subtotal).
@@ -350,11 +403,12 @@ allotment, making the effective figure closer to the 3.50 log-alert subtotal).
 ### Systemic connection/sync alerts (provisioned)
 
 `praxys-sync-systemic-failures` and `praxys-connect-systemic-failures` (in the table
-above) fire when **≥5 distinct users** hit a *systemic* `failure_class` for one
+above) fire when **≥5 distinct users** hit any *systemic* failure classes for one
 platform in 15 min — the distinct-user gate is what separates a fleet-wide break
 (platform outage, Cloudflare block, a regression like #369) from one user's wrong
-password. Both use the *systemic vs individual* KQL above (with the
-`union (customMetrics),(customEvents)` dual-path), `Count > 0`, and the
+password. The console uses the same platform-level gate, then breaks qualifying
+events back down by failure class for diagnosis. Both rules use the
+`union (customMetrics),(customEvents)` dual-path shown above, `Count > 0`, and the
 `praxys-feedback-ag` action group. `scripts/appinsights_boundary.sh` keeps both
 rules scoped to `appi-praxys-backend` on every backend deployment.
 

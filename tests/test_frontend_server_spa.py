@@ -125,6 +125,27 @@ def test_healthz_endpoint(client):
     assert res.json() == {"ok": True, "service": "praxys-frontend"}
 
 
+def test_healthz_exposes_valid_deployed_commit(fake_dist, tmp_path):
+    deployed_sha = "a" * 40
+    marker = tmp_path / "_deployed_sha.txt"
+    marker.write_text(f"{deployed_sha}\n", encoding="ascii")
+    client = TestClient(
+        create_app(dist_dir=fake_dist, deployed_sha_file=marker)
+    )
+
+    assert client.get("/healthz").json()["deployed_sha"] == deployed_sha
+
+
+def test_healthz_omits_invalid_deployed_commit(fake_dist, tmp_path):
+    marker = tmp_path / "_deployed_sha.txt"
+    marker.write_text("not-a-commit\n", encoding="ascii")
+    client = TestClient(
+        create_app(dist_dir=fake_dist, deployed_sha_file=marker)
+    )
+
+    assert "deployed_sha" not in client.get("/healthz").json()
+
+
 # Security headers — these were emitted by the deleted staticwebapp.config.json
 # globalHeaders block. When the frontend moved off SWA the headers silently
 # disappeared from prod responses; we assert them here so that regression

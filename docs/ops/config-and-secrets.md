@@ -50,14 +50,36 @@ transient — the next deploy overwrites them.**
 Application Insights resource names are tracked in
 `.github/azure-observability.env`, not repository variables. The deploy
 workflows use Azure OIDC to read each component's connection string at runtime;
-the frontend workflow receives only the frontend/RUM value.
+the frontend workflow receives only the frontend/RUM value. The backend helper
+also derives `PRAXYS_BACKEND_APPINSIGHTS_RESOURCE_ID` from the trusted component
+and writes it directly to App Service; it is not a GitHub variable.
+
+When one `main` push triggers both deployment surfaces, `deploy-backend.yml`
+waits for every active frontend production run to settle, then verifies the
+`deployed_sha` returned by the live `praxys-frontend` `/healthz` endpoint before
+backend cutover. The frontend package contains
+`frontend_server/_deployed_sha.txt`, generated from `GITHUB_SHA` during staging,
+so the value comes from the code actually serving production rather than
+workflow-list ordering. Rerunning a pre-marker historical workflow exposes no
+SHA and therefore cannot masquerade as a compatible deployment.
+Accepting a newer descendant handles GitHub's replacement of pending concurrency
+runs when a frontend-only push follows closely. The required commit is the
+latest frontend-triggering change in the backend SHA's first-parent history, so
+a later backend-only push still waits for an earlier combined change. The new
+frontend remains compatible with the Phase 1 API, so this frontend-first
+ordering prevents an older bundle from hiding newly available alert and
+platform aggregates during rollout.
+Each workflow also serializes every production deployment, including `main`
+pushes and release tags, without cancelling the active run. A newer run remains
+queued and deploys last, so an older package cannot overwrite it.
 
 ### Azure App Service → Application settings (backend `trainsight-app`)
 Source of truth = `deploy-backend.yml`. Literals set inline: `DATA_DIR=/home/data`,
 `WEBSITES_PORT=8000`, `SCM_DO_BUILD_DURING_DEPLOYMENT=true`,
 `WEBSITE_HTTPLOGGING_RETENTION_DAYS=3`. `APPLICATIONINSIGHTS_CONNECTION_STRING`
-comes from `appi-praxys-backend` through `scripts/appinsights_boundary.sh`;
-everything else comes from the secrets/variables above.
+and `PRAXYS_BACKEND_APPINSIGHTS_RESOURCE_ID` come from
+`appi-praxys-backend` through `scripts/appinsights_boundary.sh`; everything else
+comes from the secrets/variables above.
 
 ### Azure Key Vault (`kv-trainsight`)
 - RSA key `trainsight-master-key` — the master key that wraps the per-user
@@ -87,12 +109,26 @@ Entra authentication. Sharing a Log Analytics workspace does not collapse the
 boundary: alerts and queries remain scoped to the component resource ID (or
 filter `_ResourceId` at workspace scope).
 
+The workspace must keep
+`features.enableLogAccessUsingOnlyResourcePermissions=true`. That setting lets
+the backend query its linked component with exact-resource `Monitoring Reader`
+instead of granting workspace-wide read access; `backend-preflight` rejects
+drift.
+
+The runtime identity is the App Service system-assigned identity unless the
+`trainsight-app` setting `AZURE_CLIENT_ID` names an attached user-assigned
+identity. `backend-preflight` resolves that effective identity and checks both
+roles against it; changing `AZURE_CLIENT_ID` without attaching and granting the
+matching identity blocks deployment.
+
 #### One-time provisioning
 
 ```bash
 RG=rg-trainsight
 WORKSPACE_ID=$(az monitor log-analytics workspace show \
   -g "$RG" -n log-trainsight --query id -o tsv)
+az resource update --ids "$WORKSPACE_ID" \
+  --set properties.features.enableLogAccessUsingOnlyResourcePermissions=true
 
 # Existing frontend component: keep local auth enabled for the browser SDK.
 FRONTEND_ID=$(az resource show -g "$RG" -n appi-trainsight \
@@ -122,7 +158,18 @@ az role assignment create \
   --assignee-principal-type ServicePrincipal \
   --role "Monitoring Metrics Publisher" \
   --scope "$BACKEND_ID"
+az role assignment create \
+  --assignee-object-id "$MI" \
+  --assignee-principal-type ServicePrincipal \
+  --role "Monitoring Reader" \
+  --scope "$BACKEND_ID"
 ```
+
+For a user-assigned identity, first mirror every runtime grant held by the
+system-assigned identity (including Key Vault and PostgreSQL access), attach it
+to `trainsight-app`, set its client ID as the `AZURE_CLIENT_ID` App Service
+setting, and use that identity's `principalId` as `MI` for both monitoring role
+assignments above.
 
 Record only the five non-secret identifiers in
 `.github/azure-observability.env`. Do **not**
@@ -130,15 +177,18 @@ create `APPLICATIONINSIGHTS_CONNECTION_STRING` or
 `VITE_APPINSIGHTS_CONNECTION_STRING` GitHub variables. On every deployment:
 
 1. `backend-preflight` confirms distinct resources, shared workspace linkage,
-   backend local-auth disabled, exact-resource MI RBAC, and a 401/403 response
-   when an anonymous forged `praxys.product_event` is sent with the backend
-   instrumentation key.
+   backend local-auth disabled, exact-resource `Monitoring Metrics Publisher`
+   and `Monitoring Reader` RBAC for the effective runtime managed identity, and
+   a 401/403 response when an anonymous forged `praxys.product_event` is sent
+   with the backend instrumentation key.
 2. The backend cutover updates the App Service routing plus all backend alert
    scopes as one rollback-guarded operation. Azure makes scheduled-query scopes
    immutable, so the helper preserves each full rule definition and recreates
    it under the same name with the new component scope. Deletion ignores only a
    confirmed 404; creation retries and then compares the complete normalized
-   rule (criteria, actions, severity, cadence, identity, and tags).
+   rule (criteria, actions, severity, cadence, identity, and tags). The same
+   transaction writes `PRAXYS_BACKEND_APPINSIGHTS_RESOURCE_ID`, enabling the
+   admin operations console only while the trusted backend boundary is active.
 3. `frontend-resolve` refuses to build unless only the frontend component allows
    local auth, then injects that frontend connection string into Vite.
 
@@ -159,7 +209,13 @@ az resource show --ids "$BACKEND_ID" \
   -o table
 az webapp config appsettings list -g "$AZURE_RESOURCE_GROUP" \
   -n trainsight-app \
-  --query "[?name=='APPLICATIONINSIGHTS_CONNECTION_STRING'].name" -o tsv
+  --query "[?name=='APPLICATIONINSIGHTS_CONNECTION_STRING' || name=='PRAXYS_BACKEND_APPINSIGHTS_RESOURCE_ID'].{name:name,value:value}" \
+  -o table
+MI=$(az webapp identity show -g "$AZURE_RESOURCE_GROUP" -n trainsight-app \
+  --query principalId -o tsv)
+az role assignment list --assignee-object-id "$MI" --scope "$BACKEND_ID" \
+  --query "[?roleDefinitionName=='Monitoring Metrics Publisher' || roleDefinitionName=='Monitoring Reader'].{role:roleDefinitionName,scope:scope}" \
+  -o table
 ```
 
 The preflight's forged-event probe is the trust test: HTTP 401/403 proves that a
@@ -186,9 +242,12 @@ bash scripts/appinsights_boundary.sh rollback-to-frontend
 
 The reverse cutover atomically restores backend routing, all five scheduled
 queries, the API web-test hidden link, and its metric-alert component to
-`appi-trainsight`. It restores the previous shared-resource behavior and
-therefore removes the trust boundary; use it only as temporary telemetry
-recovery while fixing the backend component or RBAC.
+`appi-trainsight`. It also removes
+`PRAXYS_BACKEND_APPINSIGHTS_RESOURCE_ID`, so the in-app admin Azure sections
+become explicitly unavailable rather than reading the untrusted browser
+component. It restores the previous shared-resource behavior and therefore
+removes the trust boundary; use it only as temporary telemetry recovery while
+fixing the backend component or RBAC.
 
 ## Adding a NEW backend setting (checklist)
 

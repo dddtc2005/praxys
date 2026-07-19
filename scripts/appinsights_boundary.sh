@@ -65,6 +65,17 @@ load_boundary_resources() {
     ids_equal "${linked_workspace}" "${WORKSPACE_ID}" ||
       fail "${resource_id} is not linked to ${LOG_ANALYTICS_WORKSPACE}"
   done
+
+}
+
+verify_resource_context_access() {
+  local resource_context_access
+  resource_context_access="$(az monitor log-analytics workspace show \
+    --resource-group "${AZURE_RESOURCE_GROUP}" \
+    --workspace-name "${LOG_ANALYTICS_WORKSPACE}" \
+    --query features.enableLogAccessUsingOnlyResourcePermissions -o tsv)"
+  [[ "${resource_context_access,,}" == "true" ]] ||
+    fail "${LOG_ANALYTICS_WORKSPACE} must allow resource-context log access for exact-resource Monitoring Reader"
 }
 
 write_github_env() {
@@ -278,6 +289,7 @@ recreate_scheduled_alert() {
 
 backend_preflight() {
   load_boundary_resources
+  verify_resource_context_access
 
   az resource update \
     --ids "${BACKEND_AI_ID}" \
@@ -294,18 +306,47 @@ backend_preflight() {
   [[ "${disable_local_auth,,}" == "true" ]] ||
     fail "backend Application Insights local authentication is not disabled"
 
-  local backend_mi_principal publisher_role_count
-  backend_mi_principal="$(az webapp identity show \
+  local identity_json runtime_mi_client_id backend_mi_principal
+  local publisher_role_count reader_role_count
+  identity_json="$(az webapp identity show \
     --resource-group "${AZURE_RESOURCE_GROUP}" \
     --name "${BACKEND_APP_SERVICE}" \
-    --query principalId -o tsv)"
+    -o json)"
+  runtime_mi_client_id="$(az webapp config appsettings list \
+    --resource-group "${AZURE_RESOURCE_GROUP}" \
+    --name "${BACKEND_APP_SERVICE}" \
+    --query "[?name=='AZURE_CLIENT_ID'].value | [0]" \
+    -o tsv)"
+  runtime_mi_client_id="${runtime_mi_client_id//$'\r'/}"
+  if [[ -n "${runtime_mi_client_id}" ]]; then
+    backend_mi_principal="$(jq -r \
+      --arg client_id "${runtime_mi_client_id}" \
+      '[
+        (.userAssignedIdentities // {} | to_entries[] | .value)
+        | select((.clientId // "" | ascii_downcase) == ($client_id | ascii_downcase))
+        | .principalId
+      ][0] // empty' <<< "${identity_json}")"
+    [[ -n "${backend_mi_principal}" ]] ||
+      fail "${BACKEND_APP_SERVICE} AZURE_CLIENT_ID does not match an attached user-assigned managed identity"
+  else
+    backend_mi_principal="$(jq -r '.principalId // empty' <<< "${identity_json}")"
+    [[ -n "${backend_mi_principal}" ]] ||
+      fail "${BACKEND_APP_SERVICE} system-assigned managed identity is disabled"
+  fi
   publisher_role_count="$(az role assignment list \
     --assignee-object-id "${backend_mi_principal}" \
     --scope "${BACKEND_AI_ID}" \
     --query "[?roleDefinitionName=='Monitoring Metrics Publisher'] | length(@)" \
     -o tsv)"
   [[ "${publisher_role_count:-0}" != "0" ]] ||
-    fail "${BACKEND_APP_SERVICE} managed identity lacks Monitoring Metrics Publisher on ${BACKEND_APPINSIGHTS_NAME}; see docs/ops/config-and-secrets.md"
+    fail "${BACKEND_APP_SERVICE} runtime managed identity lacks Monitoring Metrics Publisher on ${BACKEND_APPINSIGHTS_NAME}; see docs/ops/config-and-secrets.md"
+  reader_role_count="$(az role assignment list \
+    --assignee-object-id "${backend_mi_principal}" \
+    --scope "${BACKEND_AI_ID}" \
+    --query "[?roleDefinitionName=='Monitoring Reader'] | length(@)" \
+    -o tsv)"
+  [[ "${reader_role_count:-0}" != "0" ]] ||
+    fail "${BACKEND_APP_SERVICE} runtime managed identity lacks Monitoring Reader on ${BACKEND_APPINSIGHTS_NAME}; see docs/ops/config-and-secrets.md"
 
   local connection_string
   connection_string="$(az resource show \
@@ -362,6 +403,7 @@ telemetry_cutover() {
   local target_ai_id other_ai_id target_connection_string target_name
   case "${target}" in
     backend)
+      verify_resource_context_access
       require_env \
         APPLICATIONINSIGHTS_CONNECTION_STRING \
         FRONTEND_APPINSIGHTS_RESOURCE_ID \
@@ -391,11 +433,16 @@ telemetry_cutover() {
       ;;
   esac
 
-  local old_connection_string
+  local old_connection_string old_admin_resource_id
   old_connection_string="$(az webapp config appsettings list \
     --name "${BACKEND_APP_SERVICE}" \
     --resource-group "${AZURE_RESOURCE_GROUP}" \
     --query "[?name=='APPLICATIONINSIGHTS_CONNECTION_STRING'].value | [0]" \
+    -o tsv)"
+  old_admin_resource_id="$(az webapp config appsettings list \
+    --name "${BACKEND_APP_SERVICE}" \
+    --resource-group "${AZURE_RESOURCE_GROUP}" \
+    --query "[?name=='PRAXYS_BACKEND_APPINSIGHTS_RESOURCE_ID'].value | [0]" \
     -o tsv)"
   [[ -n "${old_connection_string}" ]] &&
     echo "::add-mask::${old_connection_string}"
@@ -512,6 +559,24 @@ telemetry_cutover() {
         rollback_failed=true
       fi
     fi
+    if [[ -n "${old_admin_resource_id}" ]]; then
+      if ! az webapp config appsettings set \
+        --name "${BACKEND_APP_SERVICE}" \
+        --resource-group "${AZURE_RESOURCE_GROUP}" \
+        --settings \
+          PRAXYS_BACKEND_APPINSIGHTS_RESOURCE_ID="${old_admin_resource_id}" \
+        --output none; then
+        rollback_failed=true
+      fi
+    else
+      if ! az webapp config appsettings delete \
+        --name "${BACKEND_APP_SERVICE}" \
+        --resource-group "${AZURE_RESOURCE_GROUP}" \
+        --setting-names PRAXYS_BACKEND_APPINSIGHTS_RESOURCE_ID \
+        --output none; then
+        rollback_failed=true
+      fi
+    fi
 
     local index
     for index in "${!alert_ids[@]}"; do
@@ -543,7 +608,7 @@ telemetry_cutover() {
       rollback_failed=true
     fi
 
-    local restored_connection_string
+    local restored_connection_string restored_admin_resource_id
     if ! restored_connection_string="$(az webapp config appsettings list \
       --name "${BACKEND_APP_SERVICE}" \
       --resource-group "${AZURE_RESOURCE_GROUP}" \
@@ -552,6 +617,16 @@ telemetry_cutover() {
       rollback_failed=true
     elif [[ "${restored_connection_string}" != "${old_connection_string}" ]]; then
       echo "Rollback verification failed for backend telemetry routing" >&2
+      rollback_failed=true
+    fi
+    if ! restored_admin_resource_id="$(az webapp config appsettings list \
+      --name "${BACKEND_APP_SERVICE}" \
+      --resource-group "${AZURE_RESOURCE_GROUP}" \
+      --query "[?name=='PRAXYS_BACKEND_APPINSIGHTS_RESOURCE_ID'].value | [0]" \
+      -o tsv)"; then
+      rollback_failed=true
+    elif ! ids_equal "${restored_admin_resource_id}" "${old_admin_resource_id}"; then
+      echo "Rollback verification failed for admin telemetry routing" >&2
       rollback_failed=true
     fi
 
@@ -597,12 +672,27 @@ telemetry_cutover() {
   }
   trap rollback_cutover ERR
 
-  az webapp config appsettings set \
-    --name "${BACKEND_APP_SERVICE}" \
-    --resource-group "${AZURE_RESOURCE_GROUP}" \
-    --settings \
-      APPLICATIONINSIGHTS_CONNECTION_STRING="${target_connection_string}" \
-    --output none
+  if [[ "${target}" == "backend" ]]; then
+    az webapp config appsettings set \
+      --name "${BACKEND_APP_SERVICE}" \
+      --resource-group "${AZURE_RESOURCE_GROUP}" \
+      --settings \
+        APPLICATIONINSIGHTS_CONNECTION_STRING="${target_connection_string}" \
+        PRAXYS_BACKEND_APPINSIGHTS_RESOURCE_ID="${target_ai_id}" \
+      --output none
+  else
+    az webapp config appsettings set \
+      --name "${BACKEND_APP_SERVICE}" \
+      --resource-group "${AZURE_RESOURCE_GROUP}" \
+      --settings \
+        APPLICATIONINSIGHTS_CONNECTION_STRING="${target_connection_string}" \
+      --output none
+    az webapp config appsettings delete \
+      --name "${BACKEND_APP_SERVICE}" \
+      --resource-group "${AZURE_RESOURCE_GROUP}" \
+      --setting-names PRAXYS_BACKEND_APPINSIGHTS_RESOURCE_ID \
+      --output none
+  fi
 
   local index
   for index in "${!alert_ids[@]}"; do
@@ -635,7 +725,7 @@ telemetry_cutover() {
       "properties.criteria.componentId=${target_ai_id}" \
     --output none
 
-  local live_connection_string
+  local live_connection_string live_admin_resource_id
   live_connection_string="$(az webapp config appsettings list \
     --name "${BACKEND_APP_SERVICE}" \
     --resource-group "${AZURE_RESOURCE_GROUP}" \
@@ -643,6 +733,18 @@ telemetry_cutover() {
     -o tsv)"
   [[ "${live_connection_string}" == "${target_connection_string}" ]] ||
     fail "backend App Service telemetry routing does not match ${target_name}"
+  live_admin_resource_id="$(az webapp config appsettings list \
+    --name "${BACKEND_APP_SERVICE}" \
+    --resource-group "${AZURE_RESOURCE_GROUP}" \
+    --query "[?name=='PRAXYS_BACKEND_APPINSIGHTS_RESOURCE_ID'].value | [0]" \
+    -o tsv)"
+  if [[ "${target}" == "backend" ]]; then
+    ids_equal "${live_admin_resource_id}" "${target_ai_id}" ||
+      fail "admin telemetry resource does not match ${target_name}"
+  else
+    [[ -z "${live_admin_resource_id}" ]] ||
+      fail "admin telemetry resource must be unset outside the trusted backend boundary"
+  fi
 
   for alert_name in "${BACKEND_ALERT_NAMES[@]}"; do
     alert_id="$(az resource show \

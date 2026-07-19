@@ -30,19 +30,28 @@ sections with an explicit `source`, `window`, `freshness`, and `as_of` value:
 
 - **Needs attention:** active incident counts and actionable feedback counts,
   including critical/high priority totals.
-- **Service health:** live API, database, and background-sync component probes.
+- **Service health:** live API, database, and background-sync component probes,
+  PostgreSQL connection pressure, plus trusted request, availability, latency,
+  and database-health telemetry.
 - **Product value:** registered users plus DAU/WAU/MAU based on authenticated
-  request activity. These are labeled **directional**.
-- **Azure alerts and platform health:** explicitly `unavailable` in Phase 1 while
-  the telemetry trust boundary in [#417](https://github.com/praxys-run/praxys/issues/417)
-  remains open. Use [monitoring-and-alerts.md](./monitoring-and-alerts.md) for the
-  source-of-truth KQL and alert inventory.
+  request activity (labeled **directional**), alongside trusted Today reach,
+  Decision Check response/value rates, repeated use, and Coach usefulness.
+  Trusted product telemetry uses a fixed trailing 28-day window so repeated
+  weekly use remains meaningful.
+- **Azure alerts and platform health:** selected-window alert history plus any
+  currently fired retained alert, per-platform sync reliability, systemic
+  failure clusters (at least five distinct users across systemic failure
+  classes for one platform within 15 minutes), and connection outcomes from the
+  trusted `appi-praxys-backend` telemetry boundary.
 
 The response never contains emails, raw user IDs, invitation codes, feedback
-text/screenshots, or Coach comments. DB-backed sections fail independently, so an
-unavailable summary block does not disable the focused management routes. The
-endpoint is admin-only and returns `Cache-Control: private, no-store`; future
-Azure-backed subsections will own their short server-side cache.
+text/screenshots, Coach comments, raw log rows, or trace bodies. Every section
+fails independently, so an unavailable summary block does not disable the
+focused management routes. The endpoint is admin-only and returns
+`Cache-Control: private, no-store`; Azure-backed subsections use a three-minute
+server-side cache with a bounded stale fallback. See
+[monitoring-and-alerts.md](./monitoring-and-alerts.md#in-app-admin-operations-read-model)
+for the read boundary and cache behavior.
 
 ## Invitations
 

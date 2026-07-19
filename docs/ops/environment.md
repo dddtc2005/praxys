@@ -37,10 +37,13 @@
 ## Identity & auth model
 
 - **App → Key Vault / backend App Insights:** the backend App Service uses its
-  **system-assigned managed identity** (no secret in app settings). The MI holds
-  *Key Vault Crypto User* (key wrap/unwrap) and *Monitoring Metrics Publisher*
-  on `appi-praxys-backend`. That component disables local authentication; the
-  public browser connection string points only to `appi-trainsight`.
+  **system-assigned managed identity** today (no secret in app settings). If
+  `AZURE_CLIENT_ID` is configured later, runtime and deployment preflight switch
+  to the matching attached user-assigned identity. The effective MI holds *Key
+  Vault Crypto User* (key wrap/unwrap), *Monitoring Metrics Publisher*, and
+  *Monitoring Reader* on `appi-praxys-backend`. That component disables local
+  authentication; the public browser connection string points only to
+  `appi-trainsight`.
   See `api/main.py`, `.github/azure-observability.env`, and
   `scripts/appinsights_boundary.sh`.
 - **GitHub Actions → Azure:** OIDC federated credentials on `trainsight-cicd`

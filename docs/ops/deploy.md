@@ -8,8 +8,8 @@
 
 | Surface | Workflow | Triggers | Target |
 |---|---|---|---|
-| Backend (API) | `deploy-backend.yml` | push to `main` touching `api/ analysis/ sync/ db/ data/science/ tests/ requirements.txt`; or `api-*` tag | App Service `trainsight-app` |
-| Frontend (SPA) | `deploy-frontend-appservice.yml` | push to `main` touching `web/ frontend_server/`; or `web-*` tag | App Service `praxys-frontend` |
+| Backend (API) | `deploy-backend.yml` | push to `main` touching backend code/tests, observability config/scripts, or the workflow; or `api-*` tag | App Service `trainsight-app` |
+| Frontend (SPA) | `deploy-frontend-appservice.yml` | push to `main` touching the SPA/static server, observability config/scripts, or the workflow; or `web-*` tag | App Service `praxys-frontend` |
 | Mini program | `miniapp-publish.yml` | `miniapp-YYYY.MM.MICRO` release tag (robot 1); `main` pushes auto-publish a dev build (robot 5) | WeChat (`miniprogram-ci`) |
 
 All three authenticate to Azure / WeChat via OIDC or the upload key — no
@@ -22,7 +22,10 @@ passwords. Backend + frontend run their test/build gates **before** deploying.
 Automatic on merge to `main` (for the paths above). The workflow:
 1. Runs `pytest tests/`.
 2. Stamps `api/_build_version.txt`.
-3. OIDC login → **syncs App Service settings** (see [config-and-secrets.md](./config-and-secrets.md)) → `azure/webapps-deploy`.
+3. Waits for a compatible live frontend `deployed_sha`.
+4. Uses OIDC to enforce the telemetry boundary, sync App Service settings (see
+   [config-and-secrets.md](./config-and-secrets.md)), and run
+   `azure/webapps-deploy`.
 
 Force a deploy without a code change: re-run the latest `deploy-backend.yml` run
 (`gh run rerun <id>`), or push an `api-YYYY.MM.MICRO` tag for a versioned release.
@@ -30,7 +33,10 @@ Force a deploy without a code change: re-run the latest `deploy-backend.yml` run
 ## Frontend deploy
 
 Automatic on merge touching `web/`. Builds `web/dist/` with `VITE_API_URL` baked
-in, packages it with `frontend_server/`, deploys to `praxys-frontend`.
+in, packages it with `frontend_server/`, deploys to `praxys-frontend`, then
+bakes `GITHUB_SHA` into the static-server package. `/healthz` returns that
+`deployed_sha`, so re-runs and `web-*` rollbacks report the commit actually
+serving production.
 
 ## Mini program
 

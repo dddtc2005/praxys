@@ -24,6 +24,7 @@ A SPA fallback (404 → index.html) is implemented by subclassing
 mount-based approach preserves Starlette's automatic MIME-type handling
 for static assets — a custom catchall would re-derive types by hand.
 """
+import re
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -35,6 +36,8 @@ from starlette.responses import Response
 # The deploy zip preserves this layout. Tests pass an explicit path to
 # ``create_app(dist_dir=...)`` instead of patching this default.
 _DEFAULT_DIST_DIR = Path(__file__).resolve().parent.parent / "web" / "dist"
+_DEFAULT_DEPLOYED_SHA_FILE = Path(__file__).resolve().with_name("_deployed_sha.txt")
+_COMMIT_SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 
 
 _ASSET_SUFFIXES = (
@@ -46,6 +49,14 @@ _ASSET_SUFFIXES = (
 
 def _looks_like_asset(path: str) -> bool:
     return path.lower().endswith(_ASSET_SUFFIXES)
+
+
+def _read_deployed_sha(path: Path) -> str | None:
+    try:
+        value = path.read_text(encoding="ascii").strip()
+    except (FileNotFoundError, OSError, UnicodeError):
+        return None
+    return value.lower() if _COMMIT_SHA_RE.fullmatch(value) else None
 
 
 class SPAStaticFiles(StaticFiles):
@@ -74,15 +85,21 @@ class SPAStaticFiles(StaticFiles):
             return await super().get_response("index.html", scope)
 
 
-def create_app(dist_dir: Path | None = None) -> FastAPI:
+def create_app(
+    dist_dir: Path | None = None,
+    deployed_sha_file: Path | None = None,
+) -> FastAPI:
     """Build the static-serving FastAPI app rooted at ``dist_dir``.
 
     Factory shape (rather than a module-level singleton) so tests can
     point at a fixture-built dist tree without monkeypatching module
-    state. Production callers use the bare ``app`` object below.
+    state. ``deployed_sha_file`` identifies the package metadata surfaced
+    by ``/healthz``. Production callers use the bare ``app`` object below.
     """
     if dist_dir is None:
         dist_dir = _DEFAULT_DIST_DIR
+    if deployed_sha_file is None:
+        deployed_sha_file = _DEFAULT_DEPLOYED_SHA_FILE
 
     app = FastAPI(title="Praxys Frontend", version="1.0.0")
 
@@ -123,14 +140,21 @@ def create_app(dist_dir: Path | None = None) -> FastAPI:
         return response
 
     @app.get("/healthz")
-    async def healthz() -> dict:
+    async def healthz() -> dict[str, bool | str]:
         """Liveness probe — separate from the backend's ``/api/health``.
 
         App Service's health-check feature (and any external uptime probe)
         can hit this to verify the static container is responding without
         crossing into the API site.
         """
-        return {"ok": True, "service": "praxys-frontend"}
+        payload: dict[str, bool | str] = {
+            "ok": True,
+            "service": "praxys-frontend",
+        }
+        deployed_sha = _read_deployed_sha(deployed_sha_file)
+        if deployed_sha is not None:
+            payload["deployed_sha"] = deployed_sha
+        return payload
 
     # Mount last so the explicit /healthz route above wins. ``html=True``
     # makes ``/`` resolve to ``index.html`` automatically. ``check_dir=False``
