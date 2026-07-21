@@ -73,6 +73,15 @@ Each workflow also serializes every production deployment, including `main`
 pushes and release tags, without cancelling the active run. A newer run remains
 queued and deploys last, so an older package cannot overwrite it.
 
+Backend App Service setting, site-config, and telemetry-cutover writes recycle
+the SCM container. `deploy-backend.yml` therefore waits at least 90 seconds and
+requires three consecutive successful reads from the App Service deployment
+endpoint before invoking ZipDeploy. Do not remove or shorten this settle gate:
+deploying during the recycle is rejected with
+`Deployment has been stopped due to SCM container restart`. Each probe has a
+20-second command timeout and the full gate is capped at eight minutes so a
+stalled SCM endpoint cannot monopolize the serialized production lane.
+
 ### Azure App Service → Application settings (backend `trainsight-app`)
 Source of truth = `deploy-backend.yml`. Literals set inline: `DATA_DIR=/home/data`,
 `WEBSITES_PORT=8000`, `SCM_DO_BUILD_DURING_DEPLOYMENT=true`,

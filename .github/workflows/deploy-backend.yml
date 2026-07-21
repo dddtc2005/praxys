@@ -260,6 +260,37 @@ jobs:
         shell: bash
         run: bash scripts/appinsights_boundary.sh backend-cutover
 
+      - name: Wait for App Service deployment endpoint to settle
+        timeout-minutes: 8
+        shell: bash
+        run: |
+          set -euo pipefail
+          # App-setting and site-config writes recycle the SCM container.
+          # Starting ZipDeploy during that recycle aborts the deployment.
+          sleep 90
+          stable_probes=0
+          for attempt in {1..12}; do
+            deployment_id=""
+            if deployment_id="$(timeout 20s az webapp log deployment list \
+              --name trainsight-app \
+              --resource-group rg-trainsight \
+              --query "[0].id" \
+              -o tsv 2>/dev/null)" &&
+              [[ -n "${deployment_id}" ]]; then
+              stable_probes=$((stable_probes + 1))
+              if (( stable_probes >= 3 )); then
+                echo "App Service deployment endpoint is stable."
+                exit 0
+              fi
+            else
+              stable_probes=0
+            fi
+            echo "Waiting for App Service deployment endpoint (${attempt}/12)."
+            sleep 10
+          done
+          echo "App Service deployment endpoint did not stabilize." >&2
+          exit 1
+
       # NB: no pre-deploy on-demand DB snapshot. praxys-pg is a Burstable-tier
       # Flexible Server, which does not support customer on-demand backups; the
       # server's continuous PITR (14-day) provides the pre-deploy restore point

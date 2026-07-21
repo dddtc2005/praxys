@@ -24,8 +24,14 @@ Automatic on merge to `main` (for the paths above). The workflow:
 2. Stamps `api/_build_version.txt`.
 3. Waits for a compatible live frontend `deployed_sha`.
 4. Uses OIDC to enforce the telemetry boundary, sync App Service settings (see
-   [config-and-secrets.md](./config-and-secrets.md)), and run
+   [config-and-secrets.md](./config-and-secrets.md)).
+5. Waits for the App Service SCM deployment endpoint to remain healthy across
+   three probes after the configuration recycle, then runs
    `azure/webapps-deploy`.
+
+The settle gate is load-bearing: App Service management writes recycle the SCM
+container, and starting ZipDeploy during that recycle aborts the deployment
+with `Deployment has been stopped due to SCM container restart`.
 
 Force a deploy without a code change: re-run the latest `deploy-backend.yml` run
 (`gh run rerun <id>`), or push an `api-YYYY.MM.MICRO` tag for a versioned release.

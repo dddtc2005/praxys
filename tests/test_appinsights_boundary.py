@@ -60,6 +60,12 @@ def test_backend_workflow_enforces_server_only_ingestion() -> None:
     assert "praxys-frontend.azurewebsites.net/healthz" in workflow
     assert ".deployed_sha" in workflow
     assert "Deployed frontend commit is not yet compatible" in workflow
+    assert "Wait for App Service deployment endpoint to settle" in workflow
+    assert "sleep 90" in workflow
+    assert "az webapp log deployment list" in workflow
+    assert "stable_probes >= 3" in workflow
+    assert "timeout-minutes: 8" in workflow
+    assert "timeout 20s az webapp" in workflow
     assert "group: deploy-backend-production" in workflow
     assert "cancel-in-progress: false" in workflow
     assert "Monitoring Metrics Publisher" in script
