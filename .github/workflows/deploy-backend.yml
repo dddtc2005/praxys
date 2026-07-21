@@ -20,6 +20,11 @@ on:
 permissions:
   id-token: write
   contents: read
+  actions: read
+
+concurrency:
+  group: deploy-backend-production
+  cancel-in-progress: false
 
 jobs:
   test:
@@ -39,6 +44,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Load observability resource names
         shell: bash
@@ -60,12 +67,93 @@ jobs:
           echo "${VERSION}" > api/_build_version.txt
           echo "Build version: ${VERSION}"
 
+      - name: Wait for compatible frontend deployment
+        if: github.event_name == 'push' && github.ref_type == 'branch'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          required_frontend_sha="$(
+            git log --first-parent -1 --format=%H "${GITHUB_SHA}" -- \
+            web/ \
+            frontend_server/ \
+            scripts/appinsights_boundary.sh \
+            .github/azure-observability.env \
+            .github/workflows/deploy-frontend-appservice.yml
+          )"
+          if [[ -z "${required_frontend_sha}" ]]; then
+            echo "No frontend-triggering commit exists in this branch history."
+            exit 0
+          fi
+          echo "Required frontend commit: ${required_frontend_sha}"
+
+          for attempt in {1..60}; do
+            git fetch --no-tags origin "${GITHUB_REF_NAME}" >/dev/null
+            runs_file="${RUNNER_TEMP}/frontend-runs.json"
+            if ! gh api --method GET \
+              "repos/${GITHUB_REPOSITORY}/actions/workflows/deploy-frontend-appservice.yml/runs" \
+              -f per_page=100 \
+              --paginate \
+              --slurp > "${runs_file}"; then
+              echo "Unable to read frontend workflow state (${attempt}/60)."
+              sleep 10
+              continue
+            fi
+
+            # Any active production run can still change the deployed bundle.
+            # Wait for the frontend lane to settle before evaluating its
+            # live deployed-SHA metadata.
+            active_url="$(
+              jq -r \
+                'first(.[].workflow_runs[] | select(.status != "completed") | .html_url) // empty' \
+                "${runs_file}"
+            )"
+            if [[ -n "${active_url}" ]]; then
+              echo "A frontend production deployment is still running: ${active_url}"
+              sleep 10
+              continue
+            fi
+
+            health_payload="$(
+              curl --fail --silent --show-error --max-time 10 \
+                --header "Cache-Control: no-cache" \
+                "https://praxys-frontend.azurewebsites.net/healthz" \
+                2>/dev/null || true
+            )"
+            deployed_sha="$(
+              jq -r '.deployed_sha // empty' <<< "${health_payload}" \
+                2>/dev/null || true
+            )"
+            deployed_sha="${deployed_sha//$'\r'/}"
+            if [[ ! "${deployed_sha}" =~ ^[0-9a-fA-F]{40}$ ]]; then
+              echo "Live frontend deployment metadata is unavailable (${attempt}/60)."
+              sleep 10
+              continue
+            fi
+
+            if ! git cat-file -e "${deployed_sha}^{commit}" 2>/dev/null; then
+              git fetch --no-tags origin "${deployed_sha}" >/dev/null
+            fi
+            if git merge-base --is-ancestor "${required_frontend_sha}" "${deployed_sha}"; then
+              echo "Deployed frontend commit is compatible: ${deployed_sha}"
+              exit 0
+            fi
+
+            echo "Deployed frontend commit is not yet compatible: ${deployed_sha} (${attempt}/60)."
+            sleep 10
+          done
+
+          echo "Timed out waiting for a matching or newer frontend deployment." >&2
+          exit 1
+
       - name: Azure Login (OIDC)
         uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
       - name: Enforce backend telemetry trust boundary
         shell: bash
         run: bash scripts/appinsights_boundary.sh backend-preflight
@@ -115,7 +203,8 @@ jobs:
           PRAXYS_APP_BASE_URL: ${{ vars.PRAXYS_APP_BASE_URL }}
         run: |
           for var in AZURE_AI_ENDPOINT KEY_VAULT_URL KEY_VAULT_KEY_NAME \
-                     APPLICATIONINSIGHTS_CONNECTION_STRING PRAXYS_JWT_SECRET \
+                     APPLICATIONINSIGHTS_CONNECTION_STRING BACKEND_APPINSIGHTS_RESOURCE_ID \
+                     PRAXYS_JWT_SECRET \
                      WECHAT_MINIAPP_APPID WECHAT_MINIAPP_SECRET; do
             if [[ -z "${!var}" ]]; then
               echo "ERROR: required setting '${var}' is empty or undefined" >&2

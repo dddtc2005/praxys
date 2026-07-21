@@ -47,7 +47,27 @@ def test_backend_workflow_enforces_server_only_ingestion() -> None:
     assert "backend-cutover" in workflow
     assert "properties.DisableLocalAuth=true" in script
     assert "properties.WorkspaceResourceId" in script
+    assert "enableLogAccessUsingOnlyResourcePermissions" in script
+    assert "actions: read" in workflow
+    assert "Wait for compatible frontend deployment" in workflow
+    assert "deploy-frontend-appservice.yml/runs" in workflow
+    assert "git merge-base --is-ancestor" in workflow
+    assert "git log --first-parent" in workflow
+    assert "-f event=push" not in workflow
+    assert "--paginate" in workflow
+    assert "--slurp" in workflow
+    assert 'select(.status != "completed")' in workflow
+    assert "praxys-frontend.azurewebsites.net/healthz" in workflow
+    assert ".deployed_sha" in workflow
+    assert "Deployed frontend commit is not yet compatible" in workflow
+    assert "group: deploy-backend-production" in workflow
+    assert "cancel-in-progress: false" in workflow
     assert "Monitoring Metrics Publisher" in script
+    assert "Monitoring Reader" in script
+    assert "userAssignedIdentities" in script
+    assert "[?name=='AZURE_CLIENT_ID'].value | [0]" in script
+    assert "PRAXYS_BACKEND_APPINSIGHTS_RESOURCE_ID" in script
+    assert "--setting-names PRAXYS_BACKEND_APPINSIGHTS_RESOURCE_ID" in script
     assert "forged_browser_probe" in script
     assert "rollback_cutover" in script
     assert "rollback-to-frontend" in script
@@ -55,6 +75,11 @@ def test_backend_workflow_enforces_server_only_ingestion() -> None:
     assert "del(.createdWithApiVersion)" in script
     assert "praxys-db-health-unhealthy" in script
     assert "wt-praxys-api-health" in script
+    cutover = script.split("telemetry_cutover()", 1)[1]
+    backend_branch, frontend_branch = cutover.split("frontend)", 1)
+    frontend_branch = frontend_branch.split(";;", 1)[0]
+    assert "verify_resource_context_access" in backend_branch
+    assert "verify_resource_context_access" not in frontend_branch
 
 
 def test_frontend_workflow_resolves_only_frontend_ingestion() -> None:
@@ -63,6 +88,10 @@ def test_frontend_workflow_resolves_only_frontend_ingestion() -> None:
 
     assert "vars.VITE_APPINSIGHTS_CONNECTION_STRING" not in workflow
     assert "frontend-resolve" in workflow
+    assert "_deployed_sha.txt" in workflow
+    assert 'printf \'%s\\n\' "${GITHUB_SHA}"' in workflow
+    assert "group: deploy-frontend-production" in workflow
+    assert "cancel-in-progress: false" in workflow
 
 
 def test_boundary_script_has_valid_bash_syntax() -> None:

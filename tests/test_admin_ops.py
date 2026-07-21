@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import importlib
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -100,6 +100,116 @@ def _collect_keys(value) -> set[str]:
     return set()
 
 
+def _trusted_azure_snapshots():
+    from api.admin_azure_monitor import AzureSectionSnapshot
+
+    as_of = datetime.now(timezone.utc)
+    return {
+        "alerts": AzureSectionSnapshot(
+            freshness="fresh",
+            as_of=as_of,
+            reason=None,
+            data={
+                "total": 2,
+                "firing": 1,
+                "resolved": 1,
+                "severity": {"sev0": 0, "sev1": 0, "sev2": 2, "sev3": 0, "sev4": 0},
+                "states": {"new": 1, "acknowledged": 0, "closed": 1},
+                "rules": [
+                    {
+                        "rule": "praxys-sync-systemic-failures",
+                        "severity": "Sev2",
+                        "firing": 1,
+                        "resolved": 1,
+                        "last_changed_at": "2026-07-19T01:01:00Z",
+                    }
+                ],
+            },
+        ),
+        "service": AzureSectionSnapshot(
+            freshness="fresh",
+            as_of=as_of,
+            reason=None,
+            data={
+                "requests": 100,
+                "failed_requests": 4,
+                "server_errors": 2,
+                "failed_request_rate": 0.04,
+                "server_error_rate": 0.02,
+                "p95_request_ms": 480.0,
+                "availability_checks": 24,
+                "failed_availability_checks": 1,
+                "availability_rate": 23 / 24,
+                "p95_availability_ms": 210.0,
+                "database_health_failures": 0,
+            },
+        ),
+        "product": AzureSectionSnapshot(
+            freshness="fresh",
+            as_of=as_of,
+            reason=None,
+            data={
+                "surfaces": [
+                    {
+                        "surface": "web",
+                        "app_users": 10,
+                        "today_users": 8,
+                        "today_reach_rate": 0.8,
+                        "decision_prompts": 6,
+                        "decision_responses": 4,
+                        "decision_response_rate": 2 / 3,
+                        "reported_value_rate": 0.75,
+                        "repeated_users": 5,
+                        "repeated_rate": 0.625,
+                    }
+                ],
+                "coach": [
+                    {
+                        "insight_type": "daily_brief",
+                        "useful_votes": 7,
+                        "total_votes": 9,
+                        "useful_rate": 7 / 9,
+                    }
+                ],
+            },
+        ),
+        "platform": AzureSectionSnapshot(
+            freshness="fresh",
+            as_of=as_of,
+            reason=None,
+            data={
+                "systemic_affected_users": 3,
+                "sync": [
+                    {
+                        "platform": "garmin",
+                        "attempts": 20,
+                        "successes": 17,
+                        "failures": 3,
+                        "failure_rate": 0.15,
+                    }
+                ],
+                "systemic_failures": [
+                    {
+                        "platform": "garmin",
+                        "failure_class": "token_rejected",
+                        "failures": 3,
+                        "affected_users": 3,
+                    }
+                ],
+                "connections": [
+                    {
+                        "platform": "garmin",
+                        "flow": "mfa",
+                        "stage": "mfa_verify",
+                        "outcome": "connected",
+                        "attempts": 4,
+                    }
+                ],
+            },
+        ),
+    }
+
+
 def test_ops_summary_admin_only_window_validation_and_no_store(env):
     client, _ = env
     assert client.get("/api/admin/ops/summary").status_code == 401
@@ -119,9 +229,22 @@ def test_ops_summary_admin_only_window_validation_and_no_store(env):
     assert client.get("/api/admin/ops/summary", headers=normal_headers).status_code == 403
 
 
-def test_ops_summary_aggregates_attention_without_pii(env):
+def test_ops_summary_aggregates_attention_without_pii(env, monkeypatch):
     client, db_session = env
     admin_headers = _admin_headers(client)
+
+    import api.admin_ops as admin_ops
+
+    monkeypatch.setattr(
+        admin_ops,
+        "get_ops_telemetry",
+        lambda window: _trusted_azure_snapshots(),
+    )
+    monkeypatch.setattr(
+        admin_ops,
+        "azure_portal_links",
+        lambda: ("https://portal.azure.com/alerts", "https://portal.azure.com/logs"),
+    )
 
     from db.models import Feedback, ServiceIncident, User
 
@@ -170,6 +293,8 @@ def test_ops_summary_aggregates_attention_without_pii(env):
         "attention",
         "service_health",
         "product_value",
+        "service_telemetry",
+        "product_telemetry",
         "azure_alerts",
         "platform_health",
         "links",
@@ -205,17 +330,32 @@ def test_ops_summary_aggregates_attention_without_pii(env):
     }
     assert body["product_value"]["data"]["registered_users"] == 1
     assert body["product_value"]["data"]["directional"] is True
-    assert body["azure_alerts"]["freshness"] == "unavailable"
+    assert body["service_telemetry"]["data"]["server_error_rate"] == 0.02
+    assert body["product_telemetry"]["data"]["surfaces"][0]["today_reach_rate"] == 0.8
+    assert body["product_telemetry"]["window"] == "28d"
+    assert body["product_telemetry"]["data"]["coach"][0]["useful_votes"] == 7
+    assert body["azure_alerts"]["freshness"] == "fresh"
     assert body["azure_alerts"]["window"] == "7d"
-    assert body["azure_alerts"]["reason"] == "azure_telemetry_not_connected"
-    assert body["platform_health"]["freshness"] == "unavailable"
-    assert body["platform_health"]["reason"] == "azure_telemetry_not_connected"
+    assert body["azure_alerts"]["data"]["firing"] == 1
+    assert body["platform_health"]["freshness"] == "fresh"
+    assert body["platform_health"]["data"]["systemic_affected_users"] == 3
+    assert body["platform_health"]["data"]["systemic_failures"][0] == {
+        "platform": "garmin",
+        "failure_class": "token_rejected",
+        "failures": 3,
+        "affected_users": 3,
+    }
+    assert body["links"]["azure_alerts"] == "https://portal.azure.com/alerts"
+    assert body["links"]["azure_logs"] == "https://portal.azure.com/logs"
+    assert body["links"]["telemetry_trust_issue"].endswith("/issues/417")
 
     forbidden_keys = {
         "email",
         "user_id",
+        "user_id_hash",
         "message",
         "comment",
+        "comment_excerpt",
         "invitation_code",
         "screenshot",
         "image_description",
@@ -245,3 +385,8 @@ def test_ops_summary_partial_failure_isolated(env, monkeypatch):
     assert body["attention"]["reason"] == "section_refresh_failed"
     assert body["service_health"]["freshness"] == "fresh"
     assert body["product_value"]["freshness"] == "fresh"
+    assert body["service_telemetry"]["freshness"] == "unavailable"
+    assert (
+        body["service_telemetry"]["reason"]
+        == "azure_telemetry_not_configured"
+    )

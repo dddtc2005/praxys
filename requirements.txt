@@ -43,6 +43,9 @@ httpx>=0.28.1
 azure-monitor-opentelemetry>=1.6.0
 # Required for privacy-safe, high-cardinality product/feedback customEvents.
 azure-monitor-events-extension==0.1.0
+# Resource-context, managed-identity log queries for the admin operations
+# console. Version 2 provides LogsQueryClient.query_resource().
+azure-monitor-query>=2.0.0,<3.0.0
 
 # FIT file parsing for COROS activity detail (laps + trackpoints)
 fitparse>=1.2.0

@@ -76,6 +76,26 @@ function formatTimestamp(value: string | null, locale: string): string {
   });
 }
 
+function formatPercent(value: number | null, digits = 0): string {
+  if (value === null || !Number.isFinite(value)) return '-';
+  return `${(value * 100).toFixed(digits)}%`;
+}
+
+function formatDuration(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return '-';
+  return value >= 1000 ? `${(value / 1000).toFixed(1)} s` : `${Math.round(value)} ms`;
+}
+
+function unavailableAzureMeta(window: AdminOpsSectionWindow): AdminOpsSectionMeta {
+  return {
+    source: 'azure_monitor',
+    window,
+    freshness: 'unavailable',
+    as_of: null,
+    reason: 'azure_telemetry_not_configured',
+  };
+}
+
 function AdminOpsSkeleton() {
   return (
     <div className="space-y-8" aria-busy="true">
@@ -254,10 +274,92 @@ export default function AdminOps() {
     );
   }
 
-  const localizedReason = (reason: AdminOpsReason | null, fallback: string): string =>
-    reason === 'azure_telemetry_not_connected'
-      ? t`Curated Azure Monitor summaries are unavailable until the telemetry trust boundary in issue #417 is separated.`
-      : fallback;
+  const localizedReason = (reason: AdminOpsReason | null, fallback: string): string => {
+    switch (reason) {
+      case 'azure_telemetry_not_configured':
+      case 'azure_telemetry_not_connected':
+        return t`Trusted Azure telemetry is not configured for this deployment.`;
+      case 'azure_sdk_unavailable':
+        return t`The Azure Monitor query client is unavailable in this deployment.`;
+      case 'azure_query_timed_out':
+        return t`Azure Monitor did not respond before the operations deadline.`;
+      case 'azure_query_partial':
+        return t`Azure Monitor returned an incomplete result, so this section was not refreshed.`;
+      case 'azure_query_failed':
+        return t`Azure Monitor could not refresh this section.`;
+      default:
+        return fallback;
+    }
+  };
+
+  const surfaceLabel = (surface: string): string => {
+    switch (surface) {
+      case 'web':
+        return t`Web`;
+      case 'miniapp':
+        return t`Mini program`;
+      default:
+        return surface;
+    }
+  };
+
+  const insightTypeLabel = (insightType: string): string => {
+    switch (insightType) {
+      case 'daily_brief':
+        return t`Daily brief`;
+      case 'training_review':
+        return t`Training review`;
+      case 'race_forecast':
+        return t`Race forecast`;
+      default:
+        return insightType.replaceAll('_', ' ');
+    }
+  };
+
+  const failureClassLabel = (failureClass: string): string => {
+    switch (failureClass) {
+      case 'rate_limited':
+        return t`Rate limited`;
+      case 'captcha_required':
+        return t`CAPTCHA required`;
+      case 'access_blocked':
+        return t`Access blocked`;
+      case 'token_rejected':
+        return t`Token rejected`;
+      case 'mfa_unattended':
+        return t`MFA required`;
+      case 'platform_error':
+        return t`Platform error`;
+      case 'network_error':
+        return t`Network error`;
+      default:
+        return t`Unknown failure`;
+    }
+  };
+
+  const connectionFlowLabel = (flow: string): string => {
+    switch (flow) {
+      case 'mfa':
+        return t`MFA`;
+      case 'non_mfa':
+        return t`No MFA`;
+      default:
+        return t`Standard`;
+    }
+  };
+
+  const connectionOutcomeLabel = (outcome: string): string => {
+    switch (outcome) {
+      case 'connected':
+        return t`Connected`;
+      case 'mfa_required':
+        return t`MFA required`;
+      case 'error':
+        return t`Error`;
+      default:
+        return outcome.replaceAll('_', ' ');
+    }
+  };
 
   const attention = data.attention.data;
   const incidents = attention?.incident_counts;
@@ -279,7 +381,63 @@ export default function AdminOps() {
   const incidentDetail = attention?.active_incidents.slice(0, 2).map((incident) => incident.title).join(' · ');
   const service = data.service_health.data;
   const product = data.product_value.data;
+  const postgresActiveConnections = service?.postgres_active_connections ?? null;
+  const postgresMaxConnections = service?.postgres_max_connections ?? null;
+  const postgresConnectionUtilization =
+    service?.postgres_connection_utilization ?? null;
+  const serviceTelemetryMeta = data.service_telemetry ?? unavailableAzureMeta(window);
+  const productTelemetryMeta = data.product_telemetry ?? unavailableAzureMeta('28d');
+  const serviceTelemetry = data.service_telemetry?.data ?? null;
+  const productTelemetry = data.product_telemetry?.data ?? null;
+  const alertsSection = data.azure_alerts ?? {
+    ...unavailableAzureMeta(window),
+    data: null,
+  };
+  const platformSection = data.platform_health ?? {
+    ...unavailableAzureMeta(window),
+    data: null,
+  };
+  const alerts = alertsSection.data;
+  const platform = platformSection.data;
   const snapshotStale = Boolean(error) || stale;
+  const alertsLastKnown = snapshotStale || alertsSection.freshness === 'stale';
+  const platformLastKnown = snapshotStale || platformSection.freshness === 'stale';
+  const alertTone: AttentionTone = !alerts
+    ? 'unavailable'
+    : alerts.firing > 0
+      ? 'critical'
+      : alertsLastKnown
+        ? 'warning'
+        : 'clear';
+  const systemicAffectedUsers = platform?.systemic_affected_users ?? 0;
+  const systemicTone: AttentionTone = !platform
+    ? 'unavailable'
+    : systemicAffectedUsers > 0
+      ? 'warning'
+      : platformLastKnown
+        ? 'warning'
+        : 'clear';
+  const alertDetail = alerts?.rules
+    .filter((rule) => rule.firing > 0)
+    .slice(0, 2)
+    .map((rule) => rule.rule)
+    .join(' · ');
+  const systemicDetail = platform?.systemic_failures
+    .slice(0, 2)
+    .map((failure) => `${failure.platform}: ${failureClassLabel(failure.failure_class)}`)
+    .join(' · ');
+  const alertTitle = alerts
+    ? alerts.firing > 0
+      ? t`Azure alerts firing: ${alerts.firing}`
+      : t`No Azure alerts firing`
+    : '';
+  const systemicTitle = platform
+    ? systemicAffectedUsers > 0
+      ? t`Systemic sync failures affected ${systemicAffectedUsers} users in this window`
+      : t`No systemic sync failures`
+    : '';
+  const azureAlertsUrl = data.links.azure_alerts ?? data.links.monitoring_docs;
+  const azureLogsUrl = data.links.azure_logs ?? data.links.monitoring_docs;
   const OverallIcon = service ? (snapshotStale ? AlertTriangle : OVERALL_ICON[service.overall]) : CloudOff;
 
   const overallLabel = (status: OverallStatus): string => {
@@ -370,14 +528,9 @@ export default function AdminOps() {
 
       <section aria-labelledby="needs-attention-heading">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-              <Trans>Operator queue</Trans>
-            </p>
-            <h3 id="needs-attention-heading" className="mt-1 text-base font-semibold text-foreground">
-              <Trans>Needs attention</Trans>
-            </h3>
-          </div>
+          <h3 id="needs-attention-heading" className="text-base font-semibold text-foreground">
+            <Trans>Needs attention</Trans>
+          </h3>
           <p className="font-data text-[11px] text-muted-foreground">
             <Trans>Snapshot {formatTimestamp(data.generated_at, i18n.locale)}</Trans>
           </p>
@@ -426,36 +579,57 @@ export default function AdminOps() {
             action={t`Open feedback`}
           />
           <AttentionRow
-            Icon={CloudOff}
-            tone="unavailable"
-            title={t`Azure alert state unavailable`}
-            description={localizedReason(data.azure_alerts.reason, t`Curated alert summaries are not connected yet.`)}
-            href={data.links.monitoring_docs}
-            action={t`Open alert runbook`}
+            Icon={alerts ? (alerts.firing > 0 ? AlertOctagon : CheckCircle2) : CloudOff}
+            tone={alertTone}
+            title={
+              alerts
+                ? alertsLastKnown
+                  ? t`Last known: ${alertTitle}`
+                  : alertTitle
+                : t`Azure alert state unavailable`
+            }
+            description={
+              alerts
+              ? t`Alert instances in view: ${alerts.total}. Resolved in the selected window: ${alerts.resolved}.`
+                : localizedReason(alertsSection.reason, t`The alert summary could not be refreshed.`)
+            }
+            detail={alertDetail || undefined}
+            href={azureAlertsUrl}
+            action={t`Open Azure alerts`}
           />
           <AttentionRow
-            Icon={CloudOff}
-            tone="unavailable"
-            title={t`Systemic sync failures unavailable`}
-            description={localizedReason(data.platform_health.reason, t`Platform aggregates are not connected yet.`)}
-            href={data.links.monitoring_docs}
-            action={t`Open telemetry queries`}
+            Icon={platform ? (systemicAffectedUsers > 0 ? ShieldAlert : CheckCircle2) : CloudOff}
+            tone={systemicTone}
+            title={
+              platform
+                ? platformLastKnown
+                  ? t`Last known: ${systemicTitle}`
+                  : systemicTitle
+                : t`Systemic sync failures unavailable`
+            }
+            description={
+              platform
+                ? t`Failure classes observed: ${platform.systemic_failures.length}.`
+                : localizedReason(platformSection.reason, t`Platform aggregates could not be refreshed.`)
+            }
+            detail={systemicDetail || undefined}
+            href={azureLogsUrl}
+            action={t`Open Azure logs`}
           />
         </div>
-        <SectionMeta meta={data.attention} stale={snapshotStale} className="mt-3" />
+        <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
+          <SectionMeta meta={data.attention} stale={snapshotStale} />
+          <SectionMeta meta={alertsSection} stale={snapshotStale} />
+          <SectionMeta meta={platformSection} stale={snapshotStale} />
+        </div>
       </section>
 
       <div className="grid gap-8 xl:grid-cols-2">
         <section aria-labelledby="service-health-heading">
           <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                {snapshotStale ? <Trans>Last known state</Trans> : <Trans>Live state</Trans>}
-              </p>
-              <h3 id="service-health-heading" className="mt-1 text-base font-semibold text-foreground">
-                <Trans>Service health</Trans>
-              </h3>
-            </div>
+            <h3 id="service-health-heading" className="text-base font-semibold text-foreground">
+              <Trans>Service health</Trans>
+            </h3>
             {service ? (
               <div
                 className={cn(
@@ -498,14 +672,65 @@ export default function AdminOps() {
                   </span>
                 </div>
               ))}
+              {postgresActiveConnections !== null ? (
+                <div className="flex items-center justify-between gap-4 py-3">
+                  <div className="flex items-center gap-2.5">
+                    <Database className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium text-foreground">
+                      <Trans>PostgreSQL connections</Trans>
+                    </span>
+                  </div>
+                  <span className="font-data text-xs text-muted-foreground">
+                    {postgresActiveConnections}
+                    {postgresMaxConnections !== null ? ` / ${postgresMaxConnections}` : ''}
+                    {postgresConnectionUtilization !== null
+                      ? ` (${formatPercent(postgresConnectionUtilization)})`
+                      : ''}
+                  </span>
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="mt-4 rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
               <Trans>Live component health is unavailable.</Trans>
             </div>
           )}
+          {serviceTelemetry ? (
+            <dl className="mt-4 grid grid-cols-2 border-y border-border">
+              {[
+                {
+                  label: t`Availability rate`,
+                  value: formatPercent(serviceTelemetry.availability_rate, 1),
+                },
+                {
+                  label: t`Server error rate`,
+                  value: formatPercent(serviceTelemetry.server_error_rate, 1),
+                },
+                {
+                  label: t`Request p95`,
+                  value: formatDuration(serviceTelemetry.p95_request_ms),
+                },
+                {
+                  label: t`Database health failures`,
+                  value: String(serviceTelemetry.database_health_failures),
+                },
+              ].map((metric) => (
+                <div key={metric.label} className="border-b border-border px-3 py-3 odd:border-r last:border-b-0">
+                  <dt className="text-[11px] text-muted-foreground">{metric.label}</dt>
+                  <dd className="mt-1 font-data text-sm font-semibold text-foreground">{metric.value}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : (
+            <p className="mt-4 text-xs text-muted-foreground">
+              {localizedReason(serviceTelemetryMeta.reason, t`Request and availability telemetry is unavailable.`)}
+            </p>
+          )}
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-            <SectionMeta meta={data.service_health} stale={snapshotStale} />
+            <div className="flex flex-wrap gap-x-5 gap-y-2">
+              <SectionMeta meta={data.service_health} stale={snapshotStale} />
+              <SectionMeta meta={serviceTelemetryMeta} stale={snapshotStale} />
+            </div>
             <a
               href={data.links.public_status}
               target="_blank"
@@ -520,14 +745,9 @@ export default function AdminOps() {
 
         <section aria-labelledby="product-value-heading">
           <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                <Trans>Usage proxy</Trans>
-              </p>
-              <h3 id="product-value-heading" className="mt-1 text-base font-semibold text-foreground">
-                <Trans>Product value</Trans>
-              </h3>
-            </div>
+            <h3 id="product-value-heading" className="text-base font-semibold text-foreground">
+              <Trans>Product value</Trans>
+            </h3>
             {product?.directional ? (
               <Badge variant="outline" className="border-accent-cobalt/40 text-accent-cobalt">
                 <Trans>Directional</Trans>
@@ -554,33 +774,129 @@ export default function AdminOps() {
               <Trans>Usage aggregates are unavailable.</Trans>
             </div>
           )}
+          {productTelemetry ? (
+            <div className="mt-5 space-y-5">
+              <div>
+                <p className="text-xs font-semibold text-foreground">
+                  <Trans>Today engagement</Trans>
+                </p>
+                {productTelemetry.surfaces.length > 0 ? (
+                  <div className="mt-2 divide-y divide-border border-y border-border">
+                    {productTelemetry.surfaces.map((surface) => (
+                      <div key={surface.surface} className="flex flex-wrap items-center gap-x-6 gap-y-2 py-3">
+                        <span className="min-w-24 text-sm font-medium text-foreground">
+                          {surfaceLabel(surface.surface)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          <Trans>Today reach rate</Trans>{' '}
+                          <strong className="font-data font-semibold text-foreground">
+                            {formatPercent(surface.today_reach_rate)}
+                          </strong>
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          <Trans>Decision response rate</Trans>{' '}
+                          <strong className="font-data font-semibold text-foreground">
+                            {formatPercent(surface.decision_response_rate)}
+                          </strong>
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          <Trans>Reported value rate</Trans>{' '}
+                          <strong className="font-data font-semibold text-foreground">
+                            {formatPercent(surface.reported_value_rate)}
+                          </strong>
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          <Trans>Repeated weekly use</Trans>{' '}
+                          <strong className="font-data font-semibold text-foreground">
+                            {formatPercent(surface.repeated_rate)}
+                          </strong>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    <Trans>No Today events were recorded in this window.</Trans>
+                  </p>
+                )}
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-foreground">
+                  <Trans>Coach useful-vote rate</Trans>
+                </p>
+                {productTelemetry.coach.length > 0 ? (
+                  <div className="mt-2 divide-y divide-border border-y border-border">
+                    {productTelemetry.coach.map((insight) => (
+                      <div key={insight.insight_type} className="flex items-center justify-between gap-4 py-3">
+                        <span className="text-sm text-foreground">{insightTypeLabel(insight.insight_type)}</span>
+                        <span className="font-data text-sm font-semibold text-foreground">
+                          {formatPercent(insight.useful_rate)}
+                          <span className="ml-2 text-[11px] font-normal text-muted-foreground">
+                            {insight.useful_votes}/{insight.total_votes}
+                          </span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    <Trans>No Coach votes were recorded in this window.</Trans>
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <p className="mt-4 text-xs text-muted-foreground">
+              {localizedReason(productTelemetryMeta.reason, t`Today and Coach telemetry is unavailable.`)}
+            </p>
+          )}
           <p className="mt-3 text-xs text-muted-foreground">
-            <Trans>Counts use authenticated request activity. Today reach and Coach usefulness stay unavailable until trusted telemetry is separated.</Trans>
+            <Trans>DAU, WAU, and MAU use authenticated request activity for context. Today and Coach metrics use trusted backend telemetry.</Trans>
           </p>
-          <SectionMeta meta={data.product_value} stale={snapshotStale} className="mt-3" />
+          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
+            <SectionMeta meta={data.product_value} stale={snapshotStale} />
+            <SectionMeta meta={productTelemetryMeta} stale={snapshotStale} />
+          </div>
         </section>
       </div>
 
       <section aria-labelledby="platform-health-heading" className="border-t border-border pt-7">
-        <div className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-center">
+        <div className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-start">
           <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-              <CloudOff className="h-4 w-4" />
+            <div
+              className={cn(
+                'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
+                platform
+                  ? platformLastKnown
+                    ? 'bg-accent-amber/10 text-accent-amber'
+                    : 'bg-primary/10 text-primary'
+                  : 'bg-muted text-muted-foreground',
+              )}
+            >
+              {platform ? <Activity className="h-4 w-4" /> : <CloudOff className="h-4 w-4" />}
             </div>
             <div>
-              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                <Trans>Azure-backed summary</Trans>
-              </p>
-              <h3 id="platform-health-heading" className="mt-1 text-base font-semibold text-foreground">
+              <h3 id="platform-health-heading" className="text-base font-semibold text-foreground">
                 <Trans>Platform health</Trans>
               </h3>
               <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-                {localizedReason(data.platform_health.reason, t`Platform telemetry is unavailable.`)}
+                {platform
+                  ? t`Trusted sync and connection outcomes from the backend telemetry boundary.`
+                  : localizedReason(platformSection.reason, t`Platform telemetry is unavailable.`)}
               </p>
-              <SectionMeta meta={data.platform_health} stale={snapshotStale} className="mt-3" />
+              <SectionMeta meta={platformSection} stale={snapshotStale} className="mt-3" />
             </div>
           </div>
           <div className="flex flex-wrap gap-3 lg:justify-end">
+            <a
+              href={azureLogsUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-accent-cobalt hover:underline"
+            >
+              <Trans>Azure logs</Trans>
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
             <a
               href={data.links.monitoring_docs}
               target="_blank"
@@ -590,17 +906,109 @@ export default function AdminOps() {
               <Trans>Monitoring runbook</Trans>
               <ExternalLink className="h-3.5 w-3.5" />
             </a>
-            <a
-              href={data.links.telemetry_trust_issue}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-accent-cobalt hover:underline"
-            >
-              <Trans>Telemetry trust boundary</Trans>
-              <ExternalLink className="h-3.5 w-3.5" />
-            </a>
           </div>
         </div>
+        {platform ? (
+          <div className="mt-6 space-y-7">
+            <div className="grid gap-7 lg:grid-cols-2">
+              <div>
+                <h4 className="text-sm font-semibold text-foreground">
+                  <Trans>Sync reliability</Trans>
+                </h4>
+                {platform.sync.length > 0 ? (
+                  <div className="mt-2 divide-y divide-border border-y border-border">
+                    {platform.sync.map((sync) => (
+                      <div key={sync.platform} className="flex items-center justify-between gap-4 py-3">
+                        <span className="text-sm font-medium capitalize text-foreground">{sync.platform}</span>
+                        <span className="text-right text-xs text-muted-foreground">
+                          <strong className="font-data font-semibold text-foreground">
+                            {formatPercent(
+                              sync.attempts > 0 ? sync.successes / sync.attempts : null,
+                              1,
+                            )}
+                          </strong>{' '}
+                          <Trans>successful</Trans>
+                          <span className="ml-2 font-data">
+                            {sync.successes}/{sync.attempts}
+                          </span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    <Trans>No sync attempts were recorded in this window.</Trans>
+                  </p>
+                )}
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-foreground">
+                  <Trans>Systemic failure classes</Trans>
+                </h4>
+                {platform.systemic_failures.length > 0 ? (
+                  <div className="mt-2 divide-y divide-border border-y border-border">
+                    {platform.systemic_failures.map((failure) => (
+                      <div
+                        key={`${failure.platform}-${failure.failure_class}`}
+                        className="flex items-center justify-between gap-4 py-3"
+                      >
+                        <span className="min-w-0 text-sm text-foreground">
+                          <span className="font-medium capitalize">{failure.platform}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            {failureClassLabel(failure.failure_class)}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-right text-xs text-muted-foreground">
+                          <strong className="font-data font-semibold text-foreground">
+                            {failure.affected_users}
+                          </strong>{' '}
+                          <Trans>users</Trans>
+                          <span className="ml-2 font-data">
+                            {failure.failures} <Trans>failures</Trans>
+                          </span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    <Trans>No systemic failure classes were recorded in this window.</Trans>
+                  </p>
+                )}
+              </div>
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold text-foreground">
+                <Trans>Connection funnel</Trans>
+              </h4>
+              {platform.connections.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-x-6 gap-y-3 border-y border-border py-3">
+                  {platform.connections.map((connection) => (
+                    <div
+                      key={`${connection.platform}-${connection.flow}-${connection.stage}-${connection.outcome}`}
+                      className="min-w-48"
+                    >
+                      <p className="text-xs text-muted-foreground">
+                        <span className="font-medium capitalize text-foreground">{connection.platform}</span>
+                        {' · '}
+                        {connectionFlowLabel(connection.flow)}
+                        {' · '}
+                        {connectionOutcomeLabel(connection.outcome)}
+                      </p>
+                      <p className="mt-1 font-data text-sm font-semibold text-foreground">
+                        {connection.attempts} <Trans>attempts</Trans>
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  <Trans>No connection attempts were recorded in this window.</Trans>
+                </p>
+              )}
+            </div>
+          </div>
+        ) : null}
       </section>
     </div>
   );

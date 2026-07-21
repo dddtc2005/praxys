@@ -25,6 +25,10 @@ permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: deploy-frontend-production
+  cancel-in-progress: false
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -107,6 +111,7 @@ jobs:
           cp -r frontend_server deploy-pkg/
           cp -r web/dist deploy-pkg/web/dist
           cp frontend_server/requirements-frontend.txt deploy-pkg/requirements.txt
+          printf '%s\n' "${GITHUB_SHA}" > deploy-pkg/frontend_server/_deployed_sha.txt
           ls -R deploy-pkg | head -50
 
       - name: Deploy to praxys-frontend

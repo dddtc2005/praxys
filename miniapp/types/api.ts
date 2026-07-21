@@ -870,7 +870,14 @@ export interface AdminFeedbackSyncResult {
 export type AdminOpsWindow = '24h' | '7d' | '28d';
 export type AdminOpsFreshness = 'fresh' | 'stale' | 'unavailable';
 export type AdminOpsSource = 'praxys_database' | 'live_probe' | 'azure_monitor';
-export type AdminOpsReason = 'section_refresh_failed' | 'azure_telemetry_not_connected';
+export type AdminOpsReason =
+  | 'section_refresh_failed'
+  | 'azure_telemetry_not_connected'
+  | 'azure_telemetry_not_configured'
+  | 'azure_sdk_unavailable'
+  | 'azure_query_failed'
+  | 'azure_query_partial'
+  | 'azure_query_timed_out';
 export type AdminOpsSectionWindow = 'live' | 'rolling_1d_7d_30d' | AdminOpsWindow;
 
 export interface AdminOpsSectionMeta {
@@ -920,6 +927,12 @@ export interface AdminOpsAttentionSection extends AdminOpsSectionMeta {
 export interface AdminOpsServiceHealthData {
   overall: OverallStatus;
   components: StatusComponent[];
+  /** Optional during a rolling deploy from the Phase 1 operations API. */
+  postgres_active_connections?: number | null;
+  /** Optional during a rolling deploy from the Phase 1 operations API. */
+  postgres_max_connections?: number | null;
+  /** Optional during a rolling deploy from the Phase 1 operations API. */
+  postgres_connection_utilization?: number | null;
 }
 
 export interface AdminOpsServiceHealthSection extends AdminOpsSectionMeta {
@@ -938,8 +951,120 @@ export interface AdminOpsProductValueSection extends AdminOpsSectionMeta {
   data: AdminOpsProductValueData | null;
 }
 
-export interface AdminOpsUnavailableSection extends AdminOpsSectionMeta {
-  data: null;
+export interface AdminOpsServiceTelemetryData {
+  requests: number;
+  failed_requests: number;
+  server_errors: number;
+  failed_request_rate: number | null;
+  server_error_rate: number | null;
+  p95_request_ms: number | null;
+  availability_checks: number;
+  failed_availability_checks: number;
+  availability_rate: number | null;
+  p95_availability_ms: number | null;
+  database_health_failures: number;
+}
+
+export interface AdminOpsServiceTelemetrySection extends AdminOpsSectionMeta {
+  data: AdminOpsServiceTelemetryData | null;
+}
+
+export interface AdminOpsAlertSeverityCounts {
+  sev0: number;
+  sev1: number;
+  sev2: number;
+  sev3: number;
+  sev4: number;
+}
+
+export interface AdminOpsAlertStateCounts {
+  new: number;
+  acknowledged: number;
+  closed: number;
+}
+
+export interface AdminOpsAlertRuleSummary {
+  rule: string;
+  severity: string;
+  firing: number;
+  resolved: number;
+  last_changed_at: string | null;
+}
+
+export interface AdminOpsAzureAlertsData {
+  total: number;
+  firing: number;
+  resolved: number;
+  severity: AdminOpsAlertSeverityCounts;
+  states: AdminOpsAlertStateCounts;
+  rules: AdminOpsAlertRuleSummary[];
+}
+
+export interface AdminOpsAzureAlertsSection extends AdminOpsSectionMeta {
+  data: AdminOpsAzureAlertsData | null;
+}
+
+export interface AdminOpsProductSurfaceTelemetry {
+  surface: string;
+  app_users: number;
+  today_users: number;
+  today_reach_rate: number | null;
+  decision_prompts: number;
+  decision_responses: number;
+  decision_response_rate: number | null;
+  reported_value_rate: number | null;
+  repeated_users: number;
+  repeated_rate: number | null;
+}
+
+export interface AdminOpsCoachTelemetry {
+  insight_type: string;
+  useful_votes: number;
+  total_votes: number;
+  useful_rate: number | null;
+}
+
+export interface AdminOpsProductTelemetryData {
+  surfaces: AdminOpsProductSurfaceTelemetry[];
+  coach: AdminOpsCoachTelemetry[];
+}
+
+export interface AdminOpsProductTelemetrySection extends AdminOpsSectionMeta {
+  data: AdminOpsProductTelemetryData | null;
+}
+
+export interface AdminOpsSyncTelemetry {
+  platform: string;
+  attempts: number;
+  successes: number;
+  failures: number;
+  failure_rate: number | null;
+}
+
+export interface AdminOpsSystemicFailureTelemetry {
+  platform: string;
+  failure_class: string;
+  failures: number;
+  affected_users: number;
+}
+
+export interface AdminOpsConnectionTelemetry {
+  platform: string;
+  flow: string;
+  stage: string;
+  outcome: string;
+  attempts: number;
+}
+
+export interface AdminOpsPlatformHealthData {
+  sync: AdminOpsSyncTelemetry[];
+  systemic_affected_users: number;
+  systemic_failures: AdminOpsSystemicFailureTelemetry[];
+  connections: AdminOpsConnectionTelemetry[];
+}
+
+export interface AdminOpsPlatformHealthSection extends AdminOpsSectionMeta {
+  data: AdminOpsPlatformHealthData | null;
 }
 
 export interface AdminOpsLinks {
@@ -949,6 +1074,11 @@ export interface AdminOpsLinks {
   communications: string;
   public_status: string;
   monitoring_docs: string;
+  /** Optional during a rolling deploy from the Phase 1 operations API. */
+  azure_alerts?: string;
+  /** Optional during a rolling deploy from the Phase 1 operations API. */
+  azure_logs?: string;
+  /** Kept temporarily for older frontend bundles during backend-first deploys. */
   telemetry_trust_issue: string;
 }
 
@@ -959,8 +1089,14 @@ export interface AdminOpsSummary {
   attention: AdminOpsAttentionSection;
   service_health: AdminOpsServiceHealthSection;
   product_value: AdminOpsProductValueSection;
-  azure_alerts: AdminOpsUnavailableSection;
-  platform_health: AdminOpsUnavailableSection;
+  /** Optional during a rolling deploy from the Phase 1 operations API. */
+  service_telemetry?: AdminOpsServiceTelemetrySection;
+  /** Optional during a rolling deploy from the Phase 1 operations API. */
+  product_telemetry?: AdminOpsProductTelemetrySection;
+  /** Optional during a rolling deploy from the Phase 1 operations API. */
+  azure_alerts?: AdminOpsAzureAlertsSection;
+  /** Optional during a rolling deploy from the Phase 1 operations API. */
+  platform_health?: AdminOpsPlatformHealthSection;
   links: AdminOpsLinks;
 }
 /** GET /api/public/config — unauthenticated; drives the login page's signup path. */

@@ -177,11 +177,11 @@ msgstr "1Y"
 msgid "2 wk"
 msgstr "2 wk"
 
-#: src/pages/admin/AdminOps.tsx:148
+#: src/pages/admin/AdminOps.tsx:168
 msgid "24 hours"
 msgstr "24 hours"
 
-#: src/pages/admin/AdminOps.tsx:152
+#: src/pages/admin/AdminOps.tsx:172
 msgid "28 days"
 msgstr "28 days"
 
@@ -226,7 +226,7 @@ msgstr "6 months"
 msgid "6M"
 msgstr "6M"
 
-#: src/pages/admin/AdminOps.tsx:150
+#: src/pages/admin/AdminOps.tsx:170
 msgid "7 days"
 msgstr "7 days"
 
@@ -255,6 +255,10 @@ msgstr "Above reference band"
 #~ msgid "Absorbing training while maintaining fitness."
 #~ msgstr "Absorbing training while maintaining fitness."
 
+#: src/pages/admin/AdminOps.tsx:326
+msgid "Access blocked"
+msgstr "Access blocked"
+
 #: src/pages/admin/AdminUsers.tsx:874
 msgid "Action"
 msgstr "Action"
@@ -280,7 +284,7 @@ msgid "Active Incidents"
 msgstr "Active Incidents"
 
 #. placeholder {0}: incidents.total
-#: src/pages/admin/AdminOps.tsx:393
+#: src/pages/admin/AdminOps.tsx:546
 msgid "Active incidents: {0}"
 msgstr "Active incidents: {0}"
 
@@ -349,6 +353,12 @@ msgstr "Admin sections"
 msgid "Aerobic"
 msgstr "Aerobic"
 
+#. placeholder {0}: alerts.total
+#. placeholder {1}: alerts.resolved
+#: src/pages/admin/AdminOps.tsx:593
+msgid "Alert instances in view: {0}. Resolved in the selected window: {1}."
+msgstr "Alert instances in view: {0}. Resolved in the selected window: {1}."
+
 #: src/components/charts/CpTrendChart.tsx:56
 #: src/pages/admin/AdminFeedback.tsx:229
 #: src/pages/Setup.tsx:994
@@ -360,7 +370,7 @@ msgstr "All"
 msgid "All {0} linked ticket(s) already up to date."
 msgstr "All {0} linked ticket(s) already up to date."
 
-#: src/pages/admin/AdminOps.tsx:288
+#: src/pages/admin/AdminOps.tsx:446
 msgid "All components operational"
 msgstr "All components operational"
 
@@ -385,7 +395,7 @@ msgstr "Already have an invitation code?"
 msgid "An unexpected error occurred."
 msgstr "An unexpected error occurred."
 
-#: src/pages/admin/AdminOps.tsx:314
+#: src/pages/admin/AdminOps.tsx:472
 msgid "API"
 msgstr "API"
 
@@ -404,6 +414,10 @@ msgstr "Asia/CN"
 #: src/components/charts/FitnessFatigueChart.tsx:282
 msgid "ATL (recent load)"
 msgstr "ATL (recent load)"
+
+#: src/pages/admin/AdminOps.tsx:999
+msgid "attempts"
+msgstr "attempts"
 
 #: src/pages/Login.tsx:330
 msgid "Authentication mode"
@@ -425,6 +439,14 @@ msgstr "Auto sync frequency"
 msgid "Auto-merged"
 msgstr "Auto-merged"
 
+#: src/pages/admin/AdminOps.tsx:657
+#~ msgid "Availability"
+#~ msgstr "Availability"
+
+#: src/pages/admin/AdminOps.tsx:702
+msgid "Availability rate"
+msgstr "Availability rate"
+
 #: src/pages/admin/AdminUsers.tsx:768
 msgid "Available"
 msgstr "Available"
@@ -441,17 +463,38 @@ msgstr "Avg Power"
 msgid "Avg Work {intensityLabel}"
 msgstr "Avg Work {intensityLabel}"
 
-#: src/pages/admin/AdminOps.tsx:431
+#: src/pages/admin/AdminOps.tsx:589
 msgid "Azure alert state unavailable"
 msgstr "Azure alert state unavailable"
 
-#: src/pages/admin/AdminOps.tsx:137
+#. placeholder {0}: alerts.firing
+#: src/pages/admin/AdminOps.tsx:431
+msgid "Azure alerts firing: {0}"
+msgstr "Azure alerts firing: {0}"
+
+#: src/pages/admin/AdminOps.tsx:897
+msgid "Azure logs"
+msgstr "Azure logs"
+
+#: src/pages/admin/AdminOps.tsx:157
 msgid "Azure Monitor"
 msgstr "Azure Monitor"
 
+#: src/pages/admin/AdminOps.tsx:289
+msgid "Azure Monitor could not refresh this section."
+msgstr "Azure Monitor could not refresh this section."
+
+#: src/pages/admin/AdminOps.tsx:285
+msgid "Azure Monitor did not respond before the operations deadline."
+msgstr "Azure Monitor did not respond before the operations deadline."
+
+#: src/pages/admin/AdminOps.tsx:287
+msgid "Azure Monitor returned an incomplete result, so this section was not refreshed."
+msgstr "Azure Monitor returned an incomplete result, so this section was not refreshed."
+
 #: src/pages/admin/AdminOps.tsx:572
-msgid "Azure-backed summary"
-msgstr "Azure-backed summary"
+#~ msgid "Azure-backed summary"
+#~ msgstr "Azure-backed summary"
 
 #: src/pages/Status.tsx:119
 msgid "Back to Praxys"
@@ -470,7 +513,7 @@ msgstr "Backfill All"
 msgid "Backfill..."
 msgstr "Backfill..."
 
-#: src/pages/admin/AdminOps.tsx:318
+#: src/pages/admin/AdminOps.tsx:476
 msgid "Background sync"
 msgstr "Background sync"
 
@@ -581,6 +624,10 @@ msgstr "Cancel"
 msgid "Cancel preview"
 msgstr "Cancel preview"
 
+#: src/pages/admin/AdminOps.tsx:324
+msgid "CAPTCHA required"
+msgstr "CAPTCHA required"
+
 #: src/components/MobileApp.tsx:95
 msgid "Carry your training signal outdoors. Scan to open Praxys in WeChat."
 msgstr "Carry your training signal outdoors. Scan to open Praxys in WeChat."
@@ -660,6 +707,14 @@ msgstr "Closed"
 #: src/pages/admin/AdminUsers.tsx:392
 msgid "Closed · cap reached"
 msgstr "Closed · cap reached"
+
+#: src/pages/admin/AdminOps.tsx:825
+msgid "Coach useful-vote rate"
+msgstr "Coach useful-vote rate"
+
+#: src/pages/admin/AdminOps.tsx:780
+#~ msgid "Coach usefulness"
+#~ msgstr "Coach usefulness"
 
 #: src/pages/admin/AdminUsers.tsx:732
 msgid "Code"
@@ -756,6 +811,7 @@ msgstr "Connect a platform"
 msgid "Connect a platform first"
 msgstr "Connect a platform first"
 
+#: src/pages/admin/AdminOps.tsx:354
 #: src/pages/Settings.tsx:869
 msgid "Connected"
 msgstr "Connected"
@@ -768,6 +824,10 @@ msgstr "Connected Platforms"
 #: src/pages/Setup.tsx:1039
 msgid "Connecting..."
 msgstr "Connecting..."
+
+#: src/pages/admin/AdminOps.tsx:982
+msgid "Connection funnel"
+msgstr "Connection funnel"
 
 #: src/pages/Settings.tsx:1121
 #: src/pages/Setup.tsx:1050
@@ -832,7 +892,7 @@ msgstr "Couldn't load feedback queue"
 msgid "Couldn't load incidents"
 msgstr "Couldn't load incidents"
 
-#: src/pages/admin/AdminOps.tsx:249
+#: src/pages/admin/AdminOps.tsx:269
 msgid "Couldn't load operations summary"
 msgstr "Couldn't load operations summary"
 
@@ -859,8 +919,8 @@ msgid "Couldn't update feedback."
 msgstr "Couldn't update feedback."
 
 #: src/pages/admin/AdminOps.tsx:558
-msgid "Counts use authenticated request activity. Today reach and Coach usefulness stay unavailable until trusted telemetry is separated."
-msgstr "Counts use authenticated request activity. Today reach and Coach usefulness stay unavailable until trusted telemetry is separated."
+#~ msgid "Counts use authenticated request activity. Today reach and Coach usefulness stay unavailable until trusted telemetry is separated."
+#~ msgstr "Counts use authenticated request activity. Today reach and Coach usefulness stay unavailable until trusted telemetry is separated."
 
 #: src/components/charts/CpTrendChart.tsx:59
 #: src/lib/display-labels.ts:62
@@ -928,7 +988,7 @@ msgstr "Critical Power"
 #. placeholder {0}: incidents.critical
 #. placeholder {1}: incidents.major
 #. placeholder {2}: incidents.minor
-#: src/pages/admin/AdminOps.tsx:400
+#: src/pages/admin/AdminOps.tsx:553
 msgid "Critical: {0}. Major: {1}. Minor: {2}."
 msgstr "Critical: {0}. Major: {1}. Minor: {2}."
 
@@ -949,12 +1009,12 @@ msgid "CTL and ATL are long-term and recent modeled training loads. TSB = CTL �
 msgstr "CTL and ATL are long-term and recent modeled training loads. TSB = CTL − ATL; it is not a direct measure of recovery or readiness."
 
 #: src/pages/admin/AdminOps.tsx:432
-msgid "Curated alert summaries are not connected yet."
-msgstr "Curated alert summaries are not connected yet."
+#~ msgid "Curated alert summaries are not connected yet."
+#~ msgstr "Curated alert summaries are not connected yet."
 
 #: src/pages/admin/AdminOps.tsx:259
-msgid "Curated Azure Monitor summaries are unavailable until the telemetry trust boundary in issue #417 is separated."
-msgstr "Curated Azure Monitor summaries are unavailable until the telemetry trust boundary in issue #417 is separated."
+#~ msgid "Curated Azure Monitor summaries are unavailable until the telemetry trust boundary in issue #417 is separated."
+#~ msgstr "Curated Azure Monitor summaries are unavailable until the telemetry trust boundary in issue #417 is separated."
 
 #: src/pages/Goal.tsx:249
 #: src/pages/Goal.tsx:289
@@ -973,6 +1033,10 @@ msgstr "Currently set to {0}-based training"
 #: src/pages/Setup.tsx:165
 msgid "Cycling"
 msgstr "Cycling"
+
+#: src/pages/admin/AdminOps.tsx:309
+msgid "Daily brief"
+msgstr "Daily brief"
 
 #: src/pages/Today.tsx:400
 msgid "daily score"
@@ -994,14 +1058,26 @@ msgstr "Data Preferences"
 msgid "Data synced successfully"
 msgstr "Data synced successfully"
 
-#: src/pages/admin/AdminOps.tsx:316
+#: src/pages/admin/AdminOps.tsx:474
 msgid "Database"
 msgstr "Database"
 
-#: src/pages/admin/AdminOps.tsx:541
+#: src/pages/admin/AdminOps.tsx:714
+msgid "Database health failures"
+msgstr "Database health failures"
+
+#: src/pages/admin/AdminOps.tsx:761
 #: src/pages/admin/AdminUsers.tsx:135
 msgid "DAU"
 msgstr "DAU"
+
+#: src/pages/admin/AdminOps.tsx:854
+msgid "DAU, WAU, and MAU use authenticated request activity for context. Today and Coach metrics use trusted backend telemetry."
+msgstr "DAU, WAU, and MAU use authenticated request activity for context. Today and Coach metrics use trusted backend telemetry."
+
+#: src/pages/admin/AdminOps.tsx:809
+#~ msgid "DAU, WAU, and MAU use authenticated request activity for context. Today and Coach rates use trusted backend telemetry."
+#~ msgstr "DAU, WAU, and MAU use authenticated request activity for context. Today and Coach rates use trusted backend telemetry."
 
 #: src/pages/Goal.tsx:239
 msgid "days"
@@ -1014,6 +1090,14 @@ msgstr "Days left"
 #: src/pages/admin/AdminCommunications.tsx:261
 msgid "Deactivate"
 msgstr "Deactivate"
+
+#: src/pages/admin/AdminOps.tsx:752
+#~ msgid "Decision response"
+#~ msgstr "Decision response"
+
+#: src/pages/admin/AdminOps.tsx:797
+msgid "Decision response rate"
+msgstr "Decision response rate"
 
 #: src/pages/admin/AdminIncidents.tsx:153
 msgid "Declare incidents shown on the public"
@@ -1035,7 +1119,7 @@ msgstr "Default (English)"
 msgid "Defines what counts as easy, threshold, hard."
 msgstr "Defines what counts as easy, threshold, hard."
 
-#: src/pages/admin/AdminOps.tsx:303
+#: src/pages/admin/AdminOps.tsx:461
 #: src/pages/Status.tsx:83
 msgid "Degraded"
 msgstr "Degraded"
@@ -1157,7 +1241,7 @@ msgstr "Differs · overwrite"
 msgid "Direction"
 msgstr "Direction"
 
-#: src/pages/admin/AdminOps.tsx:533
+#: src/pages/admin/AdminOps.tsx:753
 msgid "Directional"
 msgstr "Directional"
 
@@ -1346,6 +1430,7 @@ msgstr "Enabled. Click to close"
 msgid "Endurance"
 msgstr "Endurance"
 
+#: src/pages/admin/AdminOps.tsx:358
 #: src/pages/Settings.tsx:892
 msgid "Error"
 msgstr "Error"
@@ -1461,6 +1546,15 @@ msgstr "Failed to update incident."
 msgid "Failed to update user role."
 msgstr "Failed to update user role."
 
+#. placeholder {0}: platform.systemic_failures.length
+#: src/pages/admin/AdminOps.tsx:612
+msgid "Failure classes observed: {0}."
+msgstr "Failure classes observed: {0}."
+
+#: src/pages/admin/AdminOps.tsx:967
+msgid "failures"
+msgstr "failures"
+
 #: src/pages/Today.tsx:120
 msgid "falling"
 msgstr "falling"
@@ -1503,16 +1597,16 @@ msgstr "Feature request"
 msgid "Feedback"
 msgstr "Feedback"
 
-#: src/pages/admin/AdminOps.tsx:415
+#: src/pages/admin/AdminOps.tsx:568
 msgid "Feedback queue is clear"
 msgstr "Feedback queue is clear"
 
 #. placeholder {0}: feedback.actionable
-#: src/pages/admin/AdminOps.tsx:414
+#: src/pages/admin/AdminOps.tsx:567
 msgid "Feedback requiring action: {0}"
 msgstr "Feedback requiring action: {0}"
 
-#: src/pages/admin/AdminOps.tsx:416
+#: src/pages/admin/AdminOps.tsx:569
 msgid "Feedback state unavailable"
 msgstr "Feedback state unavailable"
 
@@ -1876,7 +1970,7 @@ msgstr "Identified"
 msgid "Incident management"
 msgstr "Incident management"
 
-#: src/pages/admin/AdminOps.tsx:395
+#: src/pages/admin/AdminOps.tsx:548
 msgid "Incident state unavailable"
 msgstr "Incident state unavailable"
 
@@ -1999,15 +2093,23 @@ msgid "Last Activity"
 msgstr "Last Activity"
 
 #: src/pages/admin/AdminOps.tsx:453
-msgid "Last known state"
-msgstr "Last known state"
+#~ msgid "Last known state"
+#~ msgstr "Last known state"
 
 #. placeholder {0}: componentStatusLabel(component.status)
 #. placeholder {0}: overallLabel(service.overall)
-#: src/pages/admin/AdminOps.tsx:467
-#: src/pages/admin/AdminOps.tsx:496
+#: src/pages/admin/AdminOps.tsx:641
+#: src/pages/admin/AdminOps.tsx:670
 msgid "Last known: {0}"
 msgstr "Last known: {0}"
+
+#: src/pages/admin/AdminOps.tsx:587
+msgid "Last known: {alertTitle}"
+msgstr "Last known: {alertTitle}"
+
+#: src/pages/admin/AdminOps.tsx:606
+msgid "Last known: {systemicTitle}"
+msgstr "Last known: {systemicTitle}"
 
 #. placeholder {0}: status.error
 #: src/pages/Settings.tsx:943
@@ -2060,11 +2162,11 @@ msgstr "Link URL (optional)"
 msgid "Link your training devices and services"
 msgstr "Link your training devices and services"
 
-#: src/pages/admin/AdminOps.tsx:144
+#: src/pages/admin/AdminOps.tsx:164
 msgid "Live"
 msgstr "Live"
 
-#: src/pages/admin/AdminOps.tsx:504
+#: src/pages/admin/AdminOps.tsx:695
 msgid "Live component health is unavailable."
 msgstr "Live component health is unavailable."
 
@@ -2072,13 +2174,13 @@ msgstr "Live component health is unavailable."
 msgid "Live demo — real training data, read-only"
 msgstr "Live demo — real training data, read-only"
 
-#: src/pages/admin/AdminOps.tsx:135
+#: src/pages/admin/AdminOps.tsx:155
 msgid "Live probe"
 msgstr "Live probe"
 
 #: src/pages/admin/AdminOps.tsx:453
-msgid "Live state"
-msgstr "Live state"
+#~ msgid "Live state"
+#~ msgstr "Live state"
 
 #: src/components/charts/ComplianceChart.tsx:62
 msgid "load ({label})"
@@ -2187,7 +2289,7 @@ msgid "Major Outage"
 msgstr "Major Outage"
 
 #: src/components/StatusIndicator.tsx:30
-#: src/pages/admin/AdminOps.tsx:294
+#: src/pages/admin/AdminOps.tsx:452
 msgid "Major service outage"
 msgstr "Major service outage"
 
@@ -2195,7 +2297,7 @@ msgstr "Major service outage"
 msgid "Make today a full recovery day and reassess the hard session tomorrow"
 msgstr "Make today a full recovery day and reassess the hard session tomorrow"
 
-#: src/pages/admin/AdminOps.tsx:406
+#: src/pages/admin/AdminOps.tsx:559
 msgid "Manage incidents"
 msgstr "Manage incidents"
 
@@ -2211,7 +2313,7 @@ msgstr "Manage seats, roles, invitations, and waitlist onboarding."
 msgid "Management routes for access, communications, and service status."
 msgstr "Management routes for access, communications, and service status."
 
-#: src/pages/admin/AdminOps.tsx:250
+#: src/pages/admin/AdminOps.tsx:270
 msgid "Management routes remain available. Retry the aggregate health snapshot."
 msgstr "Management routes remain available. Retry the aggregate health snapshot."
 
@@ -2222,7 +2324,7 @@ msgstr "Management routes remain available. Retry the aggregate health snapshot.
 msgid "Marathon"
 msgstr "Marathon"
 
-#: src/pages/admin/AdminOps.tsx:543
+#: src/pages/admin/AdminOps.tsx:763
 #: src/pages/admin/AdminUsers.tsx:137
 msgid "MAU"
 msgstr "MAU"
@@ -2235,9 +2337,22 @@ msgstr "Max HR"
 msgid "Medium"
 msgstr "Medium"
 
+#: src/pages/admin/AdminOps.tsx:343
+msgid "MFA"
+msgstr "MFA"
+
+#: src/pages/admin/AdminOps.tsx:330
+#: src/pages/admin/AdminOps.tsx:356
+msgid "MFA required"
+msgstr "MFA required"
+
 #: src/pages/Today.tsx:304
 #~ msgid "mild fatigue"
 #~ msgstr "mild fatigue"
+
+#: src/pages/admin/AdminOps.tsx:300
+msgid "Mini program"
+msgstr "Mini program"
 
 #: src/pages/admin/AdminIncidents.tsx:27
 #: src/pages/admin/AdminIncidents.tsx:183
@@ -2273,7 +2388,7 @@ msgstr "MODIFY"
 msgid "Monitoring"
 msgstr "Monitoring"
 
-#: src/pages/admin/AdminOps.tsx:590
+#: src/pages/admin/AdminOps.tsx:906
 msgid "Monitoring runbook"
 msgstr "Monitoring runbook"
 
@@ -2336,7 +2451,7 @@ msgstr "Need help? {SUPPORT_EMAIL}"
 msgid "Needed {abbrev}"
 msgstr "Needed {abbrev}"
 
-#: src/pages/admin/AdminOps.tsx:378
+#: src/pages/admin/AdminOps.tsx:532
 msgid "Needs attention"
 msgstr "Needs attention"
 
@@ -2349,7 +2464,7 @@ msgstr "Needs review"
 #. placeholder {1}: feedback.failed
 #. placeholder {2}: feedback.critical
 #. placeholder {3}: feedback.high
-#: src/pages/admin/AdminOps.tsx:421
+#: src/pages/admin/AdminOps.tsx:574
 msgid "Needs review: {0}. Failed: {1}. Critical: {2}. High: {3}."
 msgstr "Needs review: {0}. Failed: {1}. Critical: {2}. High: {3}."
 
@@ -2357,6 +2472,7 @@ msgstr "Needs review: {0}. Failed: {1}. Critical: {2}. High: {3}."
 msgid "negative balance"
 msgstr "negative balance"
 
+#: src/pages/admin/AdminOps.tsx:334
 #: src/pages/Settings.tsx:588
 msgid "Network error"
 msgstr "Network error"
@@ -2419,7 +2535,7 @@ msgstr "Next"
 msgid "Next sync"
 msgstr "Next sync"
 
-#: src/pages/admin/AdminOps.tsx:394
+#: src/pages/admin/AdminOps.tsx:547
 msgid "No active service incidents"
 msgstr "No active service incidents"
 
@@ -2443,9 +2559,21 @@ msgstr "No admin configuration found"
 msgid "No announcements yet"
 msgstr "No announcements yet"
 
+#: src/pages/admin/AdminOps.tsx:432
+msgid "No Azure alerts firing"
+msgstr "No Azure alerts firing"
+
+#: src/pages/admin/AdminOps.tsx:843
+msgid "No Coach votes were recorded in this window."
+msgstr "No Coach votes were recorded in this window."
+
 #: src/pages/Login.tsx:653
 msgid "No code yet?"
 msgstr "No code yet?"
+
+#: src/pages/admin/AdminOps.tsx:1006
+msgid "No connection attempts were recorded in this window."
+msgstr "No connection attempts were recorded in this window."
 
 #: src/components/RecoveryPanel.tsx:21
 msgid "No current classification"
@@ -2464,7 +2592,7 @@ msgstr "no data"
 #~ msgid "No Data"
 #~ msgstr "No Data"
 
-#: src/pages/admin/AdminOps.tsx:422
+#: src/pages/admin/AdminOps.tsx:575
 msgid "No feedback rows are waiting for review or retry."
 msgstr "No feedback rows are waiting for review or retry."
 
@@ -2488,6 +2616,10 @@ msgstr "No incidents yet"
 msgid "No invitation codes yet. Generate one to invite a user."
 msgstr "No invitation codes yet. Generate one to invite a user."
 
+#: src/pages/admin/AdminOps.tsx:345
+msgid "No MFA"
+msgstr "No MFA"
+
 #: src/pages/Today.tsx:505
 msgid "No new HRV, sleep, or activity since."
 msgstr "No new HRV, sleep, or activity since."
@@ -2505,6 +2637,18 @@ msgstr "No planned load this week"
 msgid "No split data available."
 msgstr "No split data available."
 
+#: src/pages/admin/AdminOps.tsx:940
+msgid "No sync attempts were recorded in this window."
+msgstr "No sync attempts were recorded in this window."
+
+#: src/pages/admin/AdminOps.tsx:975
+msgid "No systemic failure classes were recorded in this window."
+msgstr "No systemic failure classes were recorded in this window."
+
+#: src/pages/admin/AdminOps.tsx:437
+msgid "No systemic sync failures"
+msgstr "No systemic sync failures"
+
 #: src/pages/admin/AdminFeedback.tsx:251
 msgid "No tickets to show"
 msgstr "No tickets to show"
@@ -2512,6 +2656,10 @@ msgstr "No tickets to show"
 #: src/pages/Admin.tsx:1310
 #~ msgid "No tickets to show."
 #~ msgstr "No tickets to show."
+
+#: src/pages/admin/AdminOps.tsx:819
+msgid "No Today events were recorded in this window."
+msgstr "No Today events were recorded in this window."
 
 #: src/pages/admin/AdminUsers.tsx:587
 msgid "No users found."
@@ -2644,14 +2792,22 @@ msgid "Open"
 msgstr "Open"
 
 #: src/pages/admin/AdminOps.tsx:434
-msgid "Open alert runbook"
-msgstr "Open alert runbook"
+#~ msgid "Open alert runbook"
+#~ msgstr "Open alert runbook"
 
 #: src/pages/admin/AdminIncidents.tsx:198
 msgid "Open an incident here when you need to communicate a live service issue."
 msgstr "Open an incident here when you need to communicate a live service issue."
 
-#: src/pages/admin/AdminOps.tsx:426
+#: src/pages/admin/AdminOps.tsx:598
+msgid "Open Azure alerts"
+msgstr "Open Azure alerts"
+
+#: src/pages/admin/AdminOps.tsx:617
+msgid "Open Azure logs"
+msgstr "Open Azure logs"
+
+#: src/pages/admin/AdminOps.tsx:579
 msgid "Open feedback"
 msgstr "Open feedback"
 
@@ -2660,8 +2816,8 @@ msgid "Open incident"
 msgstr "Open incident"
 
 #: src/pages/admin/AdminOps.tsx:442
-msgid "Open telemetry queries"
-msgstr "Open telemetry queries"
+#~ msgid "Open telemetry queries"
+#~ msgstr "Open telemetry queries"
 
 #: src/components/MobileApp.tsx:70
 msgid "Open WeChat, tap the Scan button, and point your camera at this code to use Praxys on your phone."
@@ -2675,19 +2831,19 @@ msgstr "Open, update, resolve, and remove incidents shown on the public status p
 msgid "Opening update message (optional)"
 msgstr "Opening update message (optional)"
 
-#: src/pages/admin/AdminOps.tsx:301
+#: src/pages/admin/AdminOps.tsx:459
 #: src/pages/Status.tsx:82
 msgid "Operational"
 msgstr "Operational"
 
 #: src/pages/admin/AdminLayout.tsx:22
-#: src/pages/admin/AdminOps.tsx:329
+#: src/pages/admin/AdminOps.tsx:487
 msgid "Operations"
 msgstr "Operations"
 
 #: src/pages/admin/AdminOps.tsx:375
-msgid "Operator queue"
-msgstr "Operator queue"
+#~ msgid "Operator queue"
+#~ msgstr "Operator queue"
 
 #: src/pages/admin/AdminCommunications.tsx:186
 msgid "optional"
@@ -2717,7 +2873,7 @@ msgstr "Other"
 msgid "Other Signals"
 msgstr "Other Signals"
 
-#: src/pages/admin/AdminOps.tsx:307
+#: src/pages/admin/AdminOps.tsx:465
 #: src/pages/Status.tsx:85
 msgid "Outage"
 msgstr "Outage"
@@ -2742,7 +2898,7 @@ msgstr "Overwrite Stryd with Praxys version"
 msgid "Pace"
 msgstr "Pace"
 
-#: src/pages/admin/AdminOps.tsx:305
+#: src/pages/admin/AdminOps.tsx:463
 #: src/pages/Status.tsx:84
 msgid "Partial outage"
 msgstr "Partial outage"
@@ -2752,7 +2908,7 @@ msgid "Partial Outage"
 msgstr "Partial Outage"
 
 #: src/components/StatusIndicator.tsx:29
-#: src/pages/admin/AdminOps.tsx:292
+#: src/pages/admin/AdminOps.tsx:450
 msgid "Partial service outage"
 msgstr "Partial service outage"
 
@@ -2810,14 +2966,22 @@ msgid "Planned Workout"
 msgstr "Planned Workout"
 
 #: src/pages/admin/AdminOps.tsx:440
-msgid "Platform aggregates are not connected yet."
-msgstr "Platform aggregates are not connected yet."
+#~ msgid "Platform aggregates are not connected yet."
+#~ msgstr "Platform aggregates are not connected yet."
 
-#: src/pages/admin/AdminOps.tsx:575
+#: src/pages/admin/AdminOps.tsx:613
+msgid "Platform aggregates could not be refreshed."
+msgstr "Platform aggregates could not be refreshed."
+
+#: src/pages/admin/AdminOps.tsx:332
+msgid "Platform error"
+msgstr "Platform error"
+
+#: src/pages/admin/AdminOps.tsx:880
 msgid "Platform health"
 msgstr "Platform health"
 
-#: src/pages/admin/AdminOps.tsx:578
+#: src/pages/admin/AdminOps.tsx:885
 msgid "Platform telemetry is unavailable."
 msgstr "Platform telemetry is unavailable."
 
@@ -2836,6 +3000,10 @@ msgstr "Please verify your email before signing in. Check your inbox for the lin
 #: src/pages/Today.tsx:408
 msgid "positive balance"
 msgstr "positive balance"
+
+#: src/pages/admin/AdminOps.tsx:680
+msgid "PostgreSQL connections"
+msgstr "PostgreSQL connections"
 
 #: src/components/SplitBreakdown.tsx:48
 #: src/lib/display-labels.ts:54
@@ -2868,7 +3036,7 @@ msgstr "Praxys Coach"
 msgid "Praxys Coach insight"
 msgstr "Praxys Coach insight"
 
-#: src/pages/admin/AdminOps.tsx:133
+#: src/pages/admin/AdminOps.tsx:153
 msgid "Praxys database"
 msgstr "Praxys database"
 
@@ -2942,7 +3110,7 @@ msgstr "Private alpha · Invitation only"
 msgid "Proceed but monitor heart-rate drift during the session"
 msgstr "Proceed but monitor heart-rate drift during the session"
 
-#: src/pages/admin/AdminOps.tsx:528
+#: src/pages/admin/AdminOps.tsx:749
 msgid "Product value"
 msgstr "Product value"
 
@@ -2981,7 +3149,7 @@ msgstr "Promote to Admin"
 msgid "Prospective users: generate invitation codes and follow up by email."
 msgstr "Prospective users: generate invitation codes and follow up by email."
 
-#: src/pages/admin/AdminOps.tsx:515
+#: src/pages/admin/AdminOps.tsx:740
 msgid "Public status"
 msgstr "Public status"
 
@@ -3050,6 +3218,10 @@ msgstr "Race Date"
 msgid "Race date is required"
 msgstr "Race date is required"
 
+#: src/pages/admin/AdminOps.tsx:313
+msgid "Race forecast"
+msgstr "Race forecast"
+
 #: src/components/GoalEditor.tsx:111
 #: src/pages/Settings.tsx:1347
 msgid "Race Goal"
@@ -3066,6 +3238,10 @@ msgstr "Race Prediction"
 #: src/components/ZoneAnalysisCard.tsx:63
 #~ msgid "Range"
 #~ msgstr "Range"
+
+#: src/pages/admin/AdminOps.tsx:322
+msgid "Rate limited"
+msgstr "Rate limited"
 
 #: src/pages/admin/AdminUsers.tsx:941
 msgid "Re-invite"
@@ -3095,6 +3271,12 @@ msgstr "Reads readiness from the body's signals."
 #: src/pages/Goal.tsx:369
 msgid "Realistic alternative targets"
 msgstr "Realistic alternative targets"
+
+#. placeholder {0}: alerts.total
+#. placeholder {1}: alerts.resolved
+#: src/pages/admin/AdminOps.tsx:593
+#~ msgid "Recent alert instances: {0}. Resolved: {1}."
+#~ msgstr "Recent alert instances: {0}. Resolved: {1}."
 
 #: src/pages/Today.tsx:233
 msgid "Recent HRV observations have no measurable variation, so Praxys cannot form a reliable recovery band yet. Follow the plan without an HRV-based adjustment."
@@ -3230,7 +3412,7 @@ msgstr "Reduce Intensity"
 msgid "References"
 msgstr "References"
 
-#: src/pages/admin/AdminOps.tsx:356
+#: src/pages/admin/AdminOps.tsx:514
 #: src/pages/Status.tsx:152
 #: src/pages/Status.tsx:155
 msgid "Refresh"
@@ -3240,7 +3422,7 @@ msgstr "Refresh"
 msgid "Refresh failed"
 msgstr "Refresh failed"
 
-#: src/pages/admin/AdminOps.tsx:367
+#: src/pages/admin/AdminOps.tsx:525
 msgid "Refresh failed. Showing the last successful snapshot."
 msgstr "Refresh failed. Showing the last successful snapshot."
 
@@ -3256,7 +3438,7 @@ msgstr "Region"
 #~ msgid "Register"
 #~ msgstr "Register"
 
-#: src/pages/admin/AdminOps.tsx:544
+#: src/pages/admin/AdminOps.tsx:764
 #: src/pages/admin/AdminUsers.tsx:456
 #: src/pages/admin/AdminUsers.tsx:579
 msgid "Registered"
@@ -3303,17 +3485,41 @@ msgstr "Remove image"
 msgid "Rep"
 msgstr "Rep"
 
+#: src/pages/admin/AdminOps.tsx:764
+#~ msgid "Repeated use"
+#~ msgstr "Repeated use"
+
+#: src/pages/admin/AdminOps.tsx:809
+msgid "Repeated weekly use"
+msgstr "Repeated weekly use"
+
 #: src/pages/admin/AdminFeedback.tsx:264
 msgid "Report"
 msgstr "Report"
+
+#: src/pages/admin/AdminOps.tsx:758
+#~ msgid "Reported value"
+#~ msgstr "Reported value"
+
+#: src/pages/admin/AdminOps.tsx:803
+msgid "Reported value rate"
+msgstr "Reported value rate"
 
 #: src/pages/Login.tsx:424
 msgid "Request an invite"
 msgstr "Request an invite"
 
+#: src/pages/admin/AdminOps.tsx:726
+msgid "Request and availability telemetry is unavailable."
+msgstr "Request and availability telemetry is unavailable."
+
 #: src/pages/Login.tsx:348
 msgid "Request invite"
 msgstr "Request invite"
+
+#: src/pages/admin/AdminOps.tsx:710
+msgid "Request p95"
+msgstr "Request p95"
 
 #: src/pages/Login.tsx:410
 msgid "Resend verification email"
@@ -3423,7 +3629,7 @@ msgstr "Rising"
 msgid "Role"
 msgstr "Role"
 
-#: src/pages/admin/AdminOps.tsx:146
+#: src/pages/admin/AdminOps.tsx:166
 msgid "Rolling 1 / 7 / 30 days"
 msgstr "Rolling 1 / 7 / 30 days"
 
@@ -3537,7 +3743,11 @@ msgstr "Sending…"
 msgid "Sent"
 msgstr "Sent"
 
-#: src/pages/admin/AdminOps.tsx:456
+#: src/pages/admin/AdminOps.tsx:706
+msgid "Server error rate"
+msgstr "Server error rate"
+
+#: src/pages/admin/AdminOps.tsx:631
 msgid "Service health"
 msgstr "Service health"
 
@@ -3549,7 +3759,7 @@ msgstr "Service incidents"
 #~ msgid "Service Incidents"
 #~ msgstr "Service Incidents"
 
-#: src/pages/admin/AdminOps.tsx:290
+#: src/pages/admin/AdminOps.tsx:448
 msgid "Service performance degraded"
 msgstr "Service performance degraded"
 
@@ -3690,7 +3900,7 @@ msgid "slightly positive"
 msgstr "slightly positive"
 
 #. placeholder {0}: formatTimestamp(data.generated_at, i18n.locale)
-#: src/pages/admin/AdminOps.tsx:382
+#: src/pages/admin/AdminOps.tsx:535
 msgid "Snapshot {0}"
 msgstr "Snapshot {0}"
 
@@ -3711,15 +3921,19 @@ msgstr "stable"
 msgid "Stable"
 msgstr "Stable"
 
-#: src/pages/admin/AdminOps.tsx:124
+#: src/pages/admin/AdminOps.tsx:144
 msgid "Stale"
 msgstr "Stale"
+
+#: src/pages/admin/AdminOps.tsx:347
+msgid "Standard"
+msgstr "Standard"
 
 #: src/pages/Setup.tsx:685
 msgid "Start sync"
 msgstr "Start sync"
 
-#: src/pages/admin/AdminOps.tsx:332
+#: src/pages/admin/AdminOps.tsx:490
 msgid "Start with operator action, then use health and usage context to choose the next workflow."
 msgstr "Start with operator action, then use health and usage context to choose the next workflow."
 
@@ -3770,11 +3984,15 @@ msgstr "Sub-3 marathon · 100K · stay healthy…"
 msgid "Success"
 msgstr "Success"
 
+#: src/pages/admin/AdminOps.tsx:930
+msgid "successful"
+msgstr "successful"
+
 #: src/components/DiagnosisCard.tsx:94
 msgid "Suggestions"
 msgstr "Suggestions"
 
-#: src/pages/admin/AdminOps.tsx:336
+#: src/pages/admin/AdminOps.tsx:494
 msgid "Summary window"
 msgstr "Summary window"
 
@@ -3854,6 +4072,10 @@ msgstr "Sync history"
 msgid "Sync now"
 msgstr "Sync now"
 
+#: src/pages/admin/AdminOps.tsx:916
+msgid "Sync reliability"
+msgstr "Sync reliability"
+
 #: src/components/UpcomingPlanCard.tsx:235
 msgid "Sync to Stryd"
 msgstr "Sync to Stryd"
@@ -3902,7 +4124,19 @@ msgstr "System announcements"
 msgid "System theme (click for light)"
 msgstr "System theme (click for light)"
 
-#: src/pages/admin/AdminOps.tsx:439
+#: src/pages/admin/AdminOps.tsx:946
+msgid "Systemic failure classes"
+msgstr "Systemic failure classes"
+
+#: src/pages/admin/AdminOps.tsx:436
+#~ msgid "Systemic sync failures affect {systemicAffectedUsers} users"
+#~ msgstr "Systemic sync failures affect {systemicAffectedUsers} users"
+
+#: src/pages/admin/AdminOps.tsx:436
+msgid "Systemic sync failures affected {systemicAffectedUsers} users in this window"
+msgstr "Systemic sync failures affected {systemicAffectedUsers} users in this window"
+
+#: src/pages/admin/AdminOps.tsx:608
 msgid "Systemic sync failures unavailable"
 msgstr "Systemic sync failures unavailable"
 
@@ -3931,8 +4165,8 @@ msgid "Target Time"
 msgstr "Target Time"
 
 #: src/pages/admin/AdminOps.tsx:599
-msgid "Telemetry trust boundary"
-msgstr "Telemetry trust boundary"
+#~ msgid "Telemetry trust boundary"
+#~ msgstr "Telemetry trust boundary"
 
 #: src/lib/display-labels.ts:44
 #: src/lib/phase-label.ts:14
@@ -3951,11 +4185,19 @@ msgstr "Thanks for the feedback!"
 msgid "The active load model uses a {loadTimeConstantDays}-day long-term time constant. Need {daysToPmc} more days of history."
 msgstr "The active load model uses a {loadTimeConstantDays}-day long-term time constant. Need {daysToPmc} more days of history."
 
-#: src/pages/admin/AdminOps.tsx:423
+#: src/pages/admin/AdminOps.tsx:594
+msgid "The alert summary could not be refreshed."
+msgstr "The alert summary could not be refreshed."
+
+#: src/pages/admin/AdminOps.tsx:283
+msgid "The Azure Monitor query client is unavailable in this deployment."
+msgstr "The Azure Monitor query client is unavailable in this deployment."
+
+#: src/pages/admin/AdminOps.tsx:576
 msgid "The feedback aggregate could not be refreshed."
 msgstr "The feedback aggregate could not be refreshed."
 
-#: src/pages/admin/AdminOps.tsx:402
+#: src/pages/admin/AdminOps.tsx:555
 msgid "The incident aggregate could not be refreshed."
 msgstr "The incident aggregate could not be refreshed."
 
@@ -3967,7 +4209,7 @@ msgstr "The latest HRV reading is out of date. Follow the plan without an HRV-ba
 msgid "The latest HRV reading is too old for a same-day recovery classification. Sync your device to refresh it."
 msgstr "The latest HRV reading is too old for a same-day recovery classification. Sync your device to refresh it."
 
-#: src/pages/admin/AdminOps.tsx:401
+#: src/pages/admin/AdminOps.tsx:554
 msgid "The public status feed has no unresolved incidents."
 msgstr "The public status feed has no unresolved incidents."
 
@@ -4066,6 +4308,22 @@ msgstr "Today"
 msgid "TODAY"
 msgstr "TODAY"
 
+#: src/pages/admin/AdminOps.tsx:850
+msgid "Today and Coach telemetry is unavailable."
+msgstr "Today and Coach telemetry is unavailable."
+
+#: src/pages/admin/AdminOps.tsx:781
+msgid "Today engagement"
+msgstr "Today engagement"
+
+#: src/pages/admin/AdminOps.tsx:746
+#~ msgid "Today reach"
+#~ msgstr "Today reach"
+
+#: src/pages/admin/AdminOps.tsx:791
+msgid "Today reach rate"
+msgstr "Today reach rate"
+
 #: src/pages/Goal.tsx:198
 msgid "Today's <0>{distLabel}</0> prediction is <1>{predicted}</1>. {abbrev} is <2>{dirLabel}</2> at <3>{slopeStr}</3>."
 msgstr "Today's <0>{distLabel}</0> prediction is <1>{predicted}</1>. {abbrev} is <2>{dirLabel}</2> at <3>{slopeStr}</3>."
@@ -4089,6 +4347,10 @@ msgstr "Today's recommendation combines the scheduled workout with Praxys operat
 #: src/components/RecoveryPanel.tsx:89
 msgid "Today's recovery hasn't synced yet. Showing the latest reading from {latestDateLabel}."
 msgstr "Today's recovery hasn't synced yet. Showing the latest reading from {latestDateLabel}."
+
+#: src/pages/admin/AdminOps.tsx:328
+msgid "Token rejected"
+msgstr "Token rejected"
 
 #: src/pages/Login.tsx:168
 msgid "Too many attempts from this network. Please email us instead."
@@ -4127,6 +4389,10 @@ msgstr "Training Diagnosis"
 #~ msgid "Training plan & targets"
 #~ msgstr "Training plan & targets"
 
+#: src/pages/admin/AdminOps.tsx:311
+msgid "Training review"
+msgstr "Training review"
+
 #: src/pages/Science.tsx:173
 msgid "Training Science"
 msgstr "Training Science"
@@ -4143,6 +4409,18 @@ msgstr "Translates training stress into fitness."
 #: src/pages/admin/AdminFeedback.tsx:236
 msgid "Triaged"
 msgstr "Triaged"
+
+#: src/pages/admin/AdminOps.tsx:281
+msgid "Trusted Azure telemetry is not configured for this deployment."
+msgstr "Trusted Azure telemetry is not configured for this deployment."
+
+#: src/pages/admin/AdminOps.tsx:884
+msgid "Trusted sync and connection outcomes from the backend telemetry boundary."
+msgstr "Trusted sync and connection outcomes from the backend telemetry boundary."
+
+#: src/pages/admin/AdminOps.tsx:736
+#~ msgid "Trusted Today signals"
+#~ msgstr "Trusted Today signals"
 
 #: src/components/UpcomingPlanCard.tsx:658
 msgid "Try a longer window above."
@@ -4181,7 +4459,7 @@ msgstr "Ultra distance power fractions (50K+) are estimates with limited researc
 msgid "Unable to reach the status service"
 msgstr "Unable to reach the status service"
 
-#: src/pages/admin/AdminOps.tsx:126
+#: src/pages/admin/AdminOps.tsx:146
 msgid "Unavailable"
 msgstr "Unavailable"
 
@@ -4189,7 +4467,11 @@ msgstr "Unavailable"
 msgid "Units"
 msgstr "Units"
 
-#: src/pages/admin/AdminOps.tsx:122
+#: src/pages/admin/AdminOps.tsx:336
+msgid "Unknown failure"
+msgstr "Unknown failure"
+
+#: src/pages/admin/AdminOps.tsx:142
 msgid "Up to date"
 msgstr "Up to date"
 
@@ -4202,7 +4484,7 @@ msgid "Update message (optional)"
 msgstr "Update message (optional)"
 
 #. placeholder {0}: formatTimestamp(meta.as_of, i18n.locale)
-#: src/pages/admin/AdminOps.tsx:165
+#: src/pages/admin/AdminOps.tsx:185
 msgid "Updated {0}"
 msgstr "Updated {0}"
 
@@ -4224,13 +4506,13 @@ msgstr "Updating…"
 msgid "US"
 msgstr "US"
 
-#: src/pages/admin/AdminOps.tsx:554
+#: src/pages/admin/AdminOps.tsx:774
 msgid "Usage aggregates are unavailable."
 msgstr "Usage aggregates are unavailable."
 
 #: src/pages/admin/AdminOps.tsx:525
-msgid "Usage proxy"
-msgstr "Usage proxy"
+#~ msgid "Usage proxy"
+#~ msgstr "Usage proxy"
 
 #: src/pages/Login.tsx:492
 #: src/pages/Login.tsx:521
@@ -4276,6 +4558,10 @@ msgstr "User feedback"
 #: src/pages/Admin.tsx:1260
 #~ msgid "User Feedback"
 #~ msgstr "User Feedback"
+
+#: src/pages/admin/AdminOps.tsx:965
+msgid "users"
+msgstr "users"
 
 #: src/pages/admin/AdminLayout.tsx:23
 #: src/pages/admin/AdminUsers.tsx:561
@@ -4385,7 +4671,7 @@ msgstr "Warning"
 msgid "Was this insight useful?"
 msgstr "Was this insight useful?"
 
-#: src/pages/admin/AdminOps.tsx:542
+#: src/pages/admin/AdminOps.tsx:762
 #: src/pages/admin/AdminUsers.tsx:136
 msgid "WAU"
 msgstr "WAU"
@@ -4401,6 +4687,10 @@ msgstr "We're inviting runners in waves while we tighten the science. Drop your 
 #: src/components/FeedbackDialog.tsx:200
 msgid "We've logged it and will take a look."
 msgstr "We've logged it and will take a look."
+
+#: src/pages/admin/AdminOps.tsx:298
+msgid "Web"
+msgstr "Web"
 
 #: src/components/MobileApp.tsx:67
 msgid "WeChat Mini Program"
