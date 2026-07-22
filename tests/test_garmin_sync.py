@@ -1,7 +1,16 @@
+import contextlib
+from datetime import date
+from types import SimpleNamespace
+
 import pytest
+from garminconnect.exceptions import (
+    GarminConnectConnectionError,
+    GarminConnectTooManyRequestsError,
+)
 
 from sync.garmin_sync import (
     parse_activities,
+    parse_activity_weather,
     parse_daily_metrics,
     parse_garmin_recovery,
     parse_heart_rates,
@@ -9,6 +18,238 @@ from sync.garmin_sync import (
     parse_splits,
     parse_user_profile,
 )
+
+
+def _garmin_connection_error(status_code):
+    return GarminConnectConnectionError(
+        f"API call client error ({status_code}): API Error {status_code}",
+    )
+
+
+def test_parse_activity_weather_converts_fahrenheit_to_celsius():
+    weather = parse_activity_weather({"temp": 86, "relativeHumidity": 72})
+
+    assert weather == {
+        "temperature_c": "30.0",
+        "relative_humidity_pct": "72.0",
+        "environment_source": "garmin_activity_weather",
+    }
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        {"temp": 86},
+        {"relativeHumidity": 72},
+        {"temp": "not-a-number", "relativeHumidity": 72},
+        {"temp": 86, "relativeHumidity": 101},
+    ],
+)
+def test_parse_activity_weather_requires_a_valid_complete_pair(payload):
+    assert parse_activity_weather(payload) == {}
+
+
+def test_sync_garmin_enriches_only_outdoor_runs_with_weather(
+    tmp_path, monkeypatch,
+):
+    weather_calls = []
+    written_rows = []
+    raw_activities = [
+        {
+            "activityId": 1000,
+            "startTimeLocal": "2026-07-19 07:00:00",
+            "activityType": {"typeKey": "running"},
+        },
+        {
+            "activityId": 1001,
+            "startTimeLocal": "2026-07-20 07:00:00",
+            "activityType": {"typeKey": "running"},
+        },
+        {
+            "activityId": 1002,
+            "startTimeLocal": "2026-07-21 07:00:00",
+            "activityType": {"typeKey": "trail_running"},
+        },
+        {
+            "activityId": 1003,
+            "startTimeLocal": "2026-07-22 07:00:00",
+            "activityType": {"typeKey": "treadmill_running"},
+        },
+    ]
+
+    class FakeGarmin:
+        def __init__(self, email, password, is_cn=False):
+            self.client = type("Client", (), {})()
+
+        def login(self, token_dir):
+            pass
+
+        def get_activities_by_date(self, *args, **kwargs):
+            return raw_activities
+
+        def get_activity_weather(self, activity_id):
+            weather_calls.append(str(activity_id))
+            if str(activity_id) == "1002":
+                raise _garmin_connection_error(404)
+            return {"temp": 86, "relativeHumidity": 72}
+
+        def get_activity_splits(self, activity_id):
+            return {}
+
+        def get_activity_details(self, activity_id, maxchart):
+            return {}
+
+        def get_lactate_threshold(self, **kwargs):
+            return []
+
+        def get_user_profile(self):
+            return {}
+
+        def get_heart_rates(self, activity_date):
+            return {}
+
+        def connectapi(self, path):
+            return {}
+
+        def get_training_status(self, activity_date):
+            return {}
+
+        def get_training_readiness(self, activity_date):
+            return None
+
+        def get_race_predictions(self):
+            return None
+
+        def get_hrv_data(self, activity_date):
+            return None
+
+        def get_sleep_data(self, activity_date):
+            return None
+
+    def capture_activities(user_id, rows, db):
+        written_rows.extend(rows)
+        return len(rows)
+
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    monkeypatch.setattr("garminconnect.Garmin", FakeGarmin)
+    monkeypatch.setattr("sync.garmin_sync.RATE_LIMIT_DELAY", 0)
+    monkeypatch.setattr("db.sync_writer.write_activities", capture_activities)
+    for name in (
+        "write_splits",
+        "write_samples",
+        "write_lactate_threshold",
+        "write_daily_metrics",
+        "write_recovery",
+        "write_profile_thresholds",
+    ):
+        monkeypatch.setattr(f"db.sync_writer.{name}", lambda *args, **kwargs: 0)
+
+    class FakeConfig:
+        source_options = {"garmin_activity_categories": ["running"]}
+
+    monkeypatch.setattr(
+        "analysis.config.load_config_from_db",
+        lambda user_id, db: FakeConfig(),
+    )
+
+    class NullDB:
+        def query(self, model):
+            class Query:
+                def filter(self, *args):
+                    return self
+
+                def all(self):
+                    return [
+                        SimpleNamespace(
+                            activity_id="1000",
+                            temperature_c=25.0,
+                            relative_humidity_pct=50.0,
+                            environment_source="garmin_activity_weather",
+                        ),
+                    ]
+
+            return Query()
+
+        def begin_nested(self):
+            return contextlib.nullcontext()
+
+    from api.routes.sync import _sync_garmin
+
+    result = _sync_garmin(
+        "weather-user",
+        {"email": "runner@example.com", "password": "secret"},
+        date.today().isoformat(),
+        NullDB(),
+    )
+
+    assert result["activities"] == 4
+    assert weather_calls == ["1001", "1002"]
+    rows_by_id = {row["activity_id"]: row for row in written_rows}
+    assert rows_by_id["1001"]["temperature_c"] == "30.0"
+    assert rows_by_id["1001"]["relative_humidity_pct"] == "72.0"
+    assert (
+        rows_by_id["1001"]["environment_source"]
+        == "garmin_activity_weather"
+    )
+    assert "temperature_c" not in rows_by_id["1000"]
+    assert "temperature_c" not in rows_by_id["1002"]
+    assert "temperature_c" not in rows_by_id["1003"]
+
+
+@pytest.mark.parametrize(
+    "weather_error",
+    [
+        GarminConnectTooManyRequestsError("rate limited"),
+        _garmin_connection_error(403),
+    ],
+)
+def test_sync_garmin_weather_systemic_error_aborts_for_backoff(
+    tmp_path, monkeypatch, weather_error,
+):
+    class RateLimitedGarmin:
+        def __init__(self, email, password, is_cn=False):
+            self.client = type("Client", (), {})()
+
+        def login(self, token_dir):
+            pass
+
+        def get_activities_by_date(self, *args, **kwargs):
+            return [
+                {
+                    "activityId": 1001,
+                    "startTimeLocal": "2026-07-20 07:00:00",
+                    "activityType": {"typeKey": "running"},
+                },
+            ]
+
+        def get_activity_weather(self, activity_id):
+            raise weather_error
+
+    class FakeConfig:
+        source_options = {"garmin_activity_categories": ["running"]}
+
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    monkeypatch.setattr("garminconnect.Garmin", RateLimitedGarmin)
+    monkeypatch.setattr(
+        "analysis.config.load_config_from_db",
+        lambda user_id, db: FakeConfig(),
+    )
+    monkeypatch.setattr(
+        "api.routes.sync._activity_ids_needing_environment",
+        lambda user_id, activity_ids, db: set(activity_ids),
+    )
+
+    from api.routes.sync import _sync_garmin
+
+    with pytest.raises(type(weather_error)):
+        _sync_garmin(
+            "weather-user",
+            {"email": "runner@example.com", "password": "secret"},
+            date.today().isoformat(),
+            object(),
+        )
+
 
 SAMPLE_ACTIVITY = {
     "activityId": 12345678901,

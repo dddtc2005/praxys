@@ -1,6 +1,38 @@
 """Garmin Connect data parsing — fetch/parse layer for the sync API route."""
 
+import math
+
 RATE_LIMIT_DELAY = 0.5  # seconds between per-activity API calls
+
+
+def parse_activity_weather(weather: dict | None) -> dict[str, str]:
+    """Normalize Garmin's activity weather observation.
+
+    Garmin's activity weather endpoint returns ``temp`` in Fahrenheit and
+    ``relativeHumidity`` in percent:
+    https://github.com/co42/garmin-cli/blob/main/src/garmin/types/activity/weather.rs
+    """
+    if not isinstance(weather, dict):
+        return {}
+    try:
+        temperature_f = float(weather.get("temp"))
+        relative_humidity = float(weather.get("relativeHumidity"))
+    except (TypeError, ValueError):
+        return {}
+    if (
+        not math.isfinite(temperature_f)
+        or not math.isfinite(relative_humidity)
+        or not -148 <= temperature_f <= 176
+        or not 0 <= relative_humidity <= 100
+    ):
+        return {}
+
+    temperature_c = (temperature_f - 32) * 5 / 9
+    return {
+        "temperature_c": str(round(temperature_c, 1)),
+        "relative_humidity_pct": str(round(relative_humidity, 1)),
+        "environment_source": "garmin_activity_weather",
+    }
 
 
 def _garmin_speed_to_pace_sec_km(speed_value: float) -> float | None:

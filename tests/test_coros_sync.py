@@ -1,18 +1,242 @@
 """Unit tests for COROS sync client parsers."""
 
+import time
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
+
+import pytest
+from requests import RequestException
+
 from sync.coros_sync import (
-    is_token_valid,
-    parse_activities,
-    parse_splits,
-    parse_daily_metrics,
-    parse_fitness_summary,
-    parse_sleep,
+    _compute_sleep_score,
     _format_date,
     _md5,
     _mobile_encrypt,
-    _compute_sleep_score,
+    fetch_activity_detail_data,
+    is_token_valid,
+    parse_activities,
+    parse_activity_weather,
+    parse_daily_metrics,
+    parse_fitness_summary,
+    parse_sleep,
+    parse_splits,
 )
-import time
+
+
+def test_fetch_activity_detail_data_uses_training_hub_detail_endpoint():
+    response = MagicMock()
+    response.json.return_value = {"result": "0000", "data": {"weather": {}}}
+
+    with patch("sync.coros_sync.requests.post", return_value=response) as post:
+        detail = fetch_activity_detail_data("token", "us", "act-1", 100)
+
+    assert detail == {"weather": {}}
+    post.assert_called_once()
+    _, kwargs = post.call_args
+    assert kwargs["params"] == {"labelId": "act-1", "sportType": 100}
+    assert kwargs["headers"]["accessToken"] == "token"
+    response.raise_for_status.assert_called_once_with()
+
+
+def test_fetch_activity_detail_data_ignores_malformed_envelope():
+    response = MagicMock()
+    response.json.return_value = []
+
+    with patch("sync.coros_sync.requests.post", return_value=response):
+        assert fetch_activity_detail_data("token", "us", "act-1", 100) == {}
+
+
+def test_parse_activity_weather_scales_tenths():
+    weather = parse_activity_weather(
+        {"weather": {"temperature": 192, "humidity": 570}},
+    )
+
+    assert weather == {
+        "temperature_c": "19.2",
+        "relative_humidity_pct": "57.0",
+        "environment_source": "coros_activity_weather",
+    }
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        {"weather": None},
+        {"weather": {"temperature": 192}},
+        {"weather": {"humidity": 570}},
+        {"weather": {"temperature": "bad", "humidity": 570}},
+        {"weather": {"temperature": 192, "humidity": 1200}},
+    ],
+)
+def test_parse_activity_weather_requires_a_valid_complete_pair(payload):
+    assert parse_activity_weather(payload) == {}
+
+
+def test_sync_coros_enriches_only_outdoor_runs_with_weather(monkeypatch):
+    weather_calls = []
+    written_rows = []
+    raw_activities = [
+        {"labelId": "2000", "sportType": 100, "date": 20260719},
+        {"labelId": "2001", "sportType": 100, "date": 20260720},
+        {"labelId": "2002", "sportType": 102, "date": 20260721},
+        {"labelId": "2003", "sportType": 101, "date": 20260722},
+    ]
+
+    def fetch_weather(access_token, region, activity_id, sport_type):
+        weather_calls.append((activity_id, sport_type))
+        if activity_id == "2002":
+            raise RequestException(
+                "weather unavailable",
+                response=SimpleNamespace(status_code=404),
+            )
+        return {"weather": {"temperature": 192, "humidity": 570}}
+
+    def capture_activities(user_id, rows, db):
+        written_rows.extend(rows)
+        return len(rows)
+
+    token_timestamp = int(time.time())
+    monkeypatch.setattr(
+        "sync.coros_sync.refresh_if_needed",
+        lambda creds, email, password: (creds, False),
+    )
+    monkeypatch.setattr(
+        "sync.coros_sync.fetch_activities",
+        lambda access_token, region, start, end: raw_activities,
+    )
+    monkeypatch.setattr(
+        "sync.coros_sync.fetch_activity_detail_data",
+        fetch_weather,
+    )
+    monkeypatch.setattr(
+        "sync.coros_sync.fetch_activity_detail",
+        lambda *args, **kwargs: b"",
+    )
+    monkeypatch.setattr(
+        "sync.coros_sync.fetch_daily_metrics",
+        lambda *args, **kwargs: [],
+    )
+    monkeypatch.setattr(
+        "sync.coros_sync.parse_daily_metrics",
+        lambda raw: [],
+    )
+    monkeypatch.setattr(
+        "sync.coros_sync.fetch_sleep",
+        lambda *args, **kwargs: [],
+    )
+    monkeypatch.setattr(
+        "sync.coros_sync.parse_sleep",
+        lambda raw: [],
+    )
+    monkeypatch.setattr(
+        "sync.coros_sync.fetch_fitness_summary",
+        lambda *args, **kwargs: {},
+    )
+    monkeypatch.setattr(
+        "sync.coros_sync.parse_fitness_summary",
+        lambda raw: {},
+    )
+    monkeypatch.setattr(time, "sleep", lambda seconds: None)
+    monkeypatch.setattr("db.sync_writer.write_activities", capture_activities)
+    for name in (
+        "write_splits",
+        "write_samples",
+        "write_recovery",
+        "write_profile_thresholds",
+    ):
+        monkeypatch.setattr(f"db.sync_writer.{name}", lambda *args, **kwargs: 0)
+
+    class NullDB:
+        def query(self, model):
+            class Query:
+                def filter(self, *args):
+                    return self
+
+                def all(self):
+                    return [
+                        SimpleNamespace(
+                            activity_id="2000",
+                            temperature_c=25.0,
+                            relative_humidity_pct=50.0,
+                            environment_source="coros_activity_weather",
+                        ),
+                    ]
+
+            return Query()
+
+        def commit(self):
+            pass
+
+    from api.routes.sync import _sync_coros
+
+    result = _sync_coros(
+        "weather-user",
+        {
+            "email": "runner@example.com",
+            "password": "secret",
+            "access_token": "token",
+            "coros_user_id": "coros-user",
+            "timestamp": token_timestamp,
+            "mobile_access_token": "mobile-token",
+            "mobile_timestamp": token_timestamp,
+        },
+        None,
+        NullDB(),
+    )
+
+    assert result["activities"] == 4
+    assert weather_calls == [("2001", 100), ("2002", 102)]
+    rows_by_id = {row["activity_id"]: row for row in written_rows}
+    assert rows_by_id["2001"]["temperature_c"] == "19.2"
+    assert rows_by_id["2001"]["relative_humidity_pct"] == "57.0"
+    assert rows_by_id["2001"]["environment_source"] == "coros_activity_weather"
+    assert "temperature_c" not in rows_by_id["2000"]
+    assert "temperature_c" not in rows_by_id["2002"]
+    assert "temperature_c" not in rows_by_id["2003"]
+
+
+def test_sync_coros_weather_rate_limit_aborts_for_backoff(monkeypatch):
+    def rate_limited(*args, **kwargs):
+        raise RequestException(
+            "rate limited",
+            response=SimpleNamespace(status_code=429),
+        )
+
+    monkeypatch.setattr(
+        "sync.coros_sync.refresh_if_needed",
+        lambda creds, email, password: (creds, False),
+    )
+    monkeypatch.setattr(
+        "sync.coros_sync.fetch_activities",
+        lambda *args, **kwargs: [
+            {"labelId": "2001", "sportType": 100, "date": 20260720},
+        ],
+    )
+    monkeypatch.setattr(
+        "sync.coros_sync.fetch_activity_detail_data",
+        rate_limited,
+    )
+    monkeypatch.setattr(
+        "api.routes.sync._activity_ids_needing_environment",
+        lambda user_id, activity_ids, db: set(activity_ids),
+    )
+
+    from api.routes.sync import _sync_coros
+
+    with pytest.raises(RequestException):
+        _sync_coros(
+            "weather-user",
+            {
+                "email": "runner@example.com",
+                "password": "secret",
+                "access_token": "token",
+                "coros_user_id": "coros-user",
+                "timestamp": int(time.time()),
+            },
+            None,
+            object(),
+        )
 
 
 # --- Fixtures ---

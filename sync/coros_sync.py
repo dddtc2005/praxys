@@ -15,6 +15,7 @@ import hashlib
 import io
 import json
 import logging
+import math
 import random
 import time
 from datetime import datetime, timezone
@@ -465,6 +466,71 @@ def fetch_activity_detail(
     except Exception as e:
         logger.warning("COROS FIT file download failed for %s: %s", activity_id, e)
         return b""
+
+
+def fetch_activity_detail_data(
+    access_token: str,
+    region: str,
+    activity_id: str,
+    sport_type: int | None = None,
+) -> dict:
+    """Fetch COROS JSON activity detail, including provider weather."""
+    url = f"{_base_url(region)}/activity/detail/query"
+    params: dict = {"labelId": activity_id}
+    if sport_type is not None:
+        params["sportType"] = sport_type
+
+    resp = requests.post(
+        url,
+        params=params,
+        headers=_headers(access_token),
+        timeout=30,
+    )
+    resp.raise_for_status()
+    body = resp.json()
+    if not isinstance(body, dict):
+        return {}
+    if str(body.get("result")) not in ("0000", "0"):
+        msg = body.get("message", body.get("result"))
+        if "token" in str(msg).lower() or "auth" in str(msg).lower():
+            raise RuntimeError(f"COROS auth error: {msg}")
+        raise RuntimeError(f"COROS activity detail error: {msg}")
+    data = body.get("data")
+    return data if isinstance(data, dict) else {}
+
+
+def parse_activity_weather(detail: dict | None) -> dict[str, str]:
+    """Normalize COROS activity weather values from their ×10 wire units.
+
+    The reverse-engineered, live-verified detail schema documents
+    ``weather.temperature`` as Celsius ×10 and ``weather.humidity`` as
+    relative-humidity percent ×10:
+    https://github.com/0xNatal/coros/blob/main/docs/coros-api-reference.md
+    """
+    if not isinstance(detail, dict):
+        return {}
+    weather = detail.get("weather")
+    if not isinstance(weather, dict):
+        return {}
+    try:
+        raw_temperature = float(weather.get("temperature"))
+        raw_humidity = float(weather.get("humidity"))
+    except (TypeError, ValueError):
+        return {}
+    if not math.isfinite(raw_temperature) or not math.isfinite(raw_humidity):
+        return {}
+    if raw_temperature == 0 and raw_humidity == 0:
+        return {}
+
+    temperature_c = raw_temperature / 10
+    relative_humidity = raw_humidity / 10
+    if not -100 <= temperature_c <= 80 or not 0 <= relative_humidity <= 100:
+        return {}
+    return {
+        "temperature_c": str(round(temperature_c, 1)),
+        "relative_humidity_pct": str(round(relative_humidity, 1)),
+        "environment_source": "coros_activity_weather",
+    }
 
 
 def fetch_daily_metrics(

@@ -6,8 +6,10 @@ environment variables when auth is disabled (local dev).
 import json
 import logging
 import os
+import re
 import threading
 import time
+from collections.abc import Iterable
 from datetime import date, datetime, timedelta, timezone
 
 logger = logging.getLogger(__name__)
@@ -77,6 +79,54 @@ def _get_user_status(user_id: str) -> dict[str, dict]:
                 for s in _DEFAULT_SOURCES
             }
         return _sync_status[user_id]
+
+
+def _activity_ids_needing_environment(
+    user_id: str,
+    activity_ids: Iterable[str],
+    db: Session,
+) -> set[str]:
+    """Return activity IDs whose environment observation can still be filled."""
+    from db.models import Activity
+
+    candidate_ids = {
+        str(activity_id)
+        for activity_id in activity_ids
+        if activity_id
+    }
+    if not candidate_ids:
+        return set()
+
+    existing = db.query(Activity).filter(
+        Activity.user_id == user_id,
+        Activity.activity_id.in_(sorted(candidate_ids)),
+    ).all()
+    needed = set(candidate_ids)
+    for activity in existing:
+        temperature = activity.temperature_c
+        humidity = activity.relative_humidity_pct
+        source = activity.environment_source
+        if temperature is None and humidity is None:
+            continue
+        if temperature is not None and humidity is not None and source is None:
+            continue
+        needed.discard(activity.activity_id)
+    return needed
+
+
+def _exception_status_code(exc: BaseException) -> int | None:
+    """Extract an HTTP status from an exception response or provider message."""
+    response = getattr(exc, "response", None)
+    status_code = getattr(response, "status_code", None)
+    if isinstance(status_code, int):
+        return status_code
+    match = re.search(
+        r"(?:API Error|client error|status(?:_code)?|HTTP(?: error)?)"
+        r"\D*([1-5]\d{2})",
+        str(exc),
+        re.IGNORECASE,
+    )
+    return int(match.group(1)) if match else None
 
 
 def _get_data_dir() -> str:
@@ -545,10 +595,16 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
     """Fetch Garmin data and write directly to DB."""
     from db import sync_writer
     from garminconnect import Garmin
+    from garminconnect.exceptions import (
+        GarminConnectAuthenticationError,
+        GarminConnectConnectionError,
+        GarminConnectTooManyRequestsError,
+    )
     from sync.garmin_sync import (
         parse_activities, parse_splits, parse_activity_stream,
         parse_daily_metrics, parse_lactate_threshold, parse_user_profile,
-        parse_heart_rates, parse_running_ftp, RATE_LIMIT_DELAY,
+        parse_activity_weather, parse_heart_rates, parse_running_ftp,
+        RATE_LIMIT_DELAY,
         GARMIN_MAX_CHART_SIZE,
     )
     import time
@@ -622,13 +678,72 @@ def _sync_garmin(user_id: str, creds: dict, from_date: str | None,
                 user_id, atype, e,
             )
     activity_rows = parse_activities(raw_activities)
+    status = _get_user_status(user_id)
+    weather_rows_by_id = {
+        str(row.get("activity_id")): row
+        for row in activity_rows
+        if row.get("activity_id")
+        and row.get("activity_type") in {"running", "trail_running"}
+    }
+    needed_weather_ids = _activity_ids_needing_environment(
+        user_id, weather_rows_by_id, db,
+    )
+    weather_rows = [
+        (activity_id, row)
+        for activity_id, row in weather_rows_by_id.items()
+        if activity_id in needed_weather_ids
+    ]
+    weather_failures = 0
+    weather_completed = 0
+    weather_abort: Exception | None = None
+    for idx, (aid, row) in enumerate(weather_rows):
+        with _sync_lock:
+            status["garmin"]["progress"] = (
+                f"Fetching weather: {idx + 1}/{len(weather_rows)}"
+            )
+        try:
+            weather = client.get_activity_weather(aid) or {}
+            row.update(parse_activity_weather(weather))
+        except (
+            GarminConnectAuthenticationError,
+            GarminConnectTooManyRequestsError,
+        ):
+            raise
+        except GarminConnectConnectionError as e:
+            status_code = _exception_status_code(e)
+            if status_code in {401, 403, 429}:
+                raise
+            if status_code not in {400, 404}:
+                weather_abort = e
+                break
+            weather_failures += 1
+            logger.debug("Weather for %s: skipped (%s)", aid, e)
+        except ValueError as e:
+            weather_failures += 1
+            logger.debug("Weather for %s: skipped (%s)", aid, e)
+        time.sleep(RATE_LIMIT_DELAY)
+        weather_completed += 1
+    if weather_abort is not None:
+        logger.warning(
+            "Garmin weather enrichment stopped after %d of %d eligible "
+            "activities (user %s): %s",
+            weather_completed,
+            len(weather_rows),
+            user_id,
+            weather_abort,
+        )
+    elif weather_rows and weather_failures >= max(3, len(weather_rows) // 2):
+        logger.warning(
+            "Garmin weather fetch failed for %d of %d eligible activities "
+            "(user %s) — heat-adaptation evidence will be incomplete",
+            weather_failures, len(weather_rows), user_id,
+        )
     act_count = sync_writer.write_activities(user_id, activity_rows, db)
 
     # Splits — per-activity lap data. Splits drive interval intensity analysis
     # (see CLAUDE.md: "Always use activity_splits.csv for intensity analysis").
     # Per-activity misses are logged at debug, but a systemic failure would
     # quietly lose intensity metrics, so we surface an aggregate warning.
-    status = _get_user_status(user_id)
     activity_ids = [str(a.get("activityId", "")) for a in raw_activities]
     total = len(activity_ids)
     all_splits = []
@@ -1097,9 +1212,11 @@ def _sync_coros(user_id: str, creds: dict, from_date: str | None,
         refresh_if_needed,
         fetch_activities,
         fetch_activity_detail,
+        fetch_activity_detail_data,
         fetch_daily_metrics,
         fetch_fitness_summary,
         parse_activities,
+        parse_activity_weather,
         parse_fit_laps,
         parse_fit_stream,
         parse_daily_metrics as parse_daily,
@@ -1158,6 +1275,75 @@ def _sync_coros(user_id: str, creds: dict, from_date: str | None,
     for row in activity_rows:
         row.setdefault("activity_type", "other")
         row.setdefault("source", "coros")
+    rows_by_id = {
+        str(row.get("activity_id")): row
+        for row in activity_rows
+        if row.get("activity_id")
+    }
+    weather_activities_by_id = {}
+    for raw_act in raw_activities:
+        act_id = str(raw_act.get("labelId") or raw_act.get("activityId") or "")
+        row = rows_by_id.get(act_id)
+        if row and row.get("activity_type") in {"running", "trail_running"}:
+            weather_activities_by_id[act_id] = raw_act
+    needed_weather_ids = _activity_ids_needing_environment(
+        user_id, weather_activities_by_id, db,
+    )
+    weather_activities = [
+        (activity_id, raw_activity)
+        for activity_id, raw_activity in weather_activities_by_id.items()
+        if activity_id in needed_weather_ids
+    ]
+    weather_failures = 0
+    weather_abort: Exception | None = None
+    from requests import RequestException
+
+    for idx, (act_id, raw_act) in enumerate(weather_activities):
+        with _sync_lock:
+            status.setdefault("coros", {})["progress"] = (
+                f"Fetching weather: {idx + 1}/{len(weather_activities)}"
+            )
+        try:
+            detail = fetch_activity_detail_data(
+                access_token,
+                region,
+                act_id,
+                raw_act.get("sportType"),
+            )
+            rows_by_id[act_id].update(parse_activity_weather(detail))
+        except RequestException as e:
+            status_code = _exception_status_code(e)
+            if status_code in {401, 403, 429}:
+                raise
+            if status_code not in {400, 404}:
+                weather_abort = e
+                break
+            weather_failures += 1
+            logger.debug("COROS weather for %s: skipped (%s)", act_id, e)
+        except RuntimeError as e:
+            if str(e).startswith("COROS auth error:"):
+                raise
+            weather_failures += 1
+            logger.debug("COROS weather for %s: skipped (%s)", act_id, e)
+        except ValueError as e:
+            weather_failures += 1
+            logger.debug("COROS weather for %s: skipped (%s)", act_id, e)
+        time_mod.sleep(0.3)
+    if weather_abort is not None:
+        logger.warning(
+            "COROS weather enrichment stopped for user %s: %s",
+            user_id,
+            weather_abort,
+        )
+    elif (
+        weather_activities
+        and weather_failures >= max(3, len(weather_activities) // 2)
+    ):
+        logger.warning(
+            "COROS weather fetch failed for %d of %d eligible activities "
+            "(user %s) — heat-adaptation evidence will be incomplete",
+            weather_failures, len(weather_activities), user_id,
+        )
     act_count = sync_writer.write_activities(user_id, activity_rows, db)
 
     # Splits and per-second samples from the same activity detail call.

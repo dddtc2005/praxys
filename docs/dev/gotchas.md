@@ -155,9 +155,18 @@ render read-only with a source badge.
 
 ## Backfill semantics
 
-- `write_activities` / `write_splits` are **fill-only upserts** for a whitelisted set of columns (`avg_power`, `max_power`). If a row already exists and a column is NULL, a re-sync fills it; non-null values are preserved verbatim. This lets users benefit from parser improvements (e.g. native Garmin power) without deleting their existing data, *and* protects against clobbering Stryd-sourced power with a different Garmin reading in dual-sync scenarios.
+- `write_activities` / `write_splits` are **fill-only upserts** for a whitelisted set of columns (`avg_power`, `max_power`). Activity temperature, relative humidity, and provenance are also backfilled atomically: both values must come from one connector observation, and an existing pair is never mixed with or overwritten by a later source. This lets users benefit from parser improvements (e.g. native Garmin power or newly fetched activity weather) without deleting their existing data, *and* protects against clobbering Stryd-sourced power with a different Garmin reading in dual-sync scenarios.
 - `write_lactate_threshold` and `write_daily_metrics` are insert-only (existing rows skipped) — they're time-series of fresh values, so per-date idempotency is the right semantics.
 - Recovery (`recovery_data`) is update-capable per date (see `write_recovery`'s Garmin branch) so a partial first-sync row can be topped up on a later sync that returns HRV where the first didn't.
+
+## Activity weather support
+
+- Stryd activity summaries already provide temperature plus relative humidity.
+- Garmin requires a separate `get_activity_weather(activity_id)` call; its bare `temp` field is Fahrenheit and must be converted to Celsius.
+- COROS requires `POST /activity/detail/query`; `weather.temperature` and `weather.humidity` are both scaled by 10.
+- Strava exposes a Celsius temperature stream but no humidity field in its official API. Do not manufacture a complete heat-adaptation observation from Strava temperature alone.
+- Connector weather is fetched only for outdoor running/trail-running rows used by the heat-adaptation model. Treadmill and indoor activity must not inherit outdoor provider weather.
+- Re-sync skips weather calls once an activity already has a complete, attributed observation. Authentication and rate-limit errors still abort the connector sync so scheduler backoff protects the provider account; an individual missing weather observation remains non-fatal.
 
 ## Sync status observability
 
