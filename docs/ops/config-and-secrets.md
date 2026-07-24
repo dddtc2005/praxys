@@ -47,6 +47,60 @@ transient — the next deploy overwrites them.**
 | `PRAXYS_DB_AUTH` (`entra` or unset) | Postgres auth mode: `entra` = AAD token via managed identity, no password. **Optional.** | App Service setting (backend) |
 | `PRAXYS_PG_SERVER` | Postgres Flexible Server name. **Reserved / currently unused** - the on-demand backup jobs it gated were removed (Burstable tier can't do on-demand backups; PITR covers backup). Kept for a future off-site backup job. | (reserved) |
 
+### GitHub Actions → Workflow permissions
+
+The i18n workflow uses `GITHUB_TOKEN` plus explicit `contents: write` and
+`pull-requests: write` job permissions to update `i18n/refresh-zh` and open its
+review PR. GitHub also has an independent **Allow GitHub Actions to create and
+approve pull requests** gate. A repository transfer into an organization can
+inherit that organization's disabled gate even when workflow YAML, secrets, and
+variables transfer successfully.
+
+Source of truth:
+
+- Organization prerequisite: `praxys-run → Settings → Actions → General →
+  Workflow permissions`.
+- Repository setting: `praxys-run/praxys → Settings → Actions → General →
+  Workflow permissions`.
+- Keep **Default workflow permissions** at `read`; the workflow grants only the
+  writes its job needs.
+- Enable PR creation for `praxys-run/praxys` only. Keep
+  `praxys-run/praxys-coach-plugin` and `praxys-run/praxys-ops-agent` disabled.
+
+Provision the current least-privilege state:
+
+```bash
+# The organization gate must allow repository-level opt-in.
+gh api -X PUT orgs/praxys-run/actions/permissions/workflow \
+  -f default_workflow_permissions=read \
+  -F can_approve_pull_request_reviews=true
+
+gh api -X PUT repos/praxys-run/praxys/actions/permissions/workflow \
+  -f default_workflow_permissions=read \
+  -F can_approve_pull_request_reviews=true
+
+# Explicitly retain the disabled state on repositories that do not create PRs.
+for repo in praxys-coach-plugin praxys-ops-agent; do
+  gh api -X PUT "repos/praxys-run/$repo/actions/permissions/workflow" \
+    -f default_workflow_permissions=read \
+    -F can_approve_pull_request_reviews=false
+done
+```
+
+Verify:
+
+```bash
+gh api orgs/praxys-run/actions/permissions/workflow
+for repo in praxys praxys-coach-plugin praxys-ops-agent; do
+  gh api "repos/praxys-run/$repo/actions/permissions/workflow"
+done
+```
+
+If `i18n.yml` pushes `i18n/refresh-zh` but fails at **Open pull request** with
+`GitHub Actions is not permitted to create or approve pull requests`, restore
+these gates and rerun the failed job. This setting was restored on 2026-07-24
+after the org migration exposed the missing post-transfer step.
+
 Application Insights resource names are tracked in
 `.github/azure-observability.env`, not repository variables. The deploy
 workflows use Azure OIDC to read each component's connection string at runtime;

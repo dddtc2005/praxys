@@ -19,6 +19,10 @@ variables + webhooks + deploy keys remain** with the repo). The things that
   so we **pre-stage it additively before** the transfer.
 - **The feedback GitHub App** installation is on the `dddtc2005` *user*; an
   org-owned repo needs the app installed on the *org*.
+- **Actions PR creation policy** — the transferred repo inherits the target
+  organization's workflow-permission gate. `GITHUB_TOKEN` can still push an
+  automation branch while PR creation fails with `GitHub Actions is not
+  permitted to create or approve pull requests`.
 - **The submodule URL** and a pile of `dddtc2005/praxys` references in docs
   (redirects keep them working, but we update for correctness).
 
@@ -179,13 +183,42 @@ git submodule sync --recursive   # picks up the .gitmodules change from step 2.4
 > covers every worktree. Repeat for local clones of `praxys-coach-plugin` and
 > `praxys-ops-agent`.
 
+### 2.8 Restore Actions PR creation for `praxys` only 🤖
+
+The target org's Actions policy may block repository workflows from creating
+pull requests even though `contents: write` and `pull-requests: write` appear in
+the workflow. The org gate must permit repository opt-in; then enable the repo
+gate only where it is required by `.github/workflows/i18n.yml`.
+
+```bash
+gh api -X PUT orgs/praxys-run/actions/permissions/workflow \
+  -f default_workflow_permissions=read \
+  -F can_approve_pull_request_reviews=true
+
+gh api -X PUT repos/praxys-run/praxys/actions/permissions/workflow \
+  -f default_workflow_permissions=read \
+  -F can_approve_pull_request_reviews=true
+
+for repo in praxys-coach-plugin praxys-ops-agent; do
+  gh api -X PUT "repos/praxys-run/$repo/actions/permissions/workflow" \
+    -f default_workflow_permissions=read \
+    -F can_approve_pull_request_reviews=false
+done
+```
+
+The organization-level switch is a prerequisite for the repository override;
+the explicit `false` settings retain least privilege on the other two repos.
+See [config-and-secrets.md](./config-and-secrets.md) for the source of truth and
+verification commands.
+
 ---
 
 ## Phase 3 — Verify
 
 - 🤖 **Backend deploy** green (OIDC login step succeeds) → `https://api.praxys.run` healthy.
 - 🤖 **Frontend deploy** green → `https://www.praxys.run` serves.
-- 🤖 **i18n** workflow (push to main) logs in via OIDC.
+- 🤖 **i18n** workflow (push to main) logs in via OIDC **and its Open pull
+  request step succeeds**.
 - 🧑/🤖 **Feedback → issue**: submit a test in-app feedback (or re-run triage) → a
   new issue is filed in `praxys-run/praxys`.
 - 🤖 **Change loop**: label a throwaway bug `agent-ready` → `assign-copilot.yml`
@@ -221,6 +254,9 @@ git submodule sync --recursive   # picks up the .gitmodules change from step 2.4
 - **GitHub App**: if issue-filing breaks, re-check the org installation + the two
   variables (2.2–2.3); the app private key (`PRAXYS_GITHUB_APP_PRIVATE_KEY`) is
   unchanged.
+- **i18n PR creation**: if the translation branch updates but **Open pull
+  request** fails with `GitHub Actions is not permitted to create or approve
+  pull requests`, restore both permission gates in 2.8 and rerun the failed job.
 
 ## Free-org caveats (accepted)
 
@@ -241,4 +277,4 @@ git submodule sync --recursive   # picks up the .gitmodules change from step 2.4
 - [deploy.md](./deploy.md) — the deploy workflows that use OIDC.
 
 ---
-_Last reviewed: 2026-07-08 · Owner: @dddtc2005_
+_Last reviewed: 2026-07-24 · Owner: @dddtc2005_
