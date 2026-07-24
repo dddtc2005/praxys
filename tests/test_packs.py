@@ -668,6 +668,9 @@ def test_training_payload_exposes_server_summary_and_load_window(
     assert payload["summary"]["current_tsb"] is None
     assert payload["data_meta"]["load_time_constant_days"] == 42
     assert payload["data_meta"]["pmc_sufficient"] is False
+    volume = payload["diagnosis"]["volume"]
+    assert {"weekly_avg_km", "trend", "weeks", "weekly_km"} <= set(volume)
+    assert len(volume["weeks"]) == len(volume["weekly_km"])
 
 
 def test_today_and_training_payloads_expose_heat_adaptation(

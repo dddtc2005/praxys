@@ -816,6 +816,8 @@ def test_diagnose_cold_start_keeps_stable_array_contracts():
     assert result["suggestions"] == []
     assert result["distribution"] == []
     assert result["zone_ranges"] == []
+    assert result["volume"]["weeks"] == []
+    assert result["volume"]["weekly_km"] == []
     assert result["interval_power"]["data_available"] is False
     assert result["data_meta"] == {
         "distribution_resolution": "unavailable",
@@ -889,6 +891,79 @@ def test_diagnose_volume_average_includes_empty_weeks():
     )
 
     assert result["volume"]["weekly_avg_km"] == 10.0
+    assert result["volume"]["weeks"] == [
+        "2026-03-02",
+        "2026-03-09",
+        "2026-03-16",
+        "2026-03-23",
+    ]
+    assert result["volume"]["weekly_km"] == [0.0, 0.0, 0.0, 40.0]
+
+
+def test_diagnose_volume_is_available_without_threshold_data():
+    """Threshold-independent volume remains available when CP is missing."""
+    today = date(2026, 3, 23)
+    activities = _make_activities([date(2026, 3, 20)], [40])
+
+    result = diagnose_training(
+        activities,
+        pd.DataFrame(),
+        {},
+        lookback_weeks=4,
+        current_date=today,
+    )
+
+    assert result["volume"]["weekly_avg_km"] == 10.0
+    assert result["volume"]["weekly_km"] == [0.0, 0.0, 0.0, 40.0]
+    assert result["consistency"]["total_sessions"] == 1
+    assert result["diagnosis"] == [{
+        "type": "warning",
+        "message": "No CP data available — cannot diagnose.",
+    }]
+
+
+def test_diagnose_volume_preserves_non_empty_all_zero_series():
+    """Recorded zero distance is data, not an unavailable weekly series."""
+    today = date(2026, 3, 23)
+    activities = _make_activities([date(2026, 3, 20)], [0])
+
+    result = diagnose_training(
+        activities,
+        pd.DataFrame(),
+        {"current": 250.0, "direction": "flat"},
+        lookback_weeks=4,
+        current_date=today,
+    )
+
+    assert result["volume"]["weekly_avg_km"] == 0.0
+    assert result["volume"]["weeks"] == [
+        "2026-03-02",
+        "2026-03-09",
+        "2026-03-16",
+        "2026-03-23",
+    ]
+    assert result["volume"]["weekly_km"] == [0.0, 0.0, 0.0, 0.0]
+    assert result["volume"]["trend"] == "stable"
+
+
+def test_diagnose_volume_handles_missing_distance_column():
+    """An activity without distance produces recorded zeroes, not shape drift."""
+    today = date(2026, 3, 23)
+    activities = _make_activities([date(2026, 3, 20)], [10]).drop(
+        columns=["distance_km"],
+    )
+
+    result = diagnose_training(
+        activities,
+        pd.DataFrame(),
+        {"current": 250.0, "direction": "flat"},
+        lookback_weeks=4,
+        current_date=today,
+    )
+
+    assert result["volume"]["weekly_avg_km"] == 0.0
+    assert result["volume"]["weekly_km"] == [0.0, 0.0, 0.0, 0.0]
+    assert len(result["volume"]["weeks"]) == 4
 
 
 def test_diagnose_withholds_conclusions_for_partial_split_evidence():

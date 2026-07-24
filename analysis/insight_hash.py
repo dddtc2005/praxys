@@ -105,6 +105,15 @@ def build_training_review_inputs(context: dict) -> dict:
 
     raw_diagnosis = recent.get("diagnosis") or {}
     diagnosis = dict(raw_diagnosis) if isinstance(raw_diagnosis, dict) else {}
+    volume = diagnosis.get("volume")
+    if isinstance(volume, dict):
+        # The dated arrays are chart presentation data duplicated by
+        # `weekly_summary`. Excluding them avoids daily hash churn as rolling
+        # bucket labels advance without any new synced training evidence.
+        model_volume = dict(volume)
+        model_volume.pop("weeks", None)
+        model_volume.pop("weekly_km", None)
+        diagnosis["volume"] = model_volume
     data_meta = diagnosis.get("data_meta") or {}
     distribution_complete = data_meta.get("distribution_complete") is True
     if not distribution_complete:

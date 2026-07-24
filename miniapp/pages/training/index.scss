@@ -35,136 +35,116 @@
   margin-bottom: 32rpx;
 }
 
-// ─── Stat strip ─────────────────────────────────────────────────────
-//
-// Five peer cells laid out in two columns. The fifth cell (heat) keeps
-// the same footprint and hierarchy while exposing a bounded sheet.
-//
-// Implementation note: Skyline doesn't reliably honor `display: grid`
-// (and `grid-template-columns: 1fr 1fr` collapses to a single column
-// in the simulator and on some phone runtimes). We mirror Today's
-// `today-supporting` / `today-cell` pattern instead — `flex-wrap`
-// container plus `width: 50%` + `box-sizing: border-box` per cell.
-// Robust across both renderers.
-.train-stats {
-  display: flex;
-  flex-wrap: wrap;
-  margin-bottom: 32rpx;
-  border-top: 1rpx solid var(--border-subtle);
-}
-
-.train-stat-cell {
+// ─── Peer metric index ───────────────────────────────────────────────
+.train-peer-head {
   display: flex;
   flex-direction: column;
-  gap: 4rpx;
-  padding: 24rpx 0;
-  width: 50%;
-  // Without box-sizing the per-cell padding pushes width past 50%
-  // and the second cell wraps to its own row (the failure mode the
-  // user reported in the simulator).
-  box-sizing: border-box;
-  border-bottom: 1rpx solid var(--border-subtle);
-  // Min-width 0 lets long sub-text (e.g. "vs Seiler Polarized 3-Zone")
-  // shrink and wrap rather than forcing the cell wider than 50%.
-  min-width: 0;
+  gap: 8rpx;
+  margin-bottom: 20rpx;
 }
 
-// Hairline vertical rule between the two columns. Same treatment as
-// Today's supporting grid — odd cells get a right rule + right
-// padding; even cells absorb a matching left padding so the value /
-// label inside don't sit on the rule.
-.train-stat-cell:nth-child(odd) {
-  border-right: 1rpx solid var(--border-subtle);
-  padding-right: 32rpx;
-}
-.train-stat-cell:nth-child(even) {
-  padding-left: 32rpx;
-}
-
-.train-stat-label {
-  display: block;
-  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
-  font-size: 20rpx;
-  font-weight: 600;
-  letter-spacing: 1rpx;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-bottom: 6rpx;
-}
-
-.train-stat-row {
-  display: flex;
-  flex-direction: row;
-  align-items: baseline;
-  gap: 4rpx;
-}
-
-.train-stat-value {
-  font-size: 44rpx;
-  font-weight: 600;
-  line-height: 1;
+.train-peer-title {
+  font-size: 28rpx;
+  font-weight: 650;
   color: var(--text);
 }
 
-// % suffix sits inline at body-size + muted, so the headline number
-// dominates the vertical rhythm and the unit reads as an afterthought.
-.train-stat-unit {
-  font-size: 26rpx;
+.train-peer-hint {
+  font-size: 22rpx;
+  line-height: 1.45;
   color: var(--text-muted);
-  margin-left: 2rpx;
 }
 
-.train-stat-sub {
+.train-metrics {
+  overflow: hidden;
+  border: 1rpx solid var(--border-subtle);
+  border-radius: 20rpx;
+  background-color: var(--surface-subtle);
+}
+
+.train-metric-row {
+  display: flex;
+  min-height: 128rpx;
+  box-sizing: border-box;
+  align-items: center;
+  gap: 20rpx;
+  padding: 20rpx 22rpx;
+  border-bottom: 1rpx solid var(--border-subtle);
+}
+
+.train-metric-row:last-child {
+  border-bottom: 0;
+}
+
+.train-metric-row--pressed {
+  background-color: var(--surface);
+}
+
+.train-metric-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.train-metric-label {
   display: block;
-  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  font-size: 25rpx;
+  font-weight: 650;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.train-metric-context {
+  display: block;
+  font-size: 21rpx;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+.train-metric-readout {
+  display: flex;
+  width: 188rpx;
+  flex: none;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 5rpx;
+  text-align: right;
+}
+
+.train-metric-value {
+  max-width: 188rpx;
+  font-size: 32rpx;
+  font-weight: 650;
+  line-height: 1.15;
+  color: var(--text);
+}
+
+.train-metric-unit {
   font-size: 20rpx;
   color: var(--text-muted);
-  line-height: 1.4;
-  margin-top: 4rpx;
 }
 
-// Heat's evidence action is explicit without turning the whole strip
-// into a row of mismatched buttons.
-.train-stat-cell--heat {
-  min-height: 184rpx;
-}
-
-.train-stat-value--heat {
-  font-size: 34rpx;
-  line-height: 1.15;
-}
-
-.train-stat-evidence {
+.train-metric-action {
   display: flex;
+  width: 104rpx;
+  flex: none;
   align-items: center;
-  justify-content: space-between;
-  gap: 8rpx;
-  align-self: flex-start;
-  min-height: 56rpx;
-  max-width: 100%;
-  box-sizing: border-box;
-  margin-top: 8rpx;
-  padding: 0 14rpx;
-  border: 1rpx solid var(--border-subtle);
-  border-radius: 12rpx;
-  background-color: var(--surface-subtle);
+  justify-content: flex-end;
+  gap: 4rpx;
+  font-size: 21rpx;
+  font-weight: 600;
   color: var(--accent-cobalt);
 }
 
-.train-stat-evidence-copy {
-  min-width: 0;
-  font-size: 19rpx;
-  line-height: 1.35;
-}
-
-.train-stat-evidence-arrow {
-  flex: none;
-  font-size: 32rpx;
+.train-metric-arrow {
+  font-size: 30rpx;
   line-height: 1;
 }
 
-// ─── Heat evidence sheet ─────────────────────────────────────────────
-.train-heat-overlay {
+// ─── Metric detail sheet ─────────────────────────────────────────────
+.train-metric-overlay {
   position: fixed;
   z-index: 200;
   top: 0;
@@ -174,20 +154,20 @@
   display: flex;
   align-items: flex-end;
   background-color: rgba(0, 0, 0, 0.48);
-  animation: train-heat-overlay-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: train-metric-overlay-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.train-heat-sheet {
+.train-metric-sheet {
   width: 100%;
   max-height: 88vh;
   overflow: hidden;
   box-sizing: border-box;
   border-radius: 24rpx 24rpx 0 0;
   background-color: var(--bg);
-  animation: train-heat-sheet-in 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: train-metric-sheet-in 240ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.train-heat-sheet-handle {
+.train-metric-sheet-handle {
   width: 72rpx;
   height: 8rpx;
   margin: 16rpx auto 4rpx;
@@ -195,7 +175,7 @@
   background-color: var(--border-subtle);
 }
 
-.train-heat-sheet-head {
+.train-metric-sheet-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -204,7 +184,7 @@
   border-bottom: 1rpx solid var(--border-subtle);
 }
 
-.train-heat-sheet-heading {
+.train-metric-sheet-heading {
   display: flex;
   min-width: 0;
   flex: 1;
@@ -212,20 +192,20 @@
   gap: 8rpx;
 }
 
-.train-heat-sheet-title {
+.train-metric-sheet-title {
   font-size: 36rpx;
   font-weight: 650;
   line-height: 1.2;
   color: var(--text);
 }
 
-.train-heat-sheet-range {
+.train-metric-sheet-description {
   font-size: 22rpx;
   line-height: 1.4;
   color: var(--text-muted);
 }
 
-.train-heat-sheet-close {
+.train-metric-sheet-close {
   align-items: center;
   justify-content: center;
   flex: none;
@@ -239,12 +219,76 @@
   color: var(--text);
 }
 
-.train-heat-sheet-scroll {
+.train-metric-sheet-scroll {
   height: 72vh;
 }
 
+.train-metric-detail-body,
 .train-heat-sheet-body {
   padding: 32rpx 32rpx calc(48rpx + env(safe-area-inset-bottom));
+}
+
+.train-volume-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 24rpx;
+  margin-bottom: 24rpx;
+  padding: 24rpx;
+  border-radius: 16rpx;
+  background-color: var(--surface-subtle);
+}
+
+.train-volume-summary-label,
+.train-volume-summary-value {
+  display: block;
+}
+
+.train-volume-summary-label {
+  margin-bottom: 8rpx;
+  font-size: 21rpx;
+  color: var(--text-muted);
+}
+
+.train-volume-summary-value {
+  font-size: 25rpx;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.train-volume-values {
+  margin-top: 24rpx;
+}
+
+.train-volume-values-title {
+  display: block;
+  margin-bottom: 8rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.train-volume-value-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24rpx;
+  padding: 14rpx 0;
+  border-bottom: 1rpx solid var(--border-subtle);
+}
+
+.train-volume-value-row:first-of-type {
+  border-top: 1rpx solid var(--border-subtle);
+}
+
+.train-volume-value-week,
+.train-volume-value-distance {
+  font-size: 24rpx;
+  color: var(--text);
+}
+
+.train-volume-value-distance {
+  flex-shrink: 0;
+  font-weight: 600;
 }
 
 .train-heat-conclusion {
@@ -625,77 +669,24 @@
   color: var(--accent-cobalt);
 }
 
-@keyframes train-heat-overlay-in {
+@keyframes train-metric-overlay-in {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
-@keyframes train-heat-sheet-in {
+@keyframes train-metric-sheet-in {
   from { transform: translateY(28rpx); }
   to { transform: translateY(0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .train-heat-overlay,
-  .train-heat-sheet {
+  .train-metric-overlay,
+  .train-metric-sheet {
     animation-duration: 1ms;
   }
 }
 
-// ─── Pill switcher ──────────────────────────────────────────────────
-//
-// Three-column switcher keeps all labels readable and gives each
-// tab a movement-safe touch target. Active segments use action green;
-// the muted track keeps inactive choices quiet.
-.train-pills {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4rpx;
-  width: 100%;
-  box-sizing: border-box;
-  background-color: var(--surface-subtle);
-  border: 1rpx solid var(--border-subtle);
-  border-radius: 24rpx;
-  padding: 4rpx;
-  margin-bottom: 24rpx;
-}
-
-.train-pill {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-  min-height: 88rpx;
-  box-sizing: border-box;
-  font-size: 26rpx;
-  font-weight: 500;
-  text-align: center;
-  color: var(--text-muted);
-  padding: 12rpx 10rpx;
-  border-radius: 18rpx;
-  line-height: 1.2;
-  transition: background-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
-    color 180ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.train-pill--active {
-  color: #ffffff;
-  font-weight: 600;
-  background-color: var(--primary);
-  box-shadow: 0 1rpx 3rpx rgba(0, 0, 0, 0.06);
-}
-
-// Chart pane — wraps whichever chart the active pill exposes. No
-// ts-card chrome on the wrapper itself; we let the chart's own
-// canvas / stack carry the visual weight. Margin below sets the gap
-// to the Coach receipt.
-.train-chart-pane {
-  margin-bottom: 32rpx;
-}
-
-// Zone-section label inside the Zones pill view — shown above the
-// per-zone bars. Replaces the prior ts-card chrome around the zone
-// distribution.
+// Zone-section label inside the distribution detail sheet.
 .train-zone-section-label {
   display: block;
   font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
@@ -820,11 +811,7 @@
   line-height: 1.5;
 }
 
-// Coach receipt sits as the last section in the Diagnosis stack.
-// No structural overrides — the shared `coach-receipt` styles do all
-// the work — but a small top margin separates it from the chart pane
-// above, even when no `train-chart-pane` margin-bottom applies (e.g.
-// when the chart was a hint, not a canvas).
+// Coach receipt follows the peer metric index in the Diagnosis stack.
 .train-coach {
   margin-top: 32rpx;
 }

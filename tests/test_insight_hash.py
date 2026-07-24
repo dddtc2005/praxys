@@ -187,6 +187,40 @@ def test_review_split_diagnosis_change_invalidates_hash():
            compute_dataset_hash(ctx_b, "training_review", science_pillars=PILLARS)
 
 
+def test_review_volume_chart_arrays_do_not_churn_model_inputs():
+    """Rolling chart labels are not independent training-review evidence."""
+    ctx_a = _ctx_review()
+    ctx_b = _ctx_review()
+    ctx_a["recent_training"]["diagnosis"]["volume"] = {
+        "weekly_avg_km": 40.0,
+        "trend": "stable",
+        "weeks": ["2026-04-14", "2026-04-21"],
+        "weekly_km": [40.0, 40.0],
+    }
+    ctx_b["recent_training"]["diagnosis"]["volume"] = {
+        "weekly_avg_km": 40.0,
+        "trend": "stable",
+        "weeks": ["2026-04-15", "2026-04-22"],
+        "weekly_km": [39.0, 41.0],
+    }
+
+    payload = build_training_review_inputs(ctx_a)
+
+    assert payload["split_level_diagnosis"]["volume"] == {
+        "weekly_avg_km": 40.0,
+        "trend": "stable",
+    }
+    assert compute_dataset_hash(
+        ctx_a,
+        "training_review",
+        science_pillars=PILLARS,
+    ) == compute_dataset_hash(
+        ctx_b,
+        "training_review",
+        science_pillars=PILLARS,
+    )
+
+
 def test_partial_distribution_placeholders_do_not_change_review_hash():
     """Unavailable display placeholders are excluded from the model identity."""
     ctx_a = _ctx_review()

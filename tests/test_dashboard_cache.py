@@ -221,7 +221,7 @@ def test_compute_source_version_is_deterministic(cache_client):
         assert "v=heat-adaptation-today-v12" in a
         training = compute_source_version(db, user_id, "training")
         assert "samples=0" in training
-        assert "v=heat-adaptation-training-v11" in training
+        assert "v=peer-metric-volume-training-v12" in training
         goal = compute_source_version(db, user_id, "goal")
         assert "v=fixed-heat-model-goal-v1" in goal
     finally:

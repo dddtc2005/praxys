@@ -548,6 +548,11 @@ export interface DiagnosisData {
   volume: {
     weekly_avg_km: number;
     trend: string;
+    /** ISO dates marking the end of each seven-day bucket, oldest first.
+     * Optional only during frontend-before-backend rolling deploys. */
+    weeks?: string[];
+    /** Positionally aligned with `weeks`; rollout-optional for old backends. */
+    weekly_km?: number[];
   };
   distribution: ZoneDistribution[];
   zone_ranges: ZoneRange[];

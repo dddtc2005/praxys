@@ -20,8 +20,14 @@ def _render_diagnosis_section(diagnosis: dict | None) -> str:
 
     # Stats
     stats = []
-    if volume.get("weekly_avg_km"):
-        stats.append(f"**Volume:** {volume['weekly_avg_km']} km/week avg ({volume.get('trend', '?')})")
+    weekly_avg_km = volume.get("weekly_avg_km")
+    weeks = volume.get("weeks")
+    volume_available = bool(weeks) if weeks is not None else bool(weekly_avg_km)
+    if volume_available and weekly_avg_km is not None:
+        stats.append(
+            f"**Volume:** {weekly_avg_km} km/week avg "
+            f"({volume.get('trend', '?')})"
+        )
     if interval.get("max"):
         stats.append(f"**Peak interval power:** {interval['max']:.0f}W")
     if interval.get("avg_work"):

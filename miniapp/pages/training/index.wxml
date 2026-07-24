@@ -1,5 +1,5 @@
 <view class="train-root {{themeClass}}">
-  <nav-bar title="{{tr.navTitle}}" theme-class="{{themeClass}}" aria-hidden="{{heatEvidenceExpanded}}" />
+  <nav-bar title="{{tr.navTitle}}" theme-class="{{themeClass}}" aria-hidden="{{activeMetric !== ''}}" />
 
   <scroll-view
     scroll-y="{{true}}"
@@ -8,7 +8,7 @@
     bindrefresherrefresh="onScrollRefresh"
     scroll-into-view="{{scrollIntoView}}"
     class="train-scroll"
-    aria-hidden="{{heatEvidenceExpanded}}"
+    aria-hidden="{{activeMetric !== ''}}"
   >
     <view class="train-content">
 
@@ -24,156 +24,41 @@
     <block wx:elif="{{hasResponse}}">
       <state-card wx:if="{{!hasAnyData}}" type="empty" headline="{{tr.noData}}" />
 
-      <!-- ═══════════════════════════════════════════════════════════
-           DIAGNOSIS · five peer metrics + chart switcher + Coach
-           receipt. Heat opens a bounded evidence sheet instead of
-           pushing the longitudinal charts and coach receipt downward.
-           ═══════════════════════════════════════════════════════════ -->
+      <!-- Diagnosis pairs a scalable peer-metric index with the Coach
+           receipt. Every row opens only its own detail bottom sheet. -->
       <block>
         <text wx:if="{{hasAnyData}}" class="train-section-eyebrow">{{tr.diagnosis}} · {{diagnosisEyebrow}}</text>
 
-        <!-- Stat strip — two columns on phone. Heat is the fifth peer
-             metric and owns the only explicit evidence action because
-             the other metrics disclose through the chart switcher. -->
-        <view wx:if="{{hasAnyData}}" class="train-stats">
+        <view wx:if="{{hasAnyData}}" class="train-peer-head">
+          <text class="train-peer-title">{{tr.peerMetrics}}</text>
+          <text class="train-peer-hint">{{tr.peerMetricsHint}}</text>
+        </view>
+        <view wx:if="{{hasAnyData}}" class="train-metrics">
           <view
             wx:for="{{cells}}"
             wx:key="id"
-            class="train-stat-cell"
+            id="{{item.anchorId}}"
+            class="train-metric-row"
+            hover-class="train-metric-row--pressed"
+            data-metric="{{item.id}}"
+            bindtap="onOpenMetricDetail"
+            aria-role="button"
+            aria-haspopup="dialog"
+            aria-label="{{item.label}} · {{item.value}}{{item.unit}} · {{tr.details}}"
           >
-            <text class="train-stat-label">{{item.label}}</text>
-            <view class="train-stat-row">
-              <text class="train-stat-value ts-value">{{item.value}}</text>
-              <text wx:if="{{item.unit}}" class="train-stat-unit">{{item.unit}}</text>
+            <view class="train-metric-copy">
+              <text class="train-metric-label">{{item.label}}</text>
+              <text class="train-metric-context">{{item.sub}}</text>
             </view>
-            <text class="train-stat-sub">{{item.sub}}</text>
-          </view>
-          <view
-            id="heat-adaptation"
-            class="train-stat-cell train-stat-cell--heat"
-          >
-            <text class="train-stat-label">{{heat.label}}</text>
-            <view class="train-stat-row">
-              <text class="train-stat-value train-stat-value--heat">{{heat.metricValue}}</text>
+            <view class="train-metric-readout">
+              <text class="train-metric-value ts-value">{{item.value}}</text>
+              <text wx:if="{{item.unit}}" class="train-metric-unit">{{item.unit}}</text>
             </view>
-            <view
-              class="train-stat-evidence"
-              bindtap="onOpenHeatEvidence"
-              aria-role="button"
-              aria-label="{{heat.label}} · {{heat.metricValue}} · {{heat.metricAction}}"
-            >
-              <text class="train-stat-evidence-copy ts-value">{{heat.metricAction}}</text>
-              <text class="train-stat-evidence-arrow" aria-hidden="true">›</text>
+            <view class="train-metric-action">
+              <text>{{tr.details}}</text>
+              <text class="train-metric-arrow" aria-hidden="true">›</text>
             </view>
           </view>
-        </view>
-
-        <!-- Pill switcher. Persists active to wx storage so power
-             users land on their preferred chart on every visit.
-             Zones pill is conditional on at least one zone having
-             a target — without it the pill renders inert and
-             invites a bug. -->
-        <view wx:if="{{hasAnyData}}" class="train-pills" role="tablist" aria-label="{{tr.diagnosis}}">
-          <view
-            class="train-pill {{activePill === 'form' ? 'train-pill--active' : ''}}"
-            data-pill="form"
-            bindtap="onPickPill"
-            role="tab"
-            aria-selected="{{activePill === 'form'}}"
-          >{{tr.pillForm}}</view>
-          <view
-            wx:if="{{hasZones}}"
-            class="train-pill {{activePill === 'zones' ? 'train-pill--active' : ''}}"
-            data-pill="zones"
-            bindtap="onPickPill"
-            role="tab"
-            aria-selected="{{activePill === 'zones'}}"
-          >{{tr.pillZones}}</view>
-          <view
-            class="train-pill {{activePill === 'compliance' ? 'train-pill--active' : ''}}"
-            data-pill="compliance"
-            bindtap="onPickPill"
-            role="tab"
-            aria-selected="{{activePill === 'compliance'}}"
-          >{{tr.pillCompliance}}</view>
-        </view>
-
-        <!-- Active chart pane. One option visible at a time; the
-             switcher above flips between them. Each option carries
-             its own DataHint countdown copy when the underlying
-             window isn't long enough yet. -->
-        <view wx:if="{{hasAnyData}}" class="train-chart-pane">
-          <block wx:if="{{activePill === 'form'}}">
-            <line-chart
-              wx:if="{{ffSufficient}}"
-              canvas-id="train-ctl-atl-tsb"
-              height="{{280}}"
-              show-zero-line="{{true}}"
-              dates="{{ffDates}}"
-              series="{{ffSeries}}"
-              theme="{{chartTheme}}"
-            />
-            <view wx:else class="train-data-hint">
-              <text class="train-data-hint-message ts-muted">{{ffHintMessage}}</text>
-              <text class="train-data-hint-detail ts-muted">{{ffHintDetail}}</text>
-            </view>
-          </block>
-
-          <block wx:if="{{activePill === 'zones' && hasZones}}">
-            <text class="train-zone-section-label">{{zoneSectionLabel}}</text>
-            <view
-              wx:for="{{zoneRows}}"
-              wx:key="name"
-              class="train-zonebar"
-            >
-              <view class="train-zonebar-head">
-                <text class="train-zonebar-name">{{item.name}}</text>
-                <text class="train-zonebar-value ts-value">{{item.label}}</text>
-              </view>
-              <view class="train-zonebar-track">
-                <view class="train-zonebar-fill" style="width: {{item.actualClamped}}%;"></view>
-                <view
-                  wx:if="{{item.hasTarget}}"
-                  class="train-zonebar-target"
-                  style="left: {{item.targetClamped}}%;"
-                ></view>
-              </view>
-            </view>
-            <text class="train-methodology ts-muted">{{tr.zoneMethodology}}</text>
-          </block>
-
-          <block wx:if="{{activePill === 'compliance'}}">
-            <block wx:if="{{complianceSufficient}}">
-              <text wx:if="{{hasComplianceEstimateNote}}" class="train-compliance-note ts-muted">
-                {{complianceEstimateNote}}
-              </text>
-              <view class="train-bar-legend">
-                <view class="train-bar-legend-item">
-                  <view class="train-bar-legend-dot train-bar-legend-dot--planned"></view>
-                  <text class="train-bar-legend-label">{{tr.plannedLabel}}</text>
-                </view>
-                <view class="train-bar-legend-item">
-                  <view class="train-bar-legend-dot train-bar-legend-dot--actual"></view>
-                  <text class="train-bar-legend-label">{{tr.actualLabel}}</text>
-                </view>
-              </view>
-              <bar-chart
-                canvas-id="train-compliance"
-                height="{{280}}"
-                weeks="{{complianceWeeks}}"
-                planned="{{compliancePlanned}}"
-                actual="{{complianceActual}}"
-                estimated="{{complianceEstimated}}"
-                theme="{{chartTheme}}"
-              />
-              <text class="train-methodology ts-muted">{{tr.complianceMethodology}}</text>
-            </block>
-            <view wx:else class="train-data-hint">
-              <text class="train-data-hint-message ts-muted">{{complianceHintMessage}}</text>
-              <text class="train-data-hint-detail ts-muted">{{complianceHintDetail}}</text>
-            </view>
-          </block>
-
         </view>
 
         <!-- Praxys Coach receipt — always rendered. AI content when a
@@ -248,31 +133,155 @@
   </scroll-view>
 
   <view
-    wx:if="{{heatEvidenceExpanded}}"
-    class="train-heat-overlay"
-    bindtap="onCloseHeatEvidence"
-    catchtouchmove="onBlockHeatSheetTap"
+    wx:if="{{activeMetric}}"
+    class="train-metric-overlay"
+    bindtap="onCloseMetricDetail"
+    catchtouchmove="onBlockMetricSheetTap"
     aria-role="dialog"
     aria-modal="true"
-    aria-label="{{heat.label}}"
+    aria-label="{{metricSheetTitle}}"
   >
-    <view class="train-heat-sheet" catchtap="onBlockHeatSheetTap">
-      <view class="train-heat-sheet-handle" aria-hidden="true"></view>
-      <view class="train-heat-sheet-head">
-        <view class="train-heat-sheet-heading">
-          <text class="train-heat-sheet-title">{{heat.label}}</text>
-          <text class="train-heat-sheet-range ts-value">{{heat.conditionRange}}</text>
+    <view class="train-metric-sheet" catchtap="onBlockMetricSheetTap">
+      <view class="train-metric-sheet-handle" aria-hidden="true"></view>
+      <view class="train-metric-sheet-head">
+        <view class="train-metric-sheet-heading">
+          <text class="train-metric-sheet-title">{{metricSheetTitle}}</text>
+          <text class="train-metric-sheet-description">{{metricSheetDescription}}</text>
         </view>
         <view
-          class="train-heat-sheet-close"
-          bindtap="onCloseHeatEvidence"
+          class="train-metric-sheet-close"
+          bindtap="onCloseMetricDetail"
           aria-role="button"
           aria-label="{{heat.closeLabel}}"
         >×</view>
       </view>
 
-      <scroll-view scroll-y="{{true}}" class="train-heat-sheet-scroll">
-        <view class="train-heat-sheet-body">
+      <scroll-view scroll-y="{{true}}" class="train-metric-sheet-scroll">
+        <view wx:if="{{activeMetric !== 'heat'}}" class="train-metric-detail-body">
+          <block wx:if="{{activeMetric === 'tsb'}}">
+            <block wx:if="{{ffSufficient}}">
+              <line-chart
+                canvas-id="train-detail-load-balance"
+                height="{{520}}"
+                show-zero-line="{{true}}"
+                dates="{{ffDates}}"
+                series="{{ffSeries}}"
+                theme="{{chartTheme}}"
+              />
+              <text class="train-methodology ts-muted">{{tr.tsbMethodology}}</text>
+            </block>
+            <view wx:else class="train-data-hint">
+              <text class="train-data-hint-message ts-muted">{{ffHintMessage}}</text>
+              <text class="train-data-hint-detail ts-muted">{{ffHintDetail}}</text>
+            </view>
+          </block>
+
+          <block wx:if="{{activeMetric === 'dist'}}">
+            <block wx:if="{{hasZones}}">
+              <text class="train-zone-section-label">{{zoneSectionLabel}}</text>
+              <view wx:for="{{zoneRows}}" wx:key="name" class="train-zonebar">
+                <view class="train-zonebar-head">
+                  <text class="train-zonebar-name">{{item.name}}</text>
+                  <text class="train-zonebar-value ts-value">{{item.label}}</text>
+                </view>
+                <view class="train-zonebar-track">
+                  <view class="train-zonebar-fill" style="width: {{item.actualClamped}}%;"></view>
+                  <view
+                    wx:if="{{item.hasTarget}}"
+                    class="train-zonebar-target"
+                    style="left: {{item.targetClamped}}%;"
+                  ></view>
+                </view>
+              </view>
+              <text class="train-methodology ts-muted">{{tr.zoneMethodology}}</text>
+            </block>
+            <view wx:else class="train-data-hint">
+              <text class="train-data-hint-message ts-muted">{{tr.distributionMessage}}</text>
+              <text class="train-data-hint-detail ts-muted">{{tr.distributionHint}}</text>
+            </view>
+          </block>
+
+          <block wx:if="{{activeMetric === 'load'}}">
+            <block wx:if="{{complianceSufficient}}">
+              <text wx:if="{{hasComplianceEstimateNote}}" class="train-compliance-note ts-muted">
+                {{complianceEstimateNote}}
+              </text>
+              <view class="train-bar-legend">
+                <view class="train-bar-legend-item">
+                  <view class="train-bar-legend-dot train-bar-legend-dot--planned"></view>
+                  <text class="train-bar-legend-label">{{tr.plannedLabel}}</text>
+                </view>
+                <view class="train-bar-legend-item">
+                  <view class="train-bar-legend-dot train-bar-legend-dot--actual"></view>
+                  <text class="train-bar-legend-label">{{tr.actualLabel}}</text>
+                </view>
+              </view>
+              <bar-chart
+                canvas-id="train-detail-compliance"
+                height="{{500}}"
+                weeks="{{complianceWeeks}}"
+                planned="{{compliancePlanned}}"
+                actual="{{complianceActual}}"
+                estimated="{{complianceEstimated}}"
+                theme="{{chartTheme}}"
+              />
+              <text class="train-methodology ts-muted">{{tr.complianceMethodology}}</text>
+            </block>
+            <view wx:else class="train-data-hint">
+              <text class="train-data-hint-message ts-muted">{{complianceHintMessage}}</text>
+              <text class="train-data-hint-detail ts-muted">{{complianceHintDetail}}</text>
+            </view>
+          </block>
+
+          <block wx:if="{{activeMetric === 'volume'}}">
+            <block wx:if="{{volumeSufficient}}">
+              <view class="train-volume-summary">
+                <view>
+                  <text class="train-volume-summary-label">{{tr.weeklyAverage}}</text>
+                  <text class="train-volume-summary-value ts-value">{{volumeSummary}}</text>
+                </view>
+                <view>
+                  <text class="train-volume-summary-label">{{tr.trend}}</text>
+                  <text class="train-volume-summary-value">{{volumeTrend}}</text>
+                </view>
+              </view>
+              <bar-chart
+                aria-hidden="true"
+                canvas-id="train-detail-volume"
+                height="{{460}}"
+                weeks="{{volumeDates}}"
+                actual="{{volumeKm}}"
+                actual-default="#00a86b"
+                value-unit="{{tr.distanceUnit}}"
+                value-decimals="{{1}}"
+                theme="{{chartTheme}}"
+              />
+              <view
+                class="train-volume-values"
+                aria-role="list"
+                aria-label="{{tr.weeklyValues}}"
+              >
+                <text class="train-volume-values-title">{{tr.weeklyValues}}</text>
+                <view
+                  wx:for="{{volumePoints}}"
+                  wx:key="id"
+                  class="train-volume-value-row"
+                  aria-role="listitem"
+                >
+                  <text class="train-volume-value-week">{{item.week}}</text>
+                  <text class="train-volume-value-distance ts-value">{{item.distance}}</text>
+                </view>
+              </view>
+              <text class="train-methodology ts-muted">{{tr.volumeMethodology}}</text>
+            </block>
+            <view wx:else class="train-data-hint">
+              <text class="train-data-hint-message ts-muted">{{volumeHintMessage}}</text>
+              <text class="train-data-hint-detail ts-muted">{{volumeHintDetail}}</text>
+            </view>
+          </block>
+        </view>
+
+        <view wx:else class="train-heat-sheet-body">
           <view class="train-heat-conclusion">
             <view class="train-heat-conclusion-head">
               <text class="train-heat-conclusion-label">{{heat.conclusionLabel}}</text>

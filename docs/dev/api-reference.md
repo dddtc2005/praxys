@@ -487,7 +487,12 @@ Training analysis and diagnosis.
 {
   "diagnosis": {
     "lookback_weeks": 6,
-    "volume": { "weekly_avg_km": 51.6, "trend": "stable" },
+    "volume": {
+      "weekly_avg_km": 51.6,
+      "trend": "stable",
+      "weeks": ["2026-04-20", "2026-04-27", "2026-05-04", "2026-05-11", "2026-05-18", "2026-05-25"],
+      "weekly_km": [48.3, 52.1, 54.5, 49.2, 52.8, 52.7]
+    },
     "consistency": { "total_sessions": 18, "weeks_with_gaps": 1, "longest_gap_days": 4 },
     "interval_power": {
       "max": 292,
@@ -578,6 +583,11 @@ less. `load_compliance_pct` uses only completed weeks where both actual and
 planned load have exact selected-base inputs and the plan target is positive.
 It is `null` until at least two such weeks exist. A week is complete only after
 Sunday has passed and daily load contains all seven Monday-through-Sunday dates.
+`diagnosis.volume.weeks` is oldest-first and always aligns positionally with
+`weekly_km`. Both arrays are empty when no recent distance history is available;
+a non-empty all-zero series is valid recorded data and yields `weekly_avg_km: 0`.
+Trend labels use a Praxys estimate that requires the newer half to differ from
+the older half by more than 10%.
 The result is a descriptive mean actual-to-planned load ratio, not a quality,
 safety, recovery, or readiness score. `week_actual_estimated` and
 `week_planned_estimated` provide the per-week provenance; estimated bars remain

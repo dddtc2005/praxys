@@ -2044,7 +2044,12 @@ def diagnose_training(
             "activities_with_intensity_data": 0,
             "activities_expected": 0,
         },
-        "volume": {"weekly_avg_km": 0, "trend": "insufficient_data"},
+        "volume": {
+            "weekly_avg_km": 0,
+            "trend": "insufficient_data",
+            "weeks": [],
+            "weekly_km": [],
+        },
         "distribution": [],
         "consistency": {
             "weeks_with_gaps": 0,
@@ -2062,13 +2067,20 @@ def diagnose_training(
         },
     }
 
-    if current_cp <= 0:
-        result["diagnosis"].append({"type": "warning", "message": "No CP data available — cannot diagnose."})
-        return result
+    threshold_available = current_cp > 0
+    if not threshold_available:
+        result["diagnosis"].append({
+            "type": "warning",
+            "message": "No CP data available — cannot diagnose.",
+        })
 
     # Filter to lookback period
     if merged_activities.empty:
-        result["diagnosis"].append({"type": "warning", "message": "No activity data in lookback period."})
+        if threshold_available:
+            result["diagnosis"].append({
+                "type": "warning",
+                "message": "No activity data in lookback period.",
+            })
         return result
 
     recent = merged_activities.copy()
@@ -2078,15 +2090,21 @@ def diagnose_training(
     ]
 
     if recent.empty:
-        result["diagnosis"].append({"type": "warning", "message": f"No activities in the last {lookback_weeks} weeks."})
+        if threshold_available:
+            result["diagnosis"].append({
+                "type": "warning",
+                "message": f"No activities in the last {lookback_weeks} weeks.",
+            })
         return result
 
     # --- Volume analysis ---
-    # Rolling seven-day buckets include zero-activity weeks. Omitting empty
-    # weeks would inflate the stated N-week average and hide consistency gaps.
+    # Rolling seven-day buckets include weeks with no recorded distance.
+    # Omitting them would inflate the stated N-week average and hide gaps.
     recent["_week_bucket"] = recent["_date"].apply(
         lambda activity_date: (today - activity_date).days // 7
     )
+    # Missing distance values and empty buckets both mean no recorded distance;
+    # do not imply that the athlete completed no activity.
     if "distance_km" in recent.columns:
         recent["_dist"] = pd.to_numeric(
             recent["distance_km"], errors="coerce",
@@ -2099,10 +2117,17 @@ def diagnose_training(
         sessions=("_dist", "size"),
     ).reindex(range(lookback_weeks), fill_value=0)
     weekly_avg_km = round(float(weekly_vol["km"].mean()), 1)
-    # Oldest bucket first so the trend comparison preserves chronology.
-    weeks_data = weekly_vol.sort_index(ascending=False)["km"].to_numpy()
+    # Oldest bucket first so charts and the trend comparison preserve chronology.
+    chronological_volume = weekly_vol.sort_index(ascending=False)
+    weeks_data = chronological_volume["km"].to_numpy()
+    week_endings = [
+        (today - timedelta(days=int(bucket) * 7)).isoformat()
+        for bucket in chronological_volume.index
+    ]
 
     if len(weeks_data) >= 2:
+        # ESTIMATE -- require a >10% change between the older and newer halves
+        # before labeling the direction increasing/decreasing.
         first_half = weeks_data[: len(weeks_data) // 2].mean()
         second_half = weeks_data[len(weeks_data) // 2 :].mean()
         if second_half > first_half * 1.1:
@@ -2114,7 +2139,12 @@ def diagnose_training(
     else:
         vol_trend = "insufficient_data"
 
-    result["volume"] = {"weekly_avg_km": weekly_avg_km, "trend": vol_trend}
+    result["volume"] = {
+        "weekly_avg_km": weekly_avg_km,
+        "trend": vol_trend,
+        "weeks": week_endings,
+        "weekly_km": [round(float(value), 1) for value in weeks_data],
+    }
 
     # --- Consistency analysis ---
     weeks_with_gaps = int((weekly_vol["sessions"] < 3).sum()) if not weekly_vol.empty else 0
@@ -2130,6 +2160,9 @@ def diagnose_training(
         "longest_gap_days": longest_gap,
         "total_sessions": len(recent),
     }
+
+    if not threshold_available:
+        return result
 
     # --- Interval intensity analysis (from splits) ---
     # Determine which metric column to use based on training base

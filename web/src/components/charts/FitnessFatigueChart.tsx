@@ -10,15 +10,16 @@ import {
   ComposedChart,
   ReferenceArea,
   ReferenceLine,
+  type TooltipPayloadEntry,
 } from 'recharts';
-import type { TimeSeriesData } from '@/types/api';
+import type { ScienceNoteInfo, TimeSeriesData, TsbZoneConfig } from '@/types/api';
 import ScienceNote from '@/components/ScienceNote';
 import ZoneLegend from '@/components/charts/ZoneLegend';
 import { useScience, tsbZoneFromConfig } from '@/contexts/ScienceContext';
 import { useChartColors } from '@/hooks/useChartColors';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Trans, useLingui } from '@lingui/react/macro';
-
-import type { ScienceNoteInfo } from '@/types/api';
+import type { ChartColors } from '@/lib/chart-theme';
 
 interface Props {
   data: TimeSeriesData;
@@ -27,36 +28,58 @@ interface Props {
 
 const ZONE_OPACITIES = [0.04, 0.07, 0.06, 0.04, 0.05];
 
-function CustomTooltip({ active, payload, label, tsbZones, chartColors }: any) {
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: ReadonlyArray<TooltipPayloadEntry>;
+  label?: string | number;
+  tsbZones: TsbZoneConfig[];
+  chartColors: ChartColors;
+}
+
+function tooltipNumber(entry: TooltipPayloadEntry | undefined): number | null {
+  const value = Number(entry?.value);
+  return Number.isFinite(value) ? value : null;
+}
+
+function CustomTooltip({
+  active,
+  payload,
+  label,
+  tsbZones,
+  chartColors,
+}: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
-  const isProjected = payload[0]?.payload?._projected;
-  const ctl = payload.find((p: any) => p.dataKey === 'ctl' || p.dataKey === 'proj_ctl');
-  const atl = payload.find((p: any) => p.dataKey === 'atl' || p.dataKey === 'proj_atl');
-  const tsb = payload.find((p: any) => p.dataKey === 'tsb' || p.dataKey === 'proj_tsb');
-  const tsbVal = tsb?.value ?? 0;
+  const datum = payload[0]?.payload as { _projected?: boolean } | undefined;
+  const isProjected = datum?._projected;
+  const ctl = payload.find((entry) => entry.dataKey === 'ctl' || entry.dataKey === 'proj_ctl');
+  const atl = payload.find((entry) => entry.dataKey === 'atl' || entry.dataKey === 'proj_atl');
+  const tsb = payload.find((entry) => entry.dataKey === 'tsb' || entry.dataKey === 'proj_tsb');
+  const ctlValue = tooltipNumber(ctl);
+  const atlValue = tooltipNumber(atl);
+  const tsbVal = tooltipNumber(tsb) ?? 0;
   const zone = tsbZoneFromConfig(tsbVal, tsbZones ?? []);
 
   return (
-    <div className="rounded-lg border border-border bg-popover px-3 py-2.5 shadow-xl shadow-black/40">
+    <div className="rounded-lg bg-popover px-3 py-2.5 shadow-md shadow-black/20">
       <div className="flex items-center gap-2 mb-2">
         <span className="text-[11px] text-muted-foreground font-data">{label}</span>
         {isProjected && (
-          <span className="text-[9px] uppercase tracking-wider text-accent-cobalt font-semibold px-1.5 py-0.5 rounded bg-accent-cobalt/10">
+          <span className="text-[11px] uppercase tracking-wider text-accent-cobalt font-semibold px-1.5 py-0.5 rounded bg-accent-cobalt/10">
             <Trans>Projected</Trans>
           </span>
         )}
       </div>
-      <div className="space-y-1 text-[12px] font-data">
+      <div className="space-y-1 text-xs font-data">
         {ctl && (
           <div className="flex justify-between gap-6">
             <span className="text-muted-foreground"><Trans>Long-term load</Trans></span>
-            <span style={{ color: chartColors.fitness }}>{ctl.value?.toFixed(1)}</span>
+            <span style={{ color: chartColors.fitness }}>{ctlValue?.toFixed(1) ?? '—'}</span>
           </div>
         )}
         {atl && (
           <div className="flex justify-between gap-6">
             <span className="text-muted-foreground"><Trans>Recent load</Trans></span>
-            <span style={{ color: chartColors.fatigue }}>{atl.value?.toFixed(1)}</span>
+            <span style={{ color: chartColors.fatigue }}>{atlValue?.toFixed(1) ?? '—'}</span>
           </div>
         )}
         {tsb && (
@@ -70,7 +93,7 @@ function CustomTooltip({ active, payload, label, tsbZones, chartColors }: any) {
       </div>
       <div className="mt-2 pt-1.5 border-t border-border">
         <span
-          className="text-[10px] font-semibold uppercase tracking-wider"
+          className="text-[11px] font-semibold uppercase tracking-wider"
           style={{ color: zone.color }}
         >
           {zone.label}
@@ -84,6 +107,7 @@ export default function FitnessFatigueChart({ data, scienceNote }: Props) {
   const chartColors = useChartColors();
   const { t } = useLingui();
   const { tsbZones } = useScience();
+  const isMobile = useIsMobile();
   const { chartData, yMin, yMax, hasProjection } = useMemo(() => {
     const hasProjData = !!(data.projected_dates?.length && data.projected_ctl?.length);
 
@@ -145,6 +169,15 @@ export default function FitnessFatigueChart({ data, scienceNote }: Props) {
       hasProjection: hasProjData,
     };
   }, [data]);
+  const xAxisTicks = useMemo(() => {
+    if (chartData.length === 0) return [];
+    const targetCount = Math.min(chartData.length, isMobile ? 5 : 10);
+    if (targetCount === 1) return [chartData[0].date];
+    return Array.from({ length: targetCount }, (_, index) => {
+      const dataIndex = Math.round((index * (chartData.length - 1)) / (targetCount - 1));
+      return chartData[dataIndex].date;
+    });
+  }, [chartData, isMobile]);
 
   // Anchor the "today" reference line to actual today, not the last
   // data point — those drift apart when the user hasn't trained recently
@@ -262,11 +295,11 @@ export default function FitnessFatigueChart({ data, scienceNote }: Props) {
               tick={{ fill: chartColors.tick, fontSize: 10, fontFamily: 'JetBrains Mono Variable, monospace' }}
               tickLine={false}
               axisLine={{ stroke: chartColors.grid }}
+              ticks={xAxisTicks}
               tickFormatter={(v: string) => {
                 const d = new Date(v);
                 return `${d.getMonth() + 1}/${d.getDate()}`;
               }}
-              interval={Math.max(0, Math.floor(chartData.length / 10) - 1)}
             />
             <YAxis
               tick={{ fill: chartColors.tick, fontSize: 10, fontFamily: 'JetBrains Mono Variable, monospace' }}
@@ -298,7 +331,7 @@ export default function FitnessFatigueChart({ data, scienceNote }: Props) {
 
 
         <ScienceNote
-          text={scienceNote?.description || "CTL models longer-term training load, ATL models recent training load, and TSB is their difference. These are load-model estimates, not direct measures of recovery or readiness."}
+          text={scienceNote?.description || t`CTL models longer-term training load, ATL models recent training load, and TSB is their difference. These are load-model estimates, not direct measures of recovery or readiness.`}
           sourceUrl={scienceNote?.citations?.[0]?.url || "https://help.trainingpeaks.com/hc/en-us/articles/204071944"}
           sourceLabel={scienceNote?.citations?.[0]?.label || "TrainingPeaks PMC"}
         />

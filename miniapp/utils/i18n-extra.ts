@@ -218,6 +218,9 @@ const EN_TODAY = {
   increasing: 'Increasing',
   decreasing: 'Decreasing',
   stable: 'Stable',
+  'Weekly distance': 'Weekly distance',
+  '{lookback}-week average · {average} km/week':
+    '{lookback}-week average · {average} km/week',
   'What metric Praxys uses to measure intensity. Power needs Stryd; Pace works with anything that gives you GPS.':
     'What metric Praxys uses to measure intensity. Power needs Stryd; Pace works with anything that gives you GPS.',
   'Unbind your WeChat profile from this Praxys account so you can sign in as a different user.':
@@ -280,6 +283,7 @@ const EN_TRAINING = {
   'No training data yet. Sync Garmin / Stryd from the web app (Settings → Sync) to populate this view.':
     'No training data yet. Sync Garmin / Stryd from the web app (Settings → Sync) to populate this view.',
   Volume: 'Volume',
+  'Weekly values': 'Weekly values',
   'Fitness & Fatigue': 'Fitness & Fatigue',
   Consistency: 'Consistency',
   Zones: 'Zones',
@@ -607,6 +611,9 @@ const ZH_TODAY = {
   increasing: '上升中',
   decreasing: '下降中',
   stable: '平稳',
+  'Weekly distance': '每周距离',
+  '{lookback}-week average · {average} km/week':
+    '{lookback} 周平均 · {average} 公里/周',
   'What metric Praxys uses to measure intensity. Power needs Stryd; Pace works with anything that gives you GPS.':
     'Praxys 用于衡量训练强度的指标。功率需要 Stryd；配速适用于任何具备 GPS 的设备。',
   'Unbind your WeChat profile from this Praxys account so you can sign in as a different user.':
@@ -667,6 +674,7 @@ const ZH_TRAINING = {
   'No training data yet. Sync Garmin / Stryd from the web app (Settings → Sync) to populate this view.':
     '暂无训练数据。请在网页端 (设置 → 同步) 同步 Garmin / Stryd 数据以填充此视图。',
   Volume: '训练量',
+  'Weekly values': '每周数据',
   'Fitness & Fatigue': '体能与疲劳',
   Consistency: '训练频率',
   Zones: '区间',

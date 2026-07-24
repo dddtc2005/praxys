@@ -38,6 +38,10 @@ Component({
     actualColors: { type: Array as ArrayConstructor, value: [] as string[] },
     /** Fallback fill color when `actualColors` is empty. */
     actualDefault: { type: String as StringConstructor, value: '#00ff87' },
+    /** Optional unit appended to tooltip values. */
+    valueUnit: { type: String as StringConstructor, value: '' },
+    /** Decimal precision for tooltip values and the y-axis maximum. */
+    valueDecimals: { type: Number as NumberConstructor, value: 0 },
     height: { type: Number as NumberConstructor, value: 280 },
     /** Active theme; selects axis/grid/tick palette. Defaults to dark. */
     theme: { type: String as StringConstructor, value: 'dark' },
@@ -61,7 +65,7 @@ Component({
   },
 
   observers: {
-    'weeks, planned, actual, estimated, actualColors, actualDefault, theme': function () {
+    'weeks, planned, actual, estimated, actualColors, actualDefault, valueUnit, valueDecimals, theme': function () {
       if (!this.data.ready) return;
       wx.nextTick(() => this.drawChart());
       if (this.data.tooltipVisible) this.setData({ tooltipVisible: false });
@@ -91,10 +95,14 @@ Component({
       const a = actual[idx] ?? 0;
       const pct = p > 0 ? Math.round((a / p) * 100) : null;
       const estimateMarker = estimated[idx] ? '~' : '';
+      const decimals = clampValueDecimals(this.data.valueDecimals as number);
+      const unit = this.data.valueUnit ? ` ${this.data.valueUnit}` : '';
+      const actualText = `${formatChartValue(a, decimals)}${unit}`;
+      const plannedText = `${formatChartValue(p, decimals)}${unit}`;
       const text =
         pct != null
-          ? `${Math.round(a)} / ${Math.round(p)} · ${estimateMarker}${pct}%`
-          : `${estimateMarker}${Math.round(a)}${p > 0 ? ` / ${Math.round(p)}` : ''}`;
+          ? `${actualText} / ${plannedText} · ${estimateMarker}${pct}%`
+          : `${estimateMarker}${actualText}${p > 0 ? ` / ${plannedText}` : ''}`;
 
       this.setData({
         tooltipVisible: true,
@@ -184,6 +192,7 @@ Component({
             this.data.estimated as boolean[],
             this.data.actualColors as string[],
             this.data.actualDefault as string,
+            clampValueDecimals(this.data.valueDecimals as number),
             chartColors(themePref === 'light' ? 'light' : 'dark'),
           );
         },
@@ -199,6 +208,14 @@ function shortenWeekLabel(label: string): string {
   return label.slice(5);
 }
 
+function clampValueDecimals(value: number): number {
+  return Math.max(0, Math.min(2, Math.round(value || 0)));
+}
+
+function formatChartValue(value: number, decimals: number): string {
+  return value.toFixed(decimals);
+}
+
 function renderBars(
   ctx: Ctx,
   width: number,
@@ -209,6 +226,7 @@ function renderBars(
   estimated: boolean[],
   actualColors: string[],
   actualDefault: string,
+  valueDecimals: number,
   colors: { axis: string; grid: string; tick: string; planned: string; plannedStroke: string },
 ) {
   ctx.clearRect(0, 0, width, height);
@@ -259,7 +277,7 @@ function renderBars(
   ctx.font = '10px sans-serif';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
-  ctx.fillText(`${Math.round(yMax)}`, plotLeft - 6, plotTop);
+  ctx.fillText(formatChartValue(yMax, valueDecimals), plotLeft - 6, plotTop);
   ctx.fillText('0', plotLeft - 6, plotBottom);
 
   // Single-bar-per-week "filling bar" layout: planned is the outline

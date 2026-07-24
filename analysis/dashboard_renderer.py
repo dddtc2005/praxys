@@ -144,10 +144,12 @@ def _build_diagnosis_card(diagnosis: dict) -> str:
     avg_p = interval.get("avg_work")
     supra = interval.get("supra_cp_sessions", 0)
     quality = interval.get("total_quality_sessions", 0)
-    avg_km = volume.get("weekly_avg_km", 0)
+    avg_km = volume.get("weekly_avg_km")
+    weeks = volume.get("weeks")
+    volume_available = bool(weeks) if weeks is not None else bool(avg_km)
 
     stats_parts = []
-    if avg_km:
+    if volume_available and avg_km is not None:
         stats_parts.append(f'<div><div class="stat" style="font-size:1.3rem;">{avg_km}</div><div class="stat-label">km/week avg</div></div>')
     if max_p:
         stats_parts.append(f'<div><div class="stat" style="font-size:1.3rem;">{max_p:.0f}W</div><div class="stat-label">peak interval</div></div>')

@@ -7,6 +7,9 @@ ROOT = Path(__file__).resolve().parent.parent
 WEB_TODAY = ROOT / "web" / "src" / "pages" / "Today.tsx"
 WEB_TRAINING = ROOT / "web" / "src" / "pages" / "Training.tsx"
 WEB_HEAT = ROOT / "web" / "src" / "components" / "HeatAdaptationPanel.tsx"
+WEB_METRIC_SHEET = ROOT / "web" / "src" / "components" / "MetricDetailSheet.tsx"
+WEB_TSB_CHART = ROOT / "web" / "src" / "components" / "charts" / "FitnessFatigueChart.tsx"
+WEB_VOLUME_CHART = ROOT / "web" / "src" / "components" / "charts" / "WeeklyVolumeChart.tsx"
 MINI_TODAY = ROOT / "miniapp" / "pages" / "today" / "index.wxml"
 MINI_TODAY_TS = ROOT / "miniapp" / "pages" / "today" / "index.ts"
 MINI_TRAINING = ROOT / "miniapp" / "pages" / "training" / "index.wxml"
@@ -39,23 +42,41 @@ def test_today_does_not_imply_current_weather_is_available() -> None:
 
 
 def test_training_owns_the_longitudinal_heat_story() -> None:
-    """Training should present heat as a peer metric with bounded evidence."""
+    """Training should present five aligned peer metrics with bounded details."""
     web_training = _source(WEB_TRAINING)
     web_heat = _source(WEB_HEAT)
+    web_metric_sheet = _source(WEB_METRIC_SHEET)
+    web_tsb_chart = _source(WEB_TSB_CHART)
+    web_volume_chart = _source(WEB_VOLUME_CHART)
     mini_training = _source(MINI_TRAINING)
     mini_training_ts = _source(MINI_TRAINING_TS)
     mini_today_ts = _source(MINI_TODAY_TS)
     mini_heat = _source(MINI_HEAT)
 
-    heat_panel = "<HeatAdaptationPanel"
-    assert heat_panel in web_training
-    assert web_training.index(heat_panel) < web_training.index("<DiagnosisChartSwitcher")
-    assert "id: 'heat'" not in web_training
+    for metric_id in ("tsb", "distribution", "load", "volume", "heat"):
+        assert f"id: '{metric_id}'" in web_training
+    assert "<PeerMetricList" in web_training
+    assert "<MetricDetailSheet" in web_training
+    assert sum(
+        line.startswith("      sheetSize:") for line in web_training.splitlines()
+    ) == 5
+    assert web_training.count("? 'wide' : 'standard'") == 4
+    assert web_training.count("sheetSize: 'standard'") == 1
+    assert "DiagnosisChartSwitcher" not in web_training
+    assert "DIAGNOSIS_CHART_KEY" not in web_training
+    assert "Select a metric to inspect its chart or evidence." in web_training
+    assert "lg:grid-cols-[minmax(0,0.9fr)_minmax(24rem,1.1fr)]" in web_training
     assert "location.hash !== '#heat-adaptation'" in web_training
-    assert "scrollIntoView({ block: 'start' })" in web_training
-    assert "lg:grid-cols-5" in web_training
-    assert "<SheetTrigger" in web_heat
-    assert "side={isMobile ? 'bottom' : 'right'}" in web_heat
+    assert "setActiveMetric('heat')" in web_training
+    assert "sm:!max-w-[52rem]" in web_metric_sheet
+    assert "sm:!max-w-[34rem]" in web_metric_sheet
+    assert "data-metric-size={size}" in web_metric_sheet
+    assert "side={isMobile ? 'bottom' : 'right'}" in web_metric_sheet
+    assert "const targetCount = Math.min(chartData.length, isMobile ? 5 : 10)" in web_tsb_chart
+    assert "ticks={xAxisTicks}" in web_tsb_chart
+    assert "<SheetTrigger" not in web_heat
+    assert "HeatAdaptationMetricValue" in web_heat
+    assert "HeatAdaptationSheetDescription" in web_heat
     assert "Current conclusion" in web_heat
     assert 'to="/science#heat"' in web_heat
     assert "label={<Trans>Qualifying days</Trans>}" in web_heat
@@ -67,23 +88,45 @@ def test_training_owns_the_longitudinal_heat_story() -> None:
     assert "<HeatEvidenceForDay" in web_heat
     assert "status.sessions.filter((session) => session.date === selectedDate)" in web_heat
     assert "HeatEvidenceLedger" not in web_heat
+    assert "(volume.weeks ?? []).map" in web_volume_chart
+    assert "const weeklyKm = volume.weekly_km ?? []" in web_volume_chart
+    assert "Weeks with no recorded distance remain in the series and average" in web_volume_chart
+    assert "newer half must differ from the older half by more than 10%" in web_volume_chart
+    assert "const volumeSummaryAvailable = volumeWeeks === undefined" in web_training
+    assert "data.diagnosis.volume.weekly_avg_km > 0" in web_training
+    assert "const volumeSeriesPending = volumeWeeks === undefined" in web_training
+    assert "const volumeSeriesAvailable = (" in web_training
+    assert "unit: volumeSummaryAvailable ? <Trans>km/wk</Trans> : undefined" in web_training
+    assert "Weekly chart temporarily unavailable" in web_training
 
-    heat_section = 'id="heat-adaptation"'
-    heat_action = 'class="train-stat-evidence"'
-    assert heat_section in mini_training
-    assert 'class="train-stat-cell train-stat-cell--heat"' in mini_training
-    assert mini_training.index(heat_section) < mini_training.index('class="train-pills"')
-    assert mini_training.index(heat_section) < mini_training.index(heat_action)
-    assert 'bindtap="onOpenHeatEvidence"' not in mini_training[
-        mini_training.index(heat_section):mini_training.index(heat_action)
-    ]
-    assert 'bindtap="onOpenHeatEvidence"' in mini_training[
-        mini_training.index(heat_action):mini_training.index('class="train-pills"')
-    ]
-    assert 'data-pill="heat"' not in mini_training
-    assert 'class="train-heat-overlay"' in mini_training
+    assert 'class="train-metrics"' in mini_training
+    assert 'class="train-metric-row"' in mini_training
+    assert 'data-metric="{{item.id}}"' in mini_training
+    assert 'bindtap="onOpenMetricDetail"' in mini_training
+    assert 'class="train-pills"' not in mini_training
+    assert "activePill" not in mini_training_ts
+    assert 'class="train-metric-overlay"' in mini_training
     assert 'aria-role="dialog"' in mini_training
-    assert "{{heat.conditionRange}}" in mini_training
+    for metric_id in ("tsb", "dist", "load", "volume"):
+        assert f"activeMetric === '{metric_id}'" in mini_training
+    assert "activeMetric !== 'heat'" in mini_training
+    assert 'canvas-id="train-detail-volume"' in mini_training
+    assert 'aria-hidden="true"' in mini_training
+    assert 'actual="{{volumeKm}}"' in mini_training
+    assert 'value-decimals="{{1}}"' in mini_training
+    assert 'aria-role="list"' in mini_training
+    assert 'wx:for="{{volumePoints}}"' in mini_training
+    assert "volumeKm" in mini_training_ts
+    assert "volumeHintMessage" in mini_training_ts
+    assert "volumeSeriesPending" in mini_training_ts
+    assert "weekly_km" in mini_training_ts
+    assert "volumeAvailable && weeklyKm != null" in mini_training_ts
+    assert "unit: volumeAvailable ? tr.statVolumeUnit : ''" in mini_training_ts
+    assert "function hasVolumeSummary(" in mini_training_ts
+    assert "volume.weeks === undefined" in mini_training_ts
+    assert "volume.weekly_avg_km > 0" in mini_training_ts
+    assert "!!diagnosis?.volume?.weekly_avg_km" not in mini_training_ts
+    assert "{{tr.tsbMethodology}}" in mini_training
     assert "{{heat.qualifyingDaysValue}}" in mini_training
     assert "{{heat.effectiveHeatValue}}" in mini_training
     assert 'wx:if="{{heat.showCadence}}"' in mini_training
@@ -92,6 +135,7 @@ def test_training_owns_the_longitudinal_heat_story() -> None:
     assert "session.dateKey === day.id" in mini_training_ts
     assert 'wx:for="{{selectedHeatSessions}}"' in mini_training
     assert "scrollToHeatIfPending" in mini_training_ts
+    assert "activeMetric: 'heat'" in mini_training_ts
 
 
 def test_science_shows_heat_as_active_fixed_model() -> None:
@@ -121,4 +165,4 @@ def test_evidence_details_are_localizable_and_explain_mixed_providers() -> None:
     assert "powerAlignmentLabel(session.power_source_alignment)" in web_heat
     assert "{session.power_source_alignment}" not in web_heat
     assert "effectiveMinutesLabel(" in web_heat
-    assert "formatRange(conditions.relative_humidity_pct.min" in web_heat
+    assert "conditions.relative_humidity_pct.min" in web_heat

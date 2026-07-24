@@ -134,7 +134,7 @@ def test_response_versions_cover_changed_endpoints():
     from api.etag import ENDPOINT_RESPONSE_VERSIONS
 
     assert ENDPOINT_RESPONSE_VERSIONS["today"] == "heat-adaptation-today-v12"
-    assert ENDPOINT_RESPONSE_VERSIONS["training"] == "heat-adaptation-training-v11"
+    assert ENDPOINT_RESPONSE_VERSIONS["training"] == "peer-metric-volume-training-v12"
     assert ENDPOINT_RESPONSE_VERSIONS["goal"] == "fixed-heat-model-goal-v1"
     assert ENDPOINT_RESPONSE_VERSIONS["science"] == "fixed-heat-model-v1"
     assert ENDPOINT_RESPONSE_VERSIONS["plan"] == "connection-aware-plan-v2"
