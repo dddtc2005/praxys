@@ -23,6 +23,7 @@ import {
   HEAT_HISTORY_SCROLL_KEY,
   HEAT_HISTORY_SCROLL_TARGET,
   type HeatAdaptationView,
+  type HeatSessionRow,
 } from '../../utils/heat-adaptation';
 
 // Persisted active pill — same key web uses (mini program uses wx
@@ -290,6 +291,8 @@ interface TrainingState {
   expandedHeatSessionId: string;
   selectedHeatDayId: string;
   selectedHeatDayDetail: string;
+  selectedHeatDayHasEvidence: boolean;
+  selectedHeatSessions: HeatSessionRow[];
   scrollIntoView: string;
 
   /** Active pill — drives which chart renders below the switcher. */
@@ -355,6 +358,8 @@ const initialData: TrainingState = {
   expandedHeatSessionId: '',
   selectedHeatDayId: '',
   selectedHeatDayDetail: '',
+  selectedHeatDayHasEvidence: false,
+  selectedHeatSessions: [],
   scrollIntoView: '',
 
   activePill: 'form',
@@ -567,6 +572,7 @@ function buildState(
     ? tFmt('Last {0} weeks', lookback)
     : tr.diagnosis;
   const heat = buildHeatAdaptationView(response.heat_adaptation);
+  const defaultHeatDay = heat.cadenceDays.find((day) => day.id === heat.defaultCadenceId);
 
   return {
     themeClass,
@@ -582,6 +588,8 @@ function buildState(
     expandedHeatSessionId: '',
     selectedHeatDayId: heat.defaultCadenceId,
     selectedHeatDayDetail: heat.defaultCadenceDetail,
+    selectedHeatDayHasEvidence: defaultHeatDay?.hasEvidence ?? false,
+    selectedHeatSessions: heat.sessions.filter((session) => session.dateKey === heat.defaultCadenceId),
 
     activePill: resolvedPill,
     hasZones,
@@ -674,7 +682,9 @@ function consumeHeatHistoryScrollRequest(): boolean {
 interface PageMethods extends WechatMiniprogram.IAnyObject {
   onPickPill(e: WechatMiniprogram.TouchEvent): void;
   onPickHeatDay(e: WechatMiniprogram.TouchEvent): void;
-  onToggleHeatEvidence(): void;
+  onOpenHeatEvidence(): void;
+  onCloseHeatEvidence(): void;
+  onBlockHeatSheetTap(): void;
   onToggleHeatSession(e: WechatMiniprogram.TouchEvent): void;
   onOpenHeatScience(): void;
   scrollToHeatIfPending(): void;
@@ -790,13 +800,22 @@ Page<TrainingState & { tr: ReturnType<typeof buildTrainingTr> }, PageMethods>({
     this.setData({
       selectedHeatDayId: day.id,
       selectedHeatDayDetail: day.detail,
+      selectedHeatDayHasEvidence: day.hasEvidence,
+      selectedHeatSessions: this.data.heat.sessions.filter((session) => session.dateKey === day.id),
+      expandedHeatSessionId: '',
     });
   },
 
-  onToggleHeatEvidence() {
-    this.setData({
-      heatEvidenceExpanded: !this.data.heatEvidenceExpanded,
-    });
+  onOpenHeatEvidence() {
+    this.setData({ heatEvidenceExpanded: true });
+  },
+
+  onCloseHeatEvidence() {
+    this.setData({ heatEvidenceExpanded: false });
+  },
+
+  onBlockHeatSheetTap() {
+    // Prevent taps inside the sheet from reaching the dismiss backdrop.
   },
 
   onToggleHeatSession(e: WechatMiniprogram.TouchEvent) {
@@ -816,7 +835,10 @@ Page<TrainingState & { tr: ReturnType<typeof buildTrainingTr> }, PageMethods>({
     if (pageState._scrollToHeatPending !== true || !this.data.hasResponse) return;
     pageState._scrollToHeatPending = false;
     this.setData({ scrollIntoView: '' }, () => {
-      this.setData({ scrollIntoView: HEAT_HISTORY_SCROLL_TARGET });
+      this.setData({
+        scrollIntoView: HEAT_HISTORY_SCROLL_TARGET,
+        heatEvidenceExpanded: true,
+      });
     });
   },
 

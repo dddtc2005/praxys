@@ -17,6 +17,8 @@ export interface HeatCadenceDay {
   weekday: string;
   dayNumber: string;
   state: 'included' | 'observed' | 'empty';
+  stateLabel: string;
+  hasEvidence: boolean;
   detail: string;
 }
 
@@ -28,6 +30,7 @@ export interface HeatEvidenceRow {
 
 export interface HeatSessionRow {
   id: string;
+  dateKey: string;
   date: string;
   environment: string;
   effective: string;
@@ -41,13 +44,29 @@ export interface HeatSessionRow {
 
 export interface HeatAdaptationView {
   label: string;
+  closeLabel: string;
+  metricValue: string;
+  metricAction: string;
   stage: string;
   tone: HeatTone;
   conditionRange: string;
+  conclusionLabel: string;
+  conclusion: string;
+  conclusionDetail: string;
   interpretation: string;
   basis: string;
   guidance: string;
   safetyText: string;
+
+  showThresholdProgress: boolean;
+  thresholdLabel: string;
+  thresholdDescription: string;
+  qualifyingDaysLabel: string;
+  qualifyingDaysValue: string;
+  qualifyingDaysPct: number;
+  effectiveHeatLabel: string;
+  effectiveHeatValue: string;
+  effectiveHeatPct: number;
 
   evidenceDisclosureLabel: string;
   evidenceDisclosureMeta: string;
@@ -57,6 +76,7 @@ export interface HeatAdaptationView {
   cadenceDescription: string;
   includedLegend: string;
   observedLegend: string;
+  noSessionLegend: string;
   showCadence: boolean;
   cadenceDays: HeatCadenceDay[];
   defaultCadenceId: string;
@@ -65,6 +85,7 @@ export interface HeatAdaptationView {
   sessionsLabel: string;
   sessionsDescription: string;
   emptySessionsText: string;
+  missingSessionsText: string;
   hasSessions: boolean;
   sessions: HeatSessionRow[];
 
@@ -93,6 +114,16 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat(localeName(), { maximumFractionDigits: 0 }).format(value);
 }
 
+function formatThresholdNumber(value: number): string {
+  return new Intl.NumberFormat(localeName(), { maximumFractionDigits: 1 }).format(value);
+}
+
+function thresholdProgressPct(current: number, target: number): number {
+  if (target <= 0) return 0;
+  if (current >= target) return 100;
+  return Math.min(99.9, Math.round((current / target) * 1000) / 10);
+}
+
 function formatRange(min: number, max: number, suffix: string): string {
   const formatter = new Intl.NumberFormat(localeName(), { maximumFractionDigits: 1 });
   const low = formatter.format(min);
@@ -111,31 +142,58 @@ function stageLabel(status: HeatAdaptationStatus): string {
   }
 }
 
+function metricStageLabel(status: HeatAdaptationStatus): string {
+  if (status.is_reacclimating) return t('Rebuilding');
+  switch (status.stage) {
+    case 'building': return t('Developing');
+    case 'likely_adapted': return t('Likely adapted');
+    case 'maintaining': return t('Likely retained');
+    case 'decaying': return t('Fading');
+    default: return t('Not established');
+  }
+}
+
 function stageTone(stage: HeatAdaptationStage): HeatTone {
   if (stage === 'likely_adapted' || stage === 'maintaining') return 'green';
   if (stage === 'building' || stage === 'decaying') return 'amber';
   return 'neutral';
 }
 
+function stageConclusion(status: HeatAdaptationStatus): string {
+  if (status.is_reacclimating) return t('Heat adaptation may be rebuilding.');
+  switch (status.stage) {
+    case 'likely_adapted':
+      return t('Likely adapted to similar recent conditions.');
+    case 'maintaining':
+      return t('Prior heat adaptation is likely still retained.');
+    case 'building':
+      return t('Heat adaptation may be developing.');
+    case 'decaying':
+      return t('Prior heat adaptation evidence is fading.');
+    default:
+      return t('Heat adaptation is not established.');
+  }
+}
+
 function stageInterpretation(status: HeatAdaptationStatus): string {
   if (status.is_reacclimating) {
-    return t('Reacclimatization to similar conditions may be developing.');
+    return t('Qualifying exposure has resumed after a longer gap, but current evidence is still limited.');
   }
   switch (status.stage) {
     case 'likely_adapted':
-      return t('Recent training makes acclimatization to similar conditions plausible.');
+      return t("Recent training meets the model's conservative evidence threshold for acclimatization to similar conditions.");
     case 'maintaining':
       return status.recent_conditions
-        ? t('A prior qualifying block may still be retained. The range above describes only current qualifying training.')
-        : t('Evidence from a prior qualifying block may still be retained.');
+        ? t("A prior qualifying block remains inside the model's operational retention window. The range shown here describes current qualifying evidence, not that retained block.")
+        : t("A prior qualifying block remains inside the model's operational retention window.");
     case 'building':
-      return t('Acclimatization to similar conditions may be developing, but the evidence is still limited.');
+      return t('Recent training clears the Building threshold but remains below the conservative Likely adapted stage.');
     case 'decaying':
       return status.recent_conditions
-        ? t('Evidence from a prior qualifying block is fading. The range above describes only current qualifying training.')
-        : t('Evidence from a prior qualifying block is fading.');
+        ? t('The last qualifying block is beyond the initial retention window, so retained evidence is declining. The range shown here describes current qualifying evidence, not that prior block.')
+        : t('The last qualifying block is beyond the initial retention window, so retained evidence is declining.');
     default:
-      return t('There is not enough repeated qualifying exposure to estimate acclimatization to similar conditions.');
+      return t("Recent training remains below the model's Building threshold.");
   }
 }
 
@@ -199,6 +257,12 @@ function buildCadence(status: HeatAdaptationStatus): HeatCadenceDay[] {
       weekday: date.toLocaleDateString(localeName(), { weekday: 'narrow' }),
       dayNumber: `${date.getDate()}`,
       state,
+      stateLabel: state === 'included'
+        ? t('Included')
+        : state === 'observed'
+          ? t('Not included')
+          : t('No evidence'),
+      hasEvidence: cadenceDay.session_count > 0,
       detail,
     };
   });
@@ -270,6 +334,7 @@ function buildSessions(status: HeatAdaptationStatus): HeatSessionRow[] {
       .filter((session) => session.date === day.date)
       .map((session) => ({
         id: `${session.activity_id}-${session.date}`,
+        dateKey: session.date,
         date: formatDate(session.date),
         environment: tFmt(
           '{0}°C · {1}% humidity',
@@ -292,28 +357,45 @@ function buildSessions(status: HeatAdaptationStatus): HeatSessionRow[] {
 
 export function emptyHeatAdaptationView(): HeatAdaptationView {
   return {
-    label: t('Recent qualifying training range'),
+    label: t('Heat adaptation'),
+    closeLabel: t('Close'),
+    metricValue: t('Not established'),
+    metricAction: t('Open evidence'),
     stage: '',
     tone: 'neutral',
-    conditionRange: t('No qualifying condition range yet'),
+    conditionRange: t('No current qualifying condition range yet'),
+    conclusionLabel: t('Current conclusion'),
+    conclusion: t('Heat adaptation is not established.'),
+    conclusionDetail: t("Recent training remains below the model's Building threshold."),
     interpretation: '',
     basis: '',
     guidance: '',
     safetyText: t("Past training only. This does not assess today's weather, guarantee adaptation, or replace medical guidance."),
-    evidenceDisclosureLabel: t('How this estimate was built'),
+    showThresholdProgress: false,
+    thresholdLabel: t('Evidence toward Likely adapted'),
+    thresholdDescription: t('Both thresholds must be met. The bars describe model evidence, not a biological adaptation percentage.'),
+    qualifyingDaysLabel: t('Qualifying days'),
+    qualifyingDaysValue: '',
+    qualifyingDaysPct: 0,
+    effectiveHeatLabel: t('Effective heat'),
+    effectiveHeatValue: '',
+    effectiveHeatPct: 0,
+    evidenceDisclosureLabel: t('Open evidence'),
     evidenceDisclosureMeta: '',
     evidenceRows: [],
     cadenceLabel: t('Fourteen-day activity record'),
     cadenceDescription: t('Select a day to inspect what entered the estimate.'),
     includedLegend: t('Included'),
     observedLegend: t('Observed, not included'),
+    noSessionLegend: t('No heat evidence'),
     showCadence: false,
     cadenceDays: [],
     defaultCadenceId: '',
     defaultCadenceDetail: '',
-    sessionsLabel: t('Latest observed activities'),
-    sessionsDescription: t('Open an activity to see why it was included or left out. Exclusion only describes this estimate, not whether the session had training value.'),
-    emptySessionsText: t('No recent activities are available to inspect.'),
+    sessionsLabel: t('Activity evidence'),
+    sessionsDescription: t("The selected day's activities show why each session entered or stayed outside the estimate."),
+    emptySessionsText: t('No supported heat evidence for this day.'),
+    missingSessionsText: t('Detailed activity evidence is unavailable for this day.'),
     hasSessions: false,
     sessions: [],
     scienceNote: t('The thresholds are Praxys operational estimates grounded in heat-acclimatization research, not a direct physiological measurement.'),
@@ -332,17 +414,20 @@ export function buildHeatAdaptationView(status: HeatAdaptationStatus): HeatAdapt
     0,
   );
   const excluded = Math.max(0, observed - included);
+  const temperatureRange = conditions
+    ? formatRange(conditions.temperature_c.min, conditions.temperature_c.max, '°C')
+    : '';
   const conditionRange = conditions
-    ? tFmt(
+    ? `${t('Current qualifying evidence')} · ${tFmt(
         '{0} · {1} humidity',
-        formatRange(conditions.temperature_c.min, conditions.temperature_c.max, '°C'),
+        temperatureRange,
         formatRange(
           conditions.relative_humidity_pct.min,
           conditions.relative_humidity_pct.max,
           '%',
         ),
-      )
-    : t('No qualifying condition range yet');
+      )}`
+    : t('No current qualifying condition range yet');
   const guidance = conditions ? '' : setupGuidance(status.next_action);
   const basis = conditions
     ? tNamed(
@@ -363,17 +448,49 @@ export function buildHeatAdaptationView(status: HeatAdaptationStatus): HeatAdapt
   const defaultCadence = [...cadenceDays].reverse().find((day) => day.state !== 'empty')
     ?? cadenceDays[cadenceDays.length - 1];
   const sessions = buildSessions(status);
+  const thresholdDays = status.evidence_thresholds.likely_adapted_days;
+  const thresholdMinutes = status.evidence_thresholds.likely_adapted_effective_minutes;
+  const qualifyingDaysPct = thresholdProgressPct(status.exposure_days, thresholdDays);
+  const effectiveHeatPct = thresholdProgressPct(status.effective_heat_minutes, thresholdMinutes);
 
   return {
-    label: t('Recent qualifying training range'),
+    label: t('Heat adaptation'),
+    closeLabel: t('Close'),
+    metricValue: metricStageLabel(status),
+    metricAction: status.stage === 'maintaining' || status.stage === 'decaying'
+      ? t('Current evidence')
+      : conditions
+        ? tFmt('{0} · evidence', temperatureRange)
+        : t('Open evidence'),
     stage: stageLabel(status),
     tone: stageTone(status.stage),
     conditionRange,
+    conclusionLabel: t('Current conclusion'),
+    conclusion: stageConclusion(status),
+    conclusionDetail: stageInterpretation(status),
     interpretation: stageInterpretation(status),
     basis,
     guidance,
     safetyText: t("Past training only. This does not assess today's weather, guarantee adaptation, or replace medical guidance."),
-    evidenceDisclosureLabel: t('How this estimate was built'),
+    showThresholdProgress: status.stage !== 'maintaining' && status.stage !== 'decaying',
+    thresholdLabel: t('Evidence toward Likely adapted'),
+    thresholdDescription: t('Both thresholds must be met. The bars describe model evidence, not a biological adaptation percentage.'),
+    qualifyingDaysLabel: t('Qualifying days'),
+    qualifyingDaysValue: tNamed(
+      '{current} / {target} days',
+      { current: status.exposure_days, target: thresholdDays },
+    ),
+    qualifyingDaysPct,
+    effectiveHeatLabel: t('Effective heat'),
+    effectiveHeatValue: tNamed(
+      '{current} / {target} min',
+      {
+        current: formatThresholdNumber(status.effective_heat_minutes),
+        target: thresholdMinutes,
+      },
+    ),
+    effectiveHeatPct,
+    evidenceDisclosureLabel: t('Open evidence'),
     evidenceDisclosureMeta: tFmt(
       '{0} included · {1} observed, not included',
       included,
@@ -413,13 +530,15 @@ export function buildHeatAdaptationView(status: HeatAdaptationStatus): HeatAdapt
     cadenceDescription: t('Select a day to inspect what entered the estimate.'),
     includedLegend: t('Included'),
     observedLegend: t('Observed, not included'),
+    noSessionLegend: t('No heat evidence'),
     showCadence: cadenceDays.length > 0,
     cadenceDays,
     defaultCadenceId: defaultCadence?.id ?? '',
     defaultCadenceDetail: defaultCadence?.detail ?? '',
-    sessionsLabel: t('Latest observed activities'),
-    sessionsDescription: t('Open an activity to see why it was included or left out. Exclusion only describes this estimate, not whether the session had training value.'),
-    emptySessionsText: t('No recent activities are available to inspect.'),
+    sessionsLabel: t('Activity evidence'),
+    sessionsDescription: t("The selected day's activities show why each session entered or stayed outside the estimate."),
+    emptySessionsText: t('No supported heat evidence for this day.'),
+    missingSessionsText: t('Detailed activity evidence is unavailable for this day.'),
     hasSessions: sessions.length > 0,
     sessions,
     scienceNote: t('The thresholds are Praxys operational estimates grounded in heat-acclimatization research, not a direct physiological measurement.'),

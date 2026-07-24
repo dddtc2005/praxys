@@ -1,5 +1,5 @@
 <view class="train-root {{themeClass}}">
-  <nav-bar title="{{tr.navTitle}}" theme-class="{{themeClass}}" />
+  <nav-bar title="{{tr.navTitle}}" theme-class="{{themeClass}}" aria-hidden="{{heatEvidenceExpanded}}" />
 
   <scroll-view
     scroll-y="{{true}}"
@@ -8,6 +8,7 @@
     bindrefresherrefresh="onScrollRefresh"
     scroll-into-view="{{scrollIntoView}}"
     class="train-scroll"
+    aria-hidden="{{heatEvidenceExpanded}}"
   >
     <view class="train-content">
 
@@ -24,17 +25,16 @@
       <state-card wx:if="{{!hasAnyData}}" type="empty" headline="{{tr.noData}}" />
 
       <!-- ═══════════════════════════════════════════════════════════
-           DIAGNOSIS · stat strip + longitudinal heat story + chart
-           switcher + Coach receipt. Heat owns its own progressive
-           evidence disclosures instead of competing as a chart tab.
+           DIAGNOSIS · five peer metrics + chart switcher + Coach
+           receipt. Heat opens a bounded evidence sheet instead of
+           pushing the longitudinal charts and coach receipt downward.
            ═══════════════════════════════════════════════════════════ -->
       <block>
         <text wx:if="{{hasAnyData}}" class="train-section-eyebrow">{{tr.diagnosis}} · {{diagnosisEyebrow}}</text>
 
-        <!-- Stat strip — 2x2 grid on phone (stacked rows of two,
-             columns aligned). Each cell: mono uppercase label, big
-             tabular value with optional % unit, mono caption. Values
-             remain neutral because these are descriptive metrics. -->
+        <!-- Stat strip — two columns on phone. Heat is the fifth peer
+             metric and owns the only explicit evidence action because
+             the other metrics disclose through the chart switcher. -->
         <view wx:if="{{hasAnyData}}" class="train-stats">
           <view
             wx:for="{{cells}}"
@@ -48,121 +48,22 @@
             </view>
             <text class="train-stat-sub">{{item.sub}}</text>
           </view>
-        </view>
-
-        <view id="heat-adaptation" class="train-heat-section" aria-label="{{heat.label}}">
-          <view class="train-heat-head">
-            <text class="train-heat-label">{{heat.label}}</text>
-            <view class="train-heat-stage train-heat-stage--{{heat.tone}}">
-              <text>{{heat.stage}}</text>
-            </view>
-          </view>
-          <text class="train-heat-condition ts-value">{{heat.conditionRange}}</text>
-          <text class="train-heat-interpretation">{{heat.interpretation}}</text>
-          <text wx:if="{{heat.basis}}" class="train-heat-basis ts-value">{{heat.basis}}</text>
-          <text wx:if="{{heat.guidance}}" class="train-heat-guidance">{{heat.guidance}}</text>
-          <text class="train-heat-safety">{{heat.safetyText}}</text>
-
           <view
-            class="train-heat-disclosure"
-            role="button"
-            aria-expanded="{{heatEvidenceExpanded}}"
-            bindtap="onToggleHeatEvidence"
+            id="heat-adaptation"
+            class="train-stat-cell train-stat-cell--heat"
           >
-            <view class="train-heat-disclosure-copy">
-              <text>{{heat.evidenceDisclosureLabel}}</text>
-              <text class="train-heat-disclosure-meta ts-value">{{heat.evidenceDisclosureMeta}}</text>
-            </view>
-            <text class="train-heat-disclosure-arrow">{{heatEvidenceExpanded ? '▾' : '▸'}}</text>
-          </view>
-          <view wx:if="{{heatEvidenceExpanded}}" class="train-heat-evidence">
-            <view class="train-heat-evidence-summary">
-              <view wx:for="{{heat.evidenceRows}}" wx:key="id" class="train-heat-evidence-row">
-                <text class="train-heat-evidence-label">{{item.label}}</text>
-                <text class="train-heat-evidence-value ts-value">{{item.value}}</text>
-              </view>
-            </view>
-
-            <view wx:if="{{heat.showCadence}}" class="train-heat-cadence">
-              <text class="train-heat-cadence-label">{{heat.cadenceLabel}}</text>
-              <text class="train-heat-cadence-description">{{heat.cadenceDescription}}</text>
-              <view class="train-heat-cadence-legend">
-                <view class="train-heat-cadence-legend-item">
-                  <view class="train-heat-cadence-mark train-heat-cadence-mark--included"></view>
-                  <text>{{heat.includedLegend}}</text>
-                </view>
-                <view class="train-heat-cadence-legend-item">
-                  <view class="train-heat-cadence-mark train-heat-cadence-mark--observed"></view>
-                  <text>{{heat.observedLegend}}</text>
-                </view>
-              </view>
-              <view class="train-heat-cadence-grid">
-                <view wx:for="{{heat.cadenceDays}}" wx:key="id" class="train-heat-day-wrap">
-                  <view
-                    class="train-heat-day {{selectedHeatDayId === item.id ? 'train-heat-day--selected' : ''}}"
-                    data-id="{{item.id}}"
-                    bindtap="onPickHeatDay"
-                    role="button"
-                    aria-label="{{item.detail}}"
-                    aria-pressed="{{selectedHeatDayId === item.id}}"
-                  >
-                    <text class="train-heat-day-weekday">{{item.weekday}}</text>
-                    <view class="train-heat-day-marker train-heat-day-marker--{{item.state}}"></view>
-                    <text class="train-heat-day-number ts-value">{{item.dayNumber}}</text>
-                  </view>
-                </view>
-              </view>
-              <text class="train-heat-cadence-detail ts-value" aria-live="polite">{{selectedHeatDayDetail}}</text>
-            </view>
-
-            <view class="train-heat-sessions">
-              <text class="train-heat-sessions-label">{{heat.sessionsLabel}}</text>
-              <text class="train-heat-sessions-description">{{heat.sessionsDescription}}</text>
-            </view>
-            <view wx:if="{{heat.hasSessions}}">
-              <view
-                wx:for="{{heat.sessions}}"
-                wx:key="id"
-                class="train-heat-row"
-              >
-                <view
-                  class="train-heat-row-toggle"
-                  data-id="{{item.id}}"
-                  bindtap="onToggleHeatSession"
-                  role="button"
-                  aria-expanded="{{expandedHeatSessionId === item.id}}"
-                >
-                  <view class="train-heat-row-main">
-                    <view class="train-heat-row-head">
-                      <text class="train-heat-date ts-value">{{item.date}}</text>
-                      <text class="train-heat-row-status train-heat-row-status--{{item.tone}}">{{item.status}}</text>
-                    </view>
-                    <text class="train-heat-environment ts-value">{{item.environment}}</text>
-                    <text class="train-heat-effective ts-value">{{item.effective}}</text>
-                  </view>
-                  <text class="train-heat-disclosure-arrow">{{expandedHeatSessionId === item.id ? '▾' : '▸'}}</text>
-                </view>
-                <view wx:if="{{expandedHeatSessionId === item.id}}" class="train-heat-row-detail">
-                  <text class="train-heat-row-reason">{{item.reason}}</text>
-                  <text>{{item.weatherEvidence}}</text>
-                  <text>{{item.workloadMethod}}</text>
-                  <text>{{item.powerAlignment}}</text>
-                </view>
-              </view>
-            </view>
-            <view wx:else class="train-data-hint">
-              <text class="train-data-hint-message ts-muted">{{heat.emptySessionsText}}</text>
+            <text class="train-stat-label">{{heat.label}}</text>
+            <view class="train-stat-row">
+              <text class="train-stat-value train-stat-value--heat">{{heat.metricValue}}</text>
             </view>
             <view
-              class="train-heat-science-link"
-              role="button"
-              bindtap="onOpenHeatScience"
+              class="train-stat-evidence"
+              bindtap="onOpenHeatEvidence"
+              aria-role="button"
+              aria-label="{{heat.label}} · {{heat.metricValue}} · {{heat.metricAction}}"
             >
-              <view class="train-heat-science-copy">
-                <text class="train-heat-science-note">{{heat.scienceNote}}</text>
-                <text class="train-heat-science-action">{{heat.scienceLinkLabel}}</text>
-              </view>
-              <text class="train-heat-science-arrow" aria-hidden="true">→</text>
+              <text class="train-stat-evidence-copy ts-value">{{heat.metricAction}}</text>
+              <text class="train-stat-evidence-arrow" aria-hidden="true">›</text>
             </view>
           </view>
         </view>
@@ -345,4 +246,162 @@
     </block>
     </view>
   </scroll-view>
+
+  <view
+    wx:if="{{heatEvidenceExpanded}}"
+    class="train-heat-overlay"
+    bindtap="onCloseHeatEvidence"
+    catchtouchmove="onBlockHeatSheetTap"
+    aria-role="dialog"
+    aria-modal="true"
+    aria-label="{{heat.label}}"
+  >
+    <view class="train-heat-sheet" catchtap="onBlockHeatSheetTap">
+      <view class="train-heat-sheet-handle" aria-hidden="true"></view>
+      <view class="train-heat-sheet-head">
+        <view class="train-heat-sheet-heading">
+          <text class="train-heat-sheet-title">{{heat.label}}</text>
+          <text class="train-heat-sheet-range ts-value">{{heat.conditionRange}}</text>
+        </view>
+        <view
+          class="train-heat-sheet-close"
+          bindtap="onCloseHeatEvidence"
+          aria-role="button"
+          aria-label="{{heat.closeLabel}}"
+        >×</view>
+      </view>
+
+      <scroll-view scroll-y="{{true}}" class="train-heat-sheet-scroll">
+        <view class="train-heat-sheet-body">
+          <view class="train-heat-conclusion">
+            <view class="train-heat-conclusion-head">
+              <text class="train-heat-conclusion-label">{{heat.conclusionLabel}}</text>
+              <text class="train-heat-stage train-heat-stage--{{heat.tone}}">{{heat.stage}}</text>
+            </view>
+            <text class="train-heat-conclusion-title">{{heat.conclusion}}</text>
+            <text class="train-heat-conclusion-detail">{{heat.conclusionDetail}}</text>
+          </view>
+
+          <view wx:if="{{heat.showThresholdProgress}}" class="train-heat-thresholds">
+            <text class="train-heat-panel-label">{{heat.thresholdLabel}}</text>
+            <text class="train-heat-panel-description">{{heat.thresholdDescription}}</text>
+            <view class="train-heat-progress-row">
+              <view class="train-heat-progress-head">
+                <text>{{heat.qualifyingDaysLabel}}</text>
+                <text class="ts-value">{{heat.qualifyingDaysValue}}</text>
+              </view>
+              <view class="train-heat-progress-track">
+                <view class="train-heat-progress-fill" style="width: {{heat.qualifyingDaysPct}}%;"></view>
+              </view>
+            </view>
+            <view class="train-heat-progress-row">
+              <view class="train-heat-progress-head">
+                <text>{{heat.effectiveHeatLabel}}</text>
+                <text class="ts-value">{{heat.effectiveHeatValue}}</text>
+              </view>
+              <view class="train-heat-progress-track">
+                <view class="train-heat-progress-fill" style="width: {{heat.effectiveHeatPct}}%;"></view>
+              </view>
+            </view>
+          </view>
+
+          <view class="train-heat-evidence-summary">
+            <view wx:for="{{heat.evidenceRows}}" wx:key="id" class="train-heat-evidence-row">
+              <text class="train-heat-evidence-label">{{item.label}}</text>
+              <text class="train-heat-evidence-value ts-value">{{item.value}}</text>
+            </view>
+          </view>
+
+          <view wx:if="{{heat.showCadence}}" class="train-heat-cadence">
+            <text class="train-heat-panel-label">{{heat.cadenceLabel}}</text>
+            <text class="train-heat-panel-description">{{heat.cadenceDescription}}</text>
+            <view class="train-heat-cadence-legend">
+              <view class="train-heat-cadence-legend-item">
+                <view class="train-heat-cadence-mark train-heat-cadence-mark--included"></view>
+                <text>{{heat.includedLegend}}</text>
+              </view>
+              <view class="train-heat-cadence-legend-item">
+                <view class="train-heat-cadence-mark train-heat-cadence-mark--observed"></view>
+                <text>{{heat.observedLegend}}</text>
+              </view>
+              <view class="train-heat-cadence-legend-item">
+                <view class="train-heat-cadence-mark train-heat-cadence-mark--empty"></view>
+                <text>{{heat.noSessionLegend}}</text>
+              </view>
+            </view>
+            <view class="train-heat-cadence-grid">
+              <view wx:for="{{heat.cadenceDays}}" wx:key="id" class="train-heat-day-wrap">
+                <view
+                  class="train-heat-day train-heat-day--{{item.state}} {{selectedHeatDayId === item.id ? 'train-heat-day--selected' : ''}}"
+                  data-id="{{item.id}}"
+                  bindtap="onPickHeatDay"
+                  aria-role="button"
+                  aria-label="{{item.detail}}"
+                  aria-pressed="{{selectedHeatDayId === item.id}}"
+                >
+                  <text class="train-heat-day-weekday">{{item.weekday}}</text>
+                  <text class="train-heat-day-number ts-value">{{item.dayNumber}}</text>
+                  <text class="train-heat-day-state">{{item.stateLabel}}</text>
+                </view>
+              </view>
+            </view>
+            <text class="train-heat-cadence-detail ts-value" aria-live="polite">{{selectedHeatDayDetail}}</text>
+          </view>
+
+          <view class="train-heat-sessions">
+            <text class="train-heat-panel-label">{{heat.sessionsLabel}}</text>
+            <text class="train-heat-panel-description">{{heat.sessionsDescription}}</text>
+          </view>
+          <view wx:if="{{selectedHeatSessions.length}}">
+            <view
+              wx:for="{{selectedHeatSessions}}"
+              wx:key="id"
+              class="train-heat-row train-heat-row--{{item.tone}}"
+            >
+              <view
+                class="train-heat-row-toggle"
+                data-id="{{item.id}}"
+                bindtap="onToggleHeatSession"
+                aria-role="button"
+                aria-expanded="{{expandedHeatSessionId === item.id}}"
+              >
+                <view class="train-heat-row-main">
+                  <view class="train-heat-row-head">
+                    <text class="train-heat-date ts-value">{{item.date}}</text>
+                    <text class="train-heat-row-status train-heat-row-status--{{item.tone}}">{{item.status}}</text>
+                  </view>
+                  <text class="train-heat-environment ts-value">{{item.environment}}</text>
+                  <text class="train-heat-effective ts-value">{{item.effective}}</text>
+                </view>
+                <text class="train-heat-row-arrow">{{expandedHeatSessionId === item.id ? '▾' : '▸'}}</text>
+              </view>
+              <view wx:if="{{expandedHeatSessionId === item.id}}" class="train-heat-row-detail">
+                <text class="train-heat-row-reason">{{item.reason}}</text>
+                <text>{{item.weatherEvidence}}</text>
+                <text>{{item.workloadMethod}}</text>
+                <text>{{item.powerAlignment}}</text>
+              </view>
+            </view>
+          </view>
+          <view wx:else class="train-heat-empty-day">
+            <text>{{selectedHeatDayHasEvidence ? heat.missingSessionsText : heat.emptySessionsText}}</text>
+          </view>
+
+          <text wx:if="{{heat.guidance}}" class="train-heat-guidance">{{heat.guidance}}</text>
+          <text class="train-heat-safety">{{heat.safetyText}}</text>
+          <view
+            class="train-heat-science-link"
+            aria-role="button"
+            bindtap="onOpenHeatScience"
+          >
+            <view class="train-heat-science-copy">
+              <text class="train-heat-science-note">{{heat.scienceNote}}</text>
+              <text class="train-heat-science-action">{{heat.scienceLinkLabel}}</text>
+            </view>
+            <text class="train-heat-science-arrow" aria-hidden="true">→</text>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
 </view>

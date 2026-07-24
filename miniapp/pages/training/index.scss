@@ -37,9 +37,8 @@
 
 // ─── Stat strip ─────────────────────────────────────────────────────
 //
-// 4 cells laid out as a 2x2 grid. Web uses `sm:flex sm:flex-wrap` to
-// lay them out in a row on desktop and 2x2 on narrow viewports — mini
-// program is always narrow, so we pin to 2 cols.
+// Five peer cells laid out in two columns. The fifth cell (heat) keeps
+// the same footprint and hierarchy while exposing a bounded sheet.
 //
 // Implementation note: Skyline doesn't reliably honor `display: grid`
 // (and `grid-template-columns: 1fr 1fr` collapses to a single column
@@ -124,96 +123,251 @@
   margin-top: 4rpx;
 }
 
-// ─── Heat adaptation story ───────────────────────────────────────────
-.train-heat-section {
-  margin-bottom: 48rpx;
-  padding: 32rpx 0;
-  border-top: 1rpx solid var(--border-subtle);
-  border-bottom: 1rpx solid var(--border-subtle);
+// Heat's evidence action is explicit without turning the whole strip
+// into a row of mismatched buttons.
+.train-stat-cell--heat {
+  min-height: 184rpx;
 }
 
-.train-heat-head {
+.train-stat-value--heat {
+  font-size: 34rpx;
+  line-height: 1.15;
+}
+
+.train-stat-evidence {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8rpx;
+  align-self: flex-start;
+  min-height: 56rpx;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-top: 8rpx;
+  padding: 0 14rpx;
+  border: 1rpx solid var(--border-subtle);
+  border-radius: 12rpx;
+  background-color: var(--surface-subtle);
+  color: var(--accent-cobalt);
+}
+
+.train-stat-evidence-copy {
+  min-width: 0;
+  font-size: 19rpx;
+  line-height: 1.35;
+}
+
+.train-stat-evidence-arrow {
+  flex: none;
+  font-size: 32rpx;
+  line-height: 1;
+}
+
+// ─── Heat evidence sheet ─────────────────────────────────────────────
+.train-heat-overlay {
+  position: fixed;
+  z-index: 200;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: flex-end;
+  background-color: rgba(0, 0, 0, 0.48);
+  animation: train-heat-overlay-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.train-heat-sheet {
+  width: 100%;
+  max-height: 88vh;
+  overflow: hidden;
+  box-sizing: border-box;
+  border-radius: 24rpx 24rpx 0 0;
+  background-color: var(--bg);
+  animation: train-heat-sheet-in 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.train-heat-sheet-handle {
+  width: 72rpx;
+  height: 8rpx;
+  margin: 16rpx auto 4rpx;
+  border-radius: 999rpx;
+  background-color: var(--border-subtle);
+}
+
+.train-heat-sheet-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 20rpx;
+  gap: 24rpx;
+  padding: 20rpx 32rpx 24rpx;
+  border-bottom: 1rpx solid var(--border-subtle);
 }
 
-.train-heat-label {
-  max-width: 420rpx;
-  font-size: 24rpx;
-  font-weight: 500;
+.train-heat-sheet-heading {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.train-heat-sheet-title {
+  font-size: 36rpx;
+  font-weight: 650;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.train-heat-sheet-range {
+  font-size: 22rpx;
   line-height: 1.4;
   color: var(--text-muted);
 }
 
-.train-heat-stage {
+.train-heat-sheet-close {
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  background-color: var(--surface-subtle);
+  font-size: 42rpx;
+  line-height: 72rpx;
+  text-align: center;
+  color: var(--text);
+}
+
+.train-heat-sheet-scroll {
+  height: 72vh;
+}
+
+.train-heat-sheet-body {
+  padding: 32rpx 32rpx calc(48rpx + env(safe-area-inset-bottom));
+}
+
+.train-heat-conclusion {
+  padding: 28rpx;
+  border: 1rpx solid var(--border-subtle);
+  border-radius: 20rpx;
+  background-color: var(--surface-subtle);
+}
+
+.train-heat-conclusion-head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin-bottom: 16rpx;
+}
+
+.train-heat-conclusion-label,
+.train-heat-panel-label {
+  display: block;
+  font-size: 25rpx;
+  font-weight: 650;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.train-heat-conclusion-label {
+  color: var(--accent-cobalt);
+}
+
+.train-heat-stage {
   flex: none;
-  padding: 8rpx 16rpx;
+  padding: 7rpx 14rpx;
   border-radius: 999rpx;
-  background-color: var(--surface-subtle);
-  font-size: 22rpx;
-  font-weight: 600;
+  background-color: var(--bg);
+  font-size: 20rpx;
+  font-weight: 650;
   color: var(--text-muted);
 }
 
 .train-heat-stage--green { color: var(--primary); }
 .train-heat-stage--amber { color: var(--warning); }
 
-.train-heat-condition {
+.train-heat-conclusion-title {
   display: block;
-  margin-top: 20rpx;
-  font-size: 42rpx;
-  font-weight: 600;
-  line-height: 1.3;
+  font-size: 32rpx;
+  font-weight: 650;
+  line-height: 1.35;
   color: var(--text);
 }
 
-.train-heat-interpretation {
+.train-heat-conclusion-detail,
+.train-heat-panel-description {
   display: block;
-  margin-top: 12rpx;
-  font-size: 28rpx;
-  line-height: 1.55;
-  color: var(--text);
-}
-
-.train-heat-basis,
-.train-heat-guidance,
-.train-heat-safety {
-  display: block;
-  margin-top: 16rpx;
+  margin-top: 10rpx;
   font-size: 24rpx;
   line-height: 1.55;
   color: var(--text-muted);
 }
 
-.train-heat-guidance {
-  font-size: 26rpx;
+.train-heat-thresholds,
+.train-heat-cadence,
+.train-heat-sessions {
+  margin-top: 32rpx;
+  padding-top: 32rpx;
+  border-top: 1rpx solid var(--border-subtle);
+}
+
+.train-heat-progress-row {
+  margin-top: 24rpx;
+}
+
+.train-heat-progress-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20rpx;
+  margin-bottom: 10rpx;
+  font-size: 23rpx;
+  color: var(--text);
+}
+
+.train-heat-progress-track {
+  height: 14rpx;
+  overflow: hidden;
+  border-radius: 999rpx;
+  background-color: var(--border-subtle);
+}
+
+.train-heat-progress-fill {
+  height: 100%;
+  border-radius: 999rpx;
+  background-color: var(--accent-cobalt);
+}
+
+.train-heat-evidence-summary {
+  margin-top: 32rpx;
+  padding: 12rpx 0;
+  border-top: 1rpx solid var(--border-subtle);
+  border-bottom: 1rpx solid var(--border-subtle);
+}
+
+.train-heat-evidence-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24rpx;
+  padding: 12rpx 0;
+}
+
+.train-heat-evidence-label {
+  font-size: 23rpx;
+  color: var(--text-muted);
+}
+
+.train-heat-evidence-value {
+  font-size: 23rpx;
+  text-align: right;
   color: var(--text);
 }
 
 .train-heat-cadence {
-  margin-top: 28rpx;
-  padding-top: 28rpx;
-  border-top: 1rpx solid var(--border-subtle);
-}
-
-.train-heat-cadence-label,
-.train-heat-sessions-label {
-  display: block;
-  font-size: 26rpx;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.train-heat-cadence-description {
-  display: block;
-  margin-top: 8rpx;
-  font-size: 26rpx;
-  line-height: 1.5;
-  color: var(--text-muted);
+  overflow: hidden;
 }
 
 .train-heat-cadence-legend {
@@ -236,14 +390,21 @@
   height: 18rpx;
   box-sizing: border-box;
   border-radius: 4rpx;
+  border: 1rpx solid var(--border-subtle);
 }
 
 .train-heat-cadence-mark--included {
-  background-color: var(--primary);
+  border-color: rgba(0, 168, 107, 0.55);
+  background-color: rgba(0, 168, 107, 0.18);
 }
 
 .train-heat-cadence-mark--observed {
-  border: 2rpx solid var(--text-muted);
+  border-color: rgba(217, 134, 0, 0.55);
+  background-color: rgba(217, 134, 0, 0.15);
+}
+
+.train-heat-cadence-mark--empty {
+  background-color: var(--surface-subtle);
 }
 
 .train-heat-cadence-grid {
@@ -260,19 +421,30 @@
 
 .train-heat-day {
   display: flex;
-  min-height: 88rpx;
+  min-height: 112rpx;
   box-sizing: border-box;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6rpx;
+  gap: 5rpx;
   border: 1rpx solid var(--border-subtle);
-  border-radius: 12rpx;
+  border-radius: 10rpx;
+  background-color: var(--surface-subtle);
+}
+
+.train-heat-day--included {
+  border-color: rgba(0, 168, 107, 0.55);
+  background-color: rgba(0, 168, 107, 0.14);
+}
+
+.train-heat-day--observed {
+  border-color: rgba(217, 134, 0, 0.55);
+  background-color: rgba(217, 134, 0, 0.12);
 }
 
 .train-heat-day--selected {
-  border-color: var(--text-muted);
-  background-color: var(--surface-subtle);
+  border-color: var(--text);
+  box-shadow: inset 0 0 0 2rpx var(--text);
 }
 
 .train-heat-day-weekday {
@@ -282,29 +454,18 @@
 }
 
 .train-heat-day-number {
-  font-size: 22rpx;
-  font-weight: 600;
+  font-size: 24rpx;
+  font-weight: 650;
   line-height: 1;
   color: var(--text);
 }
 
-.train-heat-day-marker {
-  width: 24rpx;
-  height: 8rpx;
-  box-sizing: border-box;
-  border-radius: 999rpx;
-}
-
-.train-heat-day-marker--included {
-  background-color: var(--primary);
-}
-
-.train-heat-day-marker--observed {
-  border: 2rpx solid var(--text-muted);
-}
-
-.train-heat-day-marker--empty {
-  background-color: var(--border-subtle);
+.train-heat-day-state {
+  max-width: 80rpx;
+  font-size: 15rpx;
+  line-height: 1.05;
+  text-align: center;
+  color: var(--text-muted);
 }
 
 .train-heat-cadence-detail {
@@ -316,88 +477,118 @@
   color: var(--text-muted);
 }
 
-.train-heat-safety {
-  margin-top: 12rpx;
-  font-size: 22rpx;
+.train-heat-row {
+  margin-top: 16rpx;
+  overflow: hidden;
+  border: 1rpx solid var(--border-subtle);
+  border-radius: 16rpx;
+  background-color: var(--surface-subtle);
 }
 
-.train-heat-disclosure {
+.train-heat-row--included {
+  border-color: rgba(0, 168, 107, 0.45);
+  background-color: rgba(0, 168, 107, 0.08);
+}
+
+.train-heat-row-toggle {
   display: flex;
-  min-height: 88rpx;
+  min-height: 104rpx;
   box-sizing: border-box;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-start;
   gap: 16rpx;
-  border-top: 1rpx solid var(--border-subtle);
-  font-size: 28rpx;
-  font-weight: 600;
-  color: var(--text);
+  padding: 22rpx;
 }
 
-.train-heat-disclosure {
-  margin-top: 24rpx;
-}
-
-.train-heat-disclosure-copy {
+.train-heat-row-main {
   display: flex;
   min-width: 0;
   flex: 1;
   flex-direction: column;
-  gap: 4rpx;
+  gap: 8rpx;
 }
 
-.train-heat-disclosure-meta {
-  font-size: 22rpx;
-  font-weight: 400;
+.train-heat-row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.train-heat-date {
+  font-size: 24rpx;
   color: var(--text-muted);
 }
 
-.train-heat-disclosure-arrow {
+.train-heat-row-status {
+  font-size: 23rpx;
+  font-weight: 650;
+  text-align: right;
+  color: var(--text-muted);
+}
+
+.train-heat-row-status--included {
+  color: var(--primary);
+}
+
+.train-heat-environment {
+  font-size: 25rpx;
+  color: var(--text);
+}
+
+.train-heat-effective {
+  font-size: 22rpx;
+  color: var(--text-muted);
+}
+
+.train-heat-row-arrow {
   flex: none;
-  width: 28rpx;
+  padding-top: 4rpx;
   font-size: 26rpx;
+  color: var(--text-muted);
+}
+
+.train-heat-row-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+  padding: 0 22rpx 24rpx;
+  font-size: 23rpx;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.train-heat-row-reason {
+  color: var(--text);
+}
+
+.train-heat-empty-day {
+  margin-top: 16rpx;
+  padding: 28rpx;
+  border: 1rpx solid var(--border-subtle);
+  border-radius: 16rpx;
+  background-color: var(--surface-subtle);
+  font-size: 24rpx;
   text-align: center;
   color: var(--text-muted);
 }
 
-.train-heat-evidence {
-  border-top: 1rpx solid var(--border-subtle);
-}
-
-.train-heat-evidence-summary {
-  padding: 20rpx 0 4rpx;
-}
-
-.train-heat-evidence-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 24rpx;
-  padding: 12rpx 0;
-}
-
-.train-heat-evidence-label {
-  font-size: 24rpx;
-  color: var(--text-muted);
-}
-
-.train-heat-evidence-value {
-  font-size: 24rpx;
-  text-align: right;
+.train-heat-guidance {
+  display: block;
+  margin-top: 32rpx;
+  padding: 24rpx;
+  border: 1rpx solid var(--border-subtle);
+  border-radius: 16rpx;
+  background-color: var(--surface-subtle);
+  font-size: 25rpx;
+  line-height: 1.55;
   color: var(--text);
 }
 
-.train-heat-sessions {
-  margin-top: 28rpx;
-  padding-top: 28rpx;
-  border-top: 1rpx solid var(--border-subtle);
-}
-
-.train-heat-sessions-description {
+.train-heat-safety {
   display: block;
-  margin-top: 8rpx;
-  font-size: 24rpx;
-  line-height: 1.5;
+  margin-top: 20rpx;
+  font-size: 22rpx;
+  line-height: 1.55;
   color: var(--text-muted);
 }
 
@@ -407,6 +598,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 20rpx;
+  margin-top: 28rpx;
+  padding-top: 24rpx;
   border-top: 1rpx solid var(--border-subtle);
 }
 
@@ -430,6 +623,23 @@
   font-size: 28rpx;
   font-weight: 600;
   color: var(--accent-cobalt);
+}
+
+@keyframes train-heat-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes train-heat-sheet-in {
+  from { transform: translateY(28rpx); }
+  to { transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .train-heat-overlay,
+  .train-heat-sheet {
+    animation-duration: 1ms;
+  }
 }
 
 // ─── Pill switcher ──────────────────────────────────────────────────
@@ -481,73 +691,6 @@
 // to the Coach receipt.
 .train-chart-pane {
   margin-bottom: 32rpx;
-}
-
-.train-heat-row {
-  border-bottom: 1rpx solid var(--border-subtle);
-}
-
-.train-heat-row-toggle {
-  display: flex;
-  min-height: 88rpx;
-  box-sizing: border-box;
-  align-items: flex-start;
-  gap: 16rpx;
-  padding: 20rpx 0;
-}
-
-.train-heat-row-main {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  flex-direction: column;
-  gap: 8rpx;
-}
-
-.train-heat-row-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 20rpx;
-}
-
-.train-heat-date {
-  font-size: 28rpx;
-  color: var(--text-muted);
-}
-
-.train-heat-row-status {
-  font-size: 26rpx;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-.train-heat-row-status--included {
-  color: var(--primary);
-}
-
-.train-heat-environment {
-  font-size: 26rpx;
-  color: var(--text);
-}
-
-.train-heat-effective {
-  font-size: 24rpx;
-  color: var(--text-muted);
-}
-
-.train-heat-row-detail {
-  display: flex;
-  flex-direction: column;
-  gap: 8rpx;
-  padding: 0 0 24rpx;
-  font-size: 24rpx;
-  line-height: 1.5;
-  color: var(--text-muted);
-}
-
-.train-heat-row-reason {
-  color: var(--text);
 }
 
 // Zone-section label inside the Zones pill view — shown above the

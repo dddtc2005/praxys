@@ -18,7 +18,7 @@ msgid " · "
 msgstr " · "
 
 #. placeholder {0}: data.diagnosis.lookback_weeks
-#: src/pages/Training.tsx:247
+#: src/pages/Training.tsx:239
 msgid "· last {0} weeks"
 msgstr "· last {0} weeks"
 
@@ -45,6 +45,16 @@ msgstr "{0, plural, one {# recommendation} other {# recommendations}}"
 msgid "{0, plural, one {# workout} other {# workouts}}"
 msgstr "{0, plural, one {# workout} other {# workouts}}"
 
+#. placeholder {0}: status.exposure_days
+#: src/components/HeatAdaptationPanel.tsx:610
+msgid "{0} / {thresholdDays} days"
+msgstr "{0} / {thresholdDays} days"
+
+#. placeholder {0}: formatThresholdNumber(status.effective_heat_minutes, locale)
+#: src/components/HeatAdaptationPanel.tsx:617
+msgid "{0} / {thresholdMinutes} min"
+msgstr "{0} / {thresholdMinutes} min"
+
 #. placeholder {0}: status.contributing_sessions
 #. placeholder {1}: status.exposure_days
 #. placeholder {2}: status.evidence_thresholds.active_window_days
@@ -66,9 +76,16 @@ msgstr "{0, plural, one {# workout} other {# workouts}}"
 #. placeholder {0}: selected.counted_session_count
 #. placeholder {1}: selected.session_count - selected.counted_session_count
 #. placeholder {2}: Math.round(selected.effective_heat_minutes)
+#: src/components/HeatAdaptationPanel.tsx:349
+msgid "{0} included · {1} observed, not included · {2} effective min"
+msgstr "{0} included · {1} observed, not included · {2} effective min"
+
+#. placeholder {0}: selected.counted_session_count
+#. placeholder {1}: selected.session_count - selected.counted_session_count
+#. placeholder {2}: Math.round(selected.effective_heat_minutes)
 #: src/components/HeatAdaptationPanel.tsx:219
-msgid "{0} included, {1} observed but not included, {2} effective min"
-msgstr "{0} included, {1} observed but not included, {2} effective min"
+#~ msgid "{0} included, {1} observed but not included, {2} effective min"
+#~ msgstr "{0} included, {1} observed but not included, {2} effective min"
 
 #. placeholder {0}: status.data_coverage.workload_supported_activities
 #. placeholder {1}: status.data_coverage.recent_activities
@@ -119,8 +136,14 @@ msgstr "{0} of {1} steps complete"
 #. placeholder {1}: day.counted_session_count
 #. placeholder {2}: day.session_count - day.counted_session_count
 #: src/components/HeatAdaptationPanel.tsx:196
-msgid "{0}: {1} included, {2} observed but not included"
-msgstr "{0}: {1} included, {2} observed but not included"
+#~ msgid "{0}: {1} included, {2} observed but not included"
+#~ msgstr "{0}: {1} included, {2} observed but not included"
+
+#. placeholder {0}: formatDate(day.date, locale)
+#. placeholder {1}: day.counted_session_count
+#: src/components/HeatAdaptationPanel.tsx:291
+msgid "{0}: {1} included, {excluded} observed but not included"
+msgstr "{0}: {1} included, {excluded} observed but not included"
 
 #. placeholder {0}: tDisplay(d.name, i18n)
 #. placeholder {1}: d.actual
@@ -172,12 +195,16 @@ msgid "{completed} of {0} steps complete"
 msgstr "{completed} of {0} steps complete"
 
 #: src/components/HeatAdaptationPanel.tsx:88
-msgid "{days} days · {minutes} effective min"
-msgstr "{days} days · {minutes} effective min"
+#~ msgid "{days} days · {minutes} effective min"
+#~ msgstr "{days} days · {minutes} effective min"
 
-#: src/components/HeatAdaptationPanel.tsx:99
+#: src/components/HeatAdaptationPanel.tsx:167
 msgid "{days} days ago"
 msgstr "{days} days ago"
+
+#: src/components/HeatAdaptationPanel.tsx:618
+#~ msgid "{effectiveHeatDisplay} / {thresholdMinutes} min"
+#~ msgstr "{effectiveHeatDisplay} / {thresholdMinutes} min"
 
 #: src/components/HeatAdaptationPanel.tsx:175
 #~ msgid "{formatted} · activity not counted toward the current stage"
@@ -196,15 +223,15 @@ msgstr "{days} days ago"
 #~ msgid "{formatted} · no supported activity"
 #~ msgstr "{formatted} · no supported activity"
 
-#: src/components/HeatAdaptationPanel.tsx:324
+#: src/components/HeatAdaptationPanel.tsx:469
 msgid "{humidityPercentRange} humidity"
 msgstr "{humidityPercentRange} humidity"
 
-#: src/components/HeatAdaptationPanel.tsx:386
+#: src/components/HeatAdaptationPanel.tsx:569
 msgid "{included} included · {excluded} observed, not included"
 msgstr "{included} included · {excluded} observed, not included"
 
-#: src/components/HeatAdaptationPanel.tsx:84
+#: src/components/HeatAdaptationPanel.tsx:116
 msgid "{minutes} effective min"
 msgstr "{minutes} effective min"
 
@@ -275,7 +302,7 @@ msgstr "<0>You're on the list.</0> We'll reach out from <1>{SUPPORT_EMAIL}</1> w
 msgid "~{estimatedActivities} activities, ~{estimatedMinutes} min"
 msgstr "~{estimatedActivities} activities, ~{estimatedMinutes} min"
 
-#: src/components/HeatAdaptationPanel.tsx:98
+#: src/components/HeatAdaptationPanel.tsx:166
 msgid "1 day ago"
 msgstr "1 day ago"
 
@@ -383,8 +410,16 @@ msgstr "7 days"
 #~ msgstr "A normal warm-weather session can maintain adaptation when recovery allows."
 
 #: src/components/HeatAdaptationPanel.tsx:111
-msgid "A prior qualifying block may still be retained. The range above describes only current qualifying training."
-msgstr "A prior qualifying block may still be retained. The range above describes only current qualifying training."
+#~ msgid "A prior qualifying block may still be retained. The range above describes only current qualifying training."
+#~ msgstr "A prior qualifying block may still be retained. The range above describes only current qualifying training."
+
+#: src/components/HeatAdaptationPanel.tsx:150
+msgid "A prior qualifying block remains inside the model's operational retention window."
+msgstr "A prior qualifying block remains inside the model's operational retention window."
+
+#: src/components/HeatAdaptationPanel.tsx:149
+msgid "A prior qualifying block remains inside the model's operational retention window. The range shown here describes current qualifying evidence, not that retained block."
+msgstr "A prior qualifying block remains inside the model's operational retention window. The range shown here describes current qualifying evidence, not that retained block."
 
 #: src/pages/Training.tsx:189
 #~ msgid "above"
@@ -411,8 +446,8 @@ msgid "Access blocked"
 msgstr "Access blocked"
 
 #: src/components/HeatAdaptationPanel.tsx:115
-msgid "Acclimatization to similar conditions may be developing, but the evidence is still limited."
-msgstr "Acclimatization to similar conditions may be developing, but the evidence is still limited."
+#~ msgid "Acclimatization to similar conditions may be developing, but the evidence is still limited."
+#~ msgstr "Acclimatization to similar conditions may be developing, but the evidence is still limited."
 
 #: src/pages/admin/AdminUsers.tsx:874
 msgid "Action"
@@ -464,6 +499,10 @@ msgstr "Activities only: runs, rides, pace, heart rate, route data"
 msgid "Activities-only connection"
 msgstr "Activities-only connection"
 
+#: src/components/HeatAdaptationPanel.tsx:379
+msgid "Activity evidence"
+msgstr "Activity evidence"
+
 #: src/pages/admin/AdminUsers.tsx:501
 msgid "Activity gauge"
 msgstr "Activity gauge"
@@ -472,7 +511,7 @@ msgstr "Activity gauge"
 #~ msgid "Activity not counted"
 #~ msgstr "Activity not counted"
 
-#: src/components/HeatAdaptationPanel.tsx:61
+#: src/components/HeatAdaptationPanel.tsx:93
 msgid "Activity splits"
 msgstr "Activity splits"
 
@@ -484,7 +523,7 @@ msgstr "Activity types to sync"
 #~ msgid "activity-derived"
 #~ msgstr "activity-derived"
 
-#: src/components/HeatAdaptationPanel.tsx:69
+#: src/components/HeatAdaptationPanel.tsx:101
 msgid "Activity-summary weather"
 msgstr "Activity-summary weather"
 
@@ -493,7 +532,7 @@ msgstr "Activity-summary weather"
 msgid "Actual"
 msgstr "Actual"
 
-#: src/pages/Training.tsx:303
+#: src/pages/Training.tsx:295
 msgid "actual vs planned, avg"
 msgstr "actual vs planned, avg"
 
@@ -538,7 +577,7 @@ msgstr "Aerobic"
 msgid "Alert instances in view: {0}. Resolved in the selected window: {1}."
 msgstr "Alert instances in view: {0}. Resolved in the selected window: {1}."
 
-#: src/components/HeatAdaptationPanel.tsx:34
+#: src/components/HeatAdaptationPanel.tsx:54
 msgid "Align the activity and threshold power sources before Praxys uses these sessions in the estimate."
 msgstr "Align the activity and threshold power sources before Praxys uses these sessions in the estimate."
 
@@ -716,8 +755,8 @@ msgstr "Bars marked with ~ use estimated load because selected-base activity or 
 #. placeholder {1}: status.exposure_days
 #. placeholder {2}: status.evidence_thresholds.active_window_days
 #: src/components/HeatAdaptationPanel.tsx:359
-msgid "Based on {0} included sessions across {1} days in the last {2} days."
-msgstr "Based on {0} included sessions across {1} days in the last {2} days."
+#~ msgid "Based on {0} included sessions across {1} days in the last {2} days."
+#~ msgstr "Based on {0} included sessions across {1} days in the last {2} days."
 
 #. placeholder {0}: recommendedTheory.name
 #. placeholder {1}: recommendation!.reason
@@ -766,6 +805,10 @@ msgstr "Bilingual announcement banners for product-wide communication."
 msgid "Body (optional)"
 msgstr "Body (optional)"
 
+#: src/components/HeatAdaptationPanel.tsx:601
+msgid "Both thresholds must be met. The bars describe model evidence, not a biological adaptation percentage."
+msgstr "Both thresholds must be met. The bars describe model evidence, not a biological adaptation percentage."
+
 #: src/pages/admin/AdminFeedback.tsx:107
 msgid "Bug"
 msgstr "Bug"
@@ -790,7 +833,7 @@ msgstr "Build fitness over time"
 #~ msgid "Build gradually; do not add intensity solely for heat."
 #~ msgstr "Build gradually; do not add intensity solely for heat."
 
-#: src/components/HeatAdaptationPanel.tsx:18
+#: src/components/HeatAdaptationPanel.tsx:30
 msgid "Building"
 msgstr "Building"
 
@@ -915,6 +958,7 @@ msgstr "Click to copy"
 #~ msgstr "click to retry"
 
 #: src/components/FeedbackDialog.tsx:203
+#: src/components/HeatAdaptationPanel.tsx:544
 msgid "Close"
 msgstr "Close"
 
@@ -1265,9 +1309,17 @@ msgstr "Current {abbrev}"
 msgid "Current {metricName}"
 msgstr "Current {metricName}"
 
-#: src/components/HeatAdaptationPanel.tsx:398
+#: src/components/HeatAdaptationPanel.tsx:575
+msgid "Current conclusion"
+msgstr "Current conclusion"
+
+#: src/components/HeatAdaptationPanel.tsx:510
 msgid "Current evidence"
 msgstr "Current evidence"
+
+#: src/components/HeatAdaptationPanel.tsx:553
+msgid "Current qualifying evidence"
+msgstr "Current qualifying evidence"
 
 #. placeholder {0}: config?.training_base || 'power'
 #: src/components/SetupChecklist.tsx:64
@@ -1298,7 +1350,7 @@ msgstr "Dark"
 msgid "Dark theme (click for system)"
 msgstr "Dark theme (click for system)"
 
-#: src/components/HeatAdaptationPanel.tsx:407
+#: src/components/HeatAdaptationPanel.tsx:626
 msgid "Data coverage"
 msgstr "Data coverage"
 
@@ -1340,8 +1392,8 @@ msgid "Days left"
 msgstr "Days left"
 
 #: src/components/HeatAdaptationPanel.tsx:172
-msgid "Days with recorded sessions are shown below. Select a day to inspect what entered the estimate."
-msgstr "Days with recorded sessions are shown below. Select a day to inspect what entered the estimate."
+#~ msgid "Days with recorded sessions are shown below. Select a day to inspect what entered the estimate."
+#~ msgstr "Days with recorded sessions are shown below. Select a day to inspect what entered the estimate."
 
 #: src/pages/admin/AdminCommunications.tsx:261
 msgid "Deactivate"
@@ -1464,12 +1516,20 @@ msgstr "Demote"
 msgid "Demote to User"
 msgstr "Demote to User"
 
+#: src/components/HeatAdaptationPanel.tsx:390
+msgid "Detailed activity evidence is unavailable for this day."
+msgstr "Detailed activity evidence is unavailable for this day."
+
 #: src/components/FeedbackDialog.tsx:228
 msgid "Details"
 msgstr "Details"
 
-#: src/pages/Training.tsx:242
-#: src/pages/Training.tsx:245
+#: src/components/HeatAdaptationPanel.tsx:38
+msgid "Developing"
+msgstr "Developing"
+
+#: src/pages/Training.tsx:234
+#: src/pages/Training.tsx:237
 msgid "Diagnosis"
 msgstr "Diagnosis"
 
@@ -1549,7 +1609,7 @@ msgstr "Distance"
 #~ msgid "Distribution deviates from target"
 #~ msgstr "Distribution deviates from target"
 
-#: src/pages/Training.tsx:276
+#: src/pages/Training.tsx:268
 msgid "Distribution match"
 msgstr "Distribution match"
 
@@ -1632,13 +1692,26 @@ msgstr "Easy Run"
 msgid "Edit"
 msgstr "Edit"
 
+#: src/components/HeatAdaptationPanel.tsx:614
+msgid "Effective heat"
+msgstr "Effective heat"
+
 #: src/components/HeatAdaptationPanel.tsx:270
 #~ msgid "Effective heat minutes"
 #~ msgstr "Effective heat minutes"
 
-#: src/components/HeatAdaptationPanel.tsx:288
+#: src/components/HeatAdaptationPanel.tsx:433
 msgid "Effective heat time"
 msgstr "Effective heat time"
+
+#. placeholder {0}: formatThresholdNumber(status.effective_heat_minutes, locale)
+#: src/components/HeatAdaptationPanel.tsx:618
+msgid "Effective heat: {0} of {thresholdMinutes} minutes"
+msgstr "Effective heat: {0} of {thresholdMinutes} minutes"
+
+#: src/components/HeatAdaptationPanel.tsx:619
+#~ msgid "Effective heat: {effectiveHeatDisplay} of {thresholdMinutes} minutes"
+#~ msgstr "Effective heat: {effectiveHeatDisplay} of {thresholdMinutes} minutes"
 
 #: src/components/ActivityCard.tsx:128
 msgid "Elev"
@@ -1720,6 +1793,14 @@ msgstr "EU"
 msgid "Every <0>{0}</0> hours"
 msgstr "Every <0>{0}</0> hours"
 
+#: src/components/HeatAdaptationPanel.tsx:513
+msgid "evidence"
+msgstr "evidence"
+
+#: src/components/HeatAdaptationPanel.tsx:507
+msgid "Evidence"
+msgstr "Evidence"
+
 #: src/components/HeatAdaptationPanel.tsx:529
 #~ msgid "Evidence coverage"
 #~ msgstr "Evidence coverage"
@@ -1729,16 +1810,16 @@ msgstr "Every <0>{0}</0> hours"
 #~ msgstr "Evidence for acclimatization to similar conditions is fading."
 
 #: src/components/HeatAdaptationPanel.tsx:120
-msgid "Evidence from a prior qualifying block is fading."
-msgstr "Evidence from a prior qualifying block is fading."
+#~ msgid "Evidence from a prior qualifying block is fading."
+#~ msgstr "Evidence from a prior qualifying block is fading."
 
 #: src/components/HeatAdaptationPanel.tsx:119
-msgid "Evidence from a prior qualifying block is fading. The range above describes only current qualifying training."
-msgstr "Evidence from a prior qualifying block is fading. The range above describes only current qualifying training."
+#~ msgid "Evidence from a prior qualifying block is fading. The range above describes only current qualifying training."
+#~ msgstr "Evidence from a prior qualifying block is fading. The range above describes only current qualifying training."
 
 #: src/components/HeatAdaptationPanel.tsx:112
-msgid "Evidence from a prior qualifying block may still be retained."
-msgstr "Evidence from a prior qualifying block may still be retained."
+#~ msgid "Evidence from a prior qualifying block may still be retained."
+#~ msgstr "Evidence from a prior qualifying block may still be retained."
 
 #: src/components/HeatAdaptationPanel.tsx:58
 #~ msgid "Evidence is decaying. Build back gradually; reacclimation may be faster than the first block."
@@ -1752,6 +1833,10 @@ msgstr "Evidence from a prior qualifying block may still be retained."
 #~ msgid "Evidence toward likely adapted"
 #~ msgstr "Evidence toward likely adapted"
 
+#: src/components/HeatAdaptationPanel.tsx:598
+msgid "Evidence toward Likely adapted"
+msgstr "Evidence toward Likely adapted"
+
 #: src/components/HeatAdaptationPanel.tsx:265
 #~ msgid "Exposure days"
 #~ msgstr "Exposure days"
@@ -1760,7 +1845,8 @@ msgstr "Evidence from a prior qualifying block may still be retained."
 #~ msgid "Extended rest period. Fitness declining."
 #~ msgstr "Extended rest period. Fitness declining."
 
-#: src/components/HeatAdaptationPanel.tsx:21
+#: src/components/HeatAdaptationPanel.tsx:33
+#: src/components/HeatAdaptationPanel.tsx:41
 msgid "Fading"
 msgstr "Fading"
 
@@ -1826,7 +1912,7 @@ msgstr "Failed to load science data."
 msgid "Failed to load settings"
 msgstr "Failed to load settings"
 
-#: src/pages/Training.tsx:178
+#: src/pages/Training.tsx:168
 msgid "Failed to load training data"
 msgstr "Failed to load training data"
 
@@ -1990,7 +2076,7 @@ msgstr "Found a bug or have an idea? Tell us — reports are reviewed and triage
 #~ msgid "Fourteen days of supported activity evidence, not a biological adaptation score."
 #~ msgstr "Fourteen days of supported activity evidence, not a biological adaptation score."
 
-#: src/components/HeatAdaptationPanel.tsx:169
+#: src/components/HeatAdaptationPanel.tsx:257
 msgid "Fourteen-day activity record"
 msgstr "Fourteen-day activity record"
 
@@ -2123,9 +2209,10 @@ msgstr "Have an invitation code?"
 msgid "Heart Rate"
 msgstr "Heart Rate"
 
-#: src/components/HeatAdaptationPanel.tsx:490
-#~ msgid "Heat adaptation"
-#~ msgstr "Heat adaptation"
+#: src/components/HeatAdaptationPanel.tsx:492
+#: src/components/HeatAdaptationPanel.tsx:548
+msgid "Heat adaptation"
+msgstr "Heat adaptation"
 
 #: src/pages/Science.tsx:29
 msgid "Heat Adaptation"
@@ -2150,6 +2237,18 @@ msgstr "Heat Adaptation"
 #: src/components/HeatAdaptationPanel.tsx:151
 #~ msgid "Heat adaptation covers acclimatization from natural heat and acclimation from controlled heat. This tracker uses one connector-provided activity-summary temperature/humidity pair. Environmental evidence takes the stronger of an estimated 18–26°C Stull psychrometric wet-bulb ramp and an estimated 30–40°C dry-bulb ramp; the ramps are never added and this is not WBGT. Workload uses timestamp-weighted sample power relative to a same-provider current CP, with splits only when samples cover less than 90% of activity duration. Sample gaps over five seconds do not count toward coverage. The environmental ramps, effective minutes, stage thresholds, and the 7–28 day decay window are Praxys operational estimates; evidence labels describe data coverage, not biological certainty. Wind, solar radiation, within-session weather changes, clothing, hydration state, and measured core or skin temperature are excluded. Repeated exposure can reduce cardiovascular and thermal strain, but individual response varies and female-specific evidence remains limited. This is not medical clearance or a current heat-risk assessment: follow Today's signal, keep normal hydration and cooling available, stop immediately and begin cooling for heat-illness symptoms, and seek urgent medical help for confusion, collapse, or altered mental status."
 #~ msgstr "Heat adaptation covers acclimatization from natural heat and acclimation from controlled heat. This tracker uses one connector-provided activity-summary temperature/humidity pair. Environmental evidence takes the stronger of an estimated 18–26°C Stull psychrometric wet-bulb ramp and an estimated 30–40°C dry-bulb ramp; the ramps are never added and this is not WBGT. Workload uses timestamp-weighted sample power relative to a same-provider current CP, with splits only when samples cover less than 90% of activity duration. Sample gaps over five seconds do not count toward coverage. The environmental ramps, effective minutes, stage thresholds, and the 7–28 day decay window are Praxys operational estimates; evidence labels describe data coverage, not biological certainty. Wind, solar radiation, within-session weather changes, clothing, hydration state, and measured core or skin temperature are excluded. Repeated exposure can reduce cardiovascular and thermal strain, but individual response varies and female-specific evidence remains limited. This is not medical clearance or a current heat-risk assessment: follow Today's signal, keep normal hydration and cooling available, stop immediately and begin cooling for heat-illness symptoms, and seek urgent medical help for confusion, collapse, or altered mental status."
+
+#: src/components/HeatAdaptationPanel.tsx:137
+msgid "Heat adaptation is not established."
+msgstr "Heat adaptation is not established."
+
+#: src/components/HeatAdaptationPanel.tsx:135
+msgid "Heat adaptation may be developing."
+msgstr "Heat adaptation may be developing."
+
+#: src/components/HeatAdaptationPanel.tsx:128
+msgid "Heat adaptation may be rebuilding."
+msgstr "Heat adaptation may be rebuilding."
 
 #: src/components/HeatAdaptationPanel.tsx:126
 #: src/components/HeatAdaptationPanel.tsx:131
@@ -2193,7 +2292,7 @@ msgstr "High"
 #~ msgid "High confidence"
 #~ msgstr "High confidence"
 
-#: src/components/HeatAdaptationPanel.tsx:27
+#: src/components/HeatAdaptationPanel.tsx:47
 msgid "High coverage"
 msgstr "High coverage"
 
@@ -2238,8 +2337,8 @@ msgid "How often Praxys pulls new data in the background. Lower frequency uses l
 msgstr "How often Praxys pulls new data in the background. Lower frequency uses less network and respects platform rate limits."
 
 #: src/components/HeatAdaptationPanel.tsx:383
-msgid "How this estimate was built"
-msgstr "How this estimate was built"
+#~ msgid "How this estimate was built"
+#~ msgstr "How this estimate was built"
 
 #: src/components/ScienceNote.tsx:96
 msgid "How this is calculated"
@@ -2368,19 +2467,21 @@ msgstr "Incident state unavailable"
 msgid "Incidents"
 msgstr "Incidents"
 
-#: src/components/HeatAdaptationPanel.tsx:178
+#: src/components/HeatAdaptationPanel.tsx:266
+#: src/components/HeatAdaptationPanel.tsx:318
 msgid "Included"
 msgstr "Included"
 
-#: src/components/HeatAdaptationPanel.tsx:130
+#: src/components/HeatAdaptationPanel.tsx:175
 msgid "Included because supported weather and workload evidence reached the session threshold."
 msgstr "Included because supported weather and workload evidence reached the session threshold."
 
-#: src/components/HeatAdaptationPanel.tsx:265
+#: src/components/HeatAdaptationPanel.tsx:342
+#: src/components/HeatAdaptationPanel.tsx:414
 msgid "Included in estimate"
 msgstr "Included in estimate"
 
-#: src/components/HeatAdaptationPanel.tsx:62
+#: src/components/HeatAdaptationPanel.tsx:94
 msgid "Incomplete power samples"
 msgstr "Incomplete power samples"
 
@@ -2397,7 +2498,7 @@ msgstr "Info"
 msgid "Insufficient current HRV data for comparison"
 msgstr "Insufficient current HRV data for comparison"
 
-#: src/components/HeatAdaptationPanel.tsx:17
+#: src/components/HeatAdaptationPanel.tsx:29
 msgid "Insufficient evidence"
 msgstr "Insufficient evidence"
 
@@ -2490,7 +2591,7 @@ msgstr "Keep any optional movement easy and short"
 #~ msgstr "Kelly female-athlete evidence review"
 
 #. placeholder {0}: data.diagnosis.lookback_weeks
-#: src/pages/Training.tsx:316
+#: src/pages/Training.tsx:308
 msgid "km / week, {0}wk avg"
 msgstr "km / week, {0}wk avg"
 
@@ -2523,7 +2624,7 @@ msgstr "Last Activity"
 #~ msgid "Last contributing session yesterday"
 #~ msgstr "Last contributing session yesterday"
 
-#: src/components/HeatAdaptationPanel.tsx:420
+#: src/components/HeatAdaptationPanel.tsx:630
 msgid "Last included session"
 msgstr "Last included session"
 
@@ -2561,8 +2662,8 @@ msgid "Last updated"
 msgstr "Last updated"
 
 #: src/components/HeatAdaptationPanel.tsx:239
-msgid "Latest observed activities"
-msgstr "Latest observed activities"
+#~ msgid "Latest observed activities"
+#~ msgstr "Latest observed activities"
 
 #: src/pages/Login.tsx:160
 #~ msgid "Leave blank for the first account. Required after that."
@@ -2580,7 +2681,8 @@ msgstr "Light"
 msgid "Light theme (click for dark)"
 msgstr "Light theme (click for dark)"
 
-#: src/components/HeatAdaptationPanel.tsx:19
+#: src/components/HeatAdaptationPanel.tsx:31
+#: src/components/HeatAdaptationPanel.tsx:39
 msgid "Likely adapted"
 msgstr "Likely adapted"
 
@@ -2588,9 +2690,17 @@ msgstr "Likely adapted"
 #~ msgid "Likely adapted to recent heat"
 #~ msgstr "Likely adapted to recent heat"
 
+#: src/components/HeatAdaptationPanel.tsx:130
+msgid "Likely adapted to similar recent conditions."
+msgstr "Likely adapted to similar recent conditions."
+
+#: src/components/HeatAdaptationPanel.tsx:40
+msgid "Likely retained"
+msgstr "Likely retained"
+
 #: src/components/HeatAdaptationPanel.tsx:411
-msgid "Likely-adapted threshold"
-msgstr "Likely-adapted threshold"
+#~ msgid "Likely-adapted threshold"
+#~ msgstr "Likely-adapted threshold"
 
 #: src/components/HeatAdaptationPanel.tsx:49
 #~ msgid "Limited data coverage"
@@ -2666,8 +2776,8 @@ msgstr "Load balance"
 msgid "Load balance (TSB)"
 msgstr "Load balance (TSB)"
 
-#: src/pages/Training.tsx:294
-#: src/pages/Training.tsx:366
+#: src/pages/Training.tsx:286
+#: src/pages/Training.tsx:357
 msgid "Load compliance"
 msgstr "Load compliance"
 
@@ -2696,7 +2806,7 @@ msgstr "Log out"
 #~ msgid "Login"
 #~ msgstr "Login"
 
-#: src/pages/Training.tsx:331
+#: src/pages/Training.tsx:322
 msgid "Long-term / Recent / Balance"
 msgstr "Long-term / Recent / Balance"
 
@@ -2709,7 +2819,7 @@ msgstr "Long-term and recent modeled loads are near balance."
 msgid "Long-term load"
 msgstr "Long-term load"
 
-#: src/pages/Training.tsx:268
+#: src/pages/Training.tsx:260
 msgid "long-term load above recent load"
 msgstr "long-term load above recent load"
 
@@ -2733,7 +2843,7 @@ msgstr "Low"
 #~ msgid "Low confidence"
 #~ msgstr "Low confidence"
 
-#: src/components/HeatAdaptationPanel.tsx:25
+#: src/components/HeatAdaptationPanel.tsx:45
 msgid "Low coverage"
 msgstr "Low coverage"
 
@@ -2749,7 +2859,7 @@ msgstr "LTHR Trend"
 msgid "Main"
 msgstr "Main"
 
-#: src/components/HeatAdaptationPanel.tsx:20
+#: src/components/HeatAdaptationPanel.tsx:32
 msgid "Maintaining"
 msgstr "Maintaining"
 
@@ -2803,7 +2913,7 @@ msgstr "Management routes remain available. Retry the aggregate health snapshot.
 msgid "Marathon"
 msgstr "Marathon"
 
-#: src/components/HeatAdaptationPanel.tsx:77
+#: src/components/HeatAdaptationPanel.tsx:109
 msgid "Matched"
 msgstr "Matched"
 
@@ -2848,7 +2958,7 @@ msgstr "Minor"
 msgid "mirrors {0}"
 msgstr "mirrors {0}"
 
-#: src/components/HeatAdaptationPanel.tsx:78
+#: src/components/HeatAdaptationPanel.tsx:110
 msgid "Mismatch"
 msgstr "Mismatch"
 
@@ -2860,7 +2970,7 @@ msgstr "Mismatch"
 #~ msgid "Mixed power sources"
 #~ msgstr "Mixed power sources"
 
-#: src/components/HeatAdaptationPanel.tsx:79
+#: src/components/HeatAdaptationPanel.tsx:111
 msgid "Mixed providers"
 msgstr "Mixed providers"
 
@@ -2868,11 +2978,11 @@ msgstr "Mixed providers"
 msgid "Mode"
 msgstr "Mode"
 
-#: src/pages/Training.tsx:266
+#: src/pages/Training.tsx:258
 msgid "modeled balance (CTL−ATL)"
 msgstr "modeled balance (CTL−ATL)"
 
-#: src/pages/Training.tsx:271
+#: src/pages/Training.tsx:263
 msgid "modeled loads balanced"
 msgstr "modeled loads balanced"
 
@@ -2880,7 +2990,7 @@ msgstr "modeled loads balanced"
 #~ msgid "Moderate confidence"
 #~ msgstr "Moderate confidence"
 
-#: src/components/HeatAdaptationPanel.tsx:26
+#: src/components/HeatAdaptationPanel.tsx:46
 msgid "Moderate coverage"
 msgstr "Moderate coverage"
 
@@ -2946,7 +3056,7 @@ msgstr "near baseline"
 msgid "Near baseline"
 msgstr "Near baseline"
 
-#: src/pages/Training.tsx:374
+#: src/pages/Training.tsx:365
 msgid "Need 2 weeks of synced activity to compare planned vs actual. {daysToCompare} more days to go."
 msgstr "Need 2 weeks of synced activity to compare planned vs actual. {daysToCompare} more days to go."
 
@@ -3106,6 +3216,10 @@ msgstr "No connection attempts were recorded in this window."
 msgid "No current classification"
 msgstr "No current classification"
 
+#: src/components/HeatAdaptationPanel.tsx:558
+msgid "No current qualifying condition range yet"
+msgstr "No current qualifying condition range yet"
+
 #: src/pages/Today.tsx:380
 #: src/pages/Today.tsx:393
 #: src/pages/Today.tsx:396
@@ -3119,6 +3233,10 @@ msgstr "no data"
 #~ msgid "No Data"
 #~ msgstr "No Data"
 
+#: src/components/HeatAdaptationPanel.tsx:321
+msgid "No evidence"
+msgstr "No evidence"
+
 #: src/pages/admin/AdminOps.tsx:575
 msgid "No feedback rows are waiting for review or retry."
 msgstr "No feedback rows are waiting for review or retry."
@@ -3130,6 +3248,11 @@ msgstr "No feedback rows are waiting for review or retry."
 #: src/pages/Settings.tsx:1373
 msgid "No goal set. Set a race target or distance goal to unlock predictions and countdown."
 msgstr "No goal set. Set a race target or distance goal to unlock predictions and countdown."
+
+#: src/components/HeatAdaptationPanel.tsx:274
+#: src/components/HeatAdaptationPanel.tsx:345
+msgid "No heat evidence"
+msgstr "No heat evidence"
 
 #: src/pages/Status.tsx:214
 msgid "No incidents reported recently."
@@ -3160,13 +3283,13 @@ msgstr "NO PLAN"
 msgid "No planned load this week"
 msgstr "No planned load this week"
 
-#: src/components/HeatAdaptationPanel.tsx:344
-msgid "No qualifying condition range yet"
-msgstr "No qualifying condition range yet"
+#: src/components/HeatAdaptationPanel.tsx:541
+#~ msgid "No qualifying condition range yet"
+#~ msgstr "No qualifying condition range yet"
 
 #: src/components/HeatAdaptationPanel.tsx:247
-msgid "No recent activities are available to inspect."
-msgstr "No recent activities are available to inspect."
+#~ msgid "No recent activities are available to inspect."
+#~ msgstr "No recent activities are available to inspect."
 
 #: src/components/HeatAdaptationPanel.tsx:370
 #~ msgid "No recent activity has both supported temperature/humidity and sample or split-power evidence."
@@ -3178,8 +3301,12 @@ msgstr "No recent activities are available to inspect."
 
 #. placeholder {0}: status.evidence_thresholds.qualifying_effective_minutes
 #: src/components/HeatAdaptationPanel.tsx:369
-msgid "No recent activity reached the model's {0}-minute inclusion threshold."
-msgstr "No recent activity reached the model's {0}-minute inclusion threshold."
+#~ msgid "No recent activity reached the model's {0}-minute inclusion threshold."
+#~ msgstr "No recent activity reached the model's {0}-minute inclusion threshold."
+
+#: src/components/HeatAdaptationPanel.tsx:374
+#~ msgid "No recorded activity for this day."
+#~ msgstr "No recorded activity for this day."
 
 #: src/components/HeatAdaptationPanel.tsx:452
 #~ msgid "No reliable heat history yet"
@@ -3189,15 +3316,25 @@ msgstr "No recent activity reached the model's {0}-minute inclusion threshold."
 #~ msgid "No sample or split power"
 #~ msgstr "No sample or split power"
 
+#: src/components/HeatAdaptationPanel.tsx:262
+#: src/components/HeatAdaptationPanel.tsx:309
+#: src/components/HeatAdaptationPanel.tsx:333
+#~ msgid "No session"
+#~ msgstr "No session"
+
 #: src/components/SplitBreakdown.tsx:36
 msgid "No split data available."
 msgstr "No split data available."
 
-#: src/components/HeatAdaptationPanel.tsx:71
+#: src/components/HeatAdaptationPanel.tsx:392
+msgid "No supported heat evidence for this day."
+msgstr "No supported heat evidence for this day."
+
+#: src/components/HeatAdaptationPanel.tsx:103
 msgid "No supported weather evidence"
 msgstr "No supported weather evidence"
 
-#: src/components/HeatAdaptationPanel.tsx:63
+#: src/components/HeatAdaptationPanel.tsx:95
 msgid "No supported workload evidence"
 msgstr "No supported workload evidence"
 
@@ -3262,7 +3399,7 @@ msgstr "No workout scheduled."
 msgid "No workouts scheduled in this window."
 msgstr "No workouts scheduled in this window."
 
-#: src/components/HeatAdaptationPanel.tsx:96
+#: src/components/HeatAdaptationPanel.tsx:164
 msgid "None in the active window"
 msgstr "None in the active window"
 
@@ -3303,17 +3440,21 @@ msgstr "Not enough data to show CP trend"
 #~ msgid "Not enough data yet for accurate fitness tracking"
 #~ msgstr "Not enough data yet for accurate fitness tracking"
 
-#: src/pages/Training.tsx:338
+#: src/pages/Training.tsx:329
 msgid "Not enough data yet for stable load tracking"
 msgstr "Not enough data yet for stable load tracking"
 
-#: src/pages/Training.tsx:373
+#: src/pages/Training.tsx:364
 msgid "Not enough data yet for weekly load comparison"
 msgstr "Not enough data yet for weekly load comparison"
 
 #: src/pages/Today.tsx:408
 msgid "not enough load history"
 msgstr "not enough load history"
+
+#: src/components/HeatAdaptationPanel.tsx:37
+msgid "Not established"
+msgstr "Not established"
 
 #: src/components/HeatAdaptationPanel.tsx:334
 #: src/components/HeatAdaptationPanel.tsx:338
@@ -3344,32 +3485,37 @@ msgstr "Note on Garmin native power"
 msgid "Now open · Create your account"
 msgstr "Now open · Create your account"
 
-#: src/components/HeatAdaptationPanel.tsx:133
+#: src/components/HeatAdaptationPanel.tsx:270
+#: src/components/HeatAdaptationPanel.tsx:320
+msgid "Observed"
+msgstr "Observed"
+
+#: src/components/HeatAdaptationPanel.tsx:178
 msgid "Observed, but not included because it stayed below {thresholdMinutes} effective heat minutes."
 msgstr "Observed, but not included because it stayed below {thresholdMinutes} effective heat minutes."
 
-#: src/components/HeatAdaptationPanel.tsx:136
+#: src/components/HeatAdaptationPanel.tsx:181
 msgid "Observed, but not included because power-sample coverage was incomplete."
 msgstr "Observed, but not included because power-sample coverage was incomplete."
 
-#: src/components/HeatAdaptationPanel.tsx:147
+#: src/components/HeatAdaptationPanel.tsx:192
 msgid "Observed, but not included because supported workload evidence was unavailable."
 msgstr "Observed, but not included because supported workload evidence was unavailable."
 
-#: src/components/HeatAdaptationPanel.tsx:139
+#: src/components/HeatAdaptationPanel.tsx:184
 msgid "Observed, but not included because the activity and threshold power sources did not match."
 msgstr "Observed, but not included because the activity and threshold power sources did not match."
 
-#: src/components/HeatAdaptationPanel.tsx:142
+#: src/components/HeatAdaptationPanel.tsx:187
 msgid "Observed, but not included because the power-source match could not be verified."
 msgstr "Observed, but not included because the power-source match could not be verified."
 
-#: src/components/HeatAdaptationPanel.tsx:145
+#: src/components/HeatAdaptationPanel.tsx:190
 msgid "Observed, but not included because workload evidence mixed power providers."
 msgstr "Observed, but not included because workload evidence mixed power providers."
 
-#: src/components/HeatAdaptationPanel.tsx:182
-#: src/components/HeatAdaptationPanel.tsx:266
+#: src/components/HeatAdaptationPanel.tsx:344
+#: src/components/HeatAdaptationPanel.tsx:415
 msgid "Observed, not included"
 msgstr "Observed, not included"
 
@@ -3402,8 +3548,8 @@ msgstr "Open"
 #~ msgstr "Open alert runbook"
 
 #: src/components/HeatAdaptationPanel.tsx:242
-msgid "Open an activity to see why it was included or left out. Exclusion only describes this estimate, not whether the session had training value."
-msgstr "Open an activity to see why it was included or left out. Exclusion only describes this estimate, not whether the session had training value."
+#~ msgid "Open an activity to see why it was included or left out. Exclusion only describes this estimate, not whether the session had training value."
+#~ msgstr "Open an activity to see why it was included or left out. Exclusion only describes this estimate, not whether the session had training value."
 
 #: src/pages/admin/AdminIncidents.tsx:198
 msgid "Open an incident here when you need to communicate a live service issue."
@@ -3416,6 +3562,10 @@ msgstr "Open Azure alerts"
 #: src/pages/admin/AdminOps.tsx:617
 msgid "Open Azure logs"
 msgstr "Open Azure logs"
+
+#: src/components/HeatAdaptationPanel.tsx:516
+msgid "Open evidence"
+msgstr "Open evidence"
 
 #: src/pages/admin/AdminOps.tsx:579
 msgid "Open feedback"
@@ -3537,7 +3687,7 @@ msgstr "Password"
 msgid "Past Incidents"
 msgstr "Past Incidents"
 
-#: src/components/HeatAdaptationPanel.tsx:375
+#: src/components/HeatAdaptationPanel.tsx:652
 msgid "Past training only. This does not assess today's weather, guarantee adaptation, or replace medical guidance."
 msgstr "Past training only. This does not assess today's weather, guarantee adaptation, or replace medical guidance."
 
@@ -3658,7 +3808,7 @@ msgstr "Power"
 msgid "Power metrics, Critical Power, training plans"
 msgstr "Power metrics, Critical Power, training plans"
 
-#: src/components/HeatAdaptationPanel.tsx:60
+#: src/components/HeatAdaptationPanel.tsx:92
 msgid "Power samples"
 msgstr "Power samples"
 
@@ -3674,7 +3824,7 @@ msgstr "Power samples"
 #~ msgid "Power-based training dashboard"
 #~ msgstr "Power-based training dashboard"
 
-#: src/components/HeatAdaptationPanel.tsx:294
+#: src/components/HeatAdaptationPanel.tsx:439
 msgid "Power-source match"
 msgstr "Power-source match"
 
@@ -3767,6 +3917,14 @@ msgstr "Primary for {0}"
 #: src/pages/Settings.tsx:62
 msgid "Primary source for workout data"
 msgstr "Primary source for workout data"
+
+#: src/components/HeatAdaptationPanel.tsx:136
+msgid "Prior heat adaptation evidence is fading."
+msgstr "Prior heat adaptation evidence is fading."
+
+#: src/components/HeatAdaptationPanel.tsx:133
+msgid "Prior heat adaptation is likely still retained."
+msgstr "Prior heat adaptation is likely still retained."
 
 #: src/pages/Login.tsx:210
 msgid "Private alpha · Invitation only"
@@ -3864,6 +4022,19 @@ msgstr "Push to Stryd"
 msgid "Pushing…"
 msgstr "Pushing…"
 
+#: src/components/HeatAdaptationPanel.tsx:607
+msgid "Qualifying days"
+msgstr "Qualifying days"
+
+#. placeholder {0}: status.exposure_days
+#: src/components/HeatAdaptationPanel.tsx:611
+msgid "Qualifying days: {0} of {thresholdDays}"
+msgstr "Qualifying days: {0} of {thresholdDays}"
+
+#: src/components/HeatAdaptationPanel.tsx:142
+msgid "Qualifying exposure has resumed after a longer gap, but current evidence is still limited."
+msgstr "Qualifying exposure has resumed after a longer gap, but current evidence is still limited."
+
 #: src/components/TodayDecisionCheck.tsx:137
 #: src/components/TodayDecisionCheck.tsx:158
 msgid "Quick check"
@@ -3929,15 +4100,15 @@ msgstr "Re-push to Stryd"
 #~ msgid "reacclimating"
 #~ msgstr "reacclimating"
 
-#: src/components/HeatAdaptationPanel.tsx:92
+#: src/components/HeatAdaptationPanel.tsx:120
 msgid "Reacclimating"
 msgstr "Reacclimating"
 
 #: src/components/HeatAdaptationPanel.tsx:104
-msgid "Reacclimatization to similar conditions may be developing."
-msgstr "Reacclimatization to similar conditions may be developing."
+#~ msgid "Reacclimatization to similar conditions may be developing."
+#~ msgstr "Reacclimatization to similar conditions may be developing."
 
-#: src/components/HeatAdaptationPanel.tsx:441
+#: src/components/HeatAdaptationPanel.tsx:660
 msgid "Read the active heat model"
 msgstr "Read the active heat model"
 
@@ -3966,6 +4137,10 @@ msgstr "Reads readiness from the body's signals."
 msgid "Realistic alternative targets"
 msgstr "Realistic alternative targets"
 
+#: src/components/HeatAdaptationPanel.tsx:124
+msgid "Rebuilding"
+msgstr "Rebuilding"
+
 #: src/components/HeatAdaptationPanel.tsx:455
 #~ msgid "Rebuilding heat-adaptation evidence"
 #~ msgstr "Rebuilding heat-adaptation evidence"
@@ -3974,7 +4149,7 @@ msgstr "Realistic alternative targets"
 #~ msgid "Recency"
 #~ msgstr "Recency"
 
-#: src/components/HeatAdaptationPanel.tsx:32
+#: src/components/HeatAdaptationPanel.tsx:52
 msgid "Recent activities need supported temperature and humidity data before a condition range can be estimated."
 msgstr "Recent activities need supported temperature and humidity data before a condition range can be estimated."
 
@@ -4025,7 +4200,7 @@ msgstr "Recent HRV observations have no measurable variation, so Praxys cannot f
 msgid "Recent load"
 msgstr "Recent load"
 
-#: src/pages/Training.tsx:270
+#: src/pages/Training.tsx:262
 msgid "recent load above long-term load"
 msgstr "recent load above long-term load"
 
@@ -4058,12 +4233,24 @@ msgid "Recent modeled load is substantially below long-term modeled load."
 msgstr "Recent modeled load is substantially below long-term modeled load."
 
 #: src/components/HeatAdaptationPanel.tsx:336
-msgid "Recent qualifying training range"
-msgstr "Recent qualifying training range"
+#~ msgid "Recent qualifying training range"
+#~ msgstr "Recent qualifying training range"
+
+#: src/components/HeatAdaptationPanel.tsx:153
+msgid "Recent training clears the Building threshold but remains below the conservative Likely adapted stage."
+msgstr "Recent training clears the Building threshold but remains below the conservative Likely adapted stage."
 
 #: src/components/HeatAdaptationPanel.tsx:107
-msgid "Recent training makes acclimatization to similar conditions plausible."
-msgstr "Recent training makes acclimatization to similar conditions plausible."
+#~ msgid "Recent training makes acclimatization to similar conditions plausible."
+#~ msgstr "Recent training makes acclimatization to similar conditions plausible."
+
+#: src/components/HeatAdaptationPanel.tsx:145
+msgid "Recent training meets the model's conservative evidence threshold for acclimatization to similar conditions."
+msgstr "Recent training meets the model's conservative evidence threshold for acclimatization to similar conditions."
+
+#: src/components/HeatAdaptationPanel.tsx:160
+msgid "Recent training remains below the model's Building threshold."
+msgstr "Recent training remains below the model's Building threshold."
 
 #: src/pages/admin/AdminUsers.tsx:504
 msgid "Recent usage across the registered base."
@@ -4318,7 +4505,7 @@ msgstr "Resting HR"
 #: src/pages/Settings.tsx:330
 #: src/pages/Today.tsx:336
 #: src/pages/Today.tsx:495
-#: src/pages/Training.tsx:181
+#: src/pages/Training.tsx:171
 msgid "Retry"
 msgstr "Retry"
 
@@ -4478,6 +4665,10 @@ msgstr "Seat cap"
 msgid "Securely signing in to Garmin. This can take 15-30 seconds because Garmin rate-limits automated logins. Please keep this window open."
 msgstr "Securely signing in to Garmin. This can take 15-30 seconds because Garmin rate-limits automated logins. Please keep this window open."
 
+#: src/components/HeatAdaptationPanel.tsx:260
+msgid "Select a day to inspect what entered the estimate."
+msgstr "Select a day to inspect what entered the estimate."
+
 #: src/pages/Settings.tsx:1094
 msgid "Select the region matching your COROS account."
 msgstr "Select the region matching your COROS account."
@@ -4567,7 +4758,7 @@ msgstr "Service Status"
 msgid "Set a goal"
 msgstr "Set a goal"
 
-#: src/components/HeatAdaptationPanel.tsx:33
+#: src/components/HeatAdaptationPanel.tsx:53
 msgid "Set a power threshold so Praxys can identify sustained work without using diluted activity-average power."
 msgstr "Set a power threshold so Praxys can identify sustained work without using diluted activity-average power."
 
@@ -4710,7 +4901,7 @@ msgstr "Source"
 #~ msgid "Split power"
 #~ msgstr "Split power"
 
-#: src/components/HeatAdaptationPanel.tsx:67
+#: src/components/HeatAdaptationPanel.tsx:99
 msgid "Split-weighted weather"
 msgstr "Split-weighted weather"
 
@@ -4893,11 +5084,11 @@ msgstr "Sync history"
 msgid "Sync now"
 msgstr "Sync now"
 
-#: src/components/HeatAdaptationPanel.tsx:35
+#: src/components/HeatAdaptationPanel.tsx:55
 msgid "Sync power-source metadata so Praxys can verify that activity and threshold power are comparable."
 msgstr "Sync power-source metadata so Praxys can verify that activity and threshold power are comparable."
 
-#: src/components/HeatAdaptationPanel.tsx:31
+#: src/components/HeatAdaptationPanel.tsx:51
 msgid "Sync recent training to start estimating the conditions represented in your heat evidence."
 msgstr "Sync recent training to start estimating the conditions represented in your heat evidence."
 
@@ -4909,7 +5100,7 @@ msgstr "Sync reliability"
 #~ msgid "Sync sample or split power so workload can contribute."
 #~ msgstr "Sync sample or split power so workload can contribute."
 
-#: src/components/HeatAdaptationPanel.tsx:36
+#: src/components/HeatAdaptationPanel.tsx:56
 msgid "Sync split or sample power evidence so Praxys can identify sustained work."
 msgstr "Sync split or sample power evidence so Praxys can identify sustained work."
 
@@ -5030,7 +5221,7 @@ msgstr "Thanks - that helps us improve Today."
 msgid "Thanks for the feedback!"
 msgstr "Thanks for the feedback!"
 
-#: src/pages/Training.tsx:339
+#: src/pages/Training.tsx:330
 msgid "The active load model uses a {loadTimeConstantDays}-day long-term time constant. Need {daysToPmc} more days of history."
 msgstr "The active load model uses a {loadTimeConstantDays}-day long-term time constant. Need {daysToPmc} more days of history."
 
@@ -5062,6 +5253,14 @@ msgstr "The incident aggregate could not be refreshed."
 #~ msgid "The last counted exposure is moving through the estimated decay window."
 #~ msgstr "The last counted exposure is moving through the estimated decay window."
 
+#: src/components/HeatAdaptationPanel.tsx:158
+msgid "The last qualifying block is beyond the initial retention window, so retained evidence is declining."
+msgstr "The last qualifying block is beyond the initial retention window, so retained evidence is declining."
+
+#: src/components/HeatAdaptationPanel.tsx:157
+msgid "The last qualifying block is beyond the initial retention window, so retained evidence is declining. The range shown here describes current qualifying evidence, not that prior block."
+msgstr "The last qualifying block is beyond the initial retention window, so retained evidence is declining. The range shown here describes current qualifying evidence, not that prior block."
+
 #: src/pages/Today.tsx:231
 msgid "The latest HRV reading is out of date. Follow the plan without an HRV-based recovery adjustment."
 msgstr "The latest HRV reading is out of date. Follow the plan without an HRV-based recovery adjustment."
@@ -5074,11 +5273,15 @@ msgstr "The latest HRV reading is too old for a same-day recovery classification
 msgid "The public status feed has no unresolved incidents."
 msgstr "The public status feed has no unresolved incidents."
 
+#: src/components/HeatAdaptationPanel.tsx:382
+msgid "The selected day's activities show why each session entered or stayed outside the estimate."
+msgstr "The selected day's activities show why each session entered or stayed outside the estimate."
+
 #: src/pages/Status.tsx:142
 msgid "The status API did not respond — this itself may indicate an outage."
 msgstr "The status API did not respond — this itself may indicate an outage."
 
-#: src/components/HeatAdaptationPanel.tsx:433
+#: src/components/HeatAdaptationPanel.tsx:647
 msgid "The thresholds are Praxys operational estimates grounded in heat-acclimatization research, not a direct physiological measurement."
 msgstr "The thresholds are Praxys operational estimates grounded in heat-acclimatization research, not a direct physiological measurement."
 
@@ -5087,8 +5290,8 @@ msgid "Theme"
 msgstr "Theme"
 
 #: src/components/HeatAdaptationPanel.tsx:122
-msgid "There is not enough repeated qualifying exposure to estimate acclimatization to similar conditions."
-msgstr "There is not enough repeated qualifying exposure to estimate acclimatization to similar conditions."
+#~ msgid "There is not enough repeated qualifying exposure to estimate acclimatization to similar conditions."
+#~ msgstr "There is not enough repeated qualifying exposure to estimate acclimatization to similar conditions."
 
 #: src/pages/Settings.tsx:1501
 msgid "This cannot be undone. If this is the last admin account, deletion will be blocked."
@@ -5097,6 +5300,10 @@ msgstr "This cannot be undone. If this is the last admin account, deletion will 
 #: src/components/AiInsightsCard.tsx:193
 msgid "This insight changed. Refresh the page before sending feedback."
 msgstr "This insight changed. Refresh the page before sending feedback."
+
+#: src/components/HeatAdaptationPanel.tsx:589
+msgid "This is an inference from training evidence in similar conditions, not a direct physiological measurement."
+msgstr "This is an inference from training evidence in similar conditions, not a direct physiological measurement."
 
 #: src/pages/Verify.tsx:67
 msgid "This link is invalid or has expired. Try signing in to request a new link."
@@ -5171,7 +5378,7 @@ msgstr "To target"
 
 #: src/components/AppSidebar.tsx:124
 #: src/components/charts/FitnessFatigueChart.tsx:250
-#: src/components/HeatAdaptationPanel.tsx:97
+#: src/components/HeatAdaptationPanel.tsx:165
 #: src/components/RecoveryPanel.tsx:136
 #: src/pages/Today.tsx:24
 #: src/pages/Today.tsx:489
@@ -5243,7 +5450,7 @@ msgid "Train toward a specific race date"
 msgstr "Train toward a specific race date"
 
 #: src/components/AppSidebar.tsx:125
-#: src/pages/Training.tsx:226
+#: src/pages/Training.tsx:216
 msgid "Training"
 msgstr "Training"
 
@@ -5304,7 +5511,7 @@ msgstr "Try a longer window above."
 msgid "Try another filter or sync again after new reports arrive."
 msgstr "Try another filter or sync again after new reports arrive."
 
-#: src/pages/Training.tsx:257
+#: src/pages/Training.tsx:249
 msgid "TSB"
 msgstr "TSB"
 
@@ -5353,7 +5560,7 @@ msgstr "Units"
 msgid "Unknown failure"
 msgstr "Unknown failure"
 
-#: src/components/HeatAdaptationPanel.tsx:80
+#: src/components/HeatAdaptationPanel.tsx:112
 msgid "Unverified"
 msgstr "Unverified"
 
@@ -5509,12 +5716,12 @@ msgstr "VO2max"
 msgid "VO2max, CP, LTHR, training status"
 msgstr "VO2max, CP, LTHR, training status"
 
-#: src/pages/Training.tsx:308
+#: src/pages/Training.tsx:300
 msgid "Volume"
 msgstr "Volume"
 
 #. placeholder {0}: data.diagnosis.theory_name
-#: src/pages/Training.tsx:286
+#: src/pages/Training.tsx:278
 msgid "vs {0}"
 msgstr "vs {0}"
 
@@ -5527,7 +5734,7 @@ msgstr "vs {0} baseline"
 msgid "vs {theoryName}"
 msgstr "vs {theoryName}"
 
-#: src/pages/Training.tsx:288
+#: src/pages/Training.tsx:280
 msgid "vs target zones"
 msgstr "vs target zones"
 
@@ -5574,7 +5781,7 @@ msgstr "We're inviting runners in waves while we tighten the science. Drop your 
 msgid "We've logged it and will take a look."
 msgstr "We've logged it and will take a look."
 
-#: src/components/HeatAdaptationPanel.tsx:284
+#: src/components/HeatAdaptationPanel.tsx:429
 msgid "Weather evidence"
 msgstr "Weather evidence"
 
@@ -5590,7 +5797,7 @@ msgstr "WeChat Mini Program"
 msgid "WeChat Mini Program QR code"
 msgstr "WeChat Mini Program QR code"
 
-#: src/pages/Training.tsx:209
+#: src/pages/Training.tsx:199
 msgid "Weekly diagnosis ready."
 msgstr "Weekly diagnosis ready."
 
@@ -5654,7 +5861,7 @@ msgstr "Will sync:"
 msgid "Within reference band"
 msgstr "Within reference band"
 
-#: src/components/HeatAdaptationPanel.tsx:280
+#: src/components/HeatAdaptationPanel.tsx:425
 msgid "Workload evidence"
 msgstr "Workload evidence"
 
@@ -5743,7 +5950,7 @@ msgstr "Zone 3 (Hard)"
 #~ msgid "Zone Analysis"
 #~ msgstr "Zone Analysis"
 
-#: src/pages/Training.tsx:352
+#: src/pages/Training.tsx:343
 msgid "Zone distribution"
 msgstr "Zone distribution"
 

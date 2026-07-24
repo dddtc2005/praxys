@@ -39,7 +39,7 @@ def test_today_does_not_imply_current_weather_is_available() -> None:
 
 
 def test_training_owns_the_longitudinal_heat_story() -> None:
-    """Training should present heat history before charts with evidence on demand."""
+    """Training should present heat as a peer metric with bounded evidence."""
     web_training = _source(WEB_TRAINING)
     web_heat = _source(WEB_HEAT)
     mini_training = _source(MINI_TRAINING)
@@ -53,28 +53,44 @@ def test_training_owns_the_longitudinal_heat_story() -> None:
     assert "id: 'heat'" not in web_training
     assert "location.hash !== '#heat-adaptation'" in web_training
     assert "scrollIntoView({ block: 'start' })" in web_training
-    assert "Recent qualifying training range" in web_heat
-    assert "How this estimate was built" in web_heat
+    assert "lg:grid-cols-5" in web_training
+    assert "<SheetTrigger" in web_heat
+    assert "side={isMobile ? 'bottom' : 'right'}" in web_heat
+    assert "Current conclusion" in web_heat
     assert 'to="/science#heat"' in web_heat
-    assert "<EvidenceProgress" not in web_heat
+    assert "label={<Trans>Qualifying days</Trans>}" in web_heat
+    assert "label={<Trans>Effective heat</Trans>}" in web_heat
+    assert "current >= target" in web_heat
+    assert "formatThresholdNumber(status.effective_heat_minutes, locale)" in web_heat
     assert "<ScienceNote embedded>" in web_heat
-    assert "<HeatCadence status={status} />" in web_heat
-    assert "(status.cadence ?? []).flatMap" in web_heat
-    assert "sessionMap" not in web_heat
-    assert "<HeatEvidenceLedger status={status} />" in web_heat
+    assert "<HeatCadence" in web_heat
+    assert "<HeatEvidenceForDay" in web_heat
+    assert "status.sessions.filter((session) => session.date === selectedDate)" in web_heat
+    assert "HeatEvidenceLedger" not in web_heat
 
-    heat_section = 'id="heat-adaptation" class="train-heat-section"'
+    heat_section = 'id="heat-adaptation"'
+    heat_action = 'class="train-stat-evidence"'
     assert heat_section in mini_training
+    assert 'class="train-stat-cell train-stat-cell--heat"' in mini_training
     assert mini_training.index(heat_section) < mini_training.index('class="train-pills"')
-    assert '<block wx:if="{{hasAnyData}}">' not in mini_training[:mini_training.index(heat_section)]
+    assert mini_training.index(heat_section) < mini_training.index(heat_action)
+    assert 'bindtap="onOpenHeatEvidence"' not in mini_training[
+        mini_training.index(heat_section):mini_training.index(heat_action)
+    ]
+    assert 'bindtap="onOpenHeatEvidence"' in mini_training[
+        mini_training.index(heat_action):mini_training.index('class="train-pills"')
+    ]
     assert 'data-pill="heat"' not in mini_training
-    assert 'bindtap="onToggleHeatEvidence"' in mini_training
-    assert 'bindtap="onToggleHeatMethodology"' not in mini_training
+    assert 'class="train-heat-overlay"' in mini_training
+    assert 'aria-role="dialog"' in mini_training
     assert "{{heat.conditionRange}}" in mini_training
-    assert "{{heat.evidenceDisclosureLabel}}" in mini_training
+    assert "{{heat.qualifyingDaysValue}}" in mini_training
+    assert "{{heat.effectiveHeatValue}}" in mini_training
     assert 'wx:if="{{heat.showCadence}}"' in mini_training
-    assert "(status.cadence ?? []).flatMap" in mini_heat
-    assert "const byDate" not in mini_heat
+    assert "thresholdProgressPct(status.effective_heat_minutes, thresholdMinutes)" in mini_heat
+    assert "formatThresholdNumber(status.effective_heat_minutes)" in mini_heat
+    assert "session.dateKey === day.id" in mini_training_ts
+    assert 'wx:for="{{selectedHeatSessions}}"' in mini_training
     assert "scrollToHeatIfPending" in mini_training_ts
 
 

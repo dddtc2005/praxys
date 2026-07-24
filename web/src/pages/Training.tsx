@@ -90,24 +90,14 @@ function TrainingSkeleton() {
       <Skeleton className="h-3 w-20" />
       <div className="mt-3">
         <Skeleton className="mb-6 h-3 w-40" />
-        <div className="flex flex-wrap gap-x-12 gap-y-6 mb-8">
-          {Array.from({ length: 4 }).map((_, i) => (
+        <div className="mb-8 grid grid-cols-2 gap-x-8 gap-y-6 sm:grid-cols-3 lg:grid-cols-5 lg:gap-x-12">
+          {Array.from({ length: 5 }).map((_, i) => (
             <div key={i}>
               <Skeleton className="h-3 w-16 mb-2" />
               <Skeleton className="h-7 w-20 mb-1" />
               <Skeleton className="h-3 w-14" />
             </div>
           ))}
-        </div>
-        <div className="mb-12 border-y border-border py-8">
-          <Skeleton className="h-3 w-28" />
-          <Skeleton className="mt-4 h-7 w-72 max-w-full" />
-          <Skeleton className="mt-3 h-4 w-full max-w-xl" />
-          <div className="mt-8 grid grid-cols-7 gap-2">
-            {Array.from({ length: 14 }).map((_, i) => (
-              <Skeleton key={i} className="h-11 w-full rounded-md" />
-            ))}
-          </div>
         </div>
         <div className="grid grid-cols-1 gap-y-8 lg:grid-cols-[58fr_42fr] lg:gap-x-12">
           <div>
@@ -229,15 +219,17 @@ export default function Training() {
       {/* ════════════════════════════════════════════════════════════════
           DIAGNOSIS · key numbers as a one-liner stat strip on top, then
           a 2-col below pairing the deep-dive chart (left) with the
-          Coach receipt (right). The four stats answer four distinct
+          Coach receipt (right). The five stats answer five distinct
           training questions:
             TSB             — modeled load balance (CTL−ATL)
             Distribution    — similarity between observed and target zone mix
             Load compliance — completed-week actual/planned load ratio
             Volume          — amount of work (orphan, no chart pair)
-          Stat order matches chart-tab order (TSB → Form chart, Dist →
-          Zones, Load → Compliance) so the user reads stat → glances
-          at the corresponding chart in the switcher.
+            Heat adaptation — qualitative recent evidence; opens its
+                              own evidence sheet because it has no chart tab
+          The first three stats match chart-tab order (TSB → Form chart,
+          Dist → Zones, Load → Compliance). Heat uses an explicit Evidence
+          button so the other stat values remain passive and predictable.
           ════════════════════════════════════════════════════════════════ */}
       <section aria-label={t`Diagnosis`} className="mt-3">
         <div className="mb-6 flex items-baseline justify-between">
@@ -249,9 +241,9 @@ export default function Training() {
           </p>
         </div>
 
-        {/* Stat strip — full-width one-liner. Wraps to 2x2 at narrow
-            viewports. */}
-        <div className="mb-8 grid grid-cols-2 gap-x-8 gap-y-6 sm:flex sm:flex-wrap sm:gap-x-12 lg:gap-x-16">
+        {/* Stat strip — five peer metrics. Heat owns a clearly labeled
+            evidence button rather than making the whole stat clickable. */}
+        <div className="mb-8 grid grid-cols-2 gap-x-8 gap-y-6 sm:grid-cols-3 lg:grid-cols-5 lg:gap-x-12">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
               <Trans>TSB</Trans>
@@ -316,9 +308,8 @@ export default function Training() {
               <Trans>km / week, {data.diagnosis.lookback_weeks}wk avg</Trans>
             </p>
           </div>
+          <HeatAdaptationPanel status={data.heat_adaptation} />
         </div>
-
-        <HeatAdaptationPanel status={data.heat_adaptation} />
 
         {/* 2-col deep dive — chart switcher (left, 58%) + Coach receipt
             (right, 42%). Vertical hairline anchors the split. */}

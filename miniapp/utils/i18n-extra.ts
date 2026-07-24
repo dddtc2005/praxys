@@ -299,6 +299,13 @@ const EN_TRAINING = {
   '{0} sessions · gaps ≥7d: {1} · longest: {2}d':
     '{0} sessions · gaps ≥7d: {1} · longest: {2}d',
   '{0} · {1}': '{0} · {1}',
+  'Not included': 'Not included',
+  "No recent activity reached the model's {0}-minute inclusion threshold.":
+    "No recent activity reached the model's {0}-minute inclusion threshold.",
+  '{0} · evidence': '{0} · evidence',
+  '{current} / {target} days': '{current} / {target} days',
+  '{current} / {target} min': '{current} / {target} min',
+  'Likely-adapted threshold': 'Likely-adapted threshold',
   // Detail messages
   'Sync activities together with sleep data (Garmin, Oura, or similar) so we can pair them by date.':
     'Sync activities together with sleep data (Garmin, Oura, or similar) so we can pair them by date.',
@@ -673,6 +680,13 @@ const ZH_TRAINING = {
   '{0} sessions · gaps ≥7d: {1} · longest: {2}d':
     '{0} 次训练 · ≥7 天间隔：{1} 次 · 最长间隔：{2} 天',
   '{0} · {1}': '{0} · {1}',
+  'Not included': '未纳入',
+  "No recent activity reached the model's {0}-minute inclusion threshold.":
+    '近期没有活动达到模型设定的 {0} 分钟纳入阈值。',
+  '{0} · evidence': '{0} · 证据',
+  '{current} / {target} days': '{current} / {target} 天',
+  '{current} / {target} min': '{current} / {target} 分钟',
+  'Likely-adapted threshold': '“可能已适应”阈值',
   'Sync activities together with sleep data (Garmin, Oura, or similar) so we can pair them by date.':
     '请同时同步活动与睡眠数据 (Garmin、Oura 或类似设备)，以便按日期匹配。',
   'Sync at least 2 weeks of data to compare planned vs actual training load.':

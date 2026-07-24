@@ -1,10 +1,22 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { msg } from '@lingui/core/macro';
 import { Trans, useLingui } from '@lingui/react/macro';
-import { ArrowRight, ChevronDown } from 'lucide-react';
+import { ArrowRight, CalendarDays, ChevronRight, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import ScienceNote from '@/components/ScienceNote';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
+import { useIsMobile } from '@/hooks/use-mobile';
 import type {
   HeatAdaptationAction,
   HeatAdaptationConfidence,
@@ -18,6 +30,14 @@ const STAGE_LABELS: Record<HeatAdaptationStage, ReturnType<typeof msg>> = {
   building: msg`Building`,
   likely_adapted: msg`Likely adapted`,
   maintaining: msg`Maintaining`,
+  decaying: msg`Fading`,
+};
+
+const METRIC_STAGE_LABELS: Record<HeatAdaptationStage, ReturnType<typeof msg>> = {
+  insufficient_evidence: msg`Not established`,
+  building: msg`Developing`,
+  likely_adapted: msg`Likely adapted`,
+  maintaining: msg`Likely retained`,
   decaying: msg`Fading`,
 };
 
@@ -44,6 +64,14 @@ function formatDate(value: string, locale: string): string {
   return new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }).format(localDate(value));
 }
 
+function formatWeekday(value: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(localDate(value));
+}
+
+function formatDayNumber(value: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { day: 'numeric' }).format(localDate(value));
+}
+
 function formatRange(
   min: number,
   max: number,
@@ -54,6 +82,10 @@ function formatRange(
   const low = formatter.format(min);
   const high = formatter.format(max);
   return low === high ? `${low}${suffix}` : `${low}–${high}${suffix}`;
+}
+
+function formatThresholdNumber(value: number, locale: string): string {
+  return new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(value);
 }
 
 function sourceLabel(session: HeatAdaptationSession): ReturnType<typeof msg> {
@@ -84,12 +116,48 @@ function effectiveMinutesLabel(minutes: number): ReturnType<typeof msg> {
   return msg`${minutes} effective min`;
 }
 
-function evidenceTotalsLabel(days: number, minutes: number): ReturnType<typeof msg> {
-  return msg`${days} days · ${minutes} effective min`;
-}
-
 function stageLabel(status: HeatAdaptationStatus): ReturnType<typeof msg> {
   return status.is_reacclimating ? msg`Reacclimating` : STAGE_LABELS[status.stage];
+}
+
+function metricStageLabel(status: HeatAdaptationStatus): ReturnType<typeof msg> {
+  return status.is_reacclimating ? msg`Rebuilding` : METRIC_STAGE_LABELS[status.stage];
+}
+
+function stageConclusion(status: HeatAdaptationStatus): ReturnType<typeof msg> {
+  if (status.is_reacclimating) return msg`Heat adaptation may be rebuilding.`;
+  if (status.stage === 'likely_adapted') {
+    return msg`Likely adapted to similar recent conditions.`;
+  }
+  if (status.stage === 'maintaining') {
+    return msg`Prior heat adaptation is likely still retained.`;
+  }
+  if (status.stage === 'building') return msg`Heat adaptation may be developing.`;
+  if (status.stage === 'decaying') return msg`Prior heat adaptation evidence is fading.`;
+  return msg`Heat adaptation is not established.`;
+}
+
+function stageInterpretation(status: HeatAdaptationStatus): ReturnType<typeof msg> {
+  if (status.is_reacclimating) {
+    return msg`Qualifying exposure has resumed after a longer gap, but current evidence is still limited.`;
+  }
+  if (status.stage === 'likely_adapted') {
+    return msg`Recent training meets the model's conservative evidence threshold for acclimatization to similar conditions.`;
+  }
+  if (status.stage === 'maintaining') {
+    return status.recent_conditions
+      ? msg`A prior qualifying block remains inside the model's operational retention window. The range shown here describes current qualifying evidence, not that retained block.`
+      : msg`A prior qualifying block remains inside the model's operational retention window.`;
+  }
+  if (status.stage === 'building') {
+    return msg`Recent training clears the Building threshold but remains below the conservative Likely adapted stage.`;
+  }
+  if (status.stage === 'decaying') {
+    return status.recent_conditions
+      ? msg`The last qualifying block is beyond the initial retention window, so retained evidence is declining. The range shown here describes current qualifying evidence, not that prior block.`
+      : msg`The last qualifying block is beyond the initial retention window, so retained evidence is declining.`;
+  }
+  return msg`Recent training remains below the model's Building threshold.`;
 }
 
 function lastExposureLabel(days: number | null): ReturnType<typeof msg> {
@@ -97,29 +165,6 @@ function lastExposureLabel(days: number | null): ReturnType<typeof msg> {
   if (days === 0) return msg`Today`;
   if (days === 1) return msg`1 day ago`;
   return msg`${days} days ago`;
-}
-
-function stageInterpretation(status: HeatAdaptationStatus): ReturnType<typeof msg> {
-  if (status.is_reacclimating) {
-    return msg`Reacclimatization to similar conditions may be developing.`;
-  }
-  if (status.stage === 'likely_adapted') {
-    return msg`Recent training makes acclimatization to similar conditions plausible.`;
-  }
-  if (status.stage === 'maintaining') {
-    return status.recent_conditions
-      ? msg`A prior qualifying block may still be retained. The range above describes only current qualifying training.`
-      : msg`Evidence from a prior qualifying block may still be retained.`;
-  }
-  if (status.stage === 'building') {
-    return msg`Acclimatization to similar conditions may be developing, but the evidence is still limited.`;
-  }
-  if (status.stage === 'decaying') {
-    return status.recent_conditions
-      ? msg`Evidence from a prior qualifying block is fading. The range above describes only current qualifying training.`
-      : msg`Evidence from a prior qualifying block is fading.`;
-  }
-  return msg`There is not enough repeated qualifying exposure to estimate acclimatization to similar conditions.`;
 }
 
 function exclusionReason(
@@ -147,53 +192,103 @@ function exclusionReason(
   return msg`Observed, but not included because supported workload evidence was unavailable.`;
 }
 
-function HeatCadence({ status }: { status: HeatAdaptationStatus }) {
-  const { i18n } = useLingui();
-  const locale = i18n.locale || 'en';
-  const defaultDay = useMemo(
-    () =>
-      [...status.cadence].reverse().find((day) => day.session_count > 0)
-      ?? status.cadence.at(-1)
-      ?? null,
-    [status.cadence],
-  );
-  const [selectedDate, setSelectedDate] = useState<string | null>(defaultDay?.date ?? null);
-  const selected = status.cadence.find((day) => day.date === selectedDate) ?? defaultDay;
-  const peak = Math.max(...status.cadence.map((day) => day.effective_heat_minutes), 1);
+function stageToneClass(status: HeatAdaptationStatus): string {
+  if (status.stage === 'likely_adapted' || status.stage === 'maintaining') {
+    return 'bg-primary/15 text-foreground';
+  }
+  if (status.stage === 'building' || status.stage === 'decaying' || status.is_reacclimating) {
+    return 'bg-accent-amber/15 text-foreground';
+  }
+  return 'bg-muted text-muted-foreground';
+}
+
+function EvidenceProgress({
+  label,
+  current,
+  target,
+  valueLabel,
+  ariaLabel,
+}: {
+  label: ReactNode;
+  current: number;
+  target: number;
+  valueLabel: string;
+  ariaLabel: string;
+}) {
+  const value = target <= 0
+    ? 0
+    : current >= target
+      ? 100
+      : Math.min(99.9, (current / target) * 100);
 
   return (
-    <section className="border-t border-border/60 pt-6">
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
+    <div>
+      <div className="flex items-center justify-between gap-4 text-xs">
+        <span className="font-medium text-foreground">{label}</span>
+        <span className="font-data text-muted-foreground">{valueLabel}</span>
+      </div>
+      <Progress
+        value={value}
+        aria-label={ariaLabel}
+        className="mt-2 gap-0 [&_[data-slot=progress-indicator]]:bg-accent-cobalt [&_[data-slot=progress-track]]:h-1.5"
+      />
+    </div>
+  );
+}
+
+function HeatCadence({
+  status,
+  selectedDate,
+  onSelect,
+}: {
+  status: HeatAdaptationStatus;
+  selectedDate: string | null;
+  onSelect: (date: string) => void;
+}) {
+  const { i18n } = useLingui();
+  const locale = i18n.locale || 'en';
+  const selected = status.cadence.find((day) => day.date === selectedDate) ?? null;
+
+  return (
+    <section className="mt-7" aria-labelledby="heat-cadence-title">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-foreground">
+          <h3 id="heat-cadence-title" className="text-sm font-semibold text-foreground">
             <Trans>Fourteen-day activity record</Trans>
           </h3>
           <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground">
-            <Trans>Days with recorded sessions are shown below. Select a day to inspect what entered the estimate.</Trans>
+            <Trans>Select a day to inspect what entered the estimate.</Trans>
           </p>
         </div>
-        <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">
-            <span className="size-2 rounded-sm bg-primary" aria-hidden="true" />
+            <span className="size-2.5 rounded-sm border border-primary/50 bg-primary/20" aria-hidden="true" />
             <Trans>Included</Trans>
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <span className="size-2 rounded-sm border border-dashed border-muted-foreground/70" aria-hidden="true" />
-            <Trans>Observed, not included</Trans>
+            <span className="size-2.5 rounded-sm border border-accent-amber/60 bg-accent-amber/15" aria-hidden="true" />
+            <Trans>Observed</Trans>
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="size-2.5 rounded-sm border border-border bg-muted/35" aria-hidden="true" />
+            <Trans>No heat evidence</Trans>
           </span>
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-7 gap-1.5 sm:grid-cols-[repeat(14,minmax(0,1fr))]">
+      <div className="mt-4 grid grid-cols-7 gap-1 sm:gap-2">
         {status.cadence.map((day) => {
           const isSelected = selected?.date === day.date;
           const hasIncluded = day.counted_session_count > 0;
           const hasObserved = day.session_count > 0;
-          const intensity = hasIncluded
-            ? Math.max(0.28, Math.min(0.92, day.effective_heat_minutes / peak))
-            : 0;
+          const excluded = day.session_count - day.counted_session_count;
+          const stateClass = hasIncluded
+            ? 'border-primary/45 bg-primary/10 hover:bg-primary/15'
+            : hasObserved
+              ? 'border-accent-amber/55 bg-accent-amber/10 hover:bg-accent-amber/15'
+              : 'border-border bg-muted/30 hover:bg-muted/50';
           const label = i18n._(
-            msg`${formatDate(day.date, locale)}: ${day.counted_session_count} included, ${day.session_count - day.counted_session_count} observed but not included`,
+            msg`${formatDate(day.date, locale)}: ${day.counted_session_count} included, ${excluded} observed but not included`,
           );
 
           return (
@@ -202,103 +297,152 @@ function HeatCadence({ status }: { status: HeatAdaptationStatus }) {
               type="button"
               aria-label={label}
               aria-pressed={isSelected}
-              onClick={() => setSelectedDate(day.date)}
-              className={`h-9 rounded-md transition-[box-shadow,background-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                hasObserved && !hasIncluded ? 'border border-dashed border-muted-foreground/45' : ''
-              } ${isSelected ? 'ring-2 ring-foreground/75 ring-offset-2 ring-offset-background' : ''}`}
-              style={hasIncluded ? { backgroundColor: `color-mix(in srgb, var(--primary) ${Math.round(intensity * 100)}%, transparent)` } : undefined}
-            />
+              onClick={() => onSelect(day.date)}
+              className={`h-12 min-w-0 rounded-md border p-1 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-[4.6rem] sm:p-2 ${stateClass} ${
+                isSelected ? 'ring-2 ring-foreground/80 ring-offset-2 ring-offset-background' : ''
+              }`}
+            >
+              <span className="flex items-baseline justify-between gap-1">
+                <span className="hidden text-[10px] uppercase tracking-wide text-muted-foreground sm:inline">
+                  {formatWeekday(day.date, locale)}
+                </span>
+                <span className="font-data text-[11px] font-semibold text-foreground sm:text-xs">
+                  {formatDayNumber(day.date, locale)}
+                </span>
+              </span>
+              <span className="mt-0.5 block truncate font-data text-[8px] font-semibold text-foreground sm:mt-2 sm:text-[11px]">
+                {hasObserved ? `${Math.round(day.effective_heat_minutes)}m` : '—'}
+              </span>
+              <span className="mt-0.5 hidden text-[8px] font-medium text-muted-foreground sm:block">
+                {hasIncluded
+                  ? i18n._(msg`Included`)
+                  : hasObserved
+                    ? i18n._(msg`Observed`)
+                    : i18n._(msg`No evidence`)}
+              </span>
+            </button>
           );
         })}
       </div>
 
       {selected && (
-        <p className="mt-3 font-data text-xs text-muted-foreground" aria-live="polite">
-          <span className="font-medium text-foreground">{formatDate(selected.date, locale)}</span>
-          {' · '}
-          <Trans>
-            {selected.counted_session_count} included, {selected.session_count - selected.counted_session_count} observed but not included, {Math.round(selected.effective_heat_minutes)} effective min
-          </Trans>
-        </p>
+        <div className="mt-4 rounded-lg bg-muted/35 p-4" aria-live="polite">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-data text-sm font-semibold text-foreground">
+              {formatDate(selected.date, locale)}
+            </p>
+            <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${
+              selected.counted_session_count > 0
+                ? 'bg-primary/15 text-foreground'
+                : selected.session_count > 0
+                  ? 'bg-accent-amber/15 text-foreground'
+                  : 'bg-muted text-muted-foreground'
+            }`}>
+              {selected.counted_session_count > 0
+                ? i18n._(msg`Included in estimate`)
+                : selected.session_count > 0
+                  ? i18n._(msg`Observed, not included`)
+                  : i18n._(msg`No heat evidence`)}
+            </span>
+          </div>
+          <p className="mt-2 font-data text-xs text-foreground">
+            <Trans>
+              {selected.counted_session_count} included · {selected.session_count - selected.counted_session_count} observed, not included · {Math.round(selected.effective_heat_minutes)} effective min
+            </Trans>
+          </p>
+        </div>
       )}
     </section>
   );
 }
 
-function HeatEvidenceLedger({ status }: { status: HeatAdaptationStatus }) {
+function HeatEvidenceForDay({
+  status,
+  selectedDate,
+}: {
+  status: HeatAdaptationStatus;
+  selectedDate: string | null;
+}) {
   const { i18n } = useLingui();
   const locale = i18n.locale || 'en';
   const threshold = status.evidence_thresholds.qualifying_effective_minutes;
-  const sessions = (status.cadence ?? []).flatMap((day) =>
-    status.sessions.filter((session) => session.date === day.date),
-  ).reverse();
+  const sessions = selectedDate
+    ? status.sessions.filter((session) => session.date === selectedDate)
+    : [];
+  const selectedDay = selectedDate
+    ? status.cadence.find((day) => day.date === selectedDate)
+    : null;
 
   return (
-    <section className="border-t border-border/60 pt-6">
-      <h3 className="text-sm font-semibold text-foreground">
-        <Trans>Latest observed activities</Trans>
+    <section className="mt-7" aria-labelledby="heat-activity-evidence-title">
+      <h3 id="heat-activity-evidence-title" className="text-sm font-semibold text-foreground">
+        <Trans>Activity evidence</Trans>
       </h3>
-      <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground">
-        <Trans>Open an activity to see why it was included or left out. Exclusion only describes this estimate, not whether the session had training value.</Trans>
+      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+        <Trans>
+          The selected day's activities show why each session entered or stayed outside the estimate.
+        </Trans>
       </p>
 
       {sessions.length === 0 ? (
-        <p className="mt-4 text-sm text-muted-foreground">
-          <Trans>No recent activities are available to inspect.</Trans>
-        </p>
+        <div className="mt-3 rounded-lg bg-muted/35 p-4 text-sm text-muted-foreground">
+          {selectedDay && selectedDay.session_count > 0 ? (
+            <Trans>Detailed activity evidence is unavailable for this day.</Trans>
+          ) : (
+            <Trans>No supported heat evidence for this day.</Trans>
+          )}
+        </div>
       ) : (
-        <div className="mt-4 divide-y divide-border/60">
+        <div className="mt-3 space-y-3">
           {sessions.map((session) => (
-            <details key={`${session.date}-${session.activity_id}`} className="group/session">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-3 marker:hidden">
-                <span className="min-w-0">
-                  <span className="block font-data text-sm font-medium text-foreground">
+            <article key={`${session.date}-${session.activity_id}`} className="rounded-lg border border-border p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="font-data text-sm font-semibold text-foreground">
                     {formatDate(session.date, locale)}
-                  </span>
-                  <span className="mt-0.5 block font-data text-xs text-muted-foreground">
+                  </p>
+                  <p className="mt-1 font-data text-xs text-muted-foreground">
                     {Math.round(session.temperature_c)}°C · {Math.round(session.relative_humidity_pct)}%
-                  </span>
+                  </p>
+                </div>
+                <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${
+                  session.qualifies
+                    ? 'bg-primary/15 text-foreground'
+                    : 'bg-accent-amber/15 text-foreground'
+                }`}>
+                  {session.qualifies
+                    ? i18n._(msg`Included in estimate`)
+                    : i18n._(msg`Observed, not included`)}
                 </span>
-                <span className="flex shrink-0 items-center gap-2">
-                  <span className={`text-xs font-medium ${session.qualifies ? 'text-primary' : 'text-muted-foreground'}`}>
-                    {session.qualifies
-                      ? i18n._(msg`Included in estimate`)
-                      : i18n._(msg`Observed, not included`)}
-                  </span>
-                  <ChevronDown
-                    className="size-4 text-muted-foreground transition-transform group-open/session:rotate-180"
-                    aria-hidden="true"
-                  />
-                </span>
-              </summary>
-              <div className="pb-4">
-                <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
-                  {i18n._(exclusionReason(session, threshold))}
-                </p>
-                <dl className="mt-3 grid gap-x-6 gap-y-2 text-xs sm:grid-cols-2">
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground"><Trans>Workload evidence</Trans></dt>
-                    <dd className="text-right text-foreground">{i18n._(sourceLabel(session))}</dd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground"><Trans>Weather evidence</Trans></dt>
-                    <dd className="text-right text-foreground">{i18n._(environmentLabel(session.environment_source))}</dd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground"><Trans>Effective heat time</Trans></dt>
-                    <dd className="font-data text-foreground">
-                      {i18n._(effectiveMinutesLabel(Math.round(session.effective_heat_minutes)))}
-                    </dd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground"><Trans>Power-source match</Trans></dt>
-                    <dd className="text-right text-foreground">
-                      {i18n._(powerAlignmentLabel(session.power_source_alignment))}
-                    </dd>
-                  </div>
-                </dl>
               </div>
-            </details>
+
+              <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                {i18n._(exclusionReason(session, threshold))}
+              </p>
+
+              <dl className="mt-4 grid gap-x-6 gap-y-3 text-xs sm:grid-cols-2">
+                <div className="flex justify-between gap-4">
+                  <dt className="text-muted-foreground"><Trans>Workload evidence</Trans></dt>
+                  <dd className="text-right text-foreground">{i18n._(sourceLabel(session))}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-muted-foreground"><Trans>Weather evidence</Trans></dt>
+                  <dd className="text-right text-foreground">{i18n._(environmentLabel(session.environment_source))}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-muted-foreground"><Trans>Effective heat time</Trans></dt>
+                  <dd className="font-data text-foreground">
+                    {i18n._(effectiveMinutesLabel(Math.round(session.effective_heat_minutes)))}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-muted-foreground"><Trans>Power-source match</Trans></dt>
+                  <dd className="text-right text-foreground">
+                    {i18n._(powerAlignmentLabel(session.power_source_alignment))}
+                  </dd>
+                </div>
+              </dl>
+            </article>
           ))}
         </div>
       )}
@@ -309,6 +453,7 @@ function HeatEvidenceLedger({ status }: { status: HeatAdaptationStatus }) {
 export default function HeatAdaptationPanel({ status }: { status: HeatAdaptationStatus }) {
   const { i18n } = useLingui();
   const locale = i18n.locale || 'en';
+  const isMobile = useIsMobile();
   const conditions = status.recent_conditions;
   const included = status.cadence.reduce((sum, day) => sum + day.counted_session_count, 0);
   const observed = status.cadence.reduce((sum, day) => sum + day.session_count, 0);
@@ -323,98 +468,163 @@ export default function HeatAdaptationPanel({ status }: { status: HeatAdaptation
   const humidityRange = humidityPercentRange
     ? i18n._(msg`${humidityPercentRange} humidity`)
     : null;
+  const defaultDay = useMemo(
+    () =>
+      [...status.cadence].reverse().find((day) => day.session_count > 0)
+      ?? status.cadence.at(-1)
+      ?? null,
+    [status.cadence],
+  );
+  const [selectedDate, setSelectedDate] = useState<string | null>(defaultDay?.date ?? null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const activeSelectedDate = status.cadence.some((day) => day.date === selectedDate)
+    ? selectedDate
+    : defaultDay?.date ?? null;
+  const thresholdDays = status.evidence_thresholds.likely_adapted_days;
+  const thresholdMinutes = status.evidence_thresholds.likely_adapted_effective_minutes;
+  const showThresholdProgress = status.stage !== 'maintaining' && status.stage !== 'decaying';
+  const stageComesFromPriorBlock = status.stage === 'maintaining' || status.stage === 'decaying';
 
   return (
-    <section
-      id="heat-adaptation"
-      className="scroll-mt-24 border-y border-border/70 py-7 sm:py-9"
-      aria-labelledby="heat-adaptation-title"
-    >
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 max-w-3xl">
-          <p className="text-sm font-medium text-muted-foreground">
-            <Trans>Recent qualifying training range</Trans>
-          </p>
-          <h2 id="heat-adaptation-title" className="mt-2 text-balance text-2xl font-semibold tracking-[-0.025em] text-foreground sm:text-3xl">
-            {conditions ? (
-              <span className="font-data">
-                {temperatureRange} <span className="text-muted-foreground">·</span> {humidityRange}
-              </span>
-            ) : (
-              <Trans>No qualifying condition range yet</Trans>
-            )}
-          </h2>
-          <p className="mt-3 max-w-2xl text-pretty text-sm leading-relaxed text-foreground/85">
-            {i18n._(stageInterpretation(status))}
-          </p>
-        </div>
-        <span className="rounded-full bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground">
-          {i18n._(stageLabel(status))}
-        </span>
-      </div>
-
-      <div className="mt-5 max-w-3xl">
-        {conditions ? (
-          <p className="font-data text-xs leading-relaxed text-muted-foreground">
-            <Trans>
-              Based on {conditions.qualifying_session_count} included sessions across {status.exposure_days} days in the last {status.evidence_thresholds.active_window_days} days.
-            </Trans>
-          </p>
-        ) : actionGuidance ? (
-          <p className="font-data text-sm leading-relaxed text-muted-foreground">
-            {i18n._(actionGuidance)}
-          </p>
-        ) : (
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            <Trans>
-              No recent activity reached the model's {status.evidence_thresholds.qualifying_effective_minutes}-minute inclusion threshold.
-            </Trans>
-          </p>
-        )}
-        <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-          <Trans>Past training only. This does not assess today's weather, guarantee adaptation, or replace medical guidance.</Trans>
+    <Sheet>
+      <div id="heat-adaptation" className="min-w-0 scroll-mt-24">
+        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <Trans>Heat adaptation</Trans>
         </p>
+        <p className="text-2xl font-semibold leading-none text-foreground">
+          {i18n._(metricStageLabel(status))}
+        </p>
+        <SheetTrigger
+          render={(
+            <Button
+              variant="outline"
+              size="xs"
+              className="mt-1 max-w-full border-foreground/25 text-foreground"
+            />
+          )}
+        >
+          <CalendarDays className="size-3" aria-hidden="true" />
+          <span className="sm:hidden"><Trans>Evidence</Trans></span>
+          <span className="hidden min-w-0 truncate font-data sm:inline">
+            {stageComesFromPriorBlock ? (
+              <Trans>Current evidence</Trans>
+            ) : temperatureRange ? (
+              <>
+                {temperatureRange} <span aria-hidden="true">·</span> <Trans>evidence</Trans>
+              </>
+            ) : (
+              <Trans>Open evidence</Trans>
+            )}
+          </span>
+          <ChevronRight className="size-3" aria-hidden="true" />
+        </SheetTrigger>
       </div>
 
-      <details className="group mt-7 border-t border-border/70">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 marker:hidden">
-          <span>
-            <span className="block text-sm font-medium text-foreground">
-              <Trans>How this estimate was built</Trans>
-            </span>
-            <span className="mt-0.5 block font-data text-xs text-muted-foreground">
-              <Trans>{included} included · {excluded} observed, not included</Trans>
-            </span>
-          </span>
-          <ChevronDown
-            className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
-            aria-hidden="true"
-          />
-        </summary>
+      <SheetContent
+        side={isMobile ? 'bottom' : 'right'}
+        initialFocus={closeButtonRef}
+        showCloseButton={false}
+        className={`gap-0 overflow-hidden p-0 ${
+          isMobile
+            ? 'max-h-[92dvh] w-full rounded-t-xl'
+            : 'w-full sm:!max-w-[34rem]'
+        }`}
+      >
+        <SheetClose
+          render={(
+            <Button
+              ref={closeButtonRef}
+              variant="ghost"
+              size="icon-sm"
+              className="absolute right-3 top-3 z-10"
+            />
+          )}
+        >
+          <X aria-hidden="true" />
+          <span className="sr-only"><Trans>Close</Trans></span>
+        </SheetClose>
+        <SheetHeader className="shrink-0 px-5 pb-4 pt-5 pr-14 sm:px-7 sm:pb-5 sm:pt-7">
+          <SheetTitle className="text-xl font-semibold tracking-[-0.02em]">
+            <Trans>Heat adaptation</Trans>
+          </SheetTitle>
+          <SheetDescription className="font-data">
+            {temperatureRange && humidityRange ? (
+              <>
+                <Trans>Current qualifying evidence</Trans>{' '}
+                <span aria-hidden="true">·</span> {temperatureRange}{' '}
+                <span aria-hidden="true">·</span> {humidityRange}
+              </>
+            ) : (
+              <Trans>No current qualifying condition range yet</Trans>
+            )}
+          </SheetDescription>
+        </SheetHeader>
 
-        <div className="space-y-6 border-t border-border/60 pt-6">
-          <dl className="grid gap-x-8 gap-y-4 text-sm sm:grid-cols-2">
-            <div>
-              <dt className="text-xs text-muted-foreground"><Trans>Current evidence</Trans></dt>
-              <dd className="mt-1 font-data text-foreground">
-                {i18n._(evidenceTotalsLabel(
-                  status.exposure_days,
-                  Math.round(status.effective_heat_minutes),
-                ))}
-              </dd>
-            </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-7 sm:px-7">
+          <div className="flex flex-wrap items-center gap-3 rounded-lg bg-muted/35 p-4">
+            <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${stageToneClass(status)}`}>
+              {i18n._(stageLabel(status))}
+            </span>
+            <p className="font-data text-xs text-muted-foreground">
+              <Trans>{included} included · {excluded} observed, not included</Trans>
+            </p>
+          </div>
+
+          <section className="mt-6" aria-labelledby="heat-conclusion-title">
+            <p className="font-data text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              <Trans>Current conclusion</Trans>
+            </p>
+            <h3 id="heat-conclusion-title" className="mt-2 text-lg font-semibold tracking-[-0.015em] text-foreground">
+              {i18n._(stageConclusion(status))}
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              {i18n._(stageInterpretation(status))}
+            </p>
+            {!conditions && actionGuidance && (
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                {i18n._(actionGuidance)}
+              </p>
+            )}
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+              <Trans>
+                This is an inference from training evidence in similar conditions, not a direct physiological measurement.
+              </Trans>
+            </p>
+          </section>
+
+          {showThresholdProgress && (
+            <section className="mt-7" aria-labelledby="heat-threshold-title">
+              <h3 id="heat-threshold-title" className="text-sm font-semibold text-foreground">
+                <Trans>Evidence toward Likely adapted</Trans>
+              </h3>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                <Trans>
+                  Both thresholds must be met. The bars describe model evidence, not a biological adaptation percentage.
+                </Trans>
+              </p>
+              <div className="mt-4 space-y-4">
+                <EvidenceProgress
+                  label={<Trans>Qualifying days</Trans>}
+                  current={status.exposure_days}
+                  target={thresholdDays}
+                  valueLabel={i18n._(msg`${status.exposure_days} / ${thresholdDays} days`)}
+                  ariaLabel={i18n._(msg`Qualifying days: ${status.exposure_days} of ${thresholdDays}`)}
+                />
+                <EvidenceProgress
+                  label={<Trans>Effective heat</Trans>}
+                  current={status.effective_heat_minutes}
+                  target={thresholdMinutes}
+                  valueLabel={i18n._(msg`${formatThresholdNumber(status.effective_heat_minutes, locale)} / ${thresholdMinutes} min`)}
+                  ariaLabel={i18n._(msg`Effective heat: ${formatThresholdNumber(status.effective_heat_minutes, locale)} of ${thresholdMinutes} minutes`)}
+                />
+              </div>
+            </section>
+          )}
+
+          <dl className="mt-7 grid gap-x-8 gap-y-4 rounded-lg bg-muted/35 p-4 text-sm sm:grid-cols-2">
             <div>
               <dt className="text-xs text-muted-foreground"><Trans>Data coverage</Trans></dt>
               <dd className="mt-1 text-foreground">{i18n._(CONFIDENCE_LABELS[status.confidence])}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-muted-foreground"><Trans>Likely-adapted threshold</Trans></dt>
-              <dd className="mt-1 font-data text-foreground">
-                {i18n._(evidenceTotalsLabel(
-                  status.evidence_thresholds.likely_adapted_days,
-                  status.evidence_thresholds.likely_adapted_effective_minutes,
-                ))}
-              </dd>
             </div>
             <div>
               <dt className="text-xs text-muted-foreground"><Trans>Last included session</Trans></dt>
@@ -424,14 +634,23 @@ export default function HeatAdaptationPanel({ status }: { status: HeatAdaptation
             </div>
           </dl>
 
-          <HeatCadence status={status} />
-          <HeatEvidenceLedger status={status} />
+          <HeatCadence
+            status={status}
+            selectedDate={activeSelectedDate}
+            onSelect={setSelectedDate}
+          />
+          <HeatEvidenceForDay status={status} selectedDate={activeSelectedDate} />
 
-          <div className="border-t border-border/60 pt-5">
+          <div className="mt-7">
             <ScienceNote embedded>
               <p>
                 <Trans>
                   The thresholds are Praxys operational estimates grounded in heat-acclimatization research, not a direct physiological measurement.
+                </Trans>
+              </p>
+              <p className="mt-2">
+                <Trans>
+                  Past training only. This does not assess today's weather, guarantee adaptation, or replace medical guidance.
                 </Trans>
               </p>
               <Link
@@ -444,7 +663,7 @@ export default function HeatAdaptationPanel({ status }: { status: HeatAdaptation
             </ScienceNote>
           </div>
         </div>
-      </details>
-    </section>
+      </SheetContent>
+    </Sheet>
   );
 }
