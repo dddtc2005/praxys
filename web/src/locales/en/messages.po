@@ -18,7 +18,7 @@ msgid " · "
 msgstr " · "
 
 #. placeholder {0}: data.diagnosis.lookback_weeks
-#: src/pages/Training.tsx:363
+#: src/pages/Training.tsx:367
 msgid "· last {0} weeks"
 msgstr "· last {0} weeks"
 
@@ -138,7 +138,7 @@ msgstr "{0} of {1} steps complete"
 #~ msgstr "{0} work min · {1} effective min"
 
 #. placeholder {0}: data.diagnosis.lookback_weeks
-#: src/pages/Training.tsx:313
+#: src/pages/Training.tsx:317
 msgid "{0}-week average"
 msgstr "{0}-week average"
 
@@ -542,11 +542,11 @@ msgstr "Activity-summary weather"
 msgid "Actual"
 msgstr "Actual"
 
-#: src/pages/Training.tsx:295
+#: src/pages/Training.tsx:299
 msgid "Actual and planned weekly load across the recent training window."
 msgstr "Actual and planned weekly load across the recent training window."
 
-#: src/pages/Training.tsx:292
+#: src/pages/Training.tsx:296
 msgid "actual vs planned, avg"
 msgstr "actual vs planned, avg"
 
@@ -1551,8 +1551,8 @@ msgstr "Details"
 msgid "Developing"
 msgstr "Developing"
 
-#: src/pages/Training.tsx:359
-#: src/pages/Training.tsx:361
+#: src/pages/Training.tsx:363
+#: src/pages/Training.tsx:365
 msgid "Diagnosis"
 msgstr "Diagnosis"
 
@@ -1638,7 +1638,7 @@ msgstr "Distance"
 #~ msgid "Distribution deviates from target"
 #~ msgstr "Distribution deviates from target"
 
-#: src/pages/Training.tsx:260
+#: src/pages/Training.tsx:264
 msgid "Distribution match"
 msgstr "Distribution match"
 
@@ -1949,7 +1949,7 @@ msgstr "Failed to load science data."
 msgid "Failed to load settings"
 msgstr "Failed to load settings"
 
-#: src/pages/Training.tsx:174
+#: src/pages/Training.tsx:178
 msgid "Failed to load training data"
 msgstr "Failed to load training data"
 
@@ -2246,8 +2246,8 @@ msgstr "Have an invitation code?"
 msgid "Heart Rate"
 msgstr "Heart Rate"
 
-#: src/pages/Training.tsx:342
-#: src/pages/Training.tsx:345
+#: src/pages/Training.tsx:346
+#: src/pages/Training.tsx:349
 msgid "Heat adaptation"
 msgstr "Heat adaptation"
 
@@ -2640,7 +2640,7 @@ msgstr "Keep any optional movement easy and short"
 #~ msgid "km / week, {0}wk avg"
 #~ msgstr "km / week, {0}wk avg"
 
-#: src/pages/Training.tsx:312
+#: src/pages/Training.tsx:316
 msgid "km/wk"
 msgstr "km/wk"
 
@@ -2818,7 +2818,7 @@ msgstr "Load & Fitness"
 
 #: src/components/charts/FitnessFatigueChart.tsx:87
 #: src/components/charts/FitnessFatigueChart.tsx:235
-#: src/pages/Training.tsx:240
+#: src/pages/Training.tsx:244
 msgid "Load balance"
 msgstr "Load balance"
 
@@ -2826,8 +2826,8 @@ msgstr "Load balance"
 msgid "Load balance (TSB)"
 msgstr "Load balance (TSB)"
 
-#: src/pages/Training.tsx:289
 #: src/pages/Training.tsx:293
+#: src/pages/Training.tsx:297
 msgid "Load compliance"
 msgstr "Load compliance"
 
@@ -2869,7 +2869,7 @@ msgstr "Long-term and recent modeled loads are near balance."
 msgid "Long-term load"
 msgstr "Long-term load"
 
-#: src/pages/Training.tsx:236
+#: src/pages/Training.tsx:240
 msgid "long-term load above recent load"
 msgstr "long-term load above recent load"
 
@@ -2877,7 +2877,7 @@ msgstr "long-term load above recent load"
 #~ msgid "long-term load higher"
 #~ msgstr "long-term load higher"
 
-#: src/pages/Training.tsx:242
+#: src/pages/Training.tsx:246
 msgid "Long-term load, recent load, and their modeled balance over time."
 msgstr "Long-term load, recent load, and their modeled balance over time."
 
@@ -3032,11 +3032,11 @@ msgstr "Mixed providers"
 msgid "Mode"
 msgstr "Mode"
 
-#: src/pages/Training.tsx:234
+#: src/pages/Training.tsx:238
 msgid "modeled balance (CTL−ATL)"
 msgstr "modeled balance (CTL−ATL)"
 
-#: src/pages/Training.tsx:239
+#: src/pages/Training.tsx:243
 msgid "modeled loads balanced"
 msgstr "modeled loads balanced"
 
@@ -3110,7 +3110,7 @@ msgstr "near baseline"
 msgid "Near baseline"
 msgstr "Near baseline"
 
-#: src/pages/Training.tsx:302
+#: src/pages/Training.tsx:306
 msgid "Need 2 weeks of synced activity to compare planned vs actual. {daysToCompare} more days to go."
 msgstr "Need 2 weeks of synced activity to compare planned vs actual. {daysToCompare} more days to go."
 
@@ -3424,7 +3424,7 @@ msgstr "No users found."
 msgid "No waitlist signups yet."
 msgstr "No waitlist signups yet."
 
-#: src/pages/Training.tsx:327
+#: src/pages/Training.tsx:331
 msgid "No weekly distance history yet"
 msgstr "No weekly distance history yet"
 
@@ -3478,7 +3478,7 @@ msgstr "None in the active window"
 msgid "Not connected"
 msgstr "Not connected"
 
-#: src/pages/Training.tsx:274
+#: src/pages/Training.tsx:278
 msgid "Not enough complete intensity data for zone comparison"
 msgstr "Not enough complete intensity data for zone comparison"
 
@@ -3502,11 +3502,11 @@ msgstr "Not enough data to show CP trend"
 #~ msgid "Not enough data yet for accurate fitness tracking"
 #~ msgstr "Not enough data yet for accurate fitness tracking"
 
-#: src/pages/Training.tsx:248
+#: src/pages/Training.tsx:252
 msgid "Not enough data yet for stable load tracking"
 msgstr "Not enough data yet for stable load tracking"
 
-#: src/pages/Training.tsx:301
+#: src/pages/Training.tsx:305
 msgid "Not enough data yet for weekly load comparison"
 msgstr "Not enough data yet for weekly load comparison"
 
@@ -3552,7 +3552,7 @@ msgstr "Now open · Create your account"
 msgid "Observed"
 msgstr "Observed"
 
-#: src/pages/Training.tsx:268
+#: src/pages/Training.tsx:272
 msgid "Observed time in each intensity zone compared with the selected training theory."
 msgstr "Observed time in each intensity zone compared with the selected training theory."
 
@@ -3765,7 +3765,7 @@ msgstr "Past training only. This does not assess today's weather, guarantee adap
 msgid "Peak Interval {intensityLabel}"
 msgstr "Peak Interval {intensityLabel}"
 
-#: src/pages/Training.tsx:370
+#: src/pages/Training.tsx:375
 msgid "Peer metrics"
 msgstr "Peer metrics"
 
@@ -4270,7 +4270,7 @@ msgstr "Recent HRV observations have no measurable variation, so Praxys cannot f
 msgid "Recent load"
 msgstr "Recent load"
 
-#: src/pages/Training.tsx:238
+#: src/pages/Training.tsx:242
 msgid "recent load above long-term load"
 msgstr "recent load above long-term load"
 
@@ -4345,7 +4345,7 @@ msgstr "recommended"
 msgid "Recommended"
 msgstr "Recommended"
 
-#: src/pages/Training.tsx:316
+#: src/pages/Training.tsx:320
 msgid "Recorded distance in non-overlapping seven-day buckets, including weeks with no recorded distance."
 msgstr "Recorded distance in non-overlapping seven-day buckets, including weeks with no recorded distance."
 
@@ -4579,7 +4579,7 @@ msgstr "Resting HR"
 #: src/pages/Settings.tsx:330
 #: src/pages/Today.tsx:336
 #: src/pages/Today.tsx:495
-#: src/pages/Training.tsx:177
+#: src/pages/Training.tsx:181
 msgid "Retry"
 msgstr "Retry"
 
@@ -4743,7 +4743,7 @@ msgstr "Securely signing in to Garmin. This can take 15-30 seconds because Garmi
 msgid "Select a day to inspect what entered the estimate."
 msgstr "Select a day to inspect what entered the estimate."
 
-#: src/pages/Training.tsx:373
+#: src/pages/Training.tsx:378
 msgid "Select a metric to inspect its chart or evidence."
 msgstr "Select a metric to inspect its chart or evidence."
 
@@ -5167,7 +5167,7 @@ msgstr "Sync now"
 msgid "Sync power-source metadata so Praxys can verify that activity and threshold power are comparable."
 msgstr "Sync power-source metadata so Praxys can verify that activity and threshold power are comparable."
 
-#: src/pages/Training.tsx:332
+#: src/pages/Training.tsx:336
 msgid "Sync recent activities to populate the weekly distance series."
 msgstr "Sync recent activities to populate the weekly distance series."
 
@@ -5183,7 +5183,7 @@ msgstr "Sync reliability"
 #~ msgid "Sync sample or split power so workload can contribute."
 #~ msgstr "Sync sample or split power so workload can contribute."
 
-#: src/pages/Training.tsx:275
+#: src/pages/Training.tsx:279
 msgid "Sync split or sample data with enough duration coverage to compare against the selected theory."
 msgstr "Sync split or sample data with enough duration coverage to compare against the selected theory."
 
@@ -5308,7 +5308,7 @@ msgstr "Thanks - that helps us improve Today."
 msgid "Thanks for the feedback!"
 msgstr "Thanks for the feedback!"
 
-#: src/pages/Training.tsx:249
+#: src/pages/Training.tsx:253
 msgid "The active load model uses a {loadTimeConstantDays}-day long-term time constant. Need {daysToPmc} more days of history."
 msgstr "The active load model uses a {loadTimeConstantDays}-day long-term time constant. Need {daysToPmc} more days of history."
 
@@ -5372,7 +5372,7 @@ msgstr "The status API did not respond — this itself may indicate an outage."
 msgid "The thresholds are Praxys operational estimates grounded in heat-acclimatization research, not a direct physiological measurement."
 msgstr "The thresholds are Praxys operational estimates grounded in heat-acclimatization research, not a direct physiological measurement."
 
-#: src/pages/Training.tsx:331
+#: src/pages/Training.tsx:335
 msgid "The weekly history will appear after the data service update completes."
 msgstr "The weekly history will appear after the data service update completes."
 
@@ -5541,7 +5541,7 @@ msgid "Train toward a specific race date"
 msgstr "Train toward a specific race date"
 
 #: src/components/AppSidebar.tsx:125
-#: src/pages/Training.tsx:356
+#: src/pages/Training.tsx:360
 msgid "Training"
 msgstr "Training"
 
@@ -5606,7 +5606,7 @@ msgstr "Try a longer window above."
 msgid "Try another filter or sync again after new reports arrive."
 msgstr "Try another filter or sync again after new reports arrive."
 
-#: src/pages/Training.tsx:229
+#: src/pages/Training.tsx:233
 msgid "TSB"
 msgstr "TSB"
 
@@ -5811,12 +5811,12 @@ msgstr "VO2max"
 msgid "VO2max, CP, LTHR, training status"
 msgstr "VO2max, CP, LTHR, training status"
 
-#: src/pages/Training.tsx:310
+#: src/pages/Training.tsx:314
 msgid "Volume"
 msgstr "Volume"
 
 #. placeholder {0}: data.diagnosis.theory_name
-#: src/pages/Training.tsx:264
+#: src/pages/Training.tsx:268
 msgid "vs {0}"
 msgstr "vs {0}"
 
@@ -5829,7 +5829,7 @@ msgstr "vs {0} baseline"
 msgid "vs {theoryName}"
 msgstr "vs {theoryName}"
 
-#: src/pages/Training.tsx:265
+#: src/pages/Training.tsx:269
 msgid "vs target zones"
 msgstr "vs target zones"
 
@@ -5901,11 +5901,11 @@ msgstr "Week ending {0}"
 msgid "Weekly average"
 msgstr "Weekly average"
 
-#: src/pages/Training.tsx:326
+#: src/pages/Training.tsx:330
 msgid "Weekly chart temporarily unavailable"
 msgstr "Weekly chart temporarily unavailable"
 
-#: src/pages/Training.tsx:195
+#: src/pages/Training.tsx:199
 msgid "Weekly diagnosis ready."
 msgstr "Weekly diagnosis ready."
 
@@ -5921,7 +5921,7 @@ msgstr "Weekly Load"
 #~ msgid "Weekly Review"
 #~ msgstr "Weekly Review"
 
-#: src/pages/Training.tsx:314
+#: src/pages/Training.tsx:318
 msgid "Weekly volume"
 msgstr "Weekly volume"
 
@@ -6062,7 +6062,7 @@ msgstr "Zone 3 (Hard)"
 #~ msgid "Zone Analysis"
 #~ msgstr "Zone Analysis"
 
-#: src/pages/Training.tsx:266
+#: src/pages/Training.tsx:270
 msgid "Zone distribution"
 msgstr "Zone distribution"
 

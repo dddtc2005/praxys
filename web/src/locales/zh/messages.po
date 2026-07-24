@@ -18,7 +18,7 @@ msgid " · "
 msgstr " · "
 
 #. placeholder {0}: data.diagnosis.lookback_weeks
-#: src/pages/Training.tsx:363
+#: src/pages/Training.tsx:367
 msgid "· last {0} weeks"
 msgstr "· 最近 {0} 周"
 
@@ -138,7 +138,7 @@ msgstr "第 {0} 步，共 {1} 步"
 #~ msgstr "运动 {0} 分钟 · 加权 {1} 分钟"
 
 #. placeholder {0}: data.diagnosis.lookback_weeks
-#: src/pages/Training.tsx:313
+#: src/pages/Training.tsx:317
 msgid "{0}-week average"
 msgstr "{0} 周平均"
 
@@ -542,11 +542,11 @@ msgstr "活动汇总天气"
 msgid "Actual"
 msgstr "实际"
 
-#: src/pages/Training.tsx:295
+#: src/pages/Training.tsx:299
 msgid "Actual and planned weekly load across the recent training window."
 msgstr "近期训练周期内的每周实际负荷与计划负荷。"
 
-#: src/pages/Training.tsx:292
+#: src/pages/Training.tsx:296
 msgid "actual vs planned, avg"
 msgstr "实际 vs 计划，平均"
 
@@ -1551,8 +1551,8 @@ msgstr "详情"
 msgid "Developing"
 msgstr "发展中"
 
-#: src/pages/Training.tsx:359
-#: src/pages/Training.tsx:361
+#: src/pages/Training.tsx:363
+#: src/pages/Training.tsx:365
 msgid "Diagnosis"
 msgstr "诊断"
 
@@ -1638,7 +1638,7 @@ msgstr "距离"
 #~ msgid "Distribution deviates from target"
 #~ msgstr "分布偏离目标"
 
-#: src/pages/Training.tsx:260
+#: src/pages/Training.tsx:264
 msgid "Distribution match"
 msgstr "分布匹配度"
 
@@ -1957,7 +1957,7 @@ msgstr "加载科学数据失败。"
 msgid "Failed to load settings"
 msgstr "加载设置失败"
 
-#: src/pages/Training.tsx:174
+#: src/pages/Training.tsx:178
 msgid "Failed to load training data"
 msgstr "训练数据加载失败"
 
@@ -2254,8 +2254,8 @@ msgstr "有邀请码？"
 msgid "Heart Rate"
 msgstr "心率"
 
-#: src/pages/Training.tsx:342
-#: src/pages/Training.tsx:345
+#: src/pages/Training.tsx:346
+#: src/pages/Training.tsx:349
 msgid "Heat adaptation"
 msgstr "热适应"
 
@@ -2688,7 +2688,7 @@ msgstr "如有可选活动，请保持轻松且简短"
 #~ msgid "km / week, {0}wk avg"
 #~ msgstr "公里 / 周，{0} 周均值"
 
-#: src/pages/Training.tsx:312
+#: src/pages/Training.tsx:316
 msgid "km/wk"
 msgstr "公里/周"
 
@@ -2866,7 +2866,7 @@ msgstr "负荷与体能"
 
 #: src/components/charts/FitnessFatigueChart.tsx:87
 #: src/components/charts/FitnessFatigueChart.tsx:235
-#: src/pages/Training.tsx:240
+#: src/pages/Training.tsx:244
 msgid "Load balance"
 msgstr "负荷平衡"
 
@@ -2874,8 +2874,8 @@ msgstr "负荷平衡"
 msgid "Load balance (TSB)"
 msgstr "负荷平衡（TSB）"
 
-#: src/pages/Training.tsx:289
 #: src/pages/Training.tsx:293
+#: src/pages/Training.tsx:297
 msgid "Load compliance"
 msgstr "负荷合规度"
 
@@ -2917,7 +2917,7 @@ msgstr "长期与近期模型负荷接近平衡。"
 msgid "Long-term load"
 msgstr "长期负荷"
 
-#: src/pages/Training.tsx:236
+#: src/pages/Training.tsx:240
 msgid "long-term load above recent load"
 msgstr "长期负荷高于近期负荷"
 
@@ -2925,7 +2925,7 @@ msgstr "长期负荷高于近期负荷"
 #~ msgid "long-term load higher"
 #~ msgstr "长期负荷较高"
 
-#: src/pages/Training.tsx:242
+#: src/pages/Training.tsx:246
 msgid "Long-term load, recent load, and their modeled balance over time."
 msgstr "长期负荷、近期负荷及其随时间变化的模型化平衡。"
 
@@ -3084,11 +3084,11 @@ msgstr "多个提供方混合"
 msgid "Mode"
 msgstr "模式"
 
-#: src/pages/Training.tsx:234
+#: src/pages/Training.tsx:238
 msgid "modeled balance (CTL−ATL)"
 msgstr "模型化负荷平衡（CTL−ATL）"
 
-#: src/pages/Training.tsx:239
+#: src/pages/Training.tsx:243
 msgid "modeled loads balanced"
 msgstr "模型化负荷处于平衡"
 
@@ -3162,7 +3162,7 @@ msgstr "接近基线"
 msgid "Near baseline"
 msgstr "接近基线"
 
-#: src/pages/Training.tsx:302
+#: src/pages/Training.tsx:306
 msgid "Need 2 weeks of synced activity to compare planned vs actual. {daysToCompare} more days to go."
 msgstr "需要 2 周已同步的活动数据才能对比计划与实际。还差 {daysToCompare} 天。"
 
@@ -3480,7 +3480,7 @@ msgstr "未找到用户。"
 msgid "No waitlist signups yet."
 msgstr "目前还没有候补名单注册。"
 
-#: src/pages/Training.tsx:327
+#: src/pages/Training.tsx:331
 msgid "No weekly distance history yet"
 msgstr "暂无每周距离历史"
 
@@ -3546,7 +3546,7 @@ msgstr "有效窗口内没有"
 msgid "Not connected"
 msgstr "未连接"
 
-#: src/pages/Training.tsx:274
+#: src/pages/Training.tsx:278
 msgid "Not enough complete intensity data for zone comparison"
 msgstr "完整强度数据不足，暂无法比较分区"
 
@@ -3570,11 +3570,11 @@ msgstr "数据不足以显示 CP 趋势"
 #~ msgid "Not enough data yet for accurate fitness tracking"
 #~ msgstr "数据不足，暂无法准确跟踪体能"
 
-#: src/pages/Training.tsx:248
+#: src/pages/Training.tsx:252
 msgid "Not enough data yet for stable load tracking"
 msgstr "数据不足，暂无法稳定评估负荷"
 
-#: src/pages/Training.tsx:301
+#: src/pages/Training.tsx:305
 msgid "Not enough data yet for weekly load comparison"
 msgstr "数据不足，暂无法对比每周负荷"
 
@@ -3620,7 +3620,7 @@ msgstr "现已开放 · 创建您的账户"
 msgid "Observed"
 msgstr "已观察"
 
-#: src/pages/Training.tsx:268
+#: src/pages/Training.tsx:272
 msgid "Observed time in each intensity zone compared with the selected training theory."
 msgstr "将各强度分区的实际用时与所选训练理论进行比较。"
 
@@ -3833,7 +3833,7 @@ msgstr "仅基于过往训练；不评估今日天气，不保证已经适应，
 msgid "Peak Interval {intensityLabel}"
 msgstr "峰值间歇 {intensityLabel}"
 
-#: src/pages/Training.tsx:370
+#: src/pages/Training.tsx:375
 msgid "Peer metrics"
 msgstr "训练指标"
 
@@ -4358,7 +4358,7 @@ msgstr "近期 HRV 观测值没有可测变化，Praxys 暂时无法建立可靠
 msgid "Recent load"
 msgstr "近期负荷"
 
-#: src/pages/Training.tsx:238
+#: src/pages/Training.tsx:242
 msgid "recent load above long-term load"
 msgstr "近期负荷高于长期负荷"
 
@@ -4433,7 +4433,7 @@ msgstr "推荐"
 msgid "Recommended"
 msgstr "推荐"
 
-#: src/pages/Training.tsx:316
+#: src/pages/Training.tsx:320
 msgid "Recorded distance in non-overlapping seven-day buckets, including weeks with no recorded distance."
 msgstr "按互不重叠的 7 天周期统计已记录距离，包括没有记录到距离的周。"
 
@@ -4695,7 +4695,7 @@ msgstr "静息心率"
 #: src/pages/Settings.tsx:330
 #: src/pages/Today.tsx:336
 #: src/pages/Today.tsx:495
-#: src/pages/Training.tsx:177
+#: src/pages/Training.tsx:181
 msgid "Retry"
 msgstr "重试"
 
@@ -4871,7 +4871,7 @@ msgstr "正在安全登录 Garmin。由于 Garmin 对自动登录设有频率限
 msgid "Select a day to inspect what entered the estimate."
 msgstr "选择一天，查看哪些活动计入了该估计。"
 
-#: src/pages/Training.tsx:373
+#: src/pages/Training.tsx:378
 msgid "Select a metric to inspect its chart or evidence."
 msgstr "选择一个指标，查看其图表或证据。"
 
@@ -5319,7 +5319,7 @@ msgstr "立即同步"
 msgid "Sync power-source metadata so Praxys can verify that activity and threshold power are comparable."
 msgstr "请同步功率数据源信息，以便 Praxys 验证活动功率与阈值功率是否可比。"
 
-#: src/pages/Training.tsx:332
+#: src/pages/Training.tsx:336
 msgid "Sync recent activities to populate the weekly distance series."
 msgstr "同步近期活动以生成每周距离序列。"
 
@@ -5335,7 +5335,7 @@ msgstr "同步可靠性"
 #~ msgid "Sync sample or split power so workload can contribute."
 #~ msgstr "同步逐秒样本或分段功率后，训练负荷才能计入。"
 
-#: src/pages/Training.tsx:275
+#: src/pages/Training.tsx:279
 msgid "Sync split or sample data with enough duration coverage to compare against the selected theory."
 msgstr "同步覆盖时长足够的分段或采样数据，以便与所选理论比较。"
 
@@ -5460,7 +5460,7 @@ msgstr "谢谢，这会帮助我们改进今日建议。"
 msgid "Thanks for the feedback!"
 msgstr "感谢你的反馈！"
 
-#: src/pages/Training.tsx:249
+#: src/pages/Training.tsx:253
 msgid "The active load model uses a {loadTimeConstantDays}-day long-term time constant. Need {daysToPmc} more days of history."
 msgstr "当前负荷模型采用 {loadTimeConstantDays} 天的长期时间常数。还需要 {daysToPmc} 天的历史数据。"
 
@@ -5532,7 +5532,7 @@ msgstr "状态 API 未响应，这本身可能表示服务中断。"
 msgid "The thresholds are Praxys operational estimates grounded in heat-acclimatization research, not a direct physiological measurement."
 msgstr "这些阈值是 Praxys 基于热适应研究设定的操作性估计，并非直接的生理测量。"
 
-#: src/pages/Training.tsx:331
+#: src/pages/Training.tsx:335
 msgid "The weekly history will appear after the data service update completes."
 msgstr "数据服务更新完成后，每周历史图表将自动显示。"
 
@@ -5705,7 +5705,7 @@ msgid "Train toward a specific race date"
 msgstr "围绕特定比赛日期进行训练"
 
 #: src/components/AppSidebar.tsx:125
-#: src/pages/Training.tsx:356
+#: src/pages/Training.tsx:360
 msgid "Training"
 msgstr "训练"
 
@@ -5770,7 +5770,7 @@ msgstr "尝试上方更长的时间窗口。"
 msgid "Try another filter or sync again after new reports arrive."
 msgstr "请尝试其他筛选条件，或在新报告到达后再次同步。"
 
-#: src/pages/Training.tsx:229
+#: src/pages/Training.tsx:233
 msgid "TSB"
 msgstr "TSB"
 
@@ -5975,12 +5975,12 @@ msgstr "VO2max"
 msgid "VO2max, CP, LTHR, training status"
 msgstr "VO2max、CP、LTHR、训练状态"
 
-#: src/pages/Training.tsx:310
+#: src/pages/Training.tsx:314
 msgid "Volume"
 msgstr "里程"
 
 #. placeholder {0}: data.diagnosis.theory_name
-#: src/pages/Training.tsx:264
+#: src/pages/Training.tsx:268
 msgid "vs {0}"
 msgstr "vs {0}"
 
@@ -5993,7 +5993,7 @@ msgstr "对比基准 {0}"
 msgid "vs {theoryName}"
 msgstr "vs {theoryName}"
 
-#: src/pages/Training.tsx:265
+#: src/pages/Training.tsx:269
 msgid "vs target zones"
 msgstr "vs 目标区间"
 
@@ -6065,11 +6065,11 @@ msgstr "截至 {0} 的一周"
 msgid "Weekly average"
 msgstr "周平均"
 
-#: src/pages/Training.tsx:326
+#: src/pages/Training.tsx:330
 msgid "Weekly chart temporarily unavailable"
 msgstr "每周图表暂时不可用"
 
-#: src/pages/Training.tsx:195
+#: src/pages/Training.tsx:199
 msgid "Weekly diagnosis ready."
 msgstr "周度诊断已就绪。"
 
@@ -6085,7 +6085,7 @@ msgstr "周训练负荷"
 #~ msgid "Weekly Review"
 #~ msgstr "周度回顾"
 
-#: src/pages/Training.tsx:314
+#: src/pages/Training.tsx:318
 msgid "Weekly volume"
 msgstr "每周训练量"
 
@@ -6226,7 +6226,7 @@ msgstr "第 3 区（高强度）"
 #~ msgid "Zone Analysis"
 #~ msgstr "区间分析"
 
-#: src/pages/Training.tsx:266
+#: src/pages/Training.tsx:270
 msgid "Zone distribution"
 msgstr "区间分布"
 

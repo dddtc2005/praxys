@@ -47,7 +47,7 @@ function PeerMetricList({
   onOpen: (metric: TrainingMetricId) => void;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card/35 divide-y divide-border">
+    <div className="flex-1 divide-y divide-border">
       {metrics.map((metric) => (
         <button
           key={metric.id}
@@ -94,13 +94,15 @@ function TrainingSkeleton() {
       <Skeleton className="h-3 w-20" />
       <div className="mt-3">
         <Skeleton className="mb-6 h-3 w-40" />
-        <div className="grid grid-cols-1 items-start gap-y-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(24rem,1.1fr)] lg:gap-x-10">
-          <div>
-            <Skeleton className="mb-2 h-4 w-24" />
-            <Skeleton className="mb-4 h-3 w-64 max-w-full" />
-            <div className="overflow-hidden rounded-xl border border-border">
+        <div className="grid grid-cols-1 items-start gap-y-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(24rem,1.1fr)] lg:items-stretch lg:gap-x-10">
+          <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card/35">
+            <div className="border-b border-border px-4 py-3 sm:px-5">
+              <Skeleton className="mb-2 h-4 w-24" />
+              <Skeleton className="h-3 w-64 max-w-full" />
+            </div>
+            <div className="flex-1 divide-y divide-border">
               {Array.from({ length: 5 }).map((_, index) => (
-                <div key={index} className="flex min-h-20 items-center justify-between gap-6 border-b border-border px-5 last:border-b-0">
+                <div key={index} className="flex min-h-20 items-center justify-between gap-6 px-5">
                   <div>
                     <Skeleton className="mb-2 h-3 w-28" />
                     <Skeleton className="h-3 w-40 max-w-full" />
@@ -110,15 +112,17 @@ function TrainingSkeleton() {
               ))}
             </div>
           </div>
-          <div className="coach-receipt">
-            <div className="coach-banner">
-              <Skeleton className="h-3 w-32 bg-card/30" />
-              <Skeleton className="h-3 w-12 bg-card/30" />
-            </div>
-            <div className="coach-body">
-              <Skeleton className="mb-3 h-4 w-3/4" />
-              <Skeleton className="mb-2 h-3 w-full" />
-              <Skeleton className="h-3 w-5/6" />
+          <div className="training-coach-column flex min-w-0 flex-col">
+            <div className="coach-receipt">
+              <div className="coach-banner">
+                <Skeleton className="h-3 w-32 bg-card/30" />
+                <Skeleton className="h-3 w-12 bg-card/30" />
+              </div>
+              <div className="coach-body">
+                <Skeleton className="mb-3 h-4 w-3/4" />
+                <Skeleton className="mb-2 h-3 w-full" />
+                <Skeleton className="h-3 w-5/6" />
+              </div>
             </div>
           </div>
         </div>
@@ -364,23 +368,27 @@ export default function Training() {
           </span>
         </p>
 
-        <div className="grid grid-cols-1 items-start gap-y-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(24rem,1.1fr)] lg:gap-x-10">
-          <div>
-            <h2 className="text-sm font-semibold text-foreground">
-              <Trans>Peer metrics</Trans>
-            </h2>
-            <p className="mb-4 mt-1 text-xs leading-relaxed text-muted-foreground">
-              <Trans>Select a metric to inspect its chart or evidence.</Trans>
-            </p>
+        <div className="grid grid-cols-1 items-start gap-y-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(24rem,1.1fr)] lg:items-stretch lg:gap-x-10">
+          <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card/35">
+            <div className="border-b border-border px-4 py-3 sm:px-5">
+              <h2 className="text-sm font-semibold text-foreground">
+                <Trans>Peer metrics</Trans>
+              </h2>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                <Trans>Select a metric to inspect its chart or evidence.</Trans>
+              </p>
+            </div>
             <PeerMetricList metrics={metrics} onOpen={setActiveMetric} />
           </div>
 
-          <AiInsightsCard
-            insightType="training_review"
-            attribution={theoryName}
-            fallback={fallback}
-            onFeedbackStale={refetch}
-          />
+          <div className="training-coach-column flex min-w-0 flex-col">
+            <AiInsightsCard
+              insightType="training_review"
+              attribution={theoryName}
+              fallback={fallback}
+              onFeedbackStale={refetch}
+            />
+          </div>
         </div>
       </section>
 
