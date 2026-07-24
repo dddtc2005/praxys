@@ -76,6 +76,9 @@ jobs:
   # (plus any additional refs you want to run from). The app needs
   # "Cognitive Services OpenAI User" on the Foundry resource — scope it there,
   # not at subscription level.
+  # PR creation also requires the organization and repository Actions settings
+  # to allow GITHUB_TOKEN to create pull requests. Repository transfers can
+  # inherit a disabled organization policy; see docs/ops/config-and-secrets.md.
   translate:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
